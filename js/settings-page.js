@@ -146,6 +146,23 @@
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
   }
 
+  let savedProfileValues = null;
+
+  function profileValuesEqual(left, right) {
+    if (!left || !right) {
+      return false;
+    }
+
+    return (
+      left.fullName === right.fullName &&
+      left.email === right.email &&
+      left.phone === right.phone &&
+      left.street === right.street &&
+      left.city === right.city &&
+      left.postalCode === right.postalCode
+    );
+  }
+
   function applyLanguage(language) {
     if (typeof window.setRentuloLanguage === "function") {
       window.setRentuloLanguage(language);
@@ -185,6 +202,15 @@
         input.value = values[id];
       }
     });
+
+    savedProfileValues = {
+      fullName: normalizeText(values.profileFullName),
+      email: normalizeEmail(values.profileEmail),
+      phone: normalizeText(values.profilePhone),
+      street: normalizeText(values.profileStreet),
+      city: normalizeText(values.profileCity),
+      postalCode: normalizeText(values.profilePostalCode)
+    };
   }
 
   async function loadPageData(client, user) {
@@ -279,6 +305,14 @@
     const street = normalizeText(streetInput && streetInput.value);
     const city = normalizeText(cityInput && cityInput.value);
     const postalCode = normalizeText(postalCodeInput && postalCodeInput.value);
+    const profileValues = {
+      fullName: fullName,
+      email: email,
+      phone: phone,
+      street: street,
+      city: city,
+      postalCode: postalCode
+    };
 
     if (button && button.disabled) {
       return user;
@@ -302,6 +336,16 @@
         "settings.invalidEmail",
         "Zadejte platnou e-mailovou adresu.",
         "error"
+      );
+      return user;
+    }
+
+    if (profileValuesEqual(savedProfileValues, profileValues)) {
+      setTranslatedMessage(
+        message,
+        "settings.profileSaved",
+        "Osobní údaje byly uloženy.",
+        "success"
       );
       return user;
     }
@@ -399,6 +443,8 @@
             postal_code: postalCode
           }
         };
+
+      savedProfileValues = { ...profileValues };
 
       setTranslatedMessage(
         message,
