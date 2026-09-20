@@ -565,8 +565,6 @@
         "success"
       );
     } catch (error) {
-      console.error(error);
-
       if (isRentuloWeakPasswordError(error)) {
         setTranslatedMessage(
           message,
@@ -595,6 +593,7 @@
           newPassword.focus();
         }
       } else {
+        console.error(error);
         setTranslatedMessage(
           message,
           "settings.passwordChangeError",
