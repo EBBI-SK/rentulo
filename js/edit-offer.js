@@ -464,11 +464,17 @@ function updateEditPhotoControlState(state, fileNameValue) {
   fileName.textContent = editT(nextState.fileKey, nextState.fileFallback);
 }
 
-function updateEditPhotoStatus(message, type) {
+function updateEditPhotoStatus(message, type, translationKey) {
   const status = document.querySelector("#editPhotoStatus");
 
   if (!status) {
     return;
+  }
+
+  if (translationKey) {
+    status.setAttribute("data-i18n", translationKey);
+  } else {
+    status.removeAttribute("data-i18n");
   }
 
   status.textContent = message;
@@ -545,7 +551,7 @@ function setupEditOfferPhotoUpload() {
       if (!file) {
         editOfferPhotoProcessing = false;
         updateEditPhotoControlState(previousPhotoState, previousPhotoFileName);
-        updateEditPhotoStatus(editT("editOffer.photoNotSelected", "Fotka nebyla vybraná."), "");
+        updateEditPhotoStatus(editT("editOffer.photoNotSelected", "Fotka nebyla vybraná."), "", "editOffer.photoNotSelected");
         setEditRemovePhotoButtonVisible(removePhotoButton, Boolean(editOfferPhotoDataUrl));
         return;
       }
@@ -554,7 +560,7 @@ function setupEditOfferPhotoUpload() {
         editOfferPhotoProcessing = false;
         photoInput.value = "";
         updateEditPhotoControlState(previousPhotoState, previousPhotoFileName);
-        updateEditPhotoStatus(editT("editOffer.invalidPhoto", "Vyberte prosím obrázek ve formátu JPG, PNG nebo WEBP."), "error");
+        updateEditPhotoStatus(editT("editOffer.invalidPhoto", "Vyberte prosím obrázek ve formátu JPG, PNG nebo WEBP."), "error", "editOffer.invalidPhoto");
         setEditRemovePhotoButtonVisible(removePhotoButton, Boolean(editOfferPhotoDataUrl));
         return;
       }
@@ -563,14 +569,14 @@ function setupEditOfferPhotoUpload() {
         editOfferPhotoProcessing = false;
         photoInput.value = "";
         updateEditPhotoControlState(previousPhotoState, previousPhotoFileName);
-        updateEditPhotoStatus(editT("editOffer.photoTooLarge", "Fotka je příliš velká. Maximální velikost je 5 MB."), "error");
+        updateEditPhotoStatus(editT("editOffer.photoTooLarge", "Fotka je příliš velká. Maximální velikost je 5 MB."), "error", "editOffer.photoTooLarge");
         setEditRemovePhotoButtonVisible(removePhotoButton, Boolean(editOfferPhotoDataUrl));
         return;
       }
 
       editOfferPhotoProcessing = true;
       updateEditPhotoControlState("new", file.name);
-      updateEditPhotoStatus(editT("editOffer.processingPhoto", "Zpracovávám fotku..."), "");
+      updateEditPhotoStatus(editT("editOffer.processingPhoto", "Zpracovávám fotku..."), "", "editOffer.processingPhoto");
 
       resizeEditImageToDataUrl(file, function (dataUrl) {
         if (selectionToken !== editOfferPhotoSelectionToken) {
@@ -582,7 +588,7 @@ function setupEditOfferPhotoUpload() {
         if (!dataUrl) {
           photoInput.value = "";
           updateEditPhotoControlState(previousPhotoState, previousPhotoFileName);
-          updateEditPhotoStatus(editT("editOffer.photoLoadFailed", "Fotku se nepodařilo načíst. Zkuste jiný obrázek."), "error");
+          updateEditPhotoStatus(editT("editOffer.photoLoadFailed", "Fotku se nepodařilo načíst. Zkuste jiný obrázek."), "error", "editOffer.photoLoadFailed");
           setEditRemovePhotoButtonVisible(removePhotoButton, Boolean(editOfferPhotoDataUrl));
           return;
         }
@@ -592,7 +598,7 @@ function setupEditOfferPhotoUpload() {
         editOfferSelectedPhotoFileName = file.name;
         renderEditPhotoPreview(editOfferPhotoDataUrl);
         updateEditPhotoControlState(editOfferPhotoState, editOfferSelectedPhotoFileName);
-        updateEditPhotoStatus(editT("editOffer.photoReady", "Nová fotka je připravená k uložení."), "success");
+        updateEditPhotoStatus(editT("editOffer.photoReady", "Nová fotka je připravená k uložení."), "success", "editOffer.photoReady");
         setEditRemovePhotoButtonVisible(removePhotoButton, true);
       });
     });
@@ -612,7 +618,7 @@ function setupEditOfferPhotoUpload() {
       }
 
       renderEditPhotoPreview("");
-      updateEditPhotoStatus(editT("editOffer.photoWillBeRemoved", "Fotka bude po uložení odstraněná."), "");
+      updateEditPhotoStatus(editT("editOffer.photoWillBeRemoved", "Fotka bude po uložení odstraněná."), "", "editOffer.photoWillBeRemoved");
       setEditRemovePhotoButtonVisible(removePhotoButton, false);
     });
   }
@@ -909,7 +915,7 @@ function fillEditForm(offer) {
   if (editOfferPhotoDataUrl) {
     updateEditPhotoStatus("", "");
   } else {
-    updateEditPhotoStatus(editT("editOffer.noCurrentPhoto", "Tato nabídka zatím nemá fotku."), "");
+    updateEditPhotoStatus(editT("editOffer.noCurrentPhoto", "Tato nabídka zatím nemá fotku."), "", "editOffer.noCurrentPhoto");
   }
 
   document.title = editT("editOffer.title", "Upravit nabídku") + " - " + (offer.name || editT("editOffer.offerFallback", "Nabídka"));
@@ -982,7 +988,7 @@ async function uploadEditedOfferPhoto(supabaseClient, userId) {
   const photoBlob = dataUrlToBlob(editOfferPhotoDataUrl);
   const fileName = userId + "/" + Date.now() + "-offer.jpg";
 
-  updateEditPhotoStatus(editT("editOffer.uploadingPhoto", "Nahrávám fotku do Supabase..."), "");
+  updateEditPhotoStatus(editT("editOffer.uploadingPhoto", "Nahrávám fotku do Supabase..."), "", "editOffer.uploadingPhoto");
 
   const { error } = await supabaseClient.storage
     .from("offer-photos")
@@ -999,7 +1005,7 @@ async function uploadEditedOfferPhoto(supabaseClient, userId) {
     .from("offer-photos")
     .getPublicUrl(fileName);
 
-  updateEditPhotoStatus(editT("editOffer.photoUploaded", "Fotka byla nahraná."), "success");
+  updateEditPhotoStatus(editT("editOffer.photoUploaded", "Fotka byla nahraná."), "success", "editOffer.photoUploaded");
 
   return {
     url: data && data.publicUrl ? data.publicUrl : null,
