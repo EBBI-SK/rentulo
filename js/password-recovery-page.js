@@ -19,6 +19,10 @@
     return String(value || "").trim().toLowerCase();
   }
 
+  function isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  }
+
   function markRecoverySessionActive() {
     try {
       window.sessionStorage.setItem(RECOVERY_SESSION_KEY, "1");
@@ -221,7 +225,7 @@
     const email = normalizeEmail(emailInput && emailInput.value);
 
     setMessage(message, "", "");
-    if (!email || !email.includes("@")) {
+    if (!isValidEmail(email)) {
       setMessage(message, t("passwordRecovery.error.emailRequired", "Zadejte platný e-mail."), "error");
       if (emailInput) emailInput.focus();
       return;
