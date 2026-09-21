@@ -472,6 +472,7 @@ async function createUserAccount(event) {
   const cityInput = document.getElementById("city");
   const postalCodeInput = document.getElementById("postalCode");
   const passwordInput = document.getElementById("password");
+  const passwordConfirmInput = document.getElementById("passwordConfirm");
   const termsBusiness = document.getElementById("termsBusiness");
   const termsPrivacy = document.getElementById("termsPrivacy");
   const requiredFields = [
@@ -481,7 +482,8 @@ async function createUserAccount(event) {
     streetInput,
     cityInput,
     postalCodeInput,
-    passwordInput
+    passwordInput,
+    passwordConfirmInput
   ];
 
   if (
@@ -540,6 +542,24 @@ async function createUserAccount(event) {
       "Heslo musí mít alespoň 8 znaků a obsahovat malé písmeno, velké písmeno, číslici a symbol."
     );
     registrationFocusFirstError();
+    return;
+  }
+
+  if (passwordInput.value !== passwordConfirmInput.value) {
+    if (typeof window.showRentuloRegistrationPasswordError === "function") {
+      window.showRentuloRegistrationPasswordError("mismatch");
+    } else {
+      registrationMarkError(passwordConfirmInput);
+      const errorBox = document.getElementById("registrationError");
+
+      if (errorBox) {
+        errorBox.textContent = "Zadaná hesla se neshodují.";
+        errorBox.classList.add("active");
+      }
+
+      registrationFocusFirstError();
+    }
+
     return;
   }
 

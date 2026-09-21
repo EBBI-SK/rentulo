@@ -221,25 +221,9 @@
     passwordInput.addEventListener("input", clearOwnError);
     confirmInput.addEventListener("input", clearOwnError);
 
-    form.addEventListener(
-      "submit",
-      function (event) {
-        if (!confirmInput.value) {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-          showRegistrationPasswordError("confirmRequired");
-          return;
-        }
-
-        if (passwordInput.value !== confirmInput.value) {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-          showRegistrationPasswordError("mismatch");
-        }
-      },
-      true
-    );
   }
+
+  window.showRentuloRegistrationPasswordError = showRegistrationPasswordError;
 
   function refreshTranslations() {
     document.querySelectorAll(".password-visibility-button").forEach(function (button) {
