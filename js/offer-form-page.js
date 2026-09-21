@@ -172,7 +172,7 @@ let offerSaveInProgress = false;
       closeOfferAddressSuggestions();
     }
 
-    async function loadOfferAddressSuggestions(query, requestId) {
+    async function loadOfferAddressSuggestions(query, requestId, city, postalCode) {
       const supabaseClient = getSupabaseClient();
 
       if (!supabaseClient) {
@@ -190,6 +190,8 @@ let offerSaveInProgress = false;
           {
             body: {
               query: query,
+              city: city,
+              postalCode: postalCode,
               language: language
             }
           }
@@ -222,13 +224,10 @@ let offerSaveInProgress = false;
         return;
       }
 
-      streetInput.addEventListener("input", function () {
+      function scheduleOfferAddressSuggestions() {
         const query = streetInput.value.trim();
-
-        cityInput.value = "";
-        postalCodeInput.value = "";
-        cityInput.classList.remove("input-error");
-        postalCodeInput.classList.remove("input-error");
+        const city = cityInput.value.trim();
+        const postalCode = postalCodeInput.value.trim();
 
         offerAddressRequestId += 1;
         const requestId = offerAddressRequestId;
@@ -244,9 +243,13 @@ let offerSaveInProgress = false;
         }
 
         offerAddressTimer = window.setTimeout(function () {
-          loadOfferAddressSuggestions(query, requestId);
+          loadOfferAddressSuggestions(query, requestId, city, postalCode);
         }, OFFER_ADDRESS_SUGGESTION_DELAY_MS);
-      });
+      }
+
+      streetInput.addEventListener("input", scheduleOfferAddressSuggestions);
+      cityInput.addEventListener("input", scheduleOfferAddressSuggestions);
+      postalCodeInput.addEventListener("input", scheduleOfferAddressSuggestions);
 
       streetInput.addEventListener("keydown", function (event) {
         if (suggestionsBox.hidden || !offerAddressSuggestions.length) {

@@ -227,7 +227,7 @@ function selectEditAddress(index) {
   closeEditAddressSuggestions();
 }
 
-async function loadEditAddressSuggestions(query, requestId) {
+async function loadEditAddressSuggestions(query, requestId, city, postalCode) {
   const supabaseClient = getSupabaseClient();
 
   if (!supabaseClient) {
@@ -245,6 +245,8 @@ async function loadEditAddressSuggestions(query, requestId) {
       {
         body: {
           query: query,
+          city: city,
+          postalCode: postalCode,
           language: language
         }
       }
@@ -277,13 +279,10 @@ function setupEditPickupAddressAutocomplete() {
     return;
   }
 
-  streetInput.addEventListener("input", function () {
+  function scheduleEditAddressSuggestions() {
     const query = streetInput.value.trim();
-
-    cityInput.value = "";
-    postalCodeInput.value = "";
-    cityInput.classList.remove("input-error");
-    postalCodeInput.classList.remove("input-error");
+    const city = cityInput.value.trim();
+    const postalCode = postalCodeInput.value.trim();
 
     editAddressRequestId += 1;
     const requestId = editAddressRequestId;
@@ -299,9 +298,13 @@ function setupEditPickupAddressAutocomplete() {
     }
 
     editAddressTimer = window.setTimeout(function () {
-      loadEditAddressSuggestions(query, requestId);
+      loadEditAddressSuggestions(query, requestId, city, postalCode);
     }, EDIT_ADDRESS_SUGGESTION_DELAY_MS);
-  });
+  }
+
+  streetInput.addEventListener("input", scheduleEditAddressSuggestions);
+  cityInput.addEventListener("input", scheduleEditAddressSuggestions);
+  postalCodeInput.addEventListener("input", scheduleEditAddressSuggestions);
 
   streetInput.addEventListener("keydown", function (event) {
     if (suggestionsBox.hidden || !editAddressSuggestions.length) {

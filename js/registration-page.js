@@ -233,7 +233,7 @@ function registrationSelectAddress(index) {
   registrationCloseAddressSuggestions();
 }
 
-async function registrationLoadAddressSuggestions(query, requestId) {
+async function registrationLoadAddressSuggestions(query, requestId, city, postalCode) {
   const supabaseClient = getSupabaseClient();
 
   if (!supabaseClient) {
@@ -251,6 +251,8 @@ async function registrationLoadAddressSuggestions(query, requestId) {
       {
         body: {
           query: query,
+          city: city,
+          postalCode: postalCode,
           language: language
         }
       }
@@ -283,15 +285,10 @@ function setupAddressAutocomplete() {
     return;
   }
 
-  streetInput.addEventListener("input", function () {
+  function scheduleAddressSuggestions() {
     const query = streetInput.value.trim();
-
-    cityInput.value = "";
-    postalCodeInput.value = "";
-    [cityInput, postalCodeInput].forEach(function (field) {
-      field.classList.remove("input-error");
-      field.removeAttribute("aria-invalid");
-    });
+    const city = cityInput.value.trim();
+    const postalCode = postalCodeInput.value.trim();
 
     registrationAddressRequestId += 1;
     const requestId = registrationAddressRequestId;
@@ -307,9 +304,13 @@ function setupAddressAutocomplete() {
     }
 
     registrationAddressTimer = window.setTimeout(function () {
-      registrationLoadAddressSuggestions(query, requestId);
+      registrationLoadAddressSuggestions(query, requestId, city, postalCode);
     }, ADDRESS_SUGGESTION_DELAY_MS);
-  });
+  }
+
+  streetInput.addEventListener("input", scheduleAddressSuggestions);
+  cityInput.addEventListener("input", scheduleAddressSuggestions);
+  postalCodeInput.addEventListener("input", scheduleAddressSuggestions);
 
   streetInput.addEventListener("keydown", function (event) {
     if (suggestionsBox.hidden || !registrationAddressSuggestions.length) {

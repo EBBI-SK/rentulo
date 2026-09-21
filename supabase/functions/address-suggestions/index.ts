@@ -1,5 +1,7 @@
 type AddressSuggestionPayload = {
   query?: string;
+  city?: string;
+  postalCode?: string;
   language?: string;
 };
 
@@ -76,6 +78,17 @@ function normalizePostalCode(value: unknown): string {
   return raw;
 }
 
+function normalizeComparableText(value: unknown): string {
+  return cleanText(value, 160)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function normalizePostalDigits(value: unknown): string {
+  return cleanText(value, 16).replace(/\D/g, "");
+}
+
 function buildStreet(properties: Record<string, unknown>): string {
   const streetName = cleanText(properties.street || properties.name, 140);
   const houseNumber = cleanText(properties.housenumber, 24);
@@ -121,6 +134,33 @@ function houseNumberMatches(candidate: unknown, required: unknown): boolean {
   return normalizedCandidate.split("/").includes(normalizedRequired);
 }
 
+function cityMatches(candidate: unknown, required: unknown): boolean {
+  const normalizedCandidate = normalizeComparableText(candidate);
+  const normalizedRequired = normalizeComparableText(required);
+
+  if (!normalizedCandidate || !normalizedRequired) {
+    return false;
+  }
+
+  return (
+    normalizedCandidate === normalizedRequired ||
+    normalizedCandidate.startsWith(`${normalizedRequired} `) ||
+    normalizedCandidate.endsWith(` ${normalizedRequired}`) ||
+    normalizedRequired.startsWith(`${normalizedCandidate} `)
+  );
+}
+
+function postalCodeMatches(candidate: unknown, required: unknown): boolean {
+  const normalizedCandidate = normalizePostalDigits(candidate);
+  const normalizedRequired = normalizePostalDigits(required);
+
+  return Boolean(
+    normalizedCandidate &&
+    normalizedRequired &&
+    normalizedCandidate === normalizedRequired
+  );
+}
+
 function parseStreetAndHouseNumber(query: string): { street: string; houseNumber: string } | null {
   const match = query.match(/^(.+?)\s+(\d+(?:\/\d+)?[a-zA-Z]?)$/);
 
@@ -138,7 +178,52 @@ function parseStreetAndHouseNumber(query: string): { street: string; houseNumber
   return { street, houseNumber };
 }
 
-function mapPhotonFeatures(data: unknown, requiredHouseNumber = ""): AddressSuggestion[] {
+function parseAddressQuery(query: string): {
+  streetQuery: string;
+  city: string;
+  postalCode: string;
+} {
+  const parts = query
+    .split(",")
+    .map((part) => cleanText(part, 160))
+    .filter(Boolean);
+
+  if (parts.length <= 1) {
+    return {
+      streetQuery: query,
+      city: "",
+      postalCode: ""
+    };
+  }
+
+  const streetQuery = parts.shift() || query;
+  let city = "";
+  let postalCode = "";
+
+  for (const part of parts) {
+    const digits = normalizePostalDigits(part);
+
+    if (!postalCode && digits.length === 5 && /^[\d\s]+$/.test(part)) {
+      postalCode = normalizePostalCode(part);
+      continue;
+    }
+
+    city = cleanText([city, part].filter(Boolean).join(" "), 100);
+  }
+
+  return {
+    streetQuery,
+    city,
+    postalCode
+  };
+}
+
+function mapPhotonFeatures(
+  data: unknown,
+  requiredHouseNumber = "",
+  requiredCity = "",
+  requiredPostalCode = ""
+): AddressSuggestion[] {
   const features = Array.isArray((data as { features?: unknown[] })?.features)
     ? (data as { features: unknown[] }).features
     : [];
@@ -164,6 +249,14 @@ function mapPhotonFeatures(data: unknown, requiredHouseNumber = ""): AddressSugg
     const postalCode = normalizePostalCode(properties.postcode);
 
     if (!street || !city || !postalCode) {
+      continue;
+    }
+
+    if (requiredCity && !cityMatches(city, requiredCity)) {
+      continue;
+    }
+
+    if (requiredPostalCode && !postalCodeMatches(postalCode, requiredPostalCode)) {
       continue;
     }
 
@@ -237,7 +330,9 @@ async function fetchWithTimeout(url: string, timeoutMs = 4500): Promise<Response
 
 async function fetchPhotonSuggestions(
   url: URL,
-  requiredHouseNumber = ""
+  requiredHouseNumber = "",
+  requiredCity = "",
+  requiredPostalCode = ""
 ): Promise<AddressSuggestion[]> {
   try {
     const response = await fetchWithTimeout(url.toString());
@@ -248,7 +343,12 @@ async function fetchPhotonSuggestions(
     }
 
     const data = await response.json();
-    return mapPhotonFeatures(data, requiredHouseNumber);
+    return mapPhotonFeatures(
+      data,
+      requiredHouseNumber,
+      requiredCity,
+      requiredPostalCode
+    );
   } catch (error) {
     console.warn(
       "address-suggestions: Photon request failed",
@@ -256,6 +356,50 @@ async function fetchPhotonSuggestions(
     );
     return [];
   }
+}
+
+function createStructuredUrl(
+  street: string,
+  houseNumber: string,
+  city: string,
+  postalCode: string
+): URL {
+  const url = new URL("https://photon.komoot.io/structured");
+  url.searchParams.set("street", street);
+
+  if (houseNumber) {
+    url.searchParams.set("housenumber", houseNumber);
+  }
+
+  if (city) {
+    url.searchParams.set("city", city);
+  }
+
+  if (postalCode) {
+    url.searchParams.set("postcode", postalCode);
+  }
+
+  url.searchParams.set("limit", "12");
+  url.searchParams.set("countrycode", "CZ");
+
+  if (houseNumber) {
+    url.searchParams.append("layer", "house");
+  } else {
+    url.searchParams.append("layer", "house");
+    url.searchParams.append("layer", "street");
+  }
+
+  return url;
+}
+
+function createForwardUrl(query: string): URL {
+  const url = new URL("https://photon.komoot.io/api/");
+  url.searchParams.set("q", query);
+  url.searchParams.set("limit", "12");
+  url.searchParams.set("countrycode", "CZ");
+  url.searchParams.append("layer", "house");
+  url.searchParams.append("layer", "street");
+  return url;
 }
 
 Deno.serve(async (req) => {
@@ -287,46 +431,108 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Invalid JSON" }, 400, origin);
   }
 
-  const query = cleanText(payload.query, 120);
+  const query = cleanText(payload.query, 160);
   const language = normalizeLanguage(payload.language);
 
   if (query.length < 3) {
     return jsonResponse({ suggestions: [] }, 200, origin);
   }
 
-  const cacheKey = `${language}|${query.toLocaleLowerCase("cs-CZ")}`;
+  const parsedQuery = parseAddressQuery(query);
+  const streetQuery = parsedQuery.streetQuery;
+  const city = cleanText(payload.city, 100) || parsedQuery.city;
+  const postalCode = normalizePostalCode(payload.postalCode) || parsedQuery.postalCode;
+  const parsedAddress = parseStreetAndHouseNumber(streetQuery);
+  const street = parsedAddress ? parsedAddress.street : streetQuery;
+  const houseNumber = parsedAddress ? parsedAddress.houseNumber : "";
+  const cacheKey = [
+    language,
+    streetQuery.toLocaleLowerCase("cs-CZ"),
+    city.toLocaleLowerCase("cs-CZ"),
+    normalizePostalDigits(postalCode)
+  ].join("|");
   const cached = readCache(cacheKey);
 
   if (cached) {
     return jsonResponse({ suggestions: cached }, 200, origin);
   }
 
-  const parsedAddress = parseStreetAndHouseNumber(query);
   let suggestions: AddressSuggestion[] = [];
 
-  if (parsedAddress) {
-    const structuredUrl = new URL("https://photon.komoot.io/structured");
-    structuredUrl.searchParams.set("street", parsedAddress.street);
-    structuredUrl.searchParams.set("housenumber", parsedAddress.houseNumber);
-    structuredUrl.searchParams.set("limit", "8");
-    structuredUrl.searchParams.set("countrycode", "CZ");
-    structuredUrl.searchParams.append("layer", "house");
+  if (city || postalCode) {
+    const structuredUrl = createStructuredUrl(
+      street,
+      houseNumber,
+      city,
+      postalCode
+    );
 
     suggestions = await fetchPhotonSuggestions(
       structuredUrl,
-      parsedAddress.houseNumber
+      houseNumber,
+      city,
+      postalCode
     );
+
+    if (suggestions.length === 0 && postalCode) {
+      const cityOnlyUrl = createStructuredUrl(
+        street,
+        houseNumber,
+        city,
+        ""
+      );
+
+      suggestions = await fetchPhotonSuggestions(
+        cityOnlyUrl,
+        houseNumber,
+        city,
+        ""
+      );
+    }
   }
 
   if (suggestions.length === 0) {
-    const url = new URL("https://photon.komoot.io/api/");
-    url.searchParams.set("q", query);
-    url.searchParams.set("limit", "8");
-    url.searchParams.set("countrycode", "CZ");
-    url.searchParams.append("layer", "house");
-    url.searchParams.append("layer", "street");
+    const forwardQuery = [streetQuery, city, postalCode]
+      .filter(Boolean)
+      .join(", ");
+    const forwardUrl = createForwardUrl(forwardQuery);
 
-    suggestions = await fetchPhotonSuggestions(url);
+    suggestions = await fetchPhotonSuggestions(
+      forwardUrl,
+      houseNumber,
+      city,
+      postalCode
+    );
+  }
+
+  if (suggestions.length === 0 && postalCode) {
+    const forwardQuery = [streetQuery, city]
+      .filter(Boolean)
+      .join(", ");
+    const forwardUrl = createForwardUrl(forwardQuery);
+
+    suggestions = await fetchPhotonSuggestions(
+      forwardUrl,
+      houseNumber,
+      city,
+      ""
+    );
+  }
+
+  if (suggestions.length === 0 && houseNumber && !city && !postalCode) {
+    const structuredUrl = createStructuredUrl(
+      street,
+      houseNumber,
+      "",
+      ""
+    );
+
+    suggestions = await fetchPhotonSuggestions(
+      structuredUrl,
+      houseNumber,
+      "",
+      ""
+    );
   }
 
   writeCache(cacheKey, suggestions);
