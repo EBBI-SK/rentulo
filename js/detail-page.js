@@ -3,6 +3,52 @@
     let detailPageState = "idle";
     let detailBookingMessage = "";
 
+    const DETAIL_BOOKING_TIME_COPY = {
+      cs: {
+        pickupTime: "Čas převzetí",
+        pickupTimeHelp: "Vrácení bude v poslední den rezervace ve stejný čas.",
+        selectTime: "Vyberte čas převzetí.",
+        invalidTime: "Vyberte platný čas převzetí."
+      },
+      sk: {
+        pickupTime: "Čas prevzatia",
+        pickupTimeHelp: "Vrátenie bude v posledný deň rezervácie v rovnakom čase.",
+        selectTime: "Vyberte čas prevzatia.",
+        invalidTime: "Vyberte platný čas prevzatia."
+      },
+      en: {
+        pickupTime: "Pickup time",
+        pickupTimeHelp: "Return is due at the same time on the last day of the reservation.",
+        selectTime: "Choose a pickup time.",
+        invalidTime: "Choose a valid pickup time."
+      },
+      de: {
+        pickupTime: "Abholzeit",
+        pickupTimeHelp: "Die Rückgabe erfolgt am letzten Reservierungstag zur gleichen Uhrzeit.",
+        selectTime: "Wählen Sie eine Abholzeit.",
+        invalidTime: "Wählen Sie eine gültige Abholzeit."
+      },
+      pl: {
+        pickupTime: "Godzina odbioru",
+        pickupTimeHelp: "Zwrot następuje o tej samej godzinie w ostatnim dniu rezerwacji.",
+        selectTime: "Wybierz godzinę odbioru.",
+        invalidTime: "Wybierz prawidłową godzinę odbioru."
+      }
+    };
+
+    function detailBookingTimeText(key) {
+      const language = typeof window.getRentuloLanguage === "function"
+        ? window.getRentuloLanguage()
+        : "cs";
+      const copy = DETAIL_BOOKING_TIME_COPY[language] || DETAIL_BOOKING_TIME_COPY.cs;
+
+      return copy[key] || DETAIL_BOOKING_TIME_COPY.cs[key] || key;
+    }
+
+    function isValidPickupTime(value) {
+      return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(value || ""));
+    }
+
     function detailTranslate(key, replacements) {
       let text = typeof window.rentuloTranslate === "function"
         ? window.rentuloTranslate(key)
@@ -466,6 +512,15 @@ function renderDetailImage(offer) {
               <input type="date" id="endDate">
             </div>
 
+            <div class="form-group">
+              <label for="pickupTime">${escapeHtml(detailBookingTimeText("pickupTime"))}</label>
+              <input type="time" id="pickupTime" required>
+            </div>
+
+            <div class="date-help" id="bookingTimeHelp">
+              ${escapeHtml(detailBookingTimeText("pickupTimeHelp"))}
+            </div>
+
             <div class="date-help" id="bookingDateHelp">
               ${detailTranslate("detail.dateHelp")}
             </div>
@@ -716,7 +771,7 @@ const hasGps = offerHasGpsLocation(offer);
 
 
 
-    async function createSupabaseReservation(offer, startDate, endDate) {
+    async function createSupabaseReservation(offer, startDate, endDate, pickupTime) {
       const supabaseClient = getSupabaseClient();
 
       if (!supabaseClient) {
@@ -750,7 +805,8 @@ const hasGps = offerHasGpsLocation(offer);
       const reservationToInsert = {
          offer_id: offer.id,
          start_date: startDate,
-         end_date: endDate
+         end_date: endDate,
+         pickup_time: pickupTime
   };
 
       const { data, error } = await supabaseClient
@@ -800,13 +856,15 @@ const hasGps = offerHasGpsLocation(offer);
     function setupBookingForm(offer) {
       const startDateInput = document.getElementById("startDate");
       const endDateInput = document.getElementById("endDate");
+      const pickupTimeInput = document.getElementById("pickupTime");
+      const bookingTimeHelp = document.getElementById("bookingTimeHelp");
       const calcDays = document.getElementById("calcDays");
       const calcTotal = document.getElementById("calcTotal");
       const rentButton = document.getElementById("rentButton");
       const bookingDateHelp = document.getElementById("bookingDateHelp");
       const detailAvailabilityPanel = document.getElementById("detailAvailabilityPanel");
 
-      if (!startDateInput || !endDateInput || !calcDays || !calcTotal || !rentButton) {
+      if (!startDateInput || !endDateInput || !pickupTimeInput || !calcDays || !calcTotal || !rentButton) {
         return;
       }
 
@@ -858,6 +916,8 @@ const hasGps = offerHasGpsLocation(offer);
           rentButton.textContent = detailTranslate("detail.checkingDates");
         } else if (state === "conflict") {
           rentButton.textContent = detailTranslate("detail.dateConflictButton");
+        } else if (state === "missing-time") {
+          rentButton.textContent = detailBookingTimeText("selectTime");
         } else {
           rentButton.textContent = detailTranslate("detail.selectDates");
         }
@@ -885,6 +945,7 @@ const hasGps = offerHasGpsLocation(offer);
 
         const activeStartDate = startDateInput.value;
         const activeEndDate = endDateInput.value;
+        const pickupTime = pickupTimeInput.value;
         const days = getDaysBetween(activeStartDate, activeEndDate);
         const total = days * getOfferPrice(offer);
 
@@ -900,6 +961,19 @@ const hasGps = offerHasGpsLocation(offer);
           }
           setRentButtonState("invalid");
           return;
+        }
+
+        if (!isValidPickupTime(pickupTime)) {
+          setAvailabilityDisplay("available");
+          setRentButtonState("missing-time");
+          if (bookingTimeHelp) {
+            bookingTimeHelp.textContent = detailBookingTimeText("selectTime");
+          }
+          return;
+        }
+
+        if (bookingTimeHelp) {
+          bookingTimeHelp.textContent = detailBookingTimeText("pickupTimeHelp");
         }
 
         setAvailabilityDisplay("available");
@@ -953,6 +1027,10 @@ const hasGps = offerHasGpsLocation(offer);
         clearDetailBookingMessage();
         updateCalculation();
       });
+      pickupTimeInput.addEventListener("change", function () {
+        clearDetailBookingMessage();
+        updateCalculation();
+      });
 
       updateCalculation();
 
@@ -965,11 +1043,18 @@ const hasGps = offerHasGpsLocation(offer);
 
         const startDate = startDateInput.value;
         const endDate = endDateInput.value;
+        const pickupTime = pickupTimeInput.value;
         const days = getDaysBetween(startDate, endDate);
 
         if (!startDate || !endDate || days <= 0) {
           await updateCalculation();
           showDetailBookingMessage(detailTranslate("detail.error.validDates"));
+          return;
+        }
+
+        if (!isValidPickupTime(pickupTime)) {
+          await updateCalculation();
+          showDetailBookingMessage(detailBookingTimeText("invalidTime"));
           return;
         }
 
@@ -996,7 +1081,8 @@ const hasGps = offerHasGpsLocation(offer);
           const reservationCreated = await createSupabaseReservation(
             offer,
             startDate,
-            endDate
+            endDate,
+            pickupTime
           );
 
           if (!reservationCreated) {
@@ -1071,15 +1157,18 @@ const hasGps = offerHasGpsLocation(offer);
 
       const startDateValue = document.getElementById("startDate")?.value || "";
       const endDateValue = document.getElementById("endDate")?.value || "";
+      const pickupTimeValue = document.getElementById("pickupTime")?.value || "";
 
       await renderDetail(currentOffer);
 
       const startDateInput = document.getElementById("startDate");
       const endDateInput = document.getElementById("endDate");
+      const pickupTimeInput = document.getElementById("pickupTime");
 
-      if (startDateInput && endDateInput) {
+      if (startDateInput && endDateInput && pickupTimeInput) {
         startDateInput.value = startDateValue;
         endDateInput.value = endDateValue;
+        pickupTimeInput.value = pickupTimeValue;
         startDateInput.dispatchEvent(new Event("change"));
       }
     }
