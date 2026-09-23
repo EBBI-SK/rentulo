@@ -6,6 +6,14 @@ const RESERVATIONS_LOCALES = {
   pl: "pl-PL"
 };
 
+const RESERVATION_SCHEDULE_COPY = {
+  cs: { pickup: "Převzetí", return: "Vrácení", at: "v" },
+  sk: { pickup: "Prevzatie", return: "Vrátenie", at: "o" },
+  en: { pickup: "Pickup", return: "Return", at: "at" },
+  de: { pickup: "Abholung", return: "Rückgabe", at: "um" },
+  pl: { pickup: "Odbiór", return: "Zwrot", at: "o" }
+};
+
 function reservationsTranslate(key, fallback, values) {
   let text = typeof window.rentuloTranslate === "function"
     ? window.rentuloTranslate(key)
@@ -72,6 +80,33 @@ function formatReservationsDateTime(value) {
   }
 
   return date.toLocaleString(getReservationsLocale());
+}
+
+function getReservationScheduleCopy() {
+  const language = typeof window.getRentuloLanguage === "function"
+    ? window.getRentuloLanguage()
+    : "cs";
+
+  return RESERVATION_SCHEDULE_COPY[language] || RESERVATION_SCHEDULE_COPY.cs;
+}
+
+function formatReservationsTime(value) {
+  const match = String(value || "").match(
+    /^([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d(?:\.\d+)?)?$/
+  );
+
+  return match ? match[1] + ":" + match[2] : "";
+}
+
+function formatReservationScheduleValue(dateValue, timeValue) {
+  const dateText = formatReservationsDate(dateValue);
+  const timeText = formatReservationsTime(timeValue);
+
+  if (!timeText) {
+    return dateText;
+  }
+
+  return dateText + " " + getReservationScheduleCopy().at + " " + timeText;
 }
 
   const PLATFORM_FEE_PERCENT = 10;
@@ -208,6 +243,7 @@ category: row.category || reservationsTranslate("reservations.fallback.other", "
         endDate: row.end_date || row.date_to,
         dateFrom: row.start_date || row.date_from,
         dateTo: row.end_date || row.date_to,
+        pickupTime: row.pickup_time || "",
 
         totalDays: Number(row.total_days || row.days || 0),
         days: Number(row.total_days || row.days || 0),
@@ -1030,7 +1066,7 @@ const data = Array.isArray(paidReservations)
       if (normalizeReservationStatus(status) === RESERVATION_STATUS_APPROVED) {
         return `
           <div class="reservation-state-box active">
-            <strong>${escapeHtml(reservationsTranslate("reservations.state.approvedTitle", "Žádost je potvrzená"))}</strong>
+            <strong>${escapeHtml(reservationsTranslate("reservations.state.approvedTitle", "žádost je potvrzená"))}</strong>
             ${escapeHtml(reservationsTranslate("reservations.state.approvedText", "Teď můžete dokončit platbu. Po zaplacení se zobrazí jméno majitele, telefon a přesná adresa."))}
           </div>
         `;
@@ -1140,6 +1176,15 @@ const data = Array.isArray(paidReservations)
         : normalizedStatus === RESERVATION_STATUS_APPROVED
           ? reservationsTranslate("reservations.payment.waitingLower", "čeká na platbu")
           : reservationsTranslate("reservations.payment.pendingLower", "dostupná po schválení");
+      const scheduleCopy = getReservationScheduleCopy();
+      const pickupSchedule = formatReservationScheduleValue(
+        getSafeReservationDateFrom(reservation),
+        reservation.pickupTime
+      );
+      const returnSchedule = formatReservationScheduleValue(
+        getSafeReservationDateTo(reservation),
+        reservation.pickupTime
+      );
 
       return `
         <div class="reservation-detail-panel">
@@ -1156,6 +1201,16 @@ const data = Array.isArray(paidReservations)
             <div class="info-box">
               <span>${escapeHtml(reservationsTranslate("reservations.detail.payment", "Platba"))}</span>
               <strong>${escapeHtml(paymentStatusText)}</strong>
+            </div>
+
+            <div class="info-box reservation-schedule-pickup">
+              <span>${escapeHtml(scheduleCopy.pickup)}</span>
+              <strong>${escapeHtml(pickupSchedule)}</strong>
+            </div>
+
+            <div class="info-box reservation-schedule-return">
+              <span>${escapeHtml(scheduleCopy.return)}</span>
+              <strong>${escapeHtml(returnSchedule)}</strong>
             </div>
           </div>
 
