@@ -383,8 +383,15 @@ h1 {
 
 .reservation-detail-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   padding-top: 2px;
+}
+
+.reservation-detail-actions .reservation-cancel-cutoff-note {
+  flex: 0 0 100%;
+  width: 100%;
+  text-align: right;
 }
 
 .reservation-cancel-action {

@@ -8,6 +8,7 @@ const vm = require("node:vm");
 
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const RESERVATIONS_PATH = path.join(PROJECT_ROOT, "js", "reservations.js");
+const RESERVATIONS_CSS_PATH = path.join(PROJECT_ROOT, "css", "my-reservations.css");
 const MIGRATION_PATH = path.join(
   PROJECT_ROOT,
   "supabase",
@@ -102,6 +103,19 @@ test("reservations page integration stores the server cutoff and renders a disab
       new RegExp("\\b" + language + ":\\s*\\\"")
     );
   }
+});
+
+test("locked cancellation keeps the cancel button aligned on the right", () => {
+  const css = fs.readFileSync(RESERVATIONS_CSS_PATH, "utf8");
+
+  assert.match(
+    css,
+    /\.reservation-detail-actions\s*\{[\s\S]*?flex-wrap:\s*wrap;[\s\S]*?justify-content:\s*flex-end;/
+  );
+  assert.match(
+    css,
+    /\.reservation-detail-actions \.reservation-cancel-cutoff-note\s*\{[\s\S]*?flex:\s*0 0 100%;[\s\S]*?text-align:\s*right;/
+  );
 });
 
 test("database exposes the exact cutoff and enforces it in the status trigger", () => {
