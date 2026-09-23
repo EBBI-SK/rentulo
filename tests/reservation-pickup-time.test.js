@@ -27,6 +27,10 @@ test("reservation form requires and submits a pickup time", () => {
   const source = fs.readFileSync(DETAIL_PATH, "utf8");
 
   assert.match(source, /<input\s+type="time"\s+id="pickupTime"\s+required>/);
+  assert.match(source, /<select id="pickupHour"/);
+  assert.match(source, /<select id="pickupMinute"/);
+  assert.match(source, /\["00", "15", "30", "45"\]/);
+  assert.match(source, /syncPickupTimeFromSelectors/);
   assert.match(
     compact(source),
     /pickup_time:\s*pickupTime/
@@ -35,13 +39,14 @@ test("reservation form requires and submits a pickup time", () => {
     compact(source),
     /createSupabaseReservation\( offer, startDate, endDate, pickupTime \)/
   );
-  assert.match(source, /pickupTimeInput\.addEventListener\("change"/);
+  assert.match(source, /pickupHourInput\.addEventListener\("change"/);
+  assert.match(source, /pickupMinuteInput\.addEventListener\("change"/);
 });
 
 test("pickup time validation accepts only canonical 24-hour values", () => {
   const source = fs.readFileSync(DETAIL_PATH, "utf8");
   const start = source.indexOf("function isValidPickupTime(");
-  const end = source.indexOf("function detailTranslate(", start);
+  const end = source.indexOf("function renderPickupHourOptions(", start);
 
   assert.notEqual(start, -1);
   assert.notEqual(end, -1);
@@ -62,6 +67,36 @@ test("pickup time validation accepts only canonical 24-hour values", () => {
   }
 });
 
+test("pickup selector offers every hour and quarter-hour minutes", () => {
+  const source = fs.readFileSync(DETAIL_PATH, "utf8");
+  const start = source.indexOf("function renderPickupHourOptions(");
+  const end = source.indexOf("function detailTranslate(", start);
+
+  assert.notEqual(start, -1);
+  assert.notEqual(end, -1);
+
+  const sandbox = {};
+  vm.createContext(sandbox);
+  vm.runInContext(
+    source.slice(start, end) +
+      "\nthis.renderPickupHourOptions = renderPickupHourOptions;" +
+      "\nthis.renderPickupMinuteOptions = renderPickupMinuteOptions;",
+    sandbox
+  );
+
+  const hourOptions = sandbox.renderPickupHourOptions();
+  const minuteOptions = sandbox.renderPickupMinuteOptions();
+
+  assert.match(hourOptions, /value="00">00<\/option>/);
+  assert.match(hourOptions, /value="15">15<\/option>/);
+  assert.match(hourOptions, /value="23">23<\/option>/);
+  assert.doesNotMatch(hourOptions, /value="24"/);
+
+  for (const minute of ["00", "15", "30", "45"]) {
+    assert.match(minuteOptions, new RegExp(`value="${minute}">${minute}<\\/option>`));
+  }
+});
+
 test("pickup time copy exists for every supported Rentulo language", () => {
   const source = fs.readFileSync(DETAIL_PATH, "utf8");
 
@@ -73,7 +108,8 @@ test("pickup time copy exists for every supported Rentulo language", () => {
   }
 
   assert.match(source, /pickupTimeValue = document\.getElementById\("pickupTime"\)/);
-  assert.match(source, /pickupTimeInput\.value = pickupTimeValue/);
+  assert.match(source, /pickupHourInput\.value = pickupTimeParts\[0\]/);
+  assert.match(source, /pickupMinuteInput\.value = pickupTimeParts\[1\]/);
 });
 
 test("database stores pickup time and keeps it immutable after reservation creation", () => {

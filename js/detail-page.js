@@ -6,30 +6,40 @@
     const DETAIL_BOOKING_TIME_COPY = {
       cs: {
         pickupTime: "Čas převzetí",
+        pickupHour: "Hodina",
+        pickupMinute: "Minuty",
         pickupTimeHelp: "Vrácení bude v poslední den rezervace ve stejný čas.",
         selectTime: "Vyberte čas převzetí.",
         invalidTime: "Vyberte platný čas převzetí."
       },
       sk: {
         pickupTime: "Čas prevzatia",
+        pickupHour: "Hodina",
+        pickupMinute: "Minúty",
         pickupTimeHelp: "Vrátenie bude v posledný deň rezervácie v rovnakom čase.",
         selectTime: "Vyberte čas prevzatia.",
         invalidTime: "Vyberte platný čas prevzatia."
       },
       en: {
         pickupTime: "Pickup time",
+        pickupHour: "Hour",
+        pickupMinute: "Minutes",
         pickupTimeHelp: "Return is due at the same time on the last day of the reservation.",
         selectTime: "Choose a pickup time.",
         invalidTime: "Choose a valid pickup time."
       },
       de: {
         pickupTime: "Abholzeit",
+        pickupHour: "Stunde",
+        pickupMinute: "Minuten",
         pickupTimeHelp: "Die Rückgabe erfolgt am letzten Reservierungstag zur gleichen Uhrzeit.",
         selectTime: "Wählen Sie eine Abholzeit.",
         invalidTime: "Wählen Sie eine gültige Abholzeit."
       },
       pl: {
         pickupTime: "Godzina odbioru",
+        pickupHour: "Godzina",
+        pickupMinute: "Minuty",
         pickupTimeHelp: "Zwrot następuje o tej samej godzinie w ostatnim dniu rezerwacji.",
         selectTime: "Wybierz godzinę odbioru.",
         invalidTime: "Wybierz prawidłową godzinę odbioru."
@@ -47,6 +57,25 @@
 
     function isValidPickupTime(value) {
       return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(value || ""));
+    }
+
+    function renderPickupHourOptions() {
+      const options = ['<option value="">--</option>'];
+
+      for (let hour = 0; hour < 24; hour += 1) {
+        const value = String(hour).padStart(2, "0");
+        options.push(`<option value="${value}">${value}</option>`);
+      }
+
+      return options.join("");
+    }
+
+    function renderPickupMinuteOptions() {
+      return ["00", "15", "30", "45"]
+        .map(function (value) {
+          return `<option value="${value}">${value}</option>`;
+        })
+        .join("");
     }
 
     function detailTranslate(key, replacements) {
@@ -160,10 +189,6 @@
         : (value || detailTranslate("home.category.other"));
     }
 
-  
-
- 
-
     function getOfferIdFromUrl() {
       const params = new URLSearchParams(window.location.search);
       return params.get("id");
@@ -223,7 +248,6 @@ owner_id: row.owner_id,
         price: row.price_per_day,
         pricePerDay: row.price_per_day,
         cena: row.price_per_day,
-
 
         status: row.status === "active" ? "Aktivní" : row.status,
         supabaseStatus: row.status,
@@ -492,7 +516,53 @@ function renderDetailImage(offer) {
       `;
     }
 
+    function ensurePickupTimeControlStyles() {
+      if (document.getElementById("pickupTimeControlStyles")) {
+        return;
+      }
+
+      const style = document.createElement("style");
+      style.id = "pickupTimeControlStyles";
+      style.textContent = `
+        #pickupTime {
+          display: none !important;
+        }
+
+        .pickup-time-control {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+          gap: 8px;
+          align-items: center;
+        }
+
+        .pickup-time-control select {
+          width: 100%;
+          min-width: 0;
+          height: 36px;
+          border: 1px solid #d2e5dc;
+          border-radius: 10px;
+          background: #fff;
+          padding: 0 28px 0 10px;
+          font-size: 13px;
+          color: #073f2e;
+          font-weight: 800;
+          text-align: center;
+          cursor: pointer;
+        }
+
+        .pickup-time-separator {
+          color: #173e33;
+          font-size: 18px;
+          line-height: 1;
+          font-weight: 900;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
     function renderBookingSidebar(price) {
+      ensurePickupTimeControlStyles();
+
       return `
         <aside class="sidebar">
           <div class="price">${escapeHtml(formatDetailNumber(price))}</div>
@@ -513,8 +583,17 @@ function renderDetailImage(offer) {
             </div>
 
             <div class="form-group">
-              <label for="pickupTime">${escapeHtml(detailBookingTimeText("pickupTime"))}</label>
+              <label id="pickupTimeLabel" for="pickupHour">${escapeHtml(detailBookingTimeText("pickupTime"))}</label>
               <input type="time" id="pickupTime" required>
+              <div class="pickup-time-control" role="group" aria-labelledby="pickupTimeLabel">
+                <select id="pickupHour" aria-label="${escapeHtml(detailBookingTimeText("pickupHour"))}">
+                  ${renderPickupHourOptions()}
+                </select>
+                <span class="pickup-time-separator" aria-hidden="true">:</span>
+                <select id="pickupMinute" aria-label="${escapeHtml(detailBookingTimeText("pickupMinute"))}">
+                  ${renderPickupMinuteOptions()}
+                </select>
+              </div>
             </div>
 
             <div class="date-help" id="bookingTimeHelp">
@@ -857,6 +936,8 @@ const hasGps = offerHasGpsLocation(offer);
       const startDateInput = document.getElementById("startDate");
       const endDateInput = document.getElementById("endDate");
       const pickupTimeInput = document.getElementById("pickupTime");
+      const pickupHourInput = document.getElementById("pickupHour");
+      const pickupMinuteInput = document.getElementById("pickupMinute");
       const bookingTimeHelp = document.getElementById("bookingTimeHelp");
       const calcDays = document.getElementById("calcDays");
       const calcTotal = document.getElementById("calcTotal");
@@ -864,8 +945,28 @@ const hasGps = offerHasGpsLocation(offer);
       const bookingDateHelp = document.getElementById("bookingDateHelp");
       const detailAvailabilityPanel = document.getElementById("detailAvailabilityPanel");
 
-      if (!startDateInput || !endDateInput || !pickupTimeInput || !calcDays || !calcTotal || !rentButton) {
+      if (
+        !startDateInput ||
+        !endDateInput ||
+        !pickupTimeInput ||
+        !pickupHourInput ||
+        !pickupMinuteInput ||
+        !calcDays ||
+        !calcTotal ||
+        !rentButton
+      ) {
         return;
+      }
+
+      pickupTimeInput.hidden = true;
+      pickupTimeInput.setAttribute("aria-hidden", "true");
+      pickupTimeInput.tabIndex = -1;
+
+      function syncPickupTimeFromSelectors() {
+        const hour = pickupHourInput.value;
+        const minute = pickupMinuteInput.value;
+
+        pickupTimeInput.value = hour && minute ? hour + ":" + minute : "";
       }
 
       const today = new Date().toISOString().split("T")[0];
@@ -1031,7 +1132,18 @@ const hasGps = offerHasGpsLocation(offer);
         clearDetailBookingMessage();
         updateCalculation();
       });
+      pickupHourInput.addEventListener("change", function () {
+        clearDetailBookingMessage();
+        syncPickupTimeFromSelectors();
+        updateCalculation();
+      });
+      pickupMinuteInput.addEventListener("change", function () {
+        clearDetailBookingMessage();
+        syncPickupTimeFromSelectors();
+        updateCalculation();
+      });
 
+      syncPickupTimeFromSelectors();
       updateCalculation();
 
       rentButton.addEventListener("click", async function () {
@@ -1164,10 +1276,24 @@ const hasGps = offerHasGpsLocation(offer);
       const startDateInput = document.getElementById("startDate");
       const endDateInput = document.getElementById("endDate");
       const pickupTimeInput = document.getElementById("pickupTime");
+      const pickupHourInput = document.getElementById("pickupHour");
+      const pickupMinuteInput = document.getElementById("pickupMinute");
 
-      if (startDateInput && endDateInput && pickupTimeInput) {
+      if (
+        startDateInput &&
+        endDateInput &&
+        pickupTimeInput &&
+        pickupHourInput &&
+        pickupMinuteInput
+      ) {
+        const pickupTimeParts = isValidPickupTime(pickupTimeValue)
+          ? pickupTimeValue.split(":")
+          : ["", "00"];
+
         startDateInput.value = startDateValue;
         endDateInput.value = endDateValue;
+        pickupHourInput.value = pickupTimeParts[0];
+        pickupMinuteInput.value = pickupTimeParts[1] || "00";
         pickupTimeInput.value = pickupTimeValue;
         startDateInput.dispatchEvent(new Event("change"));
       }
