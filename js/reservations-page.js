@@ -603,6 +603,14 @@ return (
         return;
       }
 
+      if (elements.overlay.contains(document.activeElement)) {
+        const activeElement = document.activeElement;
+
+        if (activeElement && typeof activeElement.blur === "function") {
+          activeElement.blur();
+        }
+      }
+
       elements.overlay.hidden = true;
       elements.overlay.setAttribute("aria-hidden", "true");
       document.body.classList.remove("reservation-modal-open");
@@ -762,6 +770,14 @@ return (
 
       if (!elements.overlay || elements.overlay.hidden) {
         return;
+      }
+
+      if (elements.overlay.contains(document.activeElement)) {
+        const activeElement = document.activeElement;
+
+        if (activeElement && typeof activeElement.blur === "function") {
+          activeElement.blur();
+        }
       }
 
       elements.overlay.hidden = true;
