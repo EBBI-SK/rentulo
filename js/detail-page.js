@@ -1,4 +1,5 @@
     const PLATFORM_FEE_PERCENT = 10;
+    const PLATFORM_FEE_MINIMUM_CZK = 50;
     let currentOffer = null;
     let detailPageState = "idle";
     let detailBookingMessage = "";
@@ -622,7 +623,10 @@ function renderDetailImage(offer) {
             </div>
 
             <div class="platform-fee-note">
-              ${detailTranslate("detail.platformFee")}: ${PLATFORM_FEE_PERCENT} %
+              ${detailTranslate("detail.platformFee", {
+                percent: PLATFORM_FEE_PERCENT,
+                minimum: PLATFORM_FEE_MINIMUM_CZK
+              })}
             </div>
 
             <button class="primary-button disabled" id="rentButton" type="button" disabled>

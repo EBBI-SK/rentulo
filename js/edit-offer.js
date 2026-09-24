@@ -21,6 +21,7 @@ const EDIT_OFFER_PHOTO_ALLOWED_TYPES = [
 
 const EDIT_ADDRESS_SUGGESTION_MIN_LENGTH = 3;
 const EDIT_ADDRESS_SUGGESTION_DELAY_MS = 450;
+const MINIMUM_OFFER_PRICE_CZK = 100;
 
 let editAddressSuggestions = [];
 let editAddressActiveIndex = -1;
@@ -1205,14 +1206,14 @@ function setupEditOfferSave() {
 
       priceValue = editMoneyToNumber(priceInput.value);
 
-      if (priceValue <= 0) {
+      if (priceValue < MINIMUM_OFFER_PRICE_CZK) {
         editMarkError(priceInput);
         hasError = true;
       }
     }
 
     if (hasError) {
-      editShowMessage(editT("editOffer.validation", "Vyplňte prosím všechna povinná pole. Cena musí být číslo větší než 0."));
+      editShowMessage(editT("editOffer.validation", "Vyplňte prosím všechna povinná pole. Cena musí být alespoň 100 Kč za den."));
       return;
     }
 

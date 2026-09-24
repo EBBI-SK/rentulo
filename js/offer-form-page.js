@@ -18,6 +18,7 @@ let offerSaveInProgress = false;
     ];
     const OFFER_ADDRESS_SUGGESTION_MIN_LENGTH = 3;
     const OFFER_ADDRESS_SUGGESTION_DELAY_MS = 450;
+    const MINIMUM_OFFER_PRICE_CZK = 100;
 
     let offerAddressSuggestions = [];
     let offerAddressActiveIndex = -1;
@@ -683,7 +684,7 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
       const rawPrice = getInputValue("toolPrice");
       const parsedPrice = parseMoneyValue(rawPrice);
 
-      if (rawPrice && (Number.isNaN(parsedPrice) || parsedPrice <= 0)) {
+      if (rawPrice && (Number.isNaN(parsedPrice) || parsedPrice < MINIMUM_OFFER_PRICE_CZK)) {
         const priceError = document.getElementById("toolPriceError");
         markOfferFormError("toolPrice");
         hasError = true;

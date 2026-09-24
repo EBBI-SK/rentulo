@@ -1,4 +1,5 @@
     const PLATFORM_FEE_PERCENT = 10;
+    const PLATFORM_FEE_MINIMUM_CZK = 50;
 
     const OFFERS_LOCALES = {
       cs: "cs-CZ",
@@ -46,6 +47,19 @@
 
     function formatOffersMoney(value) {
       return formatOffersNumber(value) + " Kč";
+    }
+
+    function calculatePlatformFee(price) {
+      const total = Number(price);
+
+      if (!Number.isFinite(total) || total <= 0) {
+        return 0;
+      }
+
+      return Math.max(
+        Math.round(total * PLATFORM_FEE_PERCENT / 100),
+        PLATFORM_FEE_MINIMUM_CZK
+      );
     }
 
     function formatOffersMoneyPerDay(value) {
@@ -987,7 +1001,7 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
     }
     function renderRequestDetailContent(reservation, status) {
       const price = reservation.totalPrice;
-      const platformFee = reservation.platformFeeAmount || Math.round(price * PLATFORM_FEE_PERCENT / 100);
+      const platformFee = reservation.platformFeeAmount || calculatePlatformFee(price);
       const ownerPayout = reservation.ownerPayout || price - platformFee;
 
       return `
