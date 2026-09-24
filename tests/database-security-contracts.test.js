@@ -148,7 +148,15 @@ test("latest server status-transition guard keeps role-specific transitions and 
   );
   assert.match(
     sql,
-    /auth\.uid\(\)\s*=\s*old\.renter_id[\s\S]*old\.status\s+in\s*\(\s*'pending'\s*,\s*'approved'\s*\)\s+and\s+new\.status\s*=\s*'cancelled'/i
+    /new\.status\s*=\s*'cancelled'/i
+  );
+  assert.match(
+    sql,
+    /auth\.uid\(\)\s*=\s*old\.owner_id[\s\S]*old\.status\s*=\s*'approved'/i
+  );
+  assert.match(
+    sql,
+    /auth\.uid\(\)\s*=\s*old\.renter_id[\s\S]*old\.status\s+in\s*\(\s*'pending'\s*,\s*'approved'\s*\)/i
   );
   assert.match(
     sql,

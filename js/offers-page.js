@@ -337,6 +337,8 @@
 
         startDate: row.start_date || row.date_from || "",
         endDate: row.end_date || row.date_to || "",
+        pickupTime: row.pickup_time || "",
+        cancellationCutoffAt: row.cancellation_cutoff_at || "",
         days: Number(row.total_days || row.days || 0),
         totalPrice: Number(row.total_price || 0),
 
@@ -536,6 +538,67 @@ const data = Array.isArray(updatedReservations)
       if (updated && typeof window.apiSendReservationEmail === "function") {
         await window.apiSendReservationEmail(reservationId, "rejected");
       }
+      await reloadAndReopen(reservationId, "history");
+    }
+
+
+    async function cancelApprovedReservation(reservationId) {
+      const reservation = ownerReservations.find(function (item) {
+        return String(item.id) === String(reservationId);
+      });
+
+      if (!reservation || !canOwnerCancelReservation(reservation)) {
+        setAccountErrorMessage(
+          "reservations.error.cannotCancel",
+          "Tuto rezervaci už nelze běžně zrušit."
+        );
+        return;
+      }
+
+      if (!isReservationCancellationWindowOpen(reservation)) {
+        setAccountErrorMessage(
+          "reservations.error.cannotCancel",
+          getReservationCancellationCutoffText()
+        );
+        renderOffers({ autoOpenFromUrl: false });
+        return;
+      }
+
+      const confirmed = await openOwnerReservationCancelModal(reservation);
+
+      if (!confirmed) {
+        return;
+      }
+
+      if (!isReservationCancellationWindowOpen(reservation)) {
+        setAccountErrorMessage(
+          "reservations.error.cannotCancel",
+          getReservationCancellationCutoffText()
+        );
+        renderOffers({ autoOpenFromUrl: false });
+        return;
+      }
+
+      const updated = await updateReservationStatus(
+        reservationId,
+        RESERVATION_STATUS_CANCELLED
+      );
+
+      if (!updated) {
+        return;
+      }
+
+      if (typeof window.apiSendReservationEmail === "function") {
+        await window.apiSendReservationEmail(reservationId, "cancelled");
+      }
+
+      setAccountMessage(
+        "reservations.state.cancelledTitle",
+        "Rezervace byla zrušena",
+        "reservations.success.cancelled",
+        "Rezervace byla zrušena a přesunuta do Historie."
+      );
+
       await reloadAndReopen(reservationId, "history");
     }
 
@@ -800,6 +863,209 @@ const data = Array.isArray(updatedReservations)
       });
     }
 
+
+    let ownerReservationCancelModalResolve = null;
+    let ownerReservationCancelModalReservation = null;
+    let ownerReservationCancelModalReturnFocus = null;
+
+    function ensureOwnerReservationCancelModal() {
+      if (document.getElementById("ownerReservationCancelModal")) {
+        return;
+      }
+
+      const overlay = document.createElement("div");
+      overlay.className = "offers-confirm-modal";
+      overlay.id = "ownerReservationCancelModal";
+      overlay.hidden = true;
+      overlay.setAttribute("aria-hidden", "true");
+      overlay.innerHTML = [
+        '<div class="offers-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="ownerReservationCancelModalTitle" aria-describedby="ownerReservationCancelModalDescription">',
+        '<h2 id="ownerReservationCancelModalTitle"></h2>',
+        '<p id="ownerReservationCancelModalDescription"></p>',
+        '<div class="offers-confirm-actions">',
+        '<button type="button" class="offers-modal-button offers-modal-keep" data-owner-reservation-cancel-modal-action="keep"></button>',
+        '<button type="button" class="offers-modal-button offers-modal-delete" data-owner-reservation-cancel-modal-action="confirm"></button>',
+        '</div>',
+        '</div>'
+      ].join("");
+      document.body.appendChild(overlay);
+    }
+
+    function getOwnerReservationCancelModalElements() {
+      return {
+        overlay: document.getElementById("ownerReservationCancelModal"),
+        title: document.getElementById("ownerReservationCancelModalTitle"),
+        description: document.getElementById("ownerReservationCancelModalDescription"),
+        keepButton: document.querySelector('[data-owner-reservation-cancel-modal-action="keep"]'),
+        confirmButton: document.querySelector('[data-owner-reservation-cancel-modal-action="confirm"]')
+      };
+    }
+
+    function refreshOwnerReservationCancelModalText() {
+      if (!ownerReservationCancelModalReservation) {
+        return;
+      }
+
+      const elements = getOwnerReservationCancelModalElements();
+      const startDate = formatOffersDate(ownerReservationCancelModalReservation.startDate);
+      const endDate = formatOffersDate(ownerReservationCancelModalReservation.endDate);
+
+      if (elements.title) {
+        elements.title.textContent = offersTranslate(
+          "reservations.cancelModal.title",
+          "Zrušit rezervaci?"
+        );
+      }
+
+      if (elements.description) {
+        elements.description.textContent = offersTranslate(
+          "reservations.cancelModal.description",
+          "Opravdu chcete tuto rezervaci zrušit? Termín {startDate} – {endDate} se znovu uvolní.",
+          { startDate: startDate, endDate: endDate }
+        );
+      }
+
+      if (elements.keepButton) {
+        elements.keepButton.textContent = offersTranslate(
+          "reservations.cancelModal.keep",
+          "Ponechat rezervaci"
+        );
+      }
+
+      if (elements.confirmButton) {
+        elements.confirmButton.textContent = offersTranslate(
+          "reservations.cancel",
+          "Zrušit rezervaci"
+        );
+      }
+    }
+
+    function closeOwnerReservationCancelModal(confirmed) {
+      const elements = getOwnerReservationCancelModalElements();
+
+      if (!elements.overlay || elements.overlay.hidden) {
+        return;
+      }
+
+      if (elements.overlay.contains(document.activeElement)) {
+        const activeElement = document.activeElement;
+
+        if (activeElement && typeof activeElement.blur === "function") {
+          activeElement.blur();
+        }
+      }
+
+      elements.overlay.hidden = true;
+      elements.overlay.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("offers-modal-open");
+
+      const resolve = ownerReservationCancelModalResolve;
+      const returnFocus = ownerReservationCancelModalReturnFocus;
+
+      ownerReservationCancelModalResolve = null;
+      ownerReservationCancelModalReservation = null;
+      ownerReservationCancelModalReturnFocus = null;
+
+      if (resolve) {
+        resolve(Boolean(confirmed));
+      }
+
+      if (!confirmed && returnFocus && returnFocus.isConnected && typeof returnFocus.focus === "function") {
+        requestAnimationFrame(function () {
+          if (returnFocus.isConnected) {
+            returnFocus.focus();
+          }
+        });
+      }
+    }
+
+    function openOwnerReservationCancelModal(reservation) {
+      ensureOwnerReservationCancelModal();
+      const elements = getOwnerReservationCancelModalElements();
+
+      if (!elements.overlay) {
+        console.error("Owner reservation cancellation modal is missing.");
+        return Promise.resolve(false);
+      }
+
+      ownerReservationCancelModalReservation = reservation;
+      ownerReservationCancelModalReturnFocus = document.activeElement;
+      refreshOwnerReservationCancelModalText();
+
+      elements.overlay.hidden = false;
+      elements.overlay.setAttribute("aria-hidden", "false");
+      document.body.classList.add("offers-modal-open");
+
+      return new Promise(function (resolve) {
+        ownerReservationCancelModalResolve = resolve;
+
+        requestAnimationFrame(function () {
+          if (elements.keepButton) {
+            elements.keepButton.focus();
+          }
+        });
+      });
+    }
+
+    function initializeOwnerReservationCancelModal() {
+      ensureOwnerReservationCancelModal();
+      const elements = getOwnerReservationCancelModalElements();
+
+      if (!elements.overlay) {
+        return;
+      }
+
+      elements.overlay.addEventListener("click", function (event) {
+        const actionButton = event.target.closest(
+          "[data-owner-reservation-cancel-modal-action]"
+        );
+
+        if (actionButton) {
+          closeOwnerReservationCancelModal(
+            actionButton.dataset.ownerReservationCancelModalAction === "confirm"
+          );
+          return;
+        }
+
+        if (event.target === elements.overlay) {
+          closeOwnerReservationCancelModal(false);
+        }
+      });
+
+      document.addEventListener("keydown", function (event) {
+        if (elements.overlay.hidden) {
+          return;
+        }
+
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeOwnerReservationCancelModal(false);
+          return;
+        }
+
+        if (event.key !== "Tab") {
+          return;
+        }
+
+        const focusable = [elements.keepButton, elements.confirmButton].filter(Boolean);
+
+        if (focusable.length < 2) {
+          return;
+        }
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      });
+    }
+
     async function deleteOffer(offerId) {
       const blockingReservations = ownerReservations.filter(function (reservation) {
         return String(reservation.offerId) === String(offerId) && isOpenStatus(reservation.status);
@@ -937,6 +1203,113 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
   return "";
 }
 
+
+    function disableOwnerReservationCancellationButton(button) {
+      if (!button || button.disabled) {
+        return;
+      }
+
+      const explanation = getReservationCancellationCutoffText();
+      button.disabled = true;
+      button.classList.add("reservation-cancel-locked");
+      button.setAttribute("aria-disabled", "true");
+      button.setAttribute("title", explanation);
+      button.removeAttribute("data-offers-action");
+
+      const actions = button.closest(".row-actions");
+
+      if (actions && !actions.querySelector(".reservation-cancel-cutoff-note")) {
+        const note = document.createElement("div");
+        note.className = "reservation-cancel-cutoff-note";
+        note.textContent = explanation;
+        actions.appendChild(note);
+      }
+    }
+
+    function scheduleOwnerReservationCancellationCutoff(button) {
+      if (!button || button.disabled) {
+        return;
+      }
+
+      const cutoffMs = Number(button.dataset.cancelCutoff);
+
+      if (!Number.isFinite(cutoffMs)) {
+        return;
+      }
+
+      const remaining = cutoffMs - Date.now();
+
+      if (remaining <= 0) {
+        disableOwnerReservationCancellationButton(button);
+        return;
+      }
+
+      if (button.dataset.ownerCancelCutoffScheduled === "true") {
+        return;
+      }
+
+      button.dataset.ownerCancelCutoffScheduled = "true";
+
+      window.setTimeout(function () {
+        if (!button.isConnected) {
+          return;
+        }
+
+        delete button.dataset.ownerCancelCutoffScheduled;
+
+        if (Date.now() >= cutoffMs) {
+          disableOwnerReservationCancellationButton(button);
+          return;
+        }
+
+        scheduleOwnerReservationCancellationCutoff(button);
+      }, Math.min(remaining + 50, 2147483647));
+    }
+
+    function refreshOwnerReservationCancellationCutoffs() {
+      document
+        .querySelectorAll('[data-offers-action="cancel-reservation"][data-cancel-cutoff]')
+        .forEach(scheduleOwnerReservationCancellationCutoff);
+    }
+
+    function renderOwnerReservationCancellationAction(reservation) {
+      if (!canOwnerCancelReservation(reservation)) {
+        return "";
+      }
+
+      const reservationId = reservation.id;
+      const label = offersTranslate("reservations.cancel", "Zrušit rezervaci");
+      const cutoff = getReservationCancellationCutoffAt(reservation);
+      const explanation = getReservationCancellationCutoffText();
+
+      if (cutoff && !isReservationCancellationWindowOpen(reservation)) {
+        return [
+          '<button class="small-button light reservation-cancel-action reservation-cancel-locked" type="button" disabled aria-disabled="true" title="',
+          escapeHtml(explanation),
+          '">',
+          escapeHtml(label),
+          '</button>',
+          '<div class="reservation-cancel-cutoff-note">',
+          escapeHtml(explanation),
+          '</div>'
+        ].join("");
+      }
+
+      const cutoffAttribute = cutoff
+        ? ' data-cancel-cutoff="' + cutoff.getTime() + '"'
+        : "";
+
+      return [
+        '<button class="small-button light reservation-cancel-action" type="button" data-offers-action="cancel-reservation" data-reservation-id="',
+        escapeHtml(reservationId),
+        '"',
+        cutoffAttribute,
+        '>',
+        escapeHtml(label),
+        '</button>'
+      ].join("");
+    }
+
     function renderRequestActions(reservation, status) {
       const reservationId = reservation.id;
       const actions = [];
@@ -949,6 +1322,10 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
         actions.push(`
           <button class="small-button light" type="button" data-offers-action="reject-reservation" data-reservation-id="${escapeHtml(reservationId)}">${offersTranslate("offers.action.reject", "Odmítnout")}</button>
         `);
+      }
+
+      if (normalizeReservationStatus(status) === RESERVATION_STATUS_APPROVED) {
+        actions.push(renderOwnerReservationCancellationAction(reservation));
       }
 
       if (normalizeReservationStatus(status) === RESERVATION_STATUS_PAID) {
@@ -1256,6 +1633,8 @@ function renderSimpleOffer(offer, requests) {
       if (!options || options.autoOpenFromUrl !== false) {
         autoOpenActionOfferFromUrl();
       }
+
+      window.setTimeout(refreshOwnerReservationCancellationCutoffs, 0);
     }
 
     function captureOffersUiState() {
@@ -1370,6 +1749,7 @@ return [
       const mutationActions = new Set([
         "approve-reservation",
         "reject-reservation",
+        "cancel-reservation",
         "mark-picked-up",
         "mark-returned",
         "publish-offer",
@@ -1395,6 +1775,9 @@ return [
             break;
           case "reject-reservation":
             await rejectReservation(reservationId);
+            break;
+          case "cancel-reservation":
+            await cancelApprovedReservation(reservationId);
             break;
           case "mark-picked-up":
             await markReservationPickedUp(reservationId);
@@ -1458,11 +1841,13 @@ return [
 
     document.addEventListener("DOMContentLoaded", function () {
       initializeOfferDeleteModal();
+      initializeOwnerReservationCancelModal();
       initializeOwnerOffersPage();
     });
 
     document.addEventListener("rentuloLanguageChanged", function () {
       refreshOfferDeleteModalText();
+      refreshOwnerReservationCancelModalText();
 
       if (ownerOffersLoadState === "loading") {
         renderLoadingState();

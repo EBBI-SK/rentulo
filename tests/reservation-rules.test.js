@@ -107,6 +107,11 @@ test("owner and renter actions follow the intended status transitions", () => {
       "renter cancel: " + status
     );
     assert.equal(
+      context.canOwnerCancelReservation(item),
+      status === "approved",
+      "owner cancel: " + status
+    );
+    assert.equal(
       context.canOwnerConfirmPickedUpReservation(item),
       status === "paid",
       "owner pickup: " + status

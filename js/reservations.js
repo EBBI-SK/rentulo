@@ -114,6 +114,10 @@ function canRenterCancelReservation(reservation) {
   );
 }
 
+function canOwnerCancelReservation(reservation) {
+  return getReservationStatus(reservation) === RESERVATION_STATUS_APPROVED;
+}
+
 function canOwnerConfirmPickedUpReservation(reservation) {
   return getReservationStatus(reservation) === RESERVATION_STATUS_PAID;
 }
@@ -123,11 +127,11 @@ function canOwnerConfirmReturnedReservation(reservation) {
 }
 
 const RESERVATION_CANCEL_CUTOFF_COPY = {
-  cs: "Rezervaci už nelze zrušit méně než 2 hodiny před převzetím.",
-  sk: "Rezerváciu už nie je možné zrušiť menej ako 2 hodiny pred prevzatím.",
-  en: "This reservation can no longer be cancelled less than 2 hours before pickup.",
-  de: "Diese Reservierung kann weniger als 2 Stunden vor der Abholung nicht mehr storniert werden.",
-  pl: "Rezerwacji nie można już anulować na mniej niż 2 godziny przed odbiorem."
+  cs: "Rezervaci lze zrušit pouze více než 6 hodin před převzetím.",
+  sk: "Rezerváciu možno zrušiť iba viac ako 6 hodín pred prevzatím.",
+  en: "This reservation can only be cancelled more than 6 hours before pickup.",
+  de: "Diese Reservierung kann nur mehr als 6 Stunden vor der Abholung storniert werden.",
+  pl: "Rezerwację można anulować tylko ponad 6 godzin przed odbiorem."
 };
 
 function getReservationCancellationCutoffAt(reservation) {
@@ -150,7 +154,10 @@ function getReservationCancellationCutoffAt(reservation) {
 }
 
 function isReservationCancellationWindowOpen(reservation, nowValue) {
-  if (!canRenterCancelReservation(reservation)) {
+  if (
+    !canRenterCancelReservation(reservation) &&
+    !canOwnerCancelReservation(reservation)
+  ) {
     return false;
   }
 
