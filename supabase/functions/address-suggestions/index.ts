@@ -1,3 +1,14 @@
+type RentuloDenoRuntime = {
+  serve(handler: (request: Request) => Response | Promise<Response>): void;
+  env: {
+    get(name: string): string | undefined;
+  };
+};
+
+const denoRuntime = (
+  globalThis as typeof globalThis & { Deno: RentuloDenoRuntime }
+).Deno;
+
 type AddressSuggestionPayload = {
   query?: string;
   city?: string;
@@ -421,7 +432,7 @@ function createForwardUrl(query: string): URL {
   return url;
 }
 
-Deno.serve(async (req) => {
+denoRuntime.serve(async (req) => {
   const origin = req.headers.get("Origin");
 
   if (req.method === "OPTIONS") {

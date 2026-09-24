@@ -1,5 +1,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+type RentuloDenoRuntime = {
+  serve(handler: (request: Request) => Response | Promise<Response>): void;
+  env: {
+    get(name: string): string | undefined;
+  };
+};
+
+const denoRuntime = (
+  globalThis as typeof globalThis & { Deno: RentuloDenoRuntime }
+).Deno;
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -88,7 +99,7 @@ function response(body: unknown, status = 200): Response {
   });
 }
 
-Deno.serve(async (req) => {
+denoRuntime.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -97,12 +108,12 @@ Deno.serve(async (req) => {
     return response({ error: "Method not allowed" }, 405);
   }
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const resendApiKey = Deno.env.get("RESEND_API_KEY");
-  const emailFrom = Deno.env.get("EMAIL_FROM");
-  const siteUrl = (Deno.env.get("SITE_URL") || "https://rentulo-seven.vercel.app").replace(/\/$/, "");
+  const supabaseUrl = denoRuntime.env.get("SUPABASE_URL");
+  const anonKey = denoRuntime.env.get("SUPABASE_ANON_KEY");
+  const serviceRoleKey = denoRuntime.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const resendApiKey = denoRuntime.env.get("RESEND_API_KEY");
+  const emailFrom = denoRuntime.env.get("EMAIL_FROM");
+  const siteUrl = (denoRuntime.env.get("SITE_URL") || "https://rentulo-seven.vercel.app").replace(/\/$/, "");
 
   if (!supabaseUrl || !anonKey || !serviceRoleKey || !resendApiKey || !emailFrom) {
     return response({ error: "Missing server configuration" }, 500);
