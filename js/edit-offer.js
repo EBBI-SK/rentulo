@@ -27,6 +27,7 @@ let editAddressSuggestions = [];
 let editAddressActiveIndex = -1;
 let editAddressRequestId = 0;
 let editAddressTimer = null;
+let editSelectedPickupCoordinates = null;
 
 function editT(key, fallback) {
   if (typeof window.rentuloTranslate === "function") {
@@ -221,6 +222,13 @@ function selectEditAddress(index) {
   cityInput.value = String(item.city || "").trim();
   postalCodeInput.value = String(item.postalCode || "").trim();
 
+  const latitude = Number(item.latitude);
+  const longitude = Number(item.longitude);
+  editSelectedPickupCoordinates =
+    Number.isFinite(latitude) && Number.isFinite(longitude)
+      ? { latitude: latitude, longitude: longitude }
+      : null;
+
   [streetInput, cityInput, postalCodeInput].forEach(function (field) {
     field.classList.remove("input-error");
   });
@@ -281,6 +289,8 @@ function setupEditPickupAddressAutocomplete() {
   }
 
   function scheduleEditAddressSuggestions() {
+    editSelectedPickupCoordinates = null;
+
     const query = streetInput.value.trim();
     const city = cityInput.value.trim();
     const postalCode = postalCodeInput.value.trim();
@@ -827,6 +837,7 @@ function setupEditPickupFields() {
   }
 
   pickupUseCustom.addEventListener("change", function () {
+    editSelectedPickupCoordinates = null;
     pickupCustomFields.classList.toggle("is-visible", pickupUseCustom.checked);
 
     if (!pickupUseCustom.checked) {
@@ -1041,26 +1052,27 @@ async function geocodeEditedPickupAddress(supabaseClient, pickupAddress) {
   });
 
   if (error) {
-    const geocodeError = new Error("Pickup geocoding is temporarily unavailable");
-    geocodeError.code = "PICKUP_GEOCODING_UNAVAILABLE";
-    throw geocodeError;
+    console.warn("Pickup geocoding is temporarily unavailable; saving without coordinates.", error);
+    return null;
   }
 
   if (!data || data.ok !== true) {
-    const geocodeError = new Error("Pickup address was not found");
-    geocodeError.code = data && data.reason === "not_found"
-      ? "PICKUP_GEOCODING_NOT_FOUND"
-      : "PICKUP_GEOCODING_UNAVAILABLE";
-    throw geocodeError;
+    if (data && data.reason === "not_found") {
+      const geocodeError = new Error("Pickup address was not found");
+      geocodeError.code = "PICKUP_GEOCODING_NOT_FOUND";
+      throw geocodeError;
+    }
+
+    console.warn("Pickup geocoding is temporarily unavailable; saving without coordinates.");
+    return null;
   }
 
   const latitude = Number(data.latitude);
   const longitude = Number(data.longitude);
 
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    const geocodeError = new Error("Pickup geocoding returned invalid coordinates");
-    geocodeError.code = "PICKUP_GEOCODING_UNAVAILABLE";
-    throw geocodeError;
+    console.warn("Pickup geocoding returned invalid coordinates; saving without coordinates.");
+    return null;
   }
 
   return { latitude, longitude };
@@ -1242,7 +1254,8 @@ function setupEditOfferSave() {
         normalizeEditPickupAddress(currentPickupAddress) !== normalizeEditPickupAddress(pickupAddress);
       const pickupCoordinates = !pickupAddressChanged && existingPickupCoordinates
         ? existingPickupCoordinates
-        : await geocodeEditedPickupAddress(supabaseClient, pickupAddress);
+        : editSelectedPickupCoordinates ||
+          await geocodeEditedPickupAddress(supabaseClient, pickupAddress);
       const previousPhotoUrl = getEditOfferPhoto(editCurrentOffer);
       const uploadedPhoto = await uploadEditedOfferPhoto(supabaseClient, supabaseUser.id);
       newlyUploadedPhotoPath = uploadedPhoto.isNew ? uploadedPhoto.path : "";
@@ -1259,8 +1272,8 @@ function setupEditOfferSave() {
         pickup_city: pickupAddress.city,
         pickup_postal_code: pickupAddress.postalCode,
         pickup_note: pickupAddress.note,
-        pickup_latitude: pickupCoordinates.latitude,
-        pickup_longitude: pickupCoordinates.longitude
+        pickup_latitude: pickupCoordinates ? pickupCoordinates.latitude : null,
+        pickup_longitude: pickupCoordinates ? pickupCoordinates.longitude : null
       };
 
       if (!editHasBlockingReservation) {

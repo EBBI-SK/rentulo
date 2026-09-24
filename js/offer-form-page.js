@@ -24,6 +24,7 @@ let offerSaveInProgress = false;
     let offerAddressActiveIndex = -1;
     let offerAddressRequestId = 0;
     let offerAddressTimer = null;
+    let offerSelectedPickupCoordinates = null;
 
     function offerTranslate(key, fallback) {
       if (typeof window.rentuloTranslate === "function") {
@@ -166,6 +167,13 @@ let offerSaveInProgress = false;
       cityInput.value = String(item.city || "").trim();
       postalCodeInput.value = String(item.postalCode || "").trim();
 
+      const latitude = Number(item.latitude);
+      const longitude = Number(item.longitude);
+      offerSelectedPickupCoordinates =
+        Number.isFinite(latitude) && Number.isFinite(longitude)
+          ? { latitude: latitude, longitude: longitude }
+          : null;
+
       [streetInput, cityInput, postalCodeInput].forEach(function (field) {
         field.classList.remove("input-error");
       });
@@ -226,6 +234,8 @@ let offerSaveInProgress = false;
       }
 
       function scheduleOfferAddressSuggestions() {
+        offerSelectedPickupCoordinates = null;
+
         const query = streetInput.value.trim();
         const city = cityInput.value.trim();
         const postalCode = postalCodeInput.value.trim();
@@ -809,26 +819,27 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
       });
 
       if (error) {
-        const geocodeError = new Error("Pickup geocoding is temporarily unavailable");
-        geocodeError.code = "PICKUP_GEOCODING_UNAVAILABLE";
-        throw geocodeError;
+        console.warn("Pickup geocoding is temporarily unavailable; saving without coordinates.", error);
+        return null;
       }
 
       if (!data || data.ok !== true) {
-        const geocodeError = new Error("Pickup address was not found");
-        geocodeError.code = data && data.reason === "not_found"
-          ? "PICKUP_GEOCODING_NOT_FOUND"
-          : "PICKUP_GEOCODING_UNAVAILABLE";
-        throw geocodeError;
+        if (data && data.reason === "not_found") {
+          const geocodeError = new Error("Pickup address was not found");
+          geocodeError.code = "PICKUP_GEOCODING_NOT_FOUND";
+          throw geocodeError;
+        }
+
+        console.warn("Pickup geocoding is temporarily unavailable; saving without coordinates.");
+        return null;
       }
 
       const latitude = Number(data.latitude);
       const longitude = Number(data.longitude);
 
       if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-        const geocodeError = new Error("Pickup geocoding returned invalid coordinates");
-        geocodeError.code = "PICKUP_GEOCODING_UNAVAILABLE";
-        throw geocodeError;
+        console.warn("Pickup geocoding returned invalid coordinates; saving without coordinates.");
+        return null;
       }
 
       return {
@@ -856,8 +867,8 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
         pickup_postal_code: pickupAddress.postalCode,
         pickup_note: pickupAddress.note,
         pickup_phone: pickupAddress.phone,
-        pickup_latitude: pickupCoordinates.latitude,
-        pickup_longitude: pickupCoordinates.longitude
+        pickup_latitude: pickupCoordinates ? pickupCoordinates.latitude : null,
+        pickup_longitude: pickupCoordinates ? pickupCoordinates.longitude : null
       };
     }
 
@@ -919,7 +930,8 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
         }
 
         const pickupAddress = getPickupAddress();
-        const pickupCoordinates = await geocodePickupAddress(supabaseClient, pickupAddress);
+        const pickupCoordinates = offerSelectedPickupCoordinates ||
+          await geocodePickupAddress(supabaseClient, pickupAddress);
         const uploadedPhoto = await uploadOfferPhoto(supabaseClient, supabaseUser.id);
         uploadedPhotoPath = uploadedPhoto.path;
         const supabaseOffer = createSupabaseOfferObject(
@@ -1005,6 +1017,8 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
       }
 
       pickupUseCustom.addEventListener("change", function () {
+        offerSelectedPickupCoordinates = null;
+
         if (pickupUseCustom.checked) {
           pickupCustomFields.classList.add("is-visible");
         } else {

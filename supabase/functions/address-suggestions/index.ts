@@ -9,6 +9,8 @@ type AddressSuggestion = {
   street: string;
   city: string;
   postalCode: string;
+  latitude: number;
+  longitude: number;
   label: string;
 };
 
@@ -247,8 +249,23 @@ function mapPhotonFeatures(
     const street = buildStreet(properties);
     const city = buildCity(properties);
     const postalCode = normalizePostalCode(properties.postcode);
+    const geometry =
+      feature && typeof feature === "object"
+        ? (feature as { geometry?: { coordinates?: unknown } }).geometry
+        : undefined;
+    const coordinates = Array.isArray(geometry?.coordinates)
+      ? geometry.coordinates
+      : [];
+    const longitude = Number(coordinates[0]);
+    const latitude = Number(coordinates[1]);
 
-    if (!street || !city || !postalCode) {
+    if (
+      !street ||
+      !city ||
+      !postalCode ||
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude)
+    ) {
       continue;
     }
 
@@ -271,6 +288,8 @@ function mapPhotonFeatures(
       street,
       city,
       postalCode,
+      latitude,
+      longitude,
       label: `${street}, ${city}, ${postalCode}`
     });
 
