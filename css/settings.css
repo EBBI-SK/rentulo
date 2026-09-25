@@ -210,6 +210,37 @@ html[data-focus-input="pointer"] .field select:focus {
   color: #28743c;
 }
 
+.connect-guidance {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid #d9e7e0;
+  border-radius: 12px;
+  background: #f7fbf9;
+  color: var(--rentulo-ink, #102019);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.connect-guidance[hidden] {
+  display: none;
+}
+
+.connect-guidance strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--rentulo-green-dark, #0e5037);
+  font-size: 13px;
+}
+
+.connect-guidance ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.connect-guidance li + li {
+  margin-top: 4px;
+}
+
 .actions {
   display: flex;
   align-items: center;

@@ -22,3 +22,11 @@ test("frontend uses only backend functions for Connect lifecycle", () => {
 test("Connect UI contains all five supported languages", () => {
   for (const lang of ["cs", "sk", "en", "de", "pl"]) assert.match(js, new RegExp("\\b" + lang + ": \\{"));
 });
+
+test("Connect UI explains private-person onboarding before redirecting to Stripe", () => {
+  assert.match(html, /id="connectSettingsGuidance"/);
+  assert.match(js, /nejde o registraci \\u017eivnosti ani firmy/);
+  assert.match(js, /https:\/\/rentulo\.eu/);
+  assert.match(js, /Rentulo je neukl\\u00e1d\\u00e1/);
+  assert.match(js, /guidance\.hidden = currentStatus === "ready" \|\| currentStatus === "loading"/);
+});
