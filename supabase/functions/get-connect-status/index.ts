@@ -29,6 +29,9 @@ denoRuntime.serve(async (req) => {
   if (profileError || !profile) return jsonResponse({ error: "Profile not found" }, 404);
   if (!profile.stripe_connected_account_id) return jsonResponse({ status: "not_started", details_submitted: false, transfers_enabled: false });
 
+  // Stripe supports using an Accounts v2 Account ID with v1 APIs. The v1 Account
+  // representation remains useful here because it exposes details_submitted,
+  // payouts_enabled and the transfers capability in one compatibility response.
   const stripeResponse = await fetch(`https://api.stripe.com/v1/accounts/${encodeURIComponent(profile.stripe_connected_account_id)}`, { headers: { Authorization: `Bearer ${stripeSecretKey}` } });
   const account = (await stripeResponse.json().catch(() => ({}))) as StripeAccountResponse;
   if (!stripeResponse.ok || account.id !== profile.stripe_connected_account_id) {

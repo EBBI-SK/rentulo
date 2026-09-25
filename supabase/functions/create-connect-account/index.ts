@@ -5,16 +5,13 @@ type RentuloDenoRuntime = {
   env: { get(name: string): string | undefined };
 };
 
-type StripeAccountResponse = {
+type StripeV2AccountResponse = {
   id?: string;
-  details_submitted?: boolean;
-  payouts_enabled?: boolean;
-  capabilities?: { transfers?: string };
-  requirements?: { disabled_reason?: string | null };
-  error?: { message?: string; type?: string };
+  error?: { message?: string; type?: string; code?: string };
 };
 
 const denoRuntime = (globalThis as typeof globalThis & { Deno: RentuloDenoRuntime }).Deno;
+const STRIPE_V2_VERSION = "2026-08-26.dahlia";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,14 +23,6 @@ function jsonResponse(body: unknown, status = 200): Response {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
-}
-
-function connectStatus(account: StripeAccountResponse): "onboarding" | "restricted" | "ready" {
-  const transfersEnabled = account.capabilities?.transfers === "active";
-  if (account.details_submitted === true && transfersEnabled && account.payouts_enabled === true) {
-    return "ready";
-  }
-  return account.requirements?.disabled_reason ? "restricted" : "onboarding";
 }
 
 denoRuntime.serve(async (req) => {
@@ -68,7 +57,7 @@ denoRuntime.serve(async (req) => {
 
   const { data: profile, error: profileError } = await admin
     .from("profiles")
-    .select("id, email, stripe_connected_account_id, stripe_connect_status")
+    .select("id, full_name, email, stripe_connected_account_id, stripe_connect_status")
     .eq("id", actor.id)
     .single();
 
@@ -81,45 +70,71 @@ denoRuntime.serve(async (req) => {
     return jsonResponse({ created: false, status: profile.stripe_connect_status || "onboarding" });
   }
 
-  const params = new URLSearchParams();
-  params.set("type", "express");
-  params.set("country", "CZ");
-  params.set("capabilities[transfers][requested]", "true");
-  params.set("metadata[rentulo_user_id]", actor.id);
-  if (actor.email || profile.email) params.set("email", actor.email || profile.email);
+  const contactEmail = String(actor.email || profile.email || "").trim();
+  const displayName = String(profile.full_name || "").trim();
 
-  const stripeResponse = await fetch("https://api.stripe.com/v1/accounts", {
+  const stripePayload = {
+    contact_email: contactEmail || undefined,
+    display_name: displayName || undefined,
+    dashboard: "express",
+    identity: {
+      country: "CZ",
+    },
+    configuration: {
+      recipient: {
+        capabilities: {
+          stripe_balance: {
+            stripe_transfers: {
+              requested: true,
+            },
+          },
+        },
+      },
+    },
+    defaults: {
+      currency: "czk",
+      responsibilities: {
+        fees_collector: "application",
+        losses_collector: "application",
+      },
+    },
+    metadata: {
+      rentulo_user_id: actor.id,
+    },
+    include: ["configuration.recipient", "identity", "requirements", "defaults"],
+  };
+
+  const stripeResponse = await fetch("https://api.stripe.com/v2/core/accounts", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${stripeSecretKey}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-      "Idempotency-Key": `rentulo-connect-account-${actor.id}`,
+      "Content-Type": "application/json",
+      "Stripe-Version": STRIPE_V2_VERSION,
+      "Idempotency-Key": `rentulo-connect-v2-account-${actor.id}`,
     },
-    body: params,
+    body: JSON.stringify(stripePayload),
   });
 
-  const account = (await stripeResponse.json().catch(() => ({}))) as StripeAccountResponse;
+  const account = (await stripeResponse.json().catch(() => ({}))) as StripeV2AccountResponse;
   if (!stripeResponse.ok || !account.id) {
     console.error(
-      "create-connect-account: Stripe account creation failed",
+      "create-connect-account: Stripe v2 account creation failed",
       stripeResponse.status,
       account.error?.type || "unknown_error",
+      account.error?.code || "unknown_code",
       account.error?.message || "",
     );
     return jsonResponse({ error: "Connected account could not be created" }, 502);
   }
 
-  const status = connectStatus(account);
-  const transfersEnabled = account.capabilities?.transfers === "active";
   const now = new Date().toISOString();
-
   const update = await admin
     .from("profiles")
     .update({
       stripe_connected_account_id: account.id,
-      stripe_connect_status: status,
-      stripe_connect_details_submitted: account.details_submitted === true,
-      stripe_connect_transfers_enabled: transfersEnabled,
+      stripe_connect_status: "onboarding",
+      stripe_connect_details_submitted: false,
+      stripe_connect_transfers_enabled: false,
       stripe_connect_updated_at: now,
       updated_at: now,
     })
@@ -145,8 +160,8 @@ denoRuntime.serve(async (req) => {
       return jsonResponse({ error: "Connected account could not be saved" }, 409);
     }
 
-    return jsonResponse({ created: false, status: concurrent.data.stripe_connect_status || status });
+    return jsonResponse({ created: false, status: concurrent.data.stripe_connect_status || "onboarding" });
   }
 
-  return jsonResponse({ created: true, status });
+  return jsonResponse({ created: true, status: "onboarding" });
 });

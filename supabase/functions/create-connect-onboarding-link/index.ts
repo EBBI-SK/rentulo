@@ -29,6 +29,8 @@ denoRuntime.serve(async (req) => {
   const { data: profile, error: profileError } = await admin.from("profiles").select("stripe_connected_account_id").eq("id", actor.id).single();
   if (profileError || !profile?.stripe_connected_account_id) return jsonResponse({ error: "Connected account is not created" }, 409);
 
+  // Account Links is still a v1 endpoint, but Stripe explicitly supports passing
+  // an Accounts v2 Account ID to v1 APIs for features that do not yet expose v2 endpoints.
   const params = new URLSearchParams();
   params.set("account", profile.stripe_connected_account_id);
   params.set("refresh_url", `${siteUrl}/nastaveni.html?connect=refresh`);
