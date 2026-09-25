@@ -79,6 +79,7 @@ denoRuntime.serve(async (req) => {
     dashboard: "express",
     identity: {
       country: "CZ",
+      entity_type: "individual",
     },
     configuration: {
       recipient: {

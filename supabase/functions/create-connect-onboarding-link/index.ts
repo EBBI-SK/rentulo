@@ -1,8 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 type RentuloDenoRuntime = { serve(handler: (request: Request) => Response | Promise<Response>): void; env: { get(name: string): string | undefined } };
-type StripeAccountLinkResponse = { url?: string; error?: { message?: string; type?: string } };
+type StripeApiError = { error?: { message?: string; type?: string; code?: string } };
+type StripeAccountLinkResponse = StripeApiError & { url?: string };
 const denoRuntime = (globalThis as typeof globalThis & { Deno: RentuloDenoRuntime }).Deno;
+const STRIPE_V2_VERSION = "2026-08-26.dahlia";
 const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
 function jsonResponse(body: unknown, status = 200): Response { return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" } }); }
 function normalizedSiteUrl(value: string): string | null { try { const parsed = new URL(value); if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null; return parsed.origin + parsed.pathname.replace(/\/$/, ""); } catch { return null; } }
@@ -29,10 +31,36 @@ denoRuntime.serve(async (req) => {
   const { data: profile, error: profileError } = await admin.from("profiles").select("stripe_connected_account_id").eq("id", actor.id).single();
   if (profileError || !profile?.stripe_connected_account_id) return jsonResponse({ error: "Connected account is not created" }, 409);
 
+  // Rentulo currently onboards private Czech owners. Pin the Stripe identity to an
+  // individual before each new onboarding link. This also corrects accounts that
+  // were created before Rentulo started setting entity_type during account creation.
+  const accountId = profile.stripe_connected_account_id;
+  const identityResponse = await fetch(`https://api.stripe.com/v2/core/accounts/${encodeURIComponent(accountId)}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${stripeSecretKey}`,
+      "Content-Type": "application/json",
+      "Stripe-Version": STRIPE_V2_VERSION,
+      "Idempotency-Key": `rentulo-connect-individual-${accountId}`,
+    },
+    body: JSON.stringify({ identity: { entity_type: "individual" }, include: ["identity"] }),
+  });
+  const identityResult = (await identityResponse.json().catch(() => ({}))) as StripeApiError;
+  if (!identityResponse.ok) {
+    console.error(
+      "create-connect-onboarding-link: Stripe individual identity update failed",
+      identityResponse.status,
+      identityResult.error?.type || "unknown_error",
+      identityResult.error?.code || "unknown_code",
+      identityResult.error?.message || "",
+    );
+    return jsonResponse({ error: "Connected account identity could not be prepared" }, 502);
+  }
+
   // Account Links is still a v1 endpoint, but Stripe explicitly supports passing
   // an Accounts v2 Account ID to v1 APIs for features that do not yet expose v2 endpoints.
   const params = new URLSearchParams();
-  params.set("account", profile.stripe_connected_account_id);
+  params.set("account", accountId);
   params.set("refresh_url", `${siteUrl}/nastaveni.html?connect=refresh`);
   params.set("return_url", `${siteUrl}/nastaveni.html?connect=return`);
   params.set("type", "account_onboarding");
