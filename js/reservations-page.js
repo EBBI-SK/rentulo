@@ -975,34 +975,32 @@ return (
         return;
       }
 
-      const { data: paidReservations, error } = await supabaseClient
-  .rpc("mark_my_reservation_paid_test", {
-    p_reservation_id: reservationId
-  });
-
-const data = Array.isArray(paidReservations)
-  ? paidReservations[0] || null
-  : paidReservations || null;
+      const { data, error } = await supabaseClient.functions.invoke(
+        "create-checkout-session",
+        {
+          body: {
+            reservation_id: reservationId
+          }
+        }
+      );
 
       if (error) {
-        console.error(error);
+        console.error("Stripe Checkout se nepodařilo vytvořit:", error);
         showReservationsNotice(reservationsTranslate("reservations.error.payment", "Platbu se nepodařilo dokončit. Zkuste to prosím znovu."), "error");
         return;
       }
 
-      
+      const checkoutUrl = data && typeof data.url === "string"
+        ? data.url.trim()
+        : "";
 
-        
-
-      if (data) {
-        await sendReservationEmailSafely(reservationId, "paid");
+      if (!checkoutUrl) {
+        console.error("Stripe Checkout nevrátil platnou URL.");
+        showReservationsNotice(reservationsTranslate("reservations.error.payment", "Platbu se nepodařilo dokončit. Zkuste to prosím znovu."), "error");
+        return;
       }
 
-      await retryLoadReservations();
-
-      if (reservationsLoadState === "ready") {
-        openReservationDetail(reservationId);
-      }
+      window.location.href = checkoutUrl;
     }
 
     function openReservationDetail(reservationId) {
