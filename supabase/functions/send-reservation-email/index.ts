@@ -91,6 +91,36 @@ function normalizeLanguage(value: unknown): SupportedLanguage {
     : "cs";
 }
 
+const dateLocales: Record<SupportedLanguage, string> = {
+  cs: "cs-CZ",
+  sk: "sk-SK",
+  en: "en-GB",
+  de: "de-DE",
+  pl: "pl-PL",
+};
+
+function formatReservationDate(value: unknown, language: SupportedLanguage): string {
+  const raw = String(value ?? "");
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+
+  if (!match) {
+    return raw;
+  }
+
+  const date = new Date(Date.UTC(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3])
+  ));
+
+  return new Intl.DateTimeFormat(dateLocales[language], {
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+}
+
 function escapeHtml(value: unknown): string {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -222,7 +252,7 @@ denoRuntime.serve(async (req) => {
     const recipientIsOwner = profile.id === reservation.owner_id;
     const detailUrl = `${siteUrl}/${recipientIsOwner ? "moje-nabidky.html" : "moje-rezervace.html"}`;
     const offerName = reservation.offer_name || "Rentulo";
-    const dateText = `${reservation.start_date} – ${reservation.end_date}`;
+    const dateText = `${formatReservationDate(reservation.start_date, language)} \u2013 ${formatReservationDate(reservation.end_date, language)}`;
 
     const { data: insertedLogRow, error: logError } = await admin
       .from("reservation_email_deliveries")
