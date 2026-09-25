@@ -3,228 +3,79 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title data-i18n="settings.documentTitle">Nastavení - Rentulo</title>
-
+  <title data-i18n="settings.documentTitle">Nastaven&#237; - Rentulo</title>
   <link rel="icon" type="image/png" href="assets/rentulo-logo-mark.png" />
   <link id="rentuloSharedTheme" rel="stylesheet" href="css/rentulo-theme.css" />
   <link rel="stylesheet" href="css/settings.css" />
   <link rel="stylesheet" href="css/password-visibility.css" />
 </head>
-
 <body data-navigation-page="nastaveni">
   <header class="header">
-    <a href="index.html" class="logo">
-      <div class="logo-icon">
-        <img src="assets/rentulo-logo-mark.png" alt="" width="40" height="40" aria-hidden="true" />
-      </div>
-      <div class="logo-text">
-        <strong>Rentulo</strong>
-      </div>
-    </a>
-
+    <a href="index.html" class="logo"><div class="logo-icon"><img src="assets/rentulo-logo-mark.png" alt="" width="40" height="40" aria-hidden="true" /></div><div class="logo-text"><strong>Rentulo</strong></div></a>
     <nav class="nav" id="mainNav"></nav>
   </header>
-
   <main class="settings-page">
-    <a
-      href="index.html"
-      class="back-link"
-      data-rentulo-back="true"
-      data-i18n="settings.back"
-    >
-      ← Zpět
-    </a>
-
+    <a href="index.html" class="back-link" data-rentulo-back="true" data-i18n="settings.back">&#8592; Zp&#283;t</a>
     <section class="settings-page-header">
-      <h1 data-i18n="settings.pageTitle">Nastavení</h1>
-      <p data-i18n="settings.pageDescription">
-        Spravujte osobní údaje a zabezpečení svého účtu.
-      </p>
+      <h1 data-i18n="settings.pageTitle">Nastaven&#237;</h1>
+      <p data-i18n="settings.pageDescription">Spravujte osobn&#237; &#250;daje a zabezpe&#269;en&#237; sv&#233;ho &#250;&#269;tu.</p>
     </section>
-
     <div class="settings-load-state" id="settingsLoadState" role="status" aria-live="polite">
-      <span id="settingsLoadText" data-i18n="settings.loading">Načítám nastavení…</span>
-      <button
-        type="button"
-        class="secondary-button settings-retry-button"
-        id="settingsRetryButton"
-        data-i18n="settings.retry"
-        hidden
-      >
-        Načíst znovu
-      </button>
+      <span id="settingsLoadText" data-i18n="settings.loading">Na&#269;&#237;t&#225;m nastaven&#237;&#8230;</span>
+      <button type="button" class="secondary-button settings-retry-button" id="settingsRetryButton" data-i18n="settings.retry" hidden>Na&#269;&#237;st znovu</button>
     </div>
-
     <div class="settings-content" id="settingsContent" hidden>
       <section class="settings-card">
-        <div class="settings-card-heading">
-          <h2 data-i18n="settings.profileTitle">Osobní údaje</h2>
-          <p data-i18n="settings.profileDescription">Upravte údaje zadané při registraci.</p>
-        </div>
-
+        <div class="settings-card-heading"><h2 data-i18n="settings.profileTitle">Osobn&#237; &#250;daje</h2><p data-i18n="settings.profileDescription">Upravte &#250;daje zadan&#233; p&#345;i registraci.</p></div>
         <form id="profileForm">
           <div class="settings-grid">
-            <div class="field">
-              <label for="profileFullName" data-i18n="settings.fullName">Celé jméno</label>
-              <input type="text" id="profileFullName" autocomplete="name" maxlength="120" required />
-            </div>
-
-            <div class="field">
-              <label for="profileEmail" data-i18n="settings.email">E-mail</label>
-              <input type="email" id="profileEmail" autocomplete="email" maxlength="254" required />
-            </div>
-
-            <div class="field">
-              <label for="profilePhone" data-i18n="settings.phone">Telefon</label>
-              <input type="tel" id="profilePhone" autocomplete="tel" inputmode="tel" maxlength="32" required />
-            </div>
-
-            <div class="field">
-              <label for="profileStreet" data-i18n="settings.street">Ulice a číslo</label>
-              <input type="text" id="profileStreet" autocomplete="street-address" maxlength="160" required />
-            </div>
-
-            <div class="field">
-              <label for="profileCity" data-i18n="settings.city">Město</label>
-              <input type="text" id="profileCity" autocomplete="address-level2" maxlength="100" required />
-            </div>
-
-            <div class="field">
-              <label for="profilePostalCode" data-i18n="settings.postalCode">PSČ</label>
-              <input type="text" id="profilePostalCode" autocomplete="postal-code" inputmode="text" maxlength="20" required />
-            </div>
+            <div class="field"><label for="profileFullName" data-i18n="settings.fullName">Cel&#233; jm&#233;no</label><input type="text" id="profileFullName" autocomplete="name" maxlength="120" required /></div>
+            <div class="field"><label for="profileEmail" data-i18n="settings.email">E-mail</label><input type="email" id="profileEmail" autocomplete="email" maxlength="254" required /></div>
+            <div class="field"><label for="profilePhone" data-i18n="settings.phone">Telefon</label><input type="tel" id="profilePhone" autocomplete="tel" inputmode="tel" maxlength="32" required /></div>
+            <div class="field"><label for="profileStreet" data-i18n="settings.street">Ulice a &#269;&#237;slo</label><input type="text" id="profileStreet" autocomplete="street-address" maxlength="160" required /></div>
+            <div class="field"><label for="profileCity" data-i18n="settings.city">M&#283;sto</label><input type="text" id="profileCity" autocomplete="address-level2" maxlength="100" required /></div>
+            <div class="field"><label for="profilePostalCode" data-i18n="settings.postalCode">PS&#268;</label><input type="text" id="profilePostalCode" autocomplete="postal-code" inputmode="text" maxlength="20" required /></div>
           </div>
-
-          <p class="profile-note" data-i18n="settings.emailChangeNote">
-            Při změně e-mailu může být vyžadováno potvrzení na nové adrese. Do potvrzení se můžete přihlašovat původním e-mailem.
-          </p>
-
-          <div class="actions">
-            <button type="submit" class="primary-button" id="saveProfileButton">
-              <span class="button-label-default" data-i18n="settings.saveProfile">Uložit osobní údaje</span>
-              <span class="button-label-loading" data-i18n="settings.saving">Ukládám…</span>
-            </button>
-            <span class="message" id="profileMessage" role="status" aria-live="polite"></span>
-          </div>
+          <p class="profile-note" data-i18n="settings.emailChangeNote">P&#345;i zm&#283;n&#283; e-mailu m&#367;&#382;e b&#253;t vy&#382;adov&#225;no potvrzen&#237; na nov&#233; adrese. Do potvrzen&#237; se m&#367;&#382;ete p&#345;ihla&#353;ovat p&#367;vodn&#237;m e-mailem.</p>
+          <div class="actions"><button type="submit" class="primary-button" id="saveProfileButton"><span class="button-label-default" data-i18n="settings.saveProfile">Ulo&#382;it osobn&#237; &#250;daje</span><span class="button-label-loading" data-i18n="settings.saving">Ukl&#225;d&#225;m&#8230;</span></button><span class="message" id="profileMessage" role="status" aria-live="polite"></span></div>
         </form>
       </section>
 
       <section class="settings-card" id="languageSettingsSection">
+        <div class="settings-card-heading"><h2 id="settingsLanguageTitle">Jazyk str&#225;nky</h2><p id="settingsLanguageDescription">Vyberte jazyk, ve kter&#233;m chcete Rentulo pou&#382;&#237;vat. Volba se ulo&#382;&#237; k va&#353;emu &#250;&#269;tu a pou&#382;ije se po p&#345;ihl&#225;&#353;en&#237;.</p></div>
+        <div class="field settings-language-field"><label for="settingsLanguageSelect" id="settingsLanguageLabel">Jazyk</label><select id="settingsLanguageSelect"><option value="cs">&#268;e&#353;tina</option><option value="sk">Sloven&#269;ina</option><option value="en">English</option><option value="de">Deutsch</option><option value="pl">Polski</option></select></div>
+        <div class="actions"><button type="button" class="primary-button" id="saveLanguageButton"><span class="button-label-default" id="settingsLanguageSaveLabel">Ulo&#382;it jazyk</span><span class="button-label-loading" id="settingsLanguageSavingLabel">Ukl&#225;d&#225;m&#8230;</span></button><span class="message" id="languageMessage" role="status" aria-live="polite"></span></div>
+      </section>
+
+      <section class="settings-card" id="connectSettingsSection">
         <div class="settings-card-heading">
-          <h2 id="settingsLanguageTitle">Jazyk stránky</h2>
-          <p id="settingsLanguageDescription">
-            Vyberte jazyk, ve kterém chcete Rentulo používat. Volba se uloží k vašemu účtu a použije se po přihlášení.
-          </p>
+          <h2 id="connectSettingsTitle">V&#253;platy za pron&#225;jmy</h2>
+          <p id="connectSettingsDescription">Pro p&#345;ij&#237;m&#225;n&#237; v&#253;plat za pron&#225;jmy dokon&#269;ete zabezpe&#269;en&#233; nastaven&#237; p&#345;es Stripe. Bankovn&#237; a ov&#283;&#345;ovac&#237; &#250;daje zad&#225;v&#225;te p&#345;&#237;mo u Stripe.</p>
         </div>
-
-        <div class="field settings-language-field">
-          <label for="settingsLanguageSelect" id="settingsLanguageLabel">Jazyk</label>
-          <select id="settingsLanguageSelect">
-            <option value="cs">Čeština</option>
-            <option value="sk">Slovenčina</option>
-            <option value="en">English</option>
-            <option value="de">Deutsch</option>
-            <option value="pl">Polski</option>
-          </select>
+        <div class="connect-status-row">
+          <span class="connect-status-label" id="connectSettingsStatusLabel">Stav</span>
+          <strong class="connect-status" id="connectSettingsStatus" data-status="loading">Na&#269;&#237;t&#225;m stav&#8230;</strong>
         </div>
-
+        <p class="profile-note" id="connectSettingsNote">Rentulo je zat&#237;m provozov&#225;no pouze v &#268;esk&#233; republice. Stripe &#250;&#269;et pro v&#253;platy bude proto zalo&#382;en pro &#268;esko.</p>
         <div class="actions">
-          <button type="button" class="primary-button" id="saveLanguageButton">
-            <span class="button-label-default" id="settingsLanguageSaveLabel">Uložit jazyk</span>
-            <span class="button-label-loading" id="settingsLanguageSavingLabel">Ukládám…</span>
-          </button>
-          <span class="message" id="languageMessage" role="status" aria-live="polite"></span>
+          <button type="button" class="primary-button" id="connectSettingsButton" disabled><span class="button-label-default" id="connectSettingsButtonLabel">Nastavit v&#253;platy p&#345;es Stripe</span><span class="button-label-loading" id="connectSettingsButtonLoading">Otev&#237;r&#225;m Stripe&#8230;</span></button>
+          <span class="message" id="connectSettingsMessage" role="status" aria-live="polite"></span>
         </div>
       </section>
 
       <section class="settings-card">
-        <div class="settings-card-heading">
-          <h2 data-i18n="settings.passwordTitle">Změna hesla</h2>
-          <p data-i18n="settings.passwordDescription">
-            Použijte alespoň 8 znaků, včetně malého a velkého písmene, číslice a symbolu (např. ! nebo @). Pro změnu zadejte také současné heslo.
-          </p>
-        </div>
-
-        <form id="passwordForm" novalidate>
-          <input type="email" name="username" autocomplete="username" hidden />
-
-          <div class="settings-grid">
-            <div class="field field-full">
-              <label for="currentPassword" data-i18n="settings.currentPassword">Současné heslo</label>
-              <input type="password" id="currentPassword" autocomplete="current-password" required />
-            </div>
-
-            <div class="field">
-              <label for="newPassword" data-i18n="settings.newPassword">Nové heslo</label>
-              <input type="password" id="newPassword" autocomplete="new-password" minlength="8" required />
-            </div>
-
-            <div class="field">
-              <label for="confirmPassword" data-i18n="settings.confirmPassword">Potvrzení nového hesla</label>
-              <input type="password" id="confirmPassword" autocomplete="new-password" minlength="8" required />
-            </div>
-          </div>
-
-          <div class="actions">
-            <button type="submit" class="primary-button" id="changePasswordButton">
-              <span class="button-label-default" data-i18n="settings.changePassword">Změnit heslo</span>
-              <span class="button-label-loading" data-i18n="settings.changingPassword">Měním heslo…</span>
-            </button>
-            <span class="message" id="passwordMessage" role="status" aria-live="polite"></span>
-          </div>
-        </form>
+        <div class="settings-card-heading"><h2 data-i18n="settings.passwordTitle">Zm&#283;na hesla</h2><p data-i18n="settings.passwordDescription">Pou&#382;ijte alespo&#328; 8 znak&#367;, v&#269;etn&#283; mal&#233;ho a velk&#233;ho p&#237;smene, &#269;&#237;slice a symbolu (nap&#345;. ! nebo @). Pro zm&#283;nu zadejte tak&#233; sou&#269;asn&#233; heslo.</p></div>
+        <form id="passwordForm" novalidate><input type="email" name="username" autocomplete="username" hidden /><div class="settings-grid"><div class="field field-full"><label for="currentPassword" data-i18n="settings.currentPassword">Sou&#269;asn&#233; heslo</label><input type="password" id="currentPassword" autocomplete="current-password" required /></div><div class="field"><label for="newPassword" data-i18n="settings.newPassword">Nov&#233; heslo</label><input type="password" id="newPassword" autocomplete="new-password" minlength="8" required /></div><div class="field"><label for="confirmPassword" data-i18n="settings.confirmPassword">Potvrzen&#237; nov&#233;ho hesla</label><input type="password" id="confirmPassword" autocomplete="new-password" minlength="8" required /></div></div><div class="actions"><button type="submit" class="primary-button" id="changePasswordButton"><span class="button-label-default" data-i18n="settings.changePassword">Zm&#283;nit heslo</span><span class="button-label-loading" data-i18n="settings.changingPassword">M&#283;n&#237;m heslo&#8230;</span></button><span class="message" id="passwordMessage" role="status" aria-live="polite"></span></div></form>
       </section>
 
       <section class="settings-card danger-card" id="accountCancellationSection">
-        <div class="settings-card-heading">
-          <h2 data-i18n="settings.cancelAccountTitle">Zrušení účtu</h2>
-          <p data-i18n="settings.cancelAccountDescription">
-            Zrušení účtu je nevratné. Pokud máte rozpracované rezervace, nejprve je musíte dokončit nebo zrušit. Vaše aktivní nabídky se při zrušení skryjí.
-          </p>
-        </div>
-
-        <p class="danger-note" data-i18n="settings.cancelAccountRetentionNote">
-          Historické údaje o dokončených rezervacích, platbách a hodnoceních mohou zůstat zachované po dobu nutnou pro právní, účetní nebo bezpečnostní povinnosti.
-        </p>
-
-        <div class="actions">
-          <button type="button" class="danger-button" id="checkAccountCancellationButton">
-            <span class="button-label-default" data-i18n="settings.cancelAccountCheck">Zkontrolovat možnost zrušení</span>
-            <span class="button-label-loading" data-i18n="settings.cancelAccountChecking">Kontroluji…</span>
-          </button>
-          <span class="message" id="accountCancellationMessage" role="status" aria-live="polite"></span>
-        </div>
-
-        <form class="danger-confirmation" id="accountCancellationConfirmation" hidden>
-          <input type="email" name="username" autocomplete="username" hidden />
-
-          <p data-i18n="settings.cancelAccountConfirmIntro">
-            Pro dokončení zrušení potvrďte, že rozumíte následkům, a zadejte své současné heslo.
-          </p>
-
-          <div class="field">
-            <label for="cancelAccountPassword" data-i18n="settings.cancelAccountPasswordLabel">Současné heslo</label>
-            <input type="password" id="cancelAccountPassword" autocomplete="current-password" />
-          </div>
-
-          <label class="danger-checkbox" for="cancelAccountAcknowledge">
-            <input type="checkbox" id="cancelAccountAcknowledge" />
-            <span data-i18n="settings.cancelAccountConfirmLabel">
-              Rozumím, že zrušením ztratím přístup k účtu a že tuto akci nelze běžně vrátit zpět.
-            </span>
-          </label>
-
-          <div class="actions">
-            <button type="button" class="danger-button danger-button-final" id="cancelAccountButton" disabled>
-              <span class="button-label-default" data-i18n="settings.cancelAccountFinalButton">Trvale zrušit účet</span>
-              <span class="button-label-loading" data-i18n="settings.cancelAccountCancelling">Ruším účet…</span>
-            </button>
-          </div>
-        </form>
+        <div class="settings-card-heading"><h2 data-i18n="settings.cancelAccountTitle">Zru&#353;en&#237; &#250;&#269;tu</h2><p data-i18n="settings.cancelAccountDescription">Zru&#353;en&#237; &#250;&#269;tu je nevratn&#233;. Pokud m&#225;te rozpracovan&#233; rezervace, nejprve je mus&#237;te dokon&#269;it nebo zru&#353;it. Va&#353;e aktivn&#237; nab&#237;dky se p&#345;i zru&#353;en&#237; skryj&#237;.</p></div>
+        <p class="danger-note" data-i18n="settings.cancelAccountRetentionNote">Historick&#233; &#250;daje o dokon&#269;en&#253;ch rezervac&#237;ch, platb&#225;ch a hodnocen&#237;ch mohou z&#367;stat zachovan&#233; po dobu nutnou pro pr&#225;vn&#237;, &#250;&#269;etn&#237; nebo bezpe&#269;nostn&#237; povinnosti.</p>
+        <div class="actions"><button type="button" class="danger-button" id="checkAccountCancellationButton"><span class="button-label-default" data-i18n="settings.cancelAccountCheck">Zkontrolovat mo&#382;nost zru&#353;en&#237;</span><span class="button-label-loading" data-i18n="settings.cancelAccountChecking">Kontroluji&#8230;</span></button><span class="message" id="accountCancellationMessage" role="status" aria-live="polite"></span></div>
+        <form class="danger-confirmation" id="accountCancellationConfirmation" hidden><input type="email" name="username" autocomplete="username" hidden /><p data-i18n="settings.cancelAccountConfirmIntro">Pro dokon&#269;en&#237; zru&#353;en&#237; potvr&#271;te, &#382;e rozum&#237;te n&#225;sledk&#367;m, a zadejte sv&#233; sou&#269;asn&#233; heslo.</p><div class="field"><label for="cancelAccountPassword" data-i18n="settings.cancelAccountPasswordLabel">Sou&#269;asn&#233; heslo</label><input type="password" id="cancelAccountPassword" autocomplete="current-password" /></div><label class="danger-checkbox" for="cancelAccountAcknowledge"><input type="checkbox" id="cancelAccountAcknowledge" /><span data-i18n="settings.cancelAccountConfirmLabel">Rozum&#237;m, &#382;e zru&#353;en&#237;m ztrat&#237;m p&#345;&#237;stup k &#250;&#269;tu a &#382;e tuto akci nelze b&#283;&#382;n&#283; vr&#225;tit zp&#283;t.</span></label><div class="actions"><button type="button" class="danger-button danger-button-final" id="cancelAccountButton" disabled><span class="button-label-default" data-i18n="settings.cancelAccountFinalButton">Trvale zru&#353;it &#250;&#269;et</span><span class="button-label-loading" data-i18n="settings.cancelAccountCancelling">Ru&#353;&#237;m &#250;&#269;et&#8230;</span></button></div></form>
       </section>
     </div>
   </main>
-
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/supabase-config.js"></script>
   <script src="js/utils.js"></script>
@@ -234,5 +85,6 @@
   <script src="js/password-visibility.js"></script>
   <script src="js/settings-page.js"></script>
   <script src="js/settings-language.js"></script>
+  <script src="js/connect-settings.js"></script>
 </body>
 </html>

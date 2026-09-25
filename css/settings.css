@@ -172,6 +172,44 @@ html[data-focus-input="pointer"] .field select:focus {
   line-height: 1.45;
 }
 
+.connect-status-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+}
+
+.connect-status-label {
+  color: var(--rentulo-muted, #64706b);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.connect-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid #d4e3dc;
+  border-radius: 999px;
+  background: #edf5f1;
+  color: var(--rentulo-green-dark, #0e5037);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.connect-status[data-status="restricted"] {
+  border-color: #efc9c4;
+  background: #fff8f7;
+  color: #a53229;
+}
+
+.connect-status[data-status="ready"] {
+  border-color: #cfe4da;
+  background: #f2f8f5;
+  color: #28743c;
+}
+
 .actions {
   display: flex;
   align-items: center;
@@ -389,9 +427,14 @@ html[data-focus-input="pointer"] .field select:focus {
   }
 
   .settings-load-state,
-  .actions {
+  .actions,
+  .connect-status-row {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .connect-status {
+    align-self: flex-start;
   }
 
   .primary-button,
