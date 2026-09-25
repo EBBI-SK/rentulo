@@ -281,6 +281,45 @@ async function beginEvent(
   };
 }
 
+async function sendPaidReservationEmail(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  reservationId: string,
+): Promise<{ ok: boolean; error: string | null }> {
+  let emailResponse: Response;
+
+  try {
+    emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-reservation-email`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceRoleKey}`,
+        apikey: serviceRoleKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        reservation_id: reservationId,
+        event: "paid",
+      }),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("stripe-webhook: paid email request failed", message);
+    return { ok: false, error: `Paid email request failed: ${message}` };
+  }
+
+  if (emailResponse.ok) {
+    return { ok: true, error: null };
+  }
+
+  const responseBody = await emailResponse.text().catch(() => "");
+  const message = responseBody
+    ? `Paid email delivery failed (${emailResponse.status}): ${responseBody.slice(0, 500)}`
+    : `Paid email delivery failed (${emailResponse.status})`;
+
+  console.error("stripe-webhook: paid email delivery failed", message);
+  return { ok: false, error: message };
+}
+
 denoRuntime.serve(async (req) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
@@ -397,6 +436,21 @@ denoRuntime.serve(async (req) => {
       last_error: completion.error.message,
     });
     return jsonResponse({ error: "Payment completion failed" }, 500);
+  }
+
+  const paidEmail = await sendPaidReservationEmail(
+    supabaseUrl,
+    serviceRoleKey,
+    reservationId,
+  );
+
+  if (!paidEmail.ok) {
+    await updateEventStatus(admin, stripeEventId, "failed", {
+      payment_id: paymentId,
+      reservation_id: reservationId,
+      last_error: paidEmail.error || "Paid reservation email failed",
+    });
+    return jsonResponse({ error: "Paid reservation email failed" }, 500);
   }
 
   const finalized = await updateEventStatus(admin, stripeEventId, "processed", {

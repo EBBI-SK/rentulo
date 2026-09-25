@@ -83,6 +83,14 @@ const templates = {
   },
 } as const;
 
+type SupportedLanguage = keyof typeof templates;
+
+function normalizeLanguage(value: unknown): SupportedLanguage {
+  return value === "sk" || value === "en" || value === "de" || value === "pl"
+    ? value
+    : "cs";
+}
+
 function escapeHtml(value: unknown): string {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -120,16 +128,22 @@ denoRuntime.serve(async (req) => {
   }
 
   const authHeader = req.headers.get("Authorization") || "";
-  const userClient = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: authHeader } },
-  });
+  const isServiceRoleCall = authHeader === `Bearer ${serviceRoleKey}`;
   const admin = createClient(supabaseUrl, serviceRoleKey);
+  let actorId: string | null = null;
 
-  const { data: userData, error: userError } = await userClient.auth.getUser();
-  const actor = userData.user;
+  if (!isServiceRoleCall) {
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: userData, error: userError } = await userClient.auth.getUser();
+    const actor = userData.user;
 
-  if (userError || !actor) {
-    return response({ error: "Unauthorized" }, 401);
+    if (userError || !actor) {
+      return response({ error: "Unauthorized" }, 401);
+    }
+
+    actorId = actor.id;
   }
 
   let payload: { reservation_id?: string; event?: EmailEvent };
@@ -146,6 +160,10 @@ denoRuntime.serve(async (req) => {
     return response({ error: "Invalid request" }, 400);
   }
 
+  if (isServiceRoleCall && event !== "paid") {
+    return response({ error: "Service role is only allowed for paid email events" }, 403);
+  }
+
   const { data: reservation, error: reservationError } = await admin
     .from("reservations")
     .select("id, offer_id, owner_id, renter_id, offer_name, start_date, end_date, status")
@@ -160,12 +178,16 @@ denoRuntime.serve(async (req) => {
     return response({ error: "Reservation status does not match the email event" }, 409);
   }
 
-  const actorIsOwner = actor.id === reservation.owner_id;
-  const actorIsRenter = actor.id === reservation.renter_id;
+  const actorIsOwner = actorId === reservation.owner_id;
+  const actorIsRenter = actorId === reservation.renter_id;
   const ownerEvents: EmailEvent[] = ["approved", "rejected", "picked_up", "returned"];
   const renterEvents: EmailEvent[] = ["new_request", "paid", "cancelled"];
 
-  if ((ownerEvents.includes(event) && !actorIsOwner) || (renterEvents.includes(event) && !actorIsRenter)) {
+  if (
+    !isServiceRoleCall &&
+    ((ownerEvents.includes(event) && !actorIsOwner) ||
+      (renterEvents.includes(event) && !actorIsRenter))
+  ) {
     return response({ error: "User is not allowed to send this email event" }, 403);
   }
 
@@ -195,16 +217,14 @@ denoRuntime.serve(async (req) => {
       continue;
     }
 
-    const language = profile.preferred_language === "sk" || profile.preferred_language === "en" || profile.preferred_language === "de" || profile.preferred_language === "pl"
-      ? profile.preferred_language
-      : "cs";
+    const language = normalizeLanguage(profile.preferred_language);
     const [subject, intro] = templates[language][event];
     const recipientIsOwner = profile.id === reservation.owner_id;
     const detailUrl = `${siteUrl}/${recipientIsOwner ? "moje-nabidky.html" : "moje-rezervace.html"}`;
     const offerName = reservation.offer_name || "Rentulo";
     const dateText = `${reservation.start_date} – ${reservation.end_date}`;
 
-    const { data: logRow, error: logError } = await admin
+    const { data: insertedLogRow, error: logError } = await admin
       .from("reservation_email_deliveries")
       .insert({
         reservation_id: reservation.id,
@@ -216,11 +236,51 @@ denoRuntime.serve(async (req) => {
       .select("id")
       .single();
 
+    let logRow = insertedLogRow;
+
     if (logError) {
-      if (logError.code === "23505") {
+      if (logError.code !== "23505") {
+        return response({ error: "Email delivery log failed" }, 500);
+      }
+
+      const { data: existingDelivery, error: existingDeliveryError } = await admin
+        .from("reservation_email_deliveries")
+        .select("id, status")
+        .eq("reservation_id", reservation.id)
+        .eq("event_type", event)
+        .eq("recipient_id", profile.id)
+        .single();
+
+      if (existingDeliveryError || !existingDelivery) {
+        return response({ error: "Existing email delivery lookup failed" }, 500);
+      }
+
+      if (existingDelivery.status !== "failed") {
         results.push({ recipient_id: profile.id, status: "duplicate" });
         continue;
       }
+
+      const { data: retryLogRow, error: retryLogError } = await admin
+        .from("reservation_email_deliveries")
+        .update({
+          recipient_email: profile.email,
+          status: "sending",
+          provider_message_id: null,
+          error_message: null,
+          sent_at: null,
+        })
+        .eq("id", existingDelivery.id)
+        .select("id")
+        .single();
+
+      if (retryLogError || !retryLogRow) {
+        return response({ error: "Failed email delivery could not be retried" }, 500);
+      }
+
+      logRow = retryLogRow;
+    }
+
+    if (!logRow) {
       return response({ error: "Email delivery log failed" }, 500);
     }
 
