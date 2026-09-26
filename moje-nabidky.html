@@ -153,7 +153,6 @@
       color: #334c43 !important;
     }
 
-    /* Attention states remain orange, but use a softer peach palette. */
     .request-status,
     .request-note {
       background: #fff3e8 !important;
@@ -178,7 +177,6 @@
       background: #e85f00 !important;
     }
 
-    /* Paid reservation row: give the next step more breathing room without adding visual noise. */
     .request-row {
       min-height: 56px !important;
       column-gap: 14px !important;
@@ -242,16 +240,36 @@
     <a href="index.html" class="back-link" data-rentulo-back="true" data-i18n="offers.back">← Zpět</a>
 
     <section class="account-page-header">
-
-
       <h1 data-i18n="offers.heading">Moje nabídky</h1>
-
       <p data-i18n="offers.description">Spravujte své nabídky a žádosti zájemců.</p>
-
       <a href="nabidnout.html" class="top-action-button" data-i18n="offers.addItem">Přidat nabídku</a>
     </section>
 
     <div class="account-message" id="accountMessage"></div>
+
+    <section class="pickup-handoff-entry" id="pickupHandoffEntry" aria-labelledby="pickupHandoffTitle" hidden>
+      <div class="pickup-handoff-copy">
+        <h2 id="pickupHandoffTitle">Předáváte věc nájemci?</h2>
+        <p id="pickupHandoffDescription">Zadejte 6místný PIN od nájemce. Rentulo najde správnou rezervaci za vás.</p>
+        <p class="pickup-handoff-feedback" id="pickupHandoffFeedback" role="status" aria-live="polite"></p>
+      </div>
+
+      <button type="button" class="pickup-handoff-open" id="pickupHandoffOpen">Zadat PIN</button>
+
+      <form class="pickup-handoff-form" id="pickupHandoffForm" novalidate hidden>
+        <input
+          class="pickup-handoff-input"
+          id="pickupHandoffPin"
+          type="text"
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          maxlength="6"
+          pattern="[0-9]{6}"
+          aria-label="6místný PIN"
+        />
+        <button type="button" class="pickup-handoff-cancel" id="pickupHandoffCancel">Zrušit</button>
+      </form>
+    </section>
 
     <section class="account-list" id="offersList"></section>
 
@@ -291,7 +309,7 @@
 
   </main>
 
- <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase-config.js"></script>
 <script src="js/utils.js"></script>
 <script src="js/offer-utils.js"></script>
