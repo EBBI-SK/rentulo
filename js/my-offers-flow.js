@@ -163,6 +163,7 @@
     const requestCards = Array.from(panel.querySelectorAll(".request-card"));
     const pendingCount = panel.querySelectorAll('[data-offers-action="approve-reservation"]').length;
     const pickupCount = panel.querySelectorAll('[data-offers-action="mark-picked-up"]').length;
+    const waitingPaymentCount = panel.querySelectorAll(".request-status.active").length;
     const returnCount = panel.querySelectorAll('[data-offers-action="mark-returned"]').length;
 
     if (pendingCount > 0) {
@@ -171,6 +172,10 @@
 
     if (pickupCount > 0) {
       return { kind: "paid", count: pickupCount };
+    }
+
+    if (waitingPaymentCount > 0) {
+      return { kind: "reservation", count: waitingPaymentCount };
     }
 
     if (returnCount > 0) {
