@@ -119,9 +119,10 @@ test("owner pickup streamlining avoids repeated DOM writes inside the observer",
   assert.match(source, /if \(primary && !primary\.hidden\)/);
 });
 
-test("pickup confirmation stays disabled until six digits are entered", () => {
+test("pickup PIN auto-submits only after exactly six digits are entered", () => {
   const source = read(UI);
-  assert.match(source, /function syncConfirmButton\(\)/);
-  assert.match(source, /confirmButton\.disabled = !\/\^\\d\{6\}\$\/\.test\(input\.value\.trim\(\)\)/);
-  assert.match(source, /event\.target\.value = event\.target\.value\.replace\(\/\\D\/g, ""\)\.slice\(0, 6\);[\s\S]*syncConfirmButton\(\)/);
+  assert.match(source, /event\.target\.value = event\.target\.value\.replace\(\/\\D\/g, ""\)\.slice\(0, 6\)/);
+  assert.match(source, /if \(\/\^\\d\{6\}\$\/\.test\(event\.target\.value\) && !modalSubmitting\)/);
+  assert.match(source, /submitPickupPin\(\)/);
+  assert.doesNotMatch(source, /function syncConfirmButton\(\)/);
 });

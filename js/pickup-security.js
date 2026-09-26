@@ -8,17 +8,17 @@
       pinLoading: "Načítám PIN…",
       pinUnavailable: "PIN teď není dostupný. Obnovte stránku a zkuste to znovu.",
       modalTitle: "Potvrdit předání",
-      modalText: "Zadejte 6místný PIN, který vám při předání sdělí nájemce.",
+      modalText: "Zadejte 6místný PIN od nájemce. Po zadání poslední číslice se předání potvrdí automaticky.",
       pinLabel: "6místný PIN",
       ownerAction: "Zadat PIN a potvrdit předání",
       cancel: "Zrušit",
-      confirm: "Potvrdit předání",
       invalid: "PIN není správný.",
       remainingOne: "Zbývá 1 pokus.",
       remainingMany: "Zbývají {count} pokusy.",
       locked: "Po 3 chybných pokusech je zadávání na 15 minut zablokované.",
       lockedUntil: "Zkuste to znovu po {time}.",
-      success: "Předání bylo potvrzeno.",
+      verifying: "Ověřuji PIN…",
+      success: "Předání potvrzeno.",
       genericError: "Předání se nepodařilo potvrdit. Zkuste to prosím znovu."
     },
     sk: {
@@ -27,17 +27,17 @@
       pinLoading: "Načítavam PIN…",
       pinUnavailable: "PIN teraz nie je dostupný. Obnovte stránku a skúste to znova.",
       modalTitle: "Potvrdiť odovzdanie",
-      modalText: "Zadajte 6-miestny PIN, ktorý vám pri odovzdaní povie nájomca.",
+      modalText: "Zadajte 6-miestny PIN od nájomcu. Po zadaní poslednej číslice sa odovzdanie potvrdí automaticky.",
       pinLabel: "6-miestny PIN",
       ownerAction: "Zadať PIN a potvrdiť odovzdanie",
       cancel: "Zrušiť",
-      confirm: "Potvrdiť odovzdanie",
       invalid: "PIN nie je správny.",
       remainingOne: "Zostáva 1 pokus.",
       remainingMany: "Zostávajú {count} pokusy.",
       locked: "Po 3 chybných pokusoch je zadávanie na 15 minút zablokované.",
       lockedUntil: "Skúste to znova po {time}.",
-      success: "Odovzdanie bolo potvrdené.",
+      verifying: "Overujem PIN…",
+      success: "Odovzdanie potvrdené.",
       genericError: "Odovzdanie sa nepodarilo potvrdiť. Skúste to prosím znova."
     },
     en: {
@@ -46,16 +46,16 @@
       pinLoading: "Loading PIN…",
       pinUnavailable: "The PIN is not available right now. Refresh the page and try again.",
       modalTitle: "Confirm handover",
-      modalText: "Enter the 6-digit PIN the renter gives you when the item is handed over.",
+      modalText: "Enter the renter's 6-digit PIN. Handover is confirmed automatically after the last digit.",
       pinLabel: "6-digit PIN",
       ownerAction: "Enter PIN and confirm handover",
       cancel: "Cancel",
-      confirm: "Confirm handover",
       invalid: "The PIN is incorrect.",
       remainingOne: "1 attempt remaining.",
       remainingMany: "{count} attempts remaining.",
       locked: "After 3 incorrect attempts, PIN entry is locked for 15 minutes.",
       lockedUntil: "Try again after {time}.",
+      verifying: "Checking PIN…",
       success: "Handover confirmed.",
       genericError: "Handover could not be confirmed. Please try again."
     },
@@ -65,16 +65,16 @@
       pinLoading: "PIN wird geladen…",
       pinUnavailable: "Der PIN ist derzeit nicht verfügbar. Laden Sie die Seite neu und versuchen Sie es erneut.",
       modalTitle: "Übergabe bestätigen",
-      modalText: "Geben Sie den 6-stelligen PIN ein, den Ihnen der Mieter bei der Übergabe nennt.",
+      modalText: "Geben Sie den 6-stelligen PIN des Mieters ein. Nach der letzten Ziffer wird die Übergabe automatisch bestätigt.",
       pinLabel: "6-stelliger PIN",
       ownerAction: "PIN eingeben und Übergabe bestätigen",
       cancel: "Abbrechen",
-      confirm: "Übergabe bestätigen",
       invalid: "Der PIN ist nicht korrekt.",
       remainingOne: "1 Versuch verbleibt.",
       remainingMany: "{count} Versuche verbleiben.",
       locked: "Nach 3 falschen Versuchen ist die PIN-Eingabe für 15 Minuten gesperrt.",
       lockedUntil: "Versuchen Sie es nach {time} erneut.",
+      verifying: "PIN wird geprüft…",
       success: "Übergabe bestätigt.",
       genericError: "Die Übergabe konnte nicht bestätigt werden. Bitte versuchen Sie es erneut."
     },
@@ -84,17 +84,17 @@
       pinLoading: "Ładowanie PIN-u…",
       pinUnavailable: "PIN nie jest teraz dostępny. Odśwież stronę i spróbuj ponownie.",
       modalTitle: "Potwierdź przekazanie",
-      modalText: "Wpisz 6-cyfrowy PIN podany przez najemcę podczas przekazania przedmiotu.",
+      modalText: "Wpisz 6-cyfrowy PIN najemcy. Po wpisaniu ostatniej cyfry przekazanie zostanie potwierdzone automatycznie.",
       pinLabel: "6-cyfrowy PIN",
       ownerAction: "Wpisz PIN i potwierdź przekazanie",
       cancel: "Anuluj",
-      confirm: "Potwierdź przekazanie",
       invalid: "PIN jest nieprawidłowy.",
       remainingOne: "Pozostała 1 próba.",
       remainingMany: "Pozostały {count} próby.",
       locked: "Po 3 błędnych próbach wpisywanie PIN-u jest zablokowane na 15 minut.",
       lockedUntil: "Spróbuj ponownie po {time}.",
-      success: "Przekazanie zostało potwierdzone.",
+      verifying: "Sprawdzam PIN…",
+      success: "Przekazanie potwierdzone.",
       genericError: "Nie udało się potwierdzić przekazania. Spróbuj ponownie."
     }
   };
@@ -177,6 +177,7 @@
   let modal = null;
   let modalReservationId = "";
   let modalReturnFocus = null;
+  let modalSubmitting = false;
 
   function ensureModal() {
     if (modal) return modal;
@@ -196,7 +197,6 @@
           <p class="pickup-confirm-feedback" id="pickupConfirmFeedback" role="status" aria-live="polite"></p>
           <div class="pickup-confirm-actions">
             <button type="button" class="pickup-modal-button pickup-modal-cancel" data-pickup-action="cancel"></button>
-            <button type="submit" class="pickup-modal-button pickup-modal-confirm" data-pickup-action="confirm"></button>
           </div>
         </form>
       </div>
@@ -211,22 +211,15 @@
 
     wrapper.querySelector("#pickupConfirmPin").addEventListener("input", function (event) {
       event.target.value = event.target.value.replace(/\D/g, "").slice(0, 6);
-      syncConfirmButton();
+      if (/^\d{6}$/.test(event.target.value) && !modalSubmitting) {
+        submitPickupPin();
+      }
     });
 
     wrapper.querySelector("#pickupConfirmForm").addEventListener("submit", submitPickupPin);
     modal = wrapper;
     refreshModalText();
-    syncConfirmButton();
     return modal;
-  }
-
-  function syncConfirmButton() {
-    if (!modal) return;
-    const input = modal.querySelector("#pickupConfirmPin");
-    const confirmButton = modal.querySelector('[data-pickup-action="confirm"]');
-    if (!input || !confirmButton) return;
-    confirmButton.disabled = !/^\d{6}$/.test(input.value.trim());
   }
 
   function refreshModalText() {
@@ -235,22 +228,24 @@
     modal.querySelector("#pickupConfirmDescription").textContent = text("modalText");
     modal.querySelector(".pickup-pin-label").textContent = text("pinLabel");
     modal.querySelector('[data-pickup-action="cancel"]').textContent = text("cancel");
-    modal.querySelector('[data-pickup-action="confirm"]').textContent = text("confirm");
   }
 
   function openModal(reservationId, returnFocus) {
     const element = ensureModal();
     modalReservationId = reservationId;
     modalReturnFocus = returnFocus || document.activeElement;
+    modalSubmitting = false;
     refreshModalText();
-    element.querySelector("#pickupConfirmPin").value = "";
+    const input = element.querySelector("#pickupConfirmPin");
+    input.value = "";
+    input.disabled = false;
     element.querySelector("#pickupConfirmFeedback").textContent = "";
-    syncConfirmButton();
+    element.querySelector('[data-pickup-action="cancel"]').disabled = false;
     element.hidden = false;
     element.setAttribute("aria-hidden", "false");
     document.body.classList.add("pickup-modal-open");
     setTimeout(function () {
-      element.querySelector("#pickupConfirmPin").focus();
+      input.focus();
     }, 0);
   }
 
@@ -260,6 +255,7 @@
     modal.setAttribute("aria-hidden", "true");
     document.body.classList.remove("pickup-modal-open");
     modalReservationId = "";
+    modalSubmitting = false;
     if (modalReturnFocus && modalReturnFocus.isConnected && typeof modalReturnFocus.focus === "function") {
       modalReturnFocus.focus();
     }
@@ -267,12 +263,12 @@
   }
 
   async function submitPickupPin(event) {
-    event.preventDefault();
-    if (!modalReservationId) return;
+    if (event) event.preventDefault();
+    if (!modalReservationId || modalSubmitting) return;
 
     const input = modal.querySelector("#pickupConfirmPin");
     const feedback = modal.querySelector("#pickupConfirmFeedback");
-    const confirmButton = modal.querySelector('[data-pickup-action="confirm"]');
+    const cancelButton = modal.querySelector('[data-pickup-action="cancel"]');
     const pin = input.value.trim();
 
     if (!/^\d{6}$/.test(pin)) {
@@ -281,9 +277,10 @@
       return;
     }
 
-    confirmButton.disabled = true;
+    modalSubmitting = true;
     input.disabled = true;
-    feedback.textContent = "";
+    cancelButton.disabled = true;
+    feedback.textContent = text("verifying");
 
     try {
       const result = await invoke("confirm-pickup", {
@@ -293,8 +290,8 @@
 
       if (result.ok && result.data && result.data.status === "picked_up") {
         const reservationId = modalReservationId;
-        closeModal();
-        setOwnerMessage(text("success"), "success");
+        feedback.textContent = text("success");
+
         if (typeof window.apiSendReservationEmail === "function") {
           try {
             await window.apiSendReservationEmail(reservationId, "picked_up");
@@ -302,9 +299,12 @@
             // Pickup remains confirmed even if the optional notification fails.
           }
         }
+
         window.setTimeout(function () {
+          closeModal();
+          setOwnerMessage(text("success"), "success");
           window.location.reload();
-        }, 450);
+        }, 650);
         return;
       }
 
@@ -325,15 +325,17 @@
             : text("remainingMany", { count: remaining })
         );
         input.value = "";
-        syncConfirmButton();
         input.focus();
         return;
       }
 
       feedback.textContent = text("genericError");
     } finally {
-      input.disabled = false;
-      syncConfirmButton();
+      if (!modal.hidden) {
+        input.disabled = false;
+        cancelButton.disabled = false;
+      }
+      modalSubmitting = false;
     }
   }
 
