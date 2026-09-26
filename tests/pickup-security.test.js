@@ -129,3 +129,10 @@ test("inline pickup auto-submits only after exactly six digits are entered", () 
   assert.match(source, /if \(\/\^\\d\{6\}\$\/\.test\(event\.target\.value\) && form\.dataset\.submitting !== "true"\)/);
   assert.match(source, /submitInlinePickup\(form, returnFocus\)/);
 });
+
+test("offers observer does not watch class changes and cannot retrigger itself from UX class updates", () => {
+  const source = read(UI);
+  assert.match(source, /observer\.observe\(offersList, \{ childList: true, subtree: true \}\)/);
+  assert.doesNotMatch(source, /observer\.observe\(offersList,[\s\S]*attributes:\s*true/);
+  assert.doesNotMatch(source, /attributeFilter:\s*\["class"\]/);
+});

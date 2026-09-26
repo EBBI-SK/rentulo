@@ -409,7 +409,7 @@
     const offersList = document.getElementById("offersList");
     if (offersList) {
       const observer = new MutationObserver(function () { streamlineOwnerPickupActions(); });
-      observer.observe(offersList, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+      observer.observe(offersList, { childList: true, subtree: true });
       streamlineOwnerPickupActions();
     }
   });
