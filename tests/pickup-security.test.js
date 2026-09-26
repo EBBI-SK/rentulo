@@ -122,7 +122,7 @@ test("owner handoff starts from one clear PIN entry above the offers", () => {
 test("paid reservation handoff buttons stay hidden until the entered PIN resolves to that reservation", () => {
   const source = read(UI);
   const css = read(CSS);
-  assert.match(source, /button\.hidden = !isVerified/);
+  assert.match(source, /button\.hidden !== shouldBeHidden/);
   assert.match(source, /reservationId === verifiedReservationId/);
   assert.match(css, /data-offers-action="mark-picked-up"\]\[hidden\]/);
   assert.doesNotMatch(source, /pickup-primary-handover/);
@@ -155,8 +155,13 @@ test("pickup UI supports all five languages", () => {
   }
 });
 
-test("offers observer only watches DOM children and cannot loop on class changes", () => {
+test("offers pickup refresh is coalesced and idempotent so DOM updates cannot loop", () => {
   const source = read(UI);
-  assert.match(source, /observer\.observe\(offersList, \{ childList: true, subtree: true \}\)/);
+  assert.match(source, /let ownerPickupRefreshScheduled = false/);
+  assert.match(source, /if \(ownerPickupRefreshScheduled\) return/);
+  assert.match(source, /window\.requestAnimationFrame\(function \(\) \{/);
+  assert.match(source, /if \(primary\.textContent !== label\) primary\.textContent = label/);
+  assert.match(source, /if \(button\.textContent !== label\) button\.textContent = label/);
+  assert.match(source, /new MutationObserver\(scheduleOwnerPickupRefresh\)/);
   assert.doesNotMatch(source, /attributeFilter:\s*\["class"\]/);
 });

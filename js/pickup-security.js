@@ -238,9 +238,11 @@
     buttons.forEach(function (button) {
       const reservationId = button.dataset.reservationId || "";
       const isVerified = Boolean(verifiedReservationId && reservationId === verifiedReservationId);
-      button.hidden = !isVerified;
+      const shouldBeHidden = !isVerified;
+      if (button.hidden !== shouldBeHidden) button.hidden = shouldBeHidden;
       if (isVerified) {
-        button.textContent = text("confirmAction");
+        const label = text("confirmAction");
+        if (button.textContent !== label) button.textContent = label;
         button.classList.add("pickup-confirm-ready");
       } else {
         button.classList.remove("pickup-confirm-ready");
@@ -255,13 +257,15 @@
       const hasPickup = Boolean(panel.querySelector('[data-offers-action="mark-picked-up"]'));
       const hasOtherOwnerAction = Boolean(panel.querySelector('[data-offers-action="approve-reservation"], [data-offers-action="reject-reservation"]'));
       if (hasPickup && !hasOtherOwnerAction) {
-        primary.textContent = text("showReservations");
+        const label = text("showReservations");
+        if (primary.textContent !== label) primary.textContent = label;
         primary.classList.remove("urgent");
       }
     });
 
     if (elements.wrapper) {
-      elements.wrapper.hidden = buttons.length === 0;
+      const shouldBeHidden = buttons.length === 0;
+      if (elements.wrapper.hidden !== shouldBeHidden) elements.wrapper.hidden = shouldBeHidden;
     }
   }
 
@@ -506,12 +510,22 @@
     }
   }
 
+  let ownerPickupRefreshScheduled = false;
+  function scheduleOwnerPickupRefresh() {
+    if (ownerPickupRefreshScheduled) return;
+    ownerPickupRefreshScheduled = true;
+    window.requestAnimationFrame(function () {
+      ownerPickupRefreshScheduled = false;
+      updateOwnerPickupButtons();
+      if (verifiedReservationId) showMatchedReservation(verifiedReservationId);
+    });
+  }
+
   document.addEventListener("click", interceptOwnerPickup, true);
   document.addEventListener("rentuloLanguageChanged", function () {
     refreshHandoffText();
     resetRenterEnhancements();
-    updateOwnerPickupButtons();
-    if (verifiedReservationId) showMatchedReservation(verifiedReservationId);
+    scheduleOwnerPickupRefresh();
   });
 
   document.addEventListener("DOMContentLoaded", function () {
@@ -526,12 +540,9 @@
 
     const offersList = document.getElementById("offersList");
     if (offersList) {
-      const observer = new MutationObserver(function () {
-        updateOwnerPickupButtons();
-        if (verifiedReservationId) showMatchedReservation(verifiedReservationId);
-      });
+      const observer = new MutationObserver(scheduleOwnerPickupRefresh);
       observer.observe(offersList, { childList: true, subtree: true });
-      updateOwnerPickupButtons();
+      scheduleOwnerPickupRefresh();
     }
   });
 })();
