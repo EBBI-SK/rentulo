@@ -102,3 +102,19 @@ test("pickup UI intercepts legacy direct handover action and supports all five l
     assert.match(source, new RegExp("\\b" + language + ": \\{"));
   }
 });
+
+test("paid owner handover is exposed directly on the concrete reservation", () => {
+  const source = read(UI);
+  assert.match(source, /ownerAction: "Zadat PIN a potvrdit předání"/);
+  assert.match(source, /pickupButtons\.forEach/);
+  assert.match(source, /button\.textContent = text\("ownerAction"\)/);
+  assert.match(source, /panel\.classList\.add\("open"\)/);
+  assert.match(source, /primary\.hidden = true/);
+});
+
+test("pickup confirmation stays disabled until six digits are entered", () => {
+  const source = read(UI);
+  assert.match(source, /function syncConfirmButton\(\)/);
+  assert.match(source, /confirmButton\.disabled = !\/\^\\d\{6\}\$\/\.test\(input\.value\.trim\(\)\)/);
+  assert.match(source, /event\.target\.value = event\.target\.value\.replace\(\/\\D\/g, ""\)\.slice\(0, 6\);[\s\S]*syncConfirmButton\(\)/);
+});

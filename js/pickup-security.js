@@ -10,6 +10,7 @@
       modalTitle: "Potvrdit předání",
       modalText: "Zadejte 6místný PIN, který vám při předání sdělí nájemce.",
       pinLabel: "6místný PIN",
+      ownerAction: "Zadat PIN a potvrdit předání",
       cancel: "Zrušit",
       confirm: "Potvrdit předání",
       invalid: "PIN není správný.",
@@ -28,6 +29,7 @@
       modalTitle: "Potvrdiť odovzdanie",
       modalText: "Zadajte 6-miestny PIN, ktorý vám pri odovzdaní povie nájomca.",
       pinLabel: "6-miestny PIN",
+      ownerAction: "Zadať PIN a potvrdiť odovzdanie",
       cancel: "Zrušiť",
       confirm: "Potvrdiť odovzdanie",
       invalid: "PIN nie je správny.",
@@ -46,6 +48,7 @@
       modalTitle: "Confirm handover",
       modalText: "Enter the 6-digit PIN the renter gives you when the item is handed over.",
       pinLabel: "6-digit PIN",
+      ownerAction: "Enter PIN and confirm handover",
       cancel: "Cancel",
       confirm: "Confirm handover",
       invalid: "The PIN is incorrect.",
@@ -64,6 +67,7 @@
       modalTitle: "Übergabe bestätigen",
       modalText: "Geben Sie den 6-stelligen PIN ein, den Ihnen der Mieter bei der Übergabe nennt.",
       pinLabel: "6-stelliger PIN",
+      ownerAction: "PIN eingeben und Übergabe bestätigen",
       cancel: "Abbrechen",
       confirm: "Übergabe bestätigen",
       invalid: "Der PIN ist nicht korrekt.",
@@ -82,6 +86,7 @@
       modalTitle: "Potwierdź przekazanie",
       modalText: "Wpisz 6-cyfrowy PIN podany przez najemcę podczas przekazania przedmiotu.",
       pinLabel: "6-cyfrowy PIN",
+      ownerAction: "Wpisz PIN i potwierdź przekazanie",
       cancel: "Anuluj",
       confirm: "Potwierdź przekazanie",
       invalid: "PIN jest nieprawidłowy.",
@@ -206,12 +211,22 @@
 
     wrapper.querySelector("#pickupConfirmPin").addEventListener("input", function (event) {
       event.target.value = event.target.value.replace(/\D/g, "").slice(0, 6);
+      syncConfirmButton();
     });
 
     wrapper.querySelector("#pickupConfirmForm").addEventListener("submit", submitPickupPin);
     modal = wrapper;
     refreshModalText();
+    syncConfirmButton();
     return modal;
+  }
+
+  function syncConfirmButton() {
+    if (!modal) return;
+    const input = modal.querySelector("#pickupConfirmPin");
+    const confirmButton = modal.querySelector('[data-pickup-action="confirm"]');
+    if (!input || !confirmButton) return;
+    confirmButton.disabled = !/^\d{6}$/.test(input.value.trim());
   }
 
   function refreshModalText() {
@@ -230,6 +245,7 @@
     refreshModalText();
     element.querySelector("#pickupConfirmPin").value = "";
     element.querySelector("#pickupConfirmFeedback").textContent = "";
+    syncConfirmButton();
     element.hidden = false;
     element.setAttribute("aria-hidden", "false");
     document.body.classList.add("pickup-modal-open");
@@ -309,14 +325,15 @@
             : text("remainingMany", { count: remaining })
         );
         input.value = "";
+        syncConfirmButton();
         input.focus();
         return;
       }
 
       feedback.textContent = text("genericError");
     } finally {
-      confirmButton.disabled = false;
       input.disabled = false;
+      syncConfirmButton();
     }
   }
 
@@ -329,6 +346,32 @@
     const reservationId = button.dataset.reservationId || "";
     if (!reservationId) return;
     openModal(reservationId, button);
+  }
+
+  function streamlineOwnerPickupActions() {
+    document.querySelectorAll(".simple-offer-record").forEach(function (record) {
+      const panel = record.querySelector(":scope > .request-panel");
+      if (!panel) return;
+
+      const pickupButtons = Array.from(panel.querySelectorAll('[data-offers-action="mark-picked-up"]'));
+      if (!pickupButtons.length) return;
+
+      pickupButtons.forEach(function (button) {
+        button.textContent = text("ownerAction");
+      });
+
+      const hasOtherImmediateOwnerAction = Boolean(
+        panel.querySelector('[data-offers-action="approve-reservation"], [data-offers-action="mark-returned"]')
+      );
+
+      if (!hasOtherImmediateOwnerAction) {
+        panel.classList.add("open");
+        const primary = record.querySelector(':scope > .simple-offer-row > .simple-offer-actions > .offer-primary-button[data-offers-action="open-offer-requests"]');
+        if (primary) {
+          primary.hidden = true;
+        }
+      }
+    });
   }
 
   async function loadRenterPin(row, reservationId, block) {
@@ -389,6 +432,7 @@
   document.addEventListener("rentuloLanguageChanged", function () {
     refreshModalText();
     resetRenterEnhancements();
+    streamlineOwnerPickupActions();
   });
 
   document.addEventListener("DOMContentLoaded", function () {
@@ -399,6 +443,15 @@
       });
       observer.observe(reservationsList, { childList: true, subtree: true });
       enhanceRenterRows();
+    }
+
+    const offersList = document.getElementById("offersList");
+    if (offersList) {
+      const observer = new MutationObserver(function () {
+        streamlineOwnerPickupActions();
+      });
+      observer.observe(offersList, { childList: true, subtree: true });
+      streamlineOwnerPickupActions();
     }
   });
 })();
