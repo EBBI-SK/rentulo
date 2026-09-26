@@ -109,12 +109,15 @@ test("successful pickup triggers internal owner transfer without rolling pickup 
   assert.match(source, /will require retry/);
 });
 
-test("owner handoff starts from one clear PIN entry above the offers", () => {
+test("owner handoff starts from one clear PIN entry above the offers without a cancel action", () => {
   const html = read(OFFERS_HTML);
   const source = read(UI);
   assert.match(html, /id="pickupHandoffEntry"/);
   assert.match(html, /id="pickupHandoffOpen"/);
   assert.match(html, /id="pickupHandoffPin"/);
+  assert.match(html, /id="pickupHandoffMatch"/);
+  assert.match(html, /id="pickupHandoffChange"/);
+  assert.doesNotMatch(html, /id="pickupHandoffCancel"/);
   assert.match(source, /invoke\("resolve-pickup-pin", \{ pin: pin \}\)/);
   assert.match(source, /Rentulo najde správnou rezervaci za vás/);
 });
@@ -131,19 +134,24 @@ test("paid reservation handoff buttons stay hidden until the entered PIN resolve
   assert.match(source, /primary\.classList\.remove\("urgent"\)/);
 });
 
-test("verified PIN opens and highlights exactly the matched reservation", () => {
+test("verified PIN renders only the matched reservation in the handoff block", () => {
   const source = read(UI);
-  assert.match(source, /data-reservation-id/);
+  const css = read(CSS);
+  assert.match(source, /#offersList \[data-offers-action="mark-picked-up"\]\[data-reservation-id=/);
   assert.match(source, /CSS\.escape\(reservationId\)/);
-  assert.match(source, /panel\.classList\.add\("open"\)/);
-  assert.match(source, /card\.classList\.add\("pickup-matched-reservation"\)/);
-  assert.match(source, /pickup-verified-note/);
-  assert.match(source, /scrollIntoView\(\{ behavior: "smooth", block: "center" \}\)/);
+  assert.match(source, /sourceRow\.cloneNode\(true\)/);
+  assert.match(source, /sourceOffer\.cloneNode\(true\)/);
+  assert.match(source, /elements\.match\.replaceChildren\(row\)/);
+  assert.match(source, /elements\.match\.hidden = false/);
+  assert.match(source, /elements\.form\.hidden = true/);
+  assert.doesNotMatch(source, /panel\.classList\.add\("open"\)/);
+  assert.match(css, /pickup-handoff-match-row/);
+  assert.match(css, /simple-offer-record \.request-card/);
 });
 
-test("final handover requires an explicit confirmation click after PIN verification", () => {
+test("final handover requires an explicit Předat věc click after PIN verification", () => {
   const source = read(UI);
-  assert.match(source, /confirmAction: "Potvrdit předání"/);
+  assert.match(source, /confirmAction: "Předat věc"/);
   assert.match(source, /reservationId !== verifiedReservationId/);
   assert.match(source, /invoke\("confirm-pickup", \{[\s\S]*reservation_id: reservationId,[\s\S]*pin: verifiedPin/);
 });

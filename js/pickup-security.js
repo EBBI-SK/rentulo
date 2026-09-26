@@ -10,7 +10,8 @@
       handoffTitle: "Předáváte věc nájemci?",
       handoffText: "Zadejte 6místný PIN od nájemce. Rentulo najde správnou rezervaci za vás.",
       handoffOpen: "Zadat PIN",
-      handoffCancel: "Zrušit",
+      verifiedTitle: "PIN ověřen",
+      changePin: "Zadat jiný PIN",
       handoffInput: "6místný PIN",
       verifying: "Ověřuji PIN…",
       invalid: "PIN není správný.",
@@ -18,11 +19,10 @@
       remainingMany: "Zbývají {count} pokusy.",
       locked: "Po 3 chybných pokusech je zadávání na 15 minut zablokované.",
       lockedUntil: "Zkuste to znovu po {time}.",
-      matched: "PIN ověřen. Níže zkontrolujte rezervaci a potvrďte předání.",
+      matched: "PIN ověřen. Zkontrolujte rezervaci a předejte věc.",
       showReservations: "Zobrazit rezervace",
-      confirmAction: "Potvrdit předání",
-      matchedNote: "PIN je správný. Zkontrolujte údaje rezervace a potvrďte předání věci.",
-      confirming: "Potvrzuji předání…",
+      confirmAction: "Předat věc",
+      confirming: "Předávám věc…",
       success: "Předáno. Rezervace pokračuje až do vrácení věci.",
       genericError: "Předání se nepodařilo potvrdit. Zkuste to prosím znovu."
     },
@@ -34,7 +34,8 @@
       handoffTitle: "Odovzdávate vec nájomcovi?",
       handoffText: "Zadajte 6-miestny PIN od nájomcu. Rentulo nájde správnu rezerváciu za vás.",
       handoffOpen: "Zadať PIN",
-      handoffCancel: "Zrušiť",
+      verifiedTitle: "PIN overený",
+      changePin: "Zadať iný PIN",
       handoffInput: "6-miestny PIN",
       verifying: "Overujem PIN…",
       invalid: "PIN nie je správny.",
@@ -42,11 +43,10 @@
       remainingMany: "Zostávajú {count} pokusy.",
       locked: "Po 3 chybných pokusoch je zadávanie na 15 minút zablokované.",
       lockedUntil: "Skúste to znova po {time}.",
-      matched: "PIN je overený. Nižšie skontrolujte rezerváciu a potvrďte odovzdanie.",
+      matched: "PIN je overený. Skontrolujte rezerváciu a odovzdajte vec.",
       showReservations: "Zobraziť rezervácie",
-      confirmAction: "Potvrdiť odovzdanie",
-      matchedNote: "PIN je správny. Skontrolujte údaje rezervácie a potvrďte odovzdanie veci.",
-      confirming: "Potvrdzujem odovzdanie…",
+      confirmAction: "Odovzdať vec",
+      confirming: "Odovzdávam vec…",
       success: "Odovzdané. Rezervácia pokračuje až do vrátenia veci.",
       genericError: "Odovzdanie sa nepodarilo potvrdiť. Skúste to prosím znova."
     },
@@ -58,7 +58,8 @@
       handoffTitle: "Handing an item to the renter?",
       handoffText: "Enter the renter's 6-digit PIN. Rentulo will find the correct reservation for you.",
       handoffOpen: "Enter PIN",
-      handoffCancel: "Cancel",
+      verifiedTitle: "PIN verified",
+      changePin: "Enter another PIN",
       handoffInput: "6-digit PIN",
       verifying: "Checking PIN…",
       invalid: "The PIN is incorrect.",
@@ -66,11 +67,10 @@
       remainingMany: "{count} attempts remaining.",
       locked: "After 3 incorrect attempts, PIN entry is locked for 15 minutes.",
       lockedUntil: "Try again after {time}.",
-      matched: "PIN verified. Check the reservation below and confirm the handover.",
+      matched: "PIN verified. Check the reservation and hand over the item.",
       showReservations: "View reservations",
-      confirmAction: "Confirm handover",
-      matchedNote: "The PIN is correct. Check the reservation details and confirm the handover.",
-      confirming: "Confirming handover…",
+      confirmAction: "Hand over item",
+      confirming: "Handing over item…",
       success: "Handed over. The reservation now continues until the item is returned.",
       genericError: "Handover could not be confirmed. Please try again."
     },
@@ -82,7 +82,8 @@
       handoffTitle: "Übergeben Sie einen Gegenstand?",
       handoffText: "Geben Sie den 6-stelligen PIN des Mieters ein. Rentulo findet die richtige Reservierung.",
       handoffOpen: "PIN eingeben",
-      handoffCancel: "Abbrechen",
+      verifiedTitle: "PIN bestätigt",
+      changePin: "Anderen PIN eingeben",
       handoffInput: "6-stelliger PIN",
       verifying: "PIN wird geprüft…",
       invalid: "Der PIN ist nicht korrekt.",
@@ -90,11 +91,10 @@
       remainingMany: "{count} Versuche verbleiben.",
       locked: "Nach 3 falschen Versuchen ist die PIN-Eingabe für 15 Minuten gesperrt.",
       lockedUntil: "Versuchen Sie es nach {time} erneut.",
-      matched: "PIN bestätigt. Prüfen Sie unten die Reservierung und bestätigen Sie die Übergabe.",
+      matched: "PIN bestätigt. Prüfen Sie die Reservierung und übergeben Sie den Gegenstand.",
       showReservations: "Reservierungen anzeigen",
-      confirmAction: "Übergabe bestätigen",
-      matchedNote: "Der PIN ist korrekt. Prüfen Sie die Reservierungsdaten und bestätigen Sie die Übergabe.",
-      confirming: "Übergabe wird bestätigt…",
+      confirmAction: "Gegenstand übergeben",
+      confirming: "Gegenstand wird übergeben…",
       success: "Übergeben. Die Reservierung läuft nun bis zur Rückgabe weiter.",
       genericError: "Die Übergabe konnte nicht bestätigt werden. Bitte versuchen Sie es erneut."
     },
@@ -106,7 +106,8 @@
       handoffTitle: "Przekazujesz przedmiot najemcy?",
       handoffText: "Wpisz 6-cyfrowy PIN najemcy. Rentulo znajdzie właściwą rezerwację.",
       handoffOpen: "Wpisz PIN",
-      handoffCancel: "Anuluj",
+      verifiedTitle: "PIN zweryfikowany",
+      changePin: "Wpisz inny PIN",
       handoffInput: "6-cyfrowy PIN",
       verifying: "Sprawdzam PIN…",
       invalid: "PIN jest nieprawidłowy.",
@@ -114,11 +115,10 @@
       remainingMany: "Pozostały {count} próby.",
       locked: "Po 3 błędnych próbach wpisywanie PIN-u jest zablokowane na 15 minut.",
       lockedUntil: "Spróbuj ponownie po {time}.",
-      matched: "PIN zweryfikowany. Sprawdź rezerwację poniżej i potwierdź przekazanie.",
+      matched: "PIN zweryfikowany. Sprawdź rezerwację i przekaż przedmiot.",
       showReservations: "Pokaż rezerwacje",
-      confirmAction: "Potwierdź przekazanie",
-      matchedNote: "PIN jest prawidłowy. Sprawdź dane rezerwacji i potwierdź przekazanie przedmiotu.",
-      confirming: "Potwierdzam przekazanie…",
+      confirmAction: "Przekaż przedmiot",
+      confirming: "Przekazuję przedmiot…",
       success: "Przekazano. Rezerwacja trwa teraz do momentu zwrotu przedmiotu.",
       genericError: "Nie udało się potwierdzić przekazania. Spróbuj ponownie."
     }
@@ -207,7 +207,8 @@
       openButton: document.getElementById("pickupHandoffOpen"),
       form: document.getElementById("pickupHandoffForm"),
       input: document.getElementById("pickupHandoffPin"),
-      cancelButton: document.getElementById("pickupHandoffCancel"),
+      match: document.getElementById("pickupHandoffMatch"),
+      changeButton: document.getElementById("pickupHandoffChange"),
       feedback: document.getElementById("pickupHandoffFeedback")
     };
   }
@@ -215,20 +216,28 @@
   function refreshHandoffText() {
     const elements = getHandoffElements();
     if (!elements.wrapper) return;
-    if (elements.title) elements.title.textContent = text("handoffTitle");
-    if (elements.description) elements.description.textContent = text("handoffText");
+
+    const isVerified = Boolean(verifiedReservationId);
+    if (elements.title) elements.title.textContent = text(isVerified ? "verifiedTitle" : "handoffTitle");
+    if (elements.description) {
+      elements.description.textContent = text("handoffText");
+      elements.description.hidden = isVerified;
+    }
+    if (elements.feedback) elements.feedback.hidden = isVerified;
     if (elements.openButton) elements.openButton.textContent = text("handoffOpen");
-    if (elements.cancelButton) elements.cancelButton.textContent = text("handoffCancel");
+    if (elements.changeButton) elements.changeButton.textContent = text("changePin");
     if (elements.input) elements.input.setAttribute("aria-label", text("handoffInput"));
   }
 
   function clearVerifiedReservation() {
     verifiedReservationId = "";
     verifiedPin = "";
-    document.querySelectorAll(".pickup-matched-reservation").forEach(function (card) {
-      card.classList.remove("pickup-matched-reservation");
-    });
-    document.querySelectorAll(".pickup-verified-note").forEach(function (note) { note.remove(); });
+    const elements = getHandoffElements();
+    if (elements.match) {
+      elements.match.hidden = true;
+      elements.match.innerHTML = "";
+    }
+    if (elements.changeButton) elements.changeButton.hidden = true;
   }
 
   function updateOwnerPickupButtons() {
@@ -264,7 +273,8 @@
     });
 
     if (elements.wrapper) {
-      const shouldBeHidden = buttons.length === 0;
+      const sourceButtons = document.querySelectorAll('#offersList [data-offers-action="mark-picked-up"]');
+      const shouldBeHidden = sourceButtons.length === 0;
       if (elements.wrapper.hidden !== shouldBeHidden) elements.wrapper.hidden = shouldBeHidden;
     }
   }
@@ -273,53 +283,68 @@
     const elements = getHandoffElements();
     if (!elements.form || !elements.input || !elements.openButton) return;
     clearVerifiedReservation();
+    refreshHandoffText();
     updateOwnerPickupButtons();
     elements.openButton.hidden = true;
     elements.form.hidden = false;
     elements.input.value = "";
     elements.input.disabled = false;
-    if (elements.cancelButton) elements.cancelButton.disabled = false;
     if (elements.feedback) {
+      elements.feedback.hidden = false;
       elements.feedback.textContent = "";
       elements.feedback.classList.remove("success");
     }
     setTimeout(function () { elements.input.focus(); }, 0);
   }
 
-  function closeHandoffForm() {
-    const elements = getHandoffElements();
-    if (!elements.form || !elements.openButton) return;
-    elements.form.hidden = true;
-    elements.openButton.hidden = false;
-    if (elements.feedback) {
-      elements.feedback.textContent = "";
-      elements.feedback.classList.remove("success");
-    }
-  }
-
   function showMatchedReservation(reservationId) {
-    const button = document.querySelector('[data-offers-action="mark-picked-up"][data-reservation-id="' + CSS.escape(reservationId) + '"]');
-    if (!button) return false;
+    const sourceButton = document.querySelector('#offersList [data-offers-action="mark-picked-up"][data-reservation-id="' + CSS.escape(reservationId) + '"]');
+    if (!sourceButton) return false;
 
-    const card = button.closest(".request-card");
-    const panel = button.closest(".request-panel");
-    if (!card || !panel) return false;
+    const card = sourceButton.closest(".request-card");
+    const record = sourceButton.closest(".simple-offer-record");
+    const elements = getHandoffElements();
+    if (!card || !record || !elements.match) return false;
 
-    panel.classList.add("open");
-    card.classList.add("pickup-matched-reservation");
+    const sourceRow = card.querySelector(":scope > .request-row");
+    const sourceOffer = record.querySelector(":scope > .simple-offer-row > .simple-offer-main");
+    if (!sourceRow || !sourceOffer) return false;
 
-    let note = card.querySelector(":scope > .pickup-verified-note");
-    if (!note) {
-      note = document.createElement("div");
-      note.className = "pickup-verified-note";
-      card.insertBefore(note, card.firstChild);
-    }
-    note.textContent = text("matchedNote");
+    const row = sourceRow.cloneNode(true);
+    const offer = sourceOffer.cloneNode(true);
+
+    row.classList.add("pickup-handoff-match-row");
+    offer.classList.add("pickup-handoff-match-offer");
+    row.insertBefore(offer, row.firstChild);
+
+    row.querySelectorAll("[id]").forEach(function (element) {
+      element.removeAttribute("id");
+    });
+    row.querySelectorAll('[data-offers-action="toggle-request-detail"]').forEach(function (element) {
+      element.remove();
+    });
+    row.querySelectorAll(".row-actions button").forEach(function (button) {
+      if (button.dataset.offersAction !== "mark-picked-up") button.remove();
+    });
+
+    const confirmButton = row.querySelector('[data-offers-action="mark-picked-up"]');
+    if (!confirmButton) return false;
+
+    confirmButton.hidden = false;
+    confirmButton.disabled = false;
+    confirmButton.textContent = text("confirmAction");
+    confirmButton.classList.add("pickup-confirm-ready");
+
+    elements.match.replaceChildren(row);
+    elements.match.hidden = false;
+    if (elements.form) elements.form.hidden = true;
+    if (elements.changeButton) elements.changeButton.hidden = true;
 
     updateOwnerPickupButtons();
+
     setTimeout(function () {
-      card.scrollIntoView({ behavior: "smooth", block: "center" });
-      button.focus({ preventScroll: true });
+      elements.match.scrollIntoView({ behavior: "smooth", block: "center" });
+      confirmButton.focus({ preventScroll: true });
     }, 0);
     return true;
   }
@@ -332,7 +357,6 @@
 
     elements.form.dataset.submitting = "true";
     elements.input.disabled = true;
-    if (elements.cancelButton) elements.cancelButton.disabled = true;
     elements.feedback.textContent = text("verifying");
     elements.feedback.classList.remove("success");
 
@@ -343,10 +367,13 @@
       if (result.ok && data.status === "verified" && data.reservation_id) {
         verifiedReservationId = String(data.reservation_id);
         verifiedPin = pin;
-        elements.feedback.textContent = text("matched");
+        elements.feedback.textContent = "";
         elements.feedback.classList.add("success");
+        refreshHandoffText();
         if (!showMatchedReservation(verifiedReservationId)) {
           clearVerifiedReservation();
+          refreshHandoffText();
+          elements.feedback.hidden = false;
           elements.feedback.classList.remove("success");
           elements.feedback.textContent = text("genericError");
           return;
@@ -368,6 +395,7 @@
           remaining === 1 ? text("remainingOne") : text("remainingMany", { count: remaining })
         );
         elements.input.value = "";
+        if (elements.changeButton) elements.changeButton.hidden = false;
         return;
       }
 
@@ -377,7 +405,6 @@
         elements.form.dataset.submitting = "false";
         if (!verifiedReservationId) {
           elements.input.disabled = false;
-          if (elements.cancelButton) elements.cancelButton.disabled = false;
           elements.input.focus();
         }
       }
@@ -501,7 +528,7 @@
 
     refreshHandoffText();
     if (elements.openButton) elements.openButton.addEventListener("click", openHandoffForm);
-    if (elements.cancelButton) elements.cancelButton.addEventListener("click", closeHandoffForm);
+    if (elements.changeButton) elements.changeButton.addEventListener("click", openHandoffForm);
     if (elements.input) {
       elements.input.addEventListener("input", function (event) {
         event.target.value = event.target.value.replace(/\D/g, "").slice(0, 6);
@@ -517,7 +544,6 @@
     window.requestAnimationFrame(function () {
       ownerPickupRefreshScheduled = false;
       updateOwnerPickupButtons();
-      if (verifiedReservationId) showMatchedReservation(verifiedReservationId);
     });
   }
 

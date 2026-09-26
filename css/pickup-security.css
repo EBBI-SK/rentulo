@@ -47,6 +47,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 18px;
+  flex-wrap: wrap;
   margin-bottom: 12px;
   padding: 15px 17px;
   border: 1px solid #cfe3da;
@@ -57,12 +58,15 @@
 
 .pickup-handoff-entry[hidden],
 .pickup-handoff-form[hidden],
+.pickup-handoff-match[hidden],
+.pickup-handoff-change[hidden],
 [data-offers-action="mark-picked-up"][hidden] {
   display: none !important;
 }
 
 .pickup-handoff-copy {
   min-width: 0;
+  flex: 1 1 420px;
 }
 
 .pickup-handoff-copy h2 {
@@ -123,18 +127,6 @@
   border-color: #7ed957;
 }
 
-.pickup-handoff-cancel {
-  min-height: 42px;
-  padding: 8px 12px;
-  border: 1px solid #cfe4da;
-  border-radius: 11px;
-  background: #edf6f1;
-  color: #173f35;
-  font: inherit;
-  font-weight: 800;
-  cursor: pointer;
-}
-
 .pickup-handoff-feedback {
   flex-basis: 100%;
   margin: 7px 0 0;
@@ -148,22 +140,49 @@
   color: #3f8f2d;
 }
 
-.pickup-matched-reservation {
-  position: relative;
-  background: #fbfff9;
-  box-shadow: inset 0 0 0 2px #7ed957;
+.pickup-handoff-match {
+  flex: 1 0 100%;
+  min-width: 0;
+  border-top: 1px solid #e0ece6;
+  padding-top: 12px;
 }
 
-.pickup-verified-note {
-  margin: 10px 12px 0;
-  padding: 9px 11px;
-  border: 1px solid #c7e8d7;
-  border-radius: 10px;
-  background: #eef8e9;
-  color: #173f35;
+.pickup-handoff-match-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.25fr) minmax(150px, 1fr) 180px 95px 110px minmax(120px, auto) !important;
+  gap: 12px !important;
+  align-items: end !important;
+  min-height: 72px !important;
+  padding: 12px !important;
+  border: 1px solid #cfe3da;
+  border-radius: 12px;
+  background: #fbfffd !important;
+}
+
+.pickup-handoff-match-offer {
+  min-width: 0;
+}
+
+.pickup-handoff-match-row .row-actions {
+  justify-content: flex-end !important;
+}
+
+.pickup-handoff-change {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #3f7c67;
+  font: inherit;
   font-size: 12px;
   font-weight: 800;
-  line-height: 1.4;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.pickup-handoff-change:hover {
+  color: #245c4a;
 }
 
 .pickup-confirm-ready {
@@ -175,6 +194,63 @@
   background: #e85f00 !important;
 }
 
+body[data-navigation-page="moje-nabidky"] .simple-offer-record > .request-panel {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+body[data-navigation-page="moje-nabidky"] .simple-offer-record .request-panel-header {
+  border: 1px solid #dbe9e3 !important;
+  border-radius: 12px !important;
+  margin-bottom: 8px;
+}
+
+body[data-navigation-page="moje-nabidky"] .simple-offer-record .request-list {
+  gap: 8px;
+}
+
+body[data-navigation-page="moje-nabidky"] .simple-offer-record .request-card {
+  border: 1px solid #dbe9e3;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+
+body[data-navigation-page="moje-nabidky"] .simple-offer-record .request-card + .request-card {
+  border-top: 1px solid #dbe9e3;
+}
+
+@media (max-width: 1100px) {
+  .pickup-handoff-match-row {
+    grid-template-columns: minmax(170px, 1.2fr) minmax(140px, 1fr) 160px 90px minmax(105px, auto) minmax(115px, auto) !important;
+    gap: 9px !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .pickup-handoff-match-row {
+    grid-template-columns: 1fr 1fr !important;
+    align-items: start !important;
+  }
+
+  .pickup-handoff-match-offer,
+  .pickup-handoff-match-row .offer-flow-party,
+  .pickup-handoff-match-row .offer-flow-status,
+  .pickup-handoff-match-row .offer-flow-actions {
+    grid-column: 1 / -1;
+  }
+
+  .pickup-handoff-match-row .offer-flow-term {
+    grid-column: 1;
+  }
+
+  .pickup-handoff-match-row .offer-flow-price {
+    grid-column: 2;
+  }
+}
+
 @media (max-width: 720px) {
   .pickup-pin-copy,
   .pickup-handoff-entry,
@@ -184,8 +260,12 @@
   }
 
   .pickup-handoff-open,
-  .pickup-handoff-input,
-  .pickup-handoff-cancel {
+  .pickup-handoff-input {
     width: 100%;
+  }
+
+  .pickup-handoff-change {
+    margin-left: 0;
+    align-self: flex-start;
   }
 }

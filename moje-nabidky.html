@@ -267,8 +267,10 @@
           pattern="[0-9]{6}"
           aria-label="6místný PIN"
         />
-        <button type="button" class="pickup-handoff-cancel" id="pickupHandoffCancel">Zrušit</button>
       </form>
+
+      <section class="pickup-handoff-match" id="pickupHandoffMatch" aria-live="polite" hidden></section>
+      <button type="button" class="pickup-handoff-change" id="pickupHandoffChange" hidden>Zadat jiný PIN</button>
     </section>
 
     <section class="account-list" id="offersList"></section>
