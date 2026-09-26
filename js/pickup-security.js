@@ -7,10 +7,10 @@
       pinHint: "Tento 6místný PIN sdělte majiteli až při osobním předání věci.",
       pinLoading: "Načítám PIN…",
       pinUnavailable: "PIN teď není dostupný. Obnovte stránku a zkuste to znovu.",
-      modalTitle: "Potvrdit předání",
-      modalText: "Zadejte 6místný PIN od nájemce. Po zadání poslední číslice se předání potvrdí automaticky.",
-      pinLabel: "6místný PIN",
-      ownerAction: "Zadat PIN a potvrdit předání",
+      ownerAction: "Předat věc",
+      ownerGuide: "Při předání budete potřebovat 6místný PIN od nájemce.",
+      inlineTitle: "Zadejte 6místný PIN od nájemce",
+      inlineHint: "Po zadání poslední číslice se předání potvrdí automaticky.",
       cancel: "Zrušit",
       invalid: "PIN není správný.",
       remainingOne: "Zbývá 1 pokus.",
@@ -18,7 +18,7 @@
       locked: "Po 3 chybných pokusech je zadávání na 15 minut zablokované.",
       lockedUntil: "Zkuste to znovu po {time}.",
       verifying: "Ověřuji PIN…",
-      success: "Předání potvrzeno.",
+      success: "Předáno. Rezervace pokračuje až do vrácení věci.",
       genericError: "Předání se nepodařilo potvrdit. Zkuste to prosím znovu."
     },
     sk: {
@@ -26,10 +26,10 @@
       pinHint: "Tento 6-miestny PIN povedzte majiteľovi až pri osobnom odovzdaní veci.",
       pinLoading: "Načítavam PIN…",
       pinUnavailable: "PIN teraz nie je dostupný. Obnovte stránku a skúste to znova.",
-      modalTitle: "Potvrdiť odovzdanie",
-      modalText: "Zadajte 6-miestny PIN od nájomcu. Po zadaní poslednej číslice sa odovzdanie potvrdí automaticky.",
-      pinLabel: "6-miestny PIN",
-      ownerAction: "Zadať PIN a potvrdiť odovzdanie",
+      ownerAction: "Odovzdať vec",
+      ownerGuide: "Pri odovzdaní budete potrebovať 6-miestny PIN od nájomcu.",
+      inlineTitle: "Zadajte 6-miestny PIN od nájomcu",
+      inlineHint: "Po zadaní poslednej číslice sa odovzdanie potvrdí automaticky.",
       cancel: "Zrušiť",
       invalid: "PIN nie je správny.",
       remainingOne: "Zostáva 1 pokus.",
@@ -37,7 +37,7 @@
       locked: "Po 3 chybných pokusoch je zadávanie na 15 minút zablokované.",
       lockedUntil: "Skúste to znova po {time}.",
       verifying: "Overujem PIN…",
-      success: "Odovzdanie potvrdené.",
+      success: "Odovzdané. Rezervácia pokračuje až do vrátenia veci.",
       genericError: "Odovzdanie sa nepodarilo potvrdiť. Skúste to prosím znova."
     },
     en: {
@@ -45,10 +45,10 @@
       pinHint: "Give this 6-digit PIN to the owner only when the item is physically handed over.",
       pinLoading: "Loading PIN…",
       pinUnavailable: "The PIN is not available right now. Refresh the page and try again.",
-      modalTitle: "Confirm handover",
-      modalText: "Enter the renter's 6-digit PIN. Handover is confirmed automatically after the last digit.",
-      pinLabel: "6-digit PIN",
-      ownerAction: "Enter PIN and confirm handover",
+      ownerAction: "Hand over item",
+      ownerGuide: "At handover you will need the renter's 6-digit PIN.",
+      inlineTitle: "Enter the renter's 6-digit PIN",
+      inlineHint: "Handover is confirmed automatically after the last digit.",
       cancel: "Cancel",
       invalid: "The PIN is incorrect.",
       remainingOne: "1 attempt remaining.",
@@ -56,7 +56,7 @@
       locked: "After 3 incorrect attempts, PIN entry is locked for 15 minutes.",
       lockedUntil: "Try again after {time}.",
       verifying: "Checking PIN…",
-      success: "Handover confirmed.",
+      success: "Handed over. The reservation now continues until the item is returned.",
       genericError: "Handover could not be confirmed. Please try again."
     },
     de: {
@@ -64,10 +64,10 @@
       pinHint: "Geben Sie diesen 6-stelligen PIN dem Eigentümer erst bei der persönlichen Übergabe des Gegenstands.",
       pinLoading: "PIN wird geladen…",
       pinUnavailable: "Der PIN ist derzeit nicht verfügbar. Laden Sie die Seite neu und versuchen Sie es erneut.",
-      modalTitle: "Übergabe bestätigen",
-      modalText: "Geben Sie den 6-stelligen PIN des Mieters ein. Nach der letzten Ziffer wird die Übergabe automatisch bestätigt.",
-      pinLabel: "6-stelliger PIN",
-      ownerAction: "PIN eingeben und Übergabe bestätigen",
+      ownerAction: "Gegenstand übergeben",
+      ownerGuide: "Bei der Übergabe benötigen Sie den 6-stelligen PIN des Mieters.",
+      inlineTitle: "6-stelligen PIN des Mieters eingeben",
+      inlineHint: "Nach der letzten Ziffer wird die Übergabe automatisch bestätigt.",
       cancel: "Abbrechen",
       invalid: "Der PIN ist nicht korrekt.",
       remainingOne: "1 Versuch verbleibt.",
@@ -75,7 +75,7 @@
       locked: "Nach 3 falschen Versuchen ist die PIN-Eingabe für 15 Minuten gesperrt.",
       lockedUntil: "Versuchen Sie es nach {time} erneut.",
       verifying: "PIN wird geprüft…",
-      success: "Übergabe bestätigt.",
+      success: "Übergeben. Die Reservierung läuft nun bis zur Rückgabe weiter.",
       genericError: "Die Übergabe konnte nicht bestätigt werden. Bitte versuchen Sie es erneut."
     },
     pl: {
@@ -83,10 +83,10 @@
       pinHint: "Podaj ten 6-cyfrowy PIN właścicielowi dopiero podczas osobistego przekazania przedmiotu.",
       pinLoading: "Ładowanie PIN-u…",
       pinUnavailable: "PIN nie jest teraz dostępny. Odśwież stronę i spróbuj ponownie.",
-      modalTitle: "Potwierdź przekazanie",
-      modalText: "Wpisz 6-cyfrowy PIN najemcy. Po wpisaniu ostatniej cyfry przekazanie zostanie potwierdzone automatycznie.",
-      pinLabel: "6-cyfrowy PIN",
-      ownerAction: "Wpisz PIN i potwierdź przekazanie",
+      ownerAction: "Przekaż przedmiot",
+      ownerGuide: "Przy przekazaniu potrzebny będzie 6-cyfrowy PIN najemcy.",
+      inlineTitle: "Wpisz 6-cyfrowy PIN najemcy",
+      inlineHint: "Po wpisaniu ostatniej cyfry przekazanie zostanie potwierdzone automatycznie.",
       cancel: "Anuluj",
       invalid: "PIN jest nieprawidłowy.",
       remainingOne: "Pozostała 1 próba.",
@@ -94,7 +94,7 @@
       locked: "Po 3 błędnych próbach wpisywanie PIN-u jest zablokowane na 15 minut.",
       lockedUntil: "Spróbuj ponownie po {time}.",
       verifying: "Sprawdzam PIN…",
-      success: "Przekazanie potwierdzone.",
+      success: "Przekazano. Rezerwacja trwa teraz do momentu zwrotu przedmiotu.",
       genericError: "Nie udało się potwierdzić przekazania. Spróbuj ponownie."
     }
   };
@@ -133,14 +133,10 @@
 
   async function invoke(name, body) {
     const client = getClient();
-    if (!client) {
-      return { ok: false, status: 0, data: null };
-    }
+    if (!client) return { ok: false, status: 0, data: null };
 
     const result = await client.functions.invoke(name, { body: body });
-    if (!result.error) {
-      return { ok: true, status: 200, data: result.data || {} };
-    }
+    if (!result.error) return { ok: true, status: 200, data: result.data || {} };
 
     let payload = null;
     let status = 0;
@@ -174,122 +170,83 @@
     element.classList.add("active");
   }
 
-  let modal = null;
-  let modalReservationId = "";
-  let modalReturnFocus = null;
-  let modalSubmitting = false;
-
-  function ensureModal() {
-    if (modal) return modal;
-
-    const wrapper = document.createElement("div");
-    wrapper.className = "pickup-confirm-modal";
-    wrapper.id = "pickupConfirmModal";
-    wrapper.hidden = true;
-    wrapper.setAttribute("aria-hidden", "true");
-    wrapper.innerHTML = `
-      <div class="pickup-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="pickupConfirmTitle" aria-describedby="pickupConfirmDescription">
-        <h2 id="pickupConfirmTitle"></h2>
-        <p id="pickupConfirmDescription"></p>
-        <form id="pickupConfirmForm" novalidate>
-          <label class="pickup-pin-label" for="pickupConfirmPin"></label>
-          <input id="pickupConfirmPin" class="pickup-pin-input" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" aria-describedby="pickupConfirmFeedback" />
-          <p class="pickup-confirm-feedback" id="pickupConfirmFeedback" role="status" aria-live="polite"></p>
-          <div class="pickup-confirm-actions">
-            <button type="button" class="pickup-modal-button pickup-modal-cancel" data-pickup-action="cancel"></button>
-          </div>
-        </form>
-      </div>
-    `;
-    document.body.appendChild(wrapper);
-
-    wrapper.addEventListener("click", function (event) {
-      if (event.target === wrapper || event.target.closest('[data-pickup-action="cancel"]')) {
-        closeModal();
-      }
+  function closeInlineForms(exceptCard) {
+    document.querySelectorAll(".pickup-inline-confirm").forEach(function (form) {
+      const card = form.closest(".request-card");
+      if (card !== exceptCard) form.remove();
     });
-
-    wrapper.querySelector("#pickupConfirmPin").addEventListener("input", function (event) {
-      event.target.value = event.target.value.replace(/\D/g, "").slice(0, 6);
-      if (/^\d{6}$/.test(event.target.value) && !modalSubmitting) {
-        submitPickupPin();
-      }
-    });
-
-    wrapper.querySelector("#pickupConfirmForm").addEventListener("submit", submitPickupPin);
-    modal = wrapper;
-    refreshModalText();
-    return modal;
   }
 
-  function refreshModalText() {
-    if (!modal) return;
-    modal.querySelector("#pickupConfirmTitle").textContent = text("modalTitle");
-    modal.querySelector("#pickupConfirmDescription").textContent = text("modalText");
-    modal.querySelector(".pickup-pin-label").textContent = text("pinLabel");
-    modal.querySelector('[data-pickup-action="cancel"]').textContent = text("cancel");
-  }
-
-  function openModal(reservationId, returnFocus) {
-    const element = ensureModal();
-    modalReservationId = reservationId;
-    modalReturnFocus = returnFocus || document.activeElement;
-    modalSubmitting = false;
-    refreshModalText();
-    const input = element.querySelector("#pickupConfirmPin");
-    input.value = "";
-    input.disabled = false;
-    element.querySelector("#pickupConfirmFeedback").textContent = "";
-    element.querySelector('[data-pickup-action="cancel"]').disabled = false;
-    element.hidden = false;
-    element.setAttribute("aria-hidden", "false");
-    document.body.classList.add("pickup-modal-open");
-    setTimeout(function () {
-      input.focus();
-    }, 0);
-  }
-
-  function closeModal() {
-    if (!modal || modal.hidden) return;
-    modal.hidden = true;
-    modal.setAttribute("aria-hidden", "true");
-    document.body.classList.remove("pickup-modal-open");
-    modalReservationId = "";
-    modalSubmitting = false;
-    if (modalReturnFocus && modalReturnFocus.isConnected && typeof modalReturnFocus.focus === "function") {
-      modalReturnFocus.focus();
-    }
-    modalReturnFocus = null;
-  }
-
-  async function submitPickupPin(event) {
-    if (event) event.preventDefault();
-    if (!modalReservationId || modalSubmitting) return;
-
-    const input = modal.querySelector("#pickupConfirmPin");
-    const feedback = modal.querySelector("#pickupConfirmFeedback");
-    const cancelButton = modal.querySelector('[data-pickup-action="cancel"]');
-    const pin = input.value.trim();
-
-    if (!/^\d{6}$/.test(pin)) {
-      feedback.textContent = text("invalid");
-      input.focus();
+  function buildInlineForm(card, reservationId, returnFocus) {
+    closeInlineForms(card);
+    let form = card.querySelector(":scope > .pickup-inline-confirm");
+    if (form) {
+      const input = form.querySelector(".pickup-inline-input");
+      if (input) input.focus();
       return;
     }
 
-    modalSubmitting = true;
+    form = document.createElement("section");
+    form.className = "pickup-inline-confirm";
+    form.dataset.reservationId = reservationId;
+    form.innerHTML = `
+      <div class="pickup-inline-copy">
+        <strong>${escapeHtml(text("inlineTitle"))}</strong>
+        <span>${escapeHtml(text("inlineHint"))}</span>
+      </div>
+      <div class="pickup-inline-entry">
+        <input class="pickup-inline-input" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" aria-label="${escapeHtml(text("inlineTitle"))}" />
+        <button type="button" class="pickup-inline-cancel">${escapeHtml(text("cancel"))}</button>
+      </div>
+      <p class="pickup-inline-feedback" role="status" aria-live="polite"></p>
+    `;
+
+    const row = card.querySelector(":scope > .request-row");
+    const detail = card.querySelector(":scope > .request-detail");
+    if (detail) card.insertBefore(form, detail);
+    else if (row && row.nextSibling) card.insertBefore(form, row.nextSibling);
+    else card.appendChild(form);
+
+    const input = form.querySelector(".pickup-inline-input");
+    const cancel = form.querySelector(".pickup-inline-cancel");
+
+    cancel.addEventListener("click", function () {
+      form.remove();
+      if (returnFocus && returnFocus.isConnected && typeof returnFocus.focus === "function") {
+        returnFocus.focus();
+      }
+    });
+
+    input.addEventListener("input", function (event) {
+      event.target.value = event.target.value.replace(/\D/g, "").slice(0, 6);
+      if (/^\d{6}$/.test(event.target.value) && form.dataset.submitting !== "true") {
+        submitInlinePickup(form, returnFocus);
+      }
+    });
+
+    setTimeout(function () { input.focus(); }, 0);
+  }
+
+  async function submitInlinePickup(form, returnFocus) {
+    const reservationId = form.dataset.reservationId || "";
+    if (!reservationId || form.dataset.submitting === "true") return;
+
+    const input = form.querySelector(".pickup-inline-input");
+    const cancel = form.querySelector(".pickup-inline-cancel");
+    const feedback = form.querySelector(".pickup-inline-feedback");
+    const pin = input.value.trim();
+    if (!/^\d{6}$/.test(pin)) return;
+
+    form.dataset.submitting = "true";
     input.disabled = true;
-    cancelButton.disabled = true;
+    cancel.disabled = true;
     feedback.textContent = text("verifying");
 
     try {
-      const result = await invoke("confirm-pickup", {
-        reservation_id: modalReservationId,
-        pin: pin
-      });
+      const result = await invoke("confirm-pickup", { reservation_id: reservationId, pin: pin });
 
       if (result.ok && result.data && result.data.status === "picked_up") {
-        const reservationId = modalReservationId;
+        feedback.classList.add("success");
         feedback.textContent = text("success");
 
         if (typeof window.apiSendReservationEmail === "function") {
@@ -301,10 +258,9 @@
         }
 
         window.setTimeout(function () {
-          closeModal();
           setOwnerMessage(text("success"), "success");
           window.location.reload();
-        }, 650);
+        }, 700);
         return;
       }
 
@@ -320,9 +276,7 @@
       if (data.code === "invalid_pin") {
         const remaining = Number(data.attempts_remaining || 0);
         feedback.textContent = text("invalid") + " " + (
-          remaining === 1
-            ? text("remainingOne")
-            : text("remainingMany", { count: remaining })
+          remaining === 1 ? text("remainingOne") : text("remainingMany", { count: remaining })
         );
         input.value = "";
         input.focus();
@@ -331,11 +285,11 @@
 
       feedback.textContent = text("genericError");
     } finally {
-      if (!modal.hidden) {
+      if (form.isConnected && !feedback.classList.contains("success")) {
         input.disabled = false;
-        cancelButton.disabled = false;
+        cancel.disabled = false;
+        form.dataset.submitting = "false";
       }
-      modalSubmitting = false;
     }
   }
 
@@ -346,8 +300,9 @@
     event.preventDefault();
     event.stopImmediatePropagation();
     const reservationId = button.dataset.reservationId || "";
-    if (!reservationId) return;
-    openModal(reservationId, button);
+    const card = button.closest(".request-card");
+    if (!reservationId || !card) return;
+    buildInlineForm(card, reservationId, button);
   }
 
   function streamlineOwnerPickupActions() {
@@ -360,24 +315,29 @@
 
       const ownerActionText = text("ownerAction");
       pickupButtons.forEach(function (button) {
-        if (button.textContent !== ownerActionText) {
-          button.textContent = ownerActionText;
-        }
+        if (button.textContent !== ownerActionText) button.textContent = ownerActionText;
       });
 
-      const hasOtherImmediateOwnerAction = Boolean(
-        panel.querySelector('[data-offers-action="approve-reservation"], [data-offers-action="mark-returned"]')
-      );
-
-      if (!hasOtherImmediateOwnerAction) {
-        if (!panel.classList.contains("open")) {
-          panel.classList.add("open");
+      const info = record.querySelector(":scope > .simple-offer-row .simple-offer-info");
+      if (info) {
+        let guide = info.querySelector(":scope > .pickup-owner-guide");
+        if (!guide) {
+          guide = document.createElement("span");
+          guide.className = "pickup-owner-guide";
+          info.appendChild(guide);
         }
+        if (guide.textContent !== text("ownerGuide")) guide.textContent = text("ownerGuide");
+      }
 
-        const primary = record.querySelector(':scope > .simple-offer-row > .simple-offer-actions > .offer-primary-button[data-offers-action="open-offer-requests"]');
-        if (primary && !primary.hidden) {
-          primary.hidden = true;
-        }
+      const primary = record.querySelector(':scope > .simple-offer-row > .simple-offer-actions > .offer-primary-button[data-offers-action="open-offer-requests"]');
+      if (primary && !panel.classList.contains("open")) {
+        primary.classList.add("pickup-primary-handover");
+        primary.setAttribute("aria-label", ownerActionText);
+        primary.style.setProperty("--pickup-action-label", '"' + ownerActionText.replaceAll('"', "") + '"');
+      } else if (primary) {
+        primary.classList.remove("pickup-primary-handover");
+        primary.removeAttribute("aria-label");
+        primary.style.removeProperty("--pickup-action-label");
       }
     });
   }
@@ -394,7 +354,7 @@
     block.innerHTML = `
       <div class="pickup-pin-copy">
         <strong>${escapeHtml(text("pinTitle"))}</strong>
-        <span class="pickup-pin-value" aria-label="${escapeHtml(text("pinLabel"))}">${escapeHtml(result.data.pin)}</span>
+        <span class="pickup-pin-value" aria-label="${escapeHtml(text("pinTitle"))}">${escapeHtml(result.data.pin)}</span>
       </div>
       <p>${escapeHtml(text("pinHint"))}</p>
     `;
@@ -416,20 +376,15 @@
       block.innerHTML = `<strong>${escapeHtml(text("pinTitle"))}</strong><span>${escapeHtml(text("pinLoading"))}</span>`;
 
       const detailRow = row.querySelector(".detail-row");
-      if (detailRow) {
-        row.insertBefore(block, detailRow);
-      } else {
-        row.appendChild(block);
-      }
+      if (detailRow) row.insertBefore(block, detailRow);
+      else row.appendChild(block);
 
       loadRenterPin(row, reservationId, block);
     });
   }
 
   function resetRenterEnhancements() {
-    document.querySelectorAll(".pickup-pin-card").forEach(function (element) {
-      element.remove();
-    });
+    document.querySelectorAll(".pickup-pin-card").forEach(function (element) { element.remove(); });
     document.querySelectorAll('[data-pickup-pin-enhanced="true"]').forEach(function (row) {
       delete row.dataset.pickupPinEnhanced;
     });
@@ -438,7 +393,7 @@
 
   document.addEventListener("click", interceptOwnerPickup, true);
   document.addEventListener("rentuloLanguageChanged", function () {
-    refreshModalText();
+    document.querySelectorAll(".pickup-inline-confirm").forEach(function (form) { form.remove(); });
     resetRenterEnhancements();
     streamlineOwnerPickupActions();
   });
@@ -446,19 +401,15 @@
   document.addEventListener("DOMContentLoaded", function () {
     const reservationsList = document.getElementById("reservationsList");
     if (reservationsList) {
-      const observer = new MutationObserver(function () {
-        enhanceRenterRows();
-      });
+      const observer = new MutationObserver(function () { enhanceRenterRows(); });
       observer.observe(reservationsList, { childList: true, subtree: true });
       enhanceRenterRows();
     }
 
     const offersList = document.getElementById("offersList");
     if (offersList) {
-      const observer = new MutationObserver(function () {
-        streamlineOwnerPickupActions();
-      });
-      observer.observe(offersList, { childList: true, subtree: true });
+      const observer = new MutationObserver(function () { streamlineOwnerPickupActions(); });
+      observer.observe(offersList, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
       streamlineOwnerPickupActions();
     }
   });

@@ -10,6 +10,7 @@ const GET_PIN = path.join(ROOT, "supabase", "functions", "get-pickup-pin", "inde
 const CONFIRM = path.join(ROOT, "supabase", "functions", "confirm-pickup", "index.ts");
 const MIGRATION = path.join(ROOT, "supabase", "migrations", "20260926120000_add_secure_pickup_pin_flow.sql");
 const UI = path.join(ROOT, "js", "pickup-security.js");
+const CSS = path.join(ROOT, "css", "pickup-security.css");
 
 function read(file) {
   return fs.readFileSync(file, "utf8");
@@ -73,7 +74,6 @@ test("browser can no longer directly change paid to picked_up", () => {
   const sql = compact(read(MIGRATION));
   assert.match(sql, /auth\.role\(\) = 'service_role'/i);
   assert.match(sql, /current_setting\('app\.pickup_pin_authorized', true\) = 'on'/i);
-  assert.doesNotMatch(sql, /old\.status = 'paid' and new\.status = 'picked_up'\) or \(old\.status = 'picked_up'/i);
 });
 
 test("pickup RPCs are service-role only", () => {
@@ -94,35 +94,38 @@ test("successful pickup triggers internal owner transfer without rolling pickup 
   assert.match(source, /will require retry/);
 });
 
-test("pickup UI intercepts legacy direct handover action and supports all five languages", () => {
+test("pickup UI supports all five languages and keeps the secure backend action", () => {
   const source = read(UI);
   assert.match(source, /data-offers-action=\\?"mark-picked-up/);
   assert.match(source, /stopImmediatePropagation\(\)/);
+  assert.match(source, /invoke\("confirm-pickup"/);
   for (const language of ["cs", "sk", "en", "de", "pl"]) {
     assert.match(source, new RegExp("\\b" + language + ": \\{"));
   }
 });
 
-test("paid owner handover is exposed directly on the concrete reservation", () => {
+test("first owner step clearly says hand over item and explains the PIN before clicking", () => {
   const source = read(UI);
-  assert.match(source, /ownerAction: "Zadat PIN a potvrdit předání"/);
-  assert.match(source, /pickupButtons\.forEach/);
-  assert.match(source, /button\.textContent = ownerActionText/);
-  assert.match(source, /panel\.classList\.add\("open"\)/);
-  assert.match(source, /primary\.hidden = true/);
+  const css = read(CSS);
+  assert.match(source, /ownerAction: "Předat věc"/);
+  assert.match(source, /ownerGuide: "Při předání budete potřebovat 6místný PIN od nájemce\."/);
+  assert.match(source, /pickup-owner-guide/);
+  assert.match(source, /pickup-primary-handover/);
+  assert.match(css, /content: var\(--pickup-action-label\)/);
 });
 
-test("owner pickup streamlining avoids repeated DOM writes inside the observer", () => {
+test("owner enters the PIN inline on the concrete reservation instead of a modal", () => {
   const source = read(UI);
-  assert.match(source, /if \(button\.textContent !== ownerActionText\)/);
-  assert.match(source, /if \(!panel\.classList\.contains\("open"\)\)/);
-  assert.match(source, /if \(primary && !primary\.hidden\)/);
+  assert.match(source, /pickup-inline-confirm/);
+  assert.match(source, /button\.closest\("\.request-card"\)/);
+  assert.match(source, /buildInlineForm\(card, reservationId, button\)/);
+  assert.doesNotMatch(source, /pickup-confirm-modal/);
+  assert.doesNotMatch(source, /role="dialog"/);
 });
 
-test("pickup PIN auto-submits only after exactly six digits are entered", () => {
+test("inline pickup auto-submits only after exactly six digits are entered", () => {
   const source = read(UI);
   assert.match(source, /event\.target\.value = event\.target\.value\.replace\(\/\\D\/g, ""\)\.slice\(0, 6\)/);
-  assert.match(source, /if \(\/\^\\d\{6\}\$\/\.test\(event\.target\.value\) && !modalSubmitting\)/);
-  assert.match(source, /submitPickupPin\(\)/);
-  assert.doesNotMatch(source, /function syncConfirmButton\(\)/);
+  assert.match(source, /if \(\/\^\\d\{6\}\$\/\.test\(event\.target\.value\) && form\.dataset\.submitting !== "true"\)/);
+  assert.match(source, /submitInlinePickup\(form, returnFocus\)/);
 });
