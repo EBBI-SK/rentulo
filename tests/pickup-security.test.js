@@ -107,9 +107,16 @@ test("paid owner handover is exposed directly on the concrete reservation", () =
   const source = read(UI);
   assert.match(source, /ownerAction: "Zadat PIN a potvrdit předání"/);
   assert.match(source, /pickupButtons\.forEach/);
-  assert.match(source, /button\.textContent = text\("ownerAction"\)/);
+  assert.match(source, /button\.textContent = ownerActionText/);
   assert.match(source, /panel\.classList\.add\("open"\)/);
   assert.match(source, /primary\.hidden = true/);
+});
+
+test("owner pickup streamlining avoids repeated DOM writes inside the observer", () => {
+  const source = read(UI);
+  assert.match(source, /if \(button\.textContent !== ownerActionText\)/);
+  assert.match(source, /if \(!panel\.classList\.contains\("open"\)\)/);
+  assert.match(source, /if \(primary && !primary\.hidden\)/);
 });
 
 test("pickup confirmation stays disabled until six digits are entered", () => {

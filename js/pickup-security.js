@@ -356,8 +356,11 @@
       const pickupButtons = Array.from(panel.querySelectorAll('[data-offers-action="mark-picked-up"]'));
       if (!pickupButtons.length) return;
 
+      const ownerActionText = text("ownerAction");
       pickupButtons.forEach(function (button) {
-        button.textContent = text("ownerAction");
+        if (button.textContent !== ownerActionText) {
+          button.textContent = ownerActionText;
+        }
       });
 
       const hasOtherImmediateOwnerAction = Boolean(
@@ -365,9 +368,12 @@
       );
 
       if (!hasOtherImmediateOwnerAction) {
-        panel.classList.add("open");
+        if (!panel.classList.contains("open")) {
+          panel.classList.add("open");
+        }
+
         const primary = record.querySelector(':scope > .simple-offer-row > .simple-offer-actions > .offer-primary-button[data-offers-action="open-offer-requests"]');
-        if (primary) {
+        if (primary && !primary.hidden) {
           primary.hidden = true;
         }
       }
