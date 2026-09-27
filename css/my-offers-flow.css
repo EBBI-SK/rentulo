@@ -1,132 +1,113 @@
-/* Clear owner workflow for My listings. Loaded after the existing page styles. */
-.simple-offer-record .simple-offer-row {
-  grid-template-columns: minmax(0, 1.65fr) 150px 110px minmax(270px, auto) !important;
-  gap: 16px !important;
+/* Simple owner workflow: offers stay compact, reservations are always separate rows below. */
+
+#offersList {
+  display: grid;
+  gap: 12px;
+}
+
+.owner-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.owner-section-header h2 {
+  margin: 0;
+  color: #173f35;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.owner-section-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 1px solid #cfe3da;
+  border-radius: 999px;
+  background: #fff;
+  color: #173f35;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.owner-offers-list,
+.owner-reservations-list {
+  display: grid;
+  gap: 8px;
+}
+
+.simple-offer-record {
+  margin: 0 !important;
+}
+
+.owner-offer-row {
+  grid-template-columns: minmax(0, 1.7fr) 150px 110px minmax(190px, auto) !important;
+  gap: 14px !important;
   min-height: 70px !important;
+  margin: 0 !important;
   padding: 10px 14px !important;
 }
 
-.simple-offer-record .simple-offer-info {
-  min-width: 0;
-}
-
-.simple-offer-record .offer-request-count-source {
+.owner-offer-request-summary {
   display: none !important;
 }
 
-.simple-offer-record .offer-flow-price-summary {
-  font-size: 13px !important;
-}
-
-.offer-flow-attention {
-  display: inline-flex;
-  width: fit-content;
-  max-width: 100%;
-  margin-top: 5px;
-  padding: 4px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  line-height: 1.2;
-  font-weight: 900;
-  white-space: normal;
-}
-
-.offer-flow-attention[hidden] {
-  display: none !important;
-}
-
-.offer-flow-attention.urgent {
-  background: #fff3e8;
-  color: #8a4b16;
-  border: 1px solid #f2c79f;
-}
-
-.offer-flow-attention.active {
-  background: #edf7f2;
-  color: #176747;
-  border: 1px solid #cfe3da;
-}
-
-.simple-offer-record .simple-offer-actions {
+.owner-offer-row .simple-offer-actions {
   justify-content: flex-end !important;
   gap: 8px !important;
   flex-wrap: nowrap !important;
 }
 
-.simple-offer-record .simple-offer-actions > .offer-primary-button,
-.simple-offer-record .simple-offer-actions > .offer-flow-primary,
-.offer-flow-manage-summary {
-  min-height: 36px !important;
-  padding: 8px 12px !important;
-  border-radius: 10px !important;
-  font-size: 12px !important;
-  line-height: 1.15 !important;
-  font-weight: 900 !important;
-  white-space: nowrap;
-}
-
-.simple-offer-record .simple-offer-actions > .offer-primary-button.urgent {
-  background: #ff6a00 !important;
-  color: #fff !important;
-}
-
-.simple-offer-record .simple-offer-actions > .offer-primary-button.urgent:hover {
-  background: #e85f00 !important;
-}
-
-.simple-offer-record .simple-offer-actions > .offer-flow-primary {
-  background: #73d64f !important;
-  color: #173a22 !important;
-  cursor: pointer;
-}
-
-.simple-offer-record .simple-offer-actions > .offer-flow-primary:hover {
-  background: #63c943 !important;
-}
-
-.offer-flow-manage {
+.owner-offer-manage {
   position: relative;
   flex: 0 0 auto;
 }
 
-.offer-flow-manage-summary {
+.owner-offer-manage-summary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 132px;
-  border: 0;
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 10px;
   background: #edf5f1;
   color: #173f35;
+  font-size: 12px;
+  line-height: 1.15;
+  font-weight: 900;
   cursor: pointer;
   list-style: none;
-  user-select: none;
+  white-space: nowrap;
 }
 
-.offer-flow-manage-summary::-webkit-details-marker {
+.owner-offer-manage-summary::-webkit-details-marker {
   display: none;
 }
 
-.offer-flow-manage-summary::after {
+.owner-offer-manage-summary::after {
   content: "⌄";
   margin-left: 7px;
-  font-size: 13px;
-  line-height: 1;
 }
 
-.offer-flow-manage[open] .offer-flow-manage-summary {
+.owner-offer-manage[open] .owner-offer-manage-summary {
   background: #e2efe9;
 }
 
-.offer-flow-manage[open] .offer-flow-manage-summary::after {
+.owner-offer-manage[open] .owner-offer-manage-summary::after {
   content: "⌃";
 }
 
-.offer-flow-manage-panel {
+.owner-offer-manage-panel {
   position: absolute;
-  z-index: 40;
-  top: calc(100% + 7px);
+  z-index: 50;
+  top: calc(100% + 6px);
   right: 0;
-  width: 225px;
+  width: 220px;
   padding: 7px;
   border: 1px solid #cfe3da;
   border-radius: 12px;
@@ -134,12 +115,8 @@
   box-shadow: 0 16px 40px rgba(23, 63, 53, 0.16);
 }
 
-.offer-flow-manage-panel:empty {
-  display: none;
-}
-
-.simple-offer-actions .offer-flow-manage-panel a,
-.simple-offer-actions .offer-flow-manage-panel button {
+.owner-offer-manage-panel a,
+.owner-offer-manage-panel button {
   display: flex !important;
   width: 100% !important;
   min-height: 40px !important;
@@ -151,46 +128,33 @@
   border-radius: 9px !important;
   background: transparent !important;
   color: #173f35 !important;
+  font: inherit;
   font-size: 13px !important;
-  line-height: 1.2 !important;
   font-weight: 800 !important;
   text-align: left !important;
   box-shadow: none !important;
 }
 
-.simple-offer-actions .offer-flow-manage-panel a:hover,
-.simple-offer-actions .offer-flow-manage-panel button:hover {
+.owner-offer-manage-panel a:hover,
+.owner-offer-manage-panel button:hover {
   background: #f3f8f5 !important;
 }
 
-.simple-offer-actions .offer-flow-manage-panel .offer-delete-action {
+.owner-offer-manage-panel .danger {
   color: #a43b2f !important;
 }
 
-.simple-offer-actions .offer-flow-manage-panel .offer-delete-action:hover {
+.owner-offer-manage-panel .danger:hover {
   background: #fff3f0 !important;
 }
 
-/* Each request/reservation is its own row, matching My reservations. */
-.simple-offer-record > .request-panel {
-  margin: 0 0 12px !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  overflow: visible !important;
+.owner-reservations-section {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
 }
 
-.simple-offer-record > .request-panel .request-panel-header {
-  display: none !important;
-}
-
-.simple-offer-record > .request-panel .request-list {
-  display: grid !important;
-  gap: 8px !important;
-}
-
-.simple-offer-record > .request-panel .request-card {
+.owner-reservation-card {
   overflow: hidden;
   border: 1px solid #cfe3da !important;
   border-radius: 14px;
@@ -198,27 +162,24 @@
   box-shadow: 0 8px 22px rgba(23, 63, 53, 0.04);
 }
 
-.simple-offer-record > .request-panel .request-card:has([data-offers-action="approve-reservation"]) {
+.owner-reservation-card:has([data-offers-action="approve-reservation"]) {
   border-color: #efc69f !important;
 }
 
-.simple-offer-record > .request-panel .request-card + .request-card {
-  border-top: 1px solid #cfe3da !important;
-}
-
-.simple-offer-record .request-row {
-  grid-template-columns: minmax(190px, 1.15fr) 185px 105px minmax(145px, auto) minmax(250px, auto) !important;
+.owner-reservation-card > .request-row {
+  grid-template-columns: minmax(220px, 1.35fr) 190px 105px minmax(145px, auto) minmax(220px, auto) !important;
   gap: 12px !important;
   align-items: end !important;
-  min-height: 76px !important;
+  min-height: 78px !important;
   padding: 12px 14px !important;
 }
 
-.offer-flow-field {
+.owner-reservation-field {
   min-width: 0;
 }
 
-.offer-flow-field-label {
+.owner-reservation-field::before {
+  content: attr(data-owner-label);
   display: block;
   margin-bottom: 5px;
   color: #6a7973;
@@ -229,222 +190,206 @@
   letter-spacing: 0.035em;
 }
 
-.offer-flow-field .request-main,
-.offer-flow-field .request-date,
-.offer-flow-field .table-value,
-.offer-flow-field .row-actions {
-  min-width: 0;
+.owner-reservation-offer {
+  display: block;
+  margin-bottom: 3px;
+  color: #173f35;
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 900;
 }
 
-.offer-flow-field .request-name {
-  font-size: 14px !important;
+.owner-reservation-card .request-name {
+  font-size: 13px !important;
 }
 
-.offer-flow-field .request-email {
-  margin-top: 3px !important;
+.owner-reservation-card .request-email {
+  margin-top: 2px !important;
   white-space: normal !important;
   overflow: visible !important;
   text-overflow: clip !important;
   line-height: 1.3 !important;
 }
 
-.offer-flow-field .request-date,
-.offer-flow-field .table-value {
+.owner-reservation-card .request-date,
+.owner-reservation-card .table-value {
   color: #173f35 !important;
+  font-weight: 800 !important;
 }
 
-.offer-flow-field .request-status {
+.owner-reservation-status-field .request-status {
   max-width: 100%;
   white-space: normal !important;
   text-align: center;
   line-height: 1.2 !important;
 }
 
-.offer-flow-actions .row-actions {
+.owner-reservation-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
   justify-content: flex-start !important;
   gap: 7px !important;
 }
 
-.offer-flow-actions .small-button,
-.offer-flow-actions .history-toggle-button {
+.owner-reservation-actions::before {
+  flex: 1 0 100%;
+  width: 100%;
+}
+
+.owner-reservation-actions .small-button,
+.owner-reservation-actions .history-toggle-button {
   min-height: 34px !important;
   padding: 8px 11px !important;
 }
 
-.offer-flow-actions .small-button:first-child {
+.owner-reservation-actions .small-button:first-of-type {
   background: #73d64f !important;
   color: #173a22 !important;
 }
 
-.offer-flow-actions .small-button.light,
-.offer-flow-actions .history-toggle-button {
+.owner-reservation-actions .small-button.light,
+.owner-reservation-actions .history-toggle-button {
   background: #edf5f1 !important;
   color: #173f35 !important;
 }
 
-.simple-offer-record .request-detail {
+.owner-reservation-card .request-detail {
   padding: 0 14px 14px !important;
   background: #f7fbf9 !important;
 }
 
-.offer-flow-manage-summary:focus-visible,
-.offer-flow-manage-panel a:focus-visible,
-.offer-flow-manage-panel button:focus-visible {
-  outline: 1px solid rgba(64, 127, 101, 0.52) !important;
-  outline-offset: 2px !important;
-  box-shadow: none !important;
+.owner-reservations-empty {
+  padding: 16px;
+  border: 1px solid #cfe3da;
+  border-radius: 14px;
+  background: #fff;
+  color: #66736e;
+  font-size: 13px;
+  font-weight: 700;
 }
 
-@media (max-width: 1100px) {
-  .simple-offer-record .simple-offer-row {
-    grid-template-columns: minmax(0, 1fr) 125px 100px minmax(245px, auto) !important;
-    gap: 10px !important;
+.owner-offer-manage-summary:focus-visible,
+.owner-offer-manage-panel a:focus-visible,
+.owner-offer-manage-panel button:focus-visible {
+  outline: 1px solid rgba(64, 127, 101, 0.52);
+  outline-offset: 2px;
+}
+
+@media (max-width: 1000px) {
+  .owner-offer-row {
+    grid-template-columns: minmax(0, 1fr) 125px 100px minmax(170px, auto) !important;
   }
 
-  .simple-offer-record .request-row {
-    grid-template-columns: minmax(170px, 1fr) 160px 90px minmax(135px, auto) minmax(220px, auto) !important;
+  .owner-reservation-card > .request-row {
+    grid-template-columns: minmax(180px, 1fr) 165px 95px minmax(135px, auto) minmax(200px, auto) !important;
     gap: 9px !important;
   }
 }
 
-/* On tablet/mobile use the same row model as My reservations. */
 @media (max-width: 900px) {
-  .simple-offer-record .simple-offer-row {
+  .owner-offer-row {
     grid-template-columns: minmax(0, 1fr) auto !important;
     gap: 8px 12px !important;
-    min-height: 0 !important;
     padding: 10px 12px !important;
   }
 
-  .simple-offer-record .simple-offer-main {
+  .owner-offer-row .simple-offer-main {
     grid-column: 1 / -1 !important;
-    min-width: 0;
   }
 
-  .simple-offer-record .simple-offer-info {
-    min-width: 0;
-  }
-
-  .simple-offer-record .offer-flow-price-summary,
-  .simple-offer-record .simple-offer-status {
-    grid-column: auto !important;
-    justify-self: start !important;
-  }
-
-  .simple-offer-record .simple-offer-actions {
+  .owner-offer-row .simple-offer-actions {
     grid-column: 1 / -1 !important;
-    display: flex !important;
     justify-content: flex-start !important;
     flex-wrap: wrap !important;
+  }
+
+  .owner-offer-manage {
+    flex: 1 1 auto;
+  }
+
+  .owner-offer-manage-summary {
     width: 100%;
-    padding-top: 2px;
   }
 
-  .simple-offer-record .simple-offer-actions > .offer-primary-button,
-  .simple-offer-record .simple-offer-actions > .offer-flow-primary,
-  .simple-offer-record .offer-flow-manage {
-    flex: 1 1 auto !important;
-    min-width: 0;
-  }
-
-  .offer-flow-manage-summary {
-    width: 100%;
-    min-width: 0;
-  }
-
-  .simple-offer-record .request-row {
+  .owner-reservation-card > .request-row {
     grid-template-columns: 1fr 1fr !important;
     gap: 12px !important;
     align-items: start !important;
   }
 
-  .offer-flow-party,
-  .offer-flow-status,
-  .offer-flow-actions {
+  .owner-reservation-party,
+  .owner-reservation-status-field,
+  .owner-reservation-actions {
     grid-column: 1 / -1;
   }
 
-  .offer-flow-term {
+  .owner-reservation-term {
     grid-column: 1;
   }
 
-  .offer-flow-price {
+  .owner-reservation-price {
     grid-column: 2;
-  }
-
-  .offer-flow-status .request-status {
-    justify-self: start;
   }
 }
 
 @media (max-width: 560px) {
-  .simple-offer-record .simple-offer-row {
+  .owner-section-header h2 {
+    font-size: 16px;
+  }
+
+  .owner-offer-row {
     grid-template-columns: 1fr 1fr !important;
   }
 
-  .simple-offer-record .simple-offer-main {
+  .owner-offer-row .simple-offer-main,
+  .owner-offer-row .simple-offer-actions {
     grid-column: 1 / -1 !important;
   }
 
-  .offer-flow-attention {
-    display: block;
+  .owner-offer-row .simple-offer-actions > .offer-primary-button,
+  .owner-offer-manage {
+    flex: 1 1 100%;
     width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-    border-radius: 10px;
-    white-space: normal;
-    overflow-wrap: break-word;
   }
 
-  .simple-offer-record .simple-offer-actions {
-    grid-column: 1 / -1 !important;
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 6px !important;
-  }
-
-  .simple-offer-record .simple-offer-actions > .offer-primary-button,
-  .simple-offer-record .simple-offer-actions > .offer-flow-primary,
-  .simple-offer-record .offer-flow-manage {
-    flex: 1 1 auto !important;
-    width: auto;
-    min-width: 0;
-  }
-
-  .offer-flow-manage-summary {
+  .owner-offer-manage-summary {
     width: 100%;
-    min-width: 0;
   }
 
-  .offer-flow-manage-panel {
+  .owner-offer-manage-panel {
     right: 0;
     width: min(270px, calc(100vw - 54px));
   }
 
-  .simple-offer-record .request-panel-header {
-    align-items: flex-start !important;
-  }
-
-  .simple-offer-record .request-panel-header h3 {
-    font-size: 14px !important;
-  }
-
-  .simple-offer-record .request-row {
+  .owner-reservation-card > .request-row {
+    grid-template-columns: 1fr !important;
     padding: 12px !important;
   }
 
-  .offer-flow-actions .row-actions {
+  .owner-reservation-party,
+  .owner-reservation-term,
+  .owner-reservation-price,
+  .owner-reservation-status-field,
+  .owner-reservation-actions {
+    grid-column: 1;
+  }
+
+  .owner-reservation-actions {
     display: grid !important;
     grid-template-columns: 1fr 1fr;
     width: 100%;
   }
 
-  .offer-flow-actions .row-actions .small-button,
-  .offer-flow-actions .row-actions .history-toggle-button {
+  .owner-reservation-actions::before {
+    grid-column: 1 / -1;
+  }
+
+  .owner-reservation-actions .small-button,
+  .owner-reservation-actions .history-toggle-button {
     width: 100% !important;
   }
 
-  .offer-flow-actions .row-actions .history-toggle-button {
+  .owner-reservation-actions .history-toggle-button {
     grid-column: 1 / -1;
   }
 }

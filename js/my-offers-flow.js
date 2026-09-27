@@ -1,152 +1,77 @@
 (function () {
-  const COPY = {
+  "use strict";
+
+  const LABELS = {
     cs: {
-      addListing: "Přidat nabídku",
-      manageListing: "Spravovat nabídku",
-      handleRequestOne: "Zobrazit žádost",
-      handleRequestMany: "Zobrazit žádosti",
-      hideOverview: "Skrýt přehled",
-      renter: "Zájemce",
+      offers: "Nabídky",
+      reservations: "Žádosti a rezervace",
+      manage: "Spravovat nabídku",
+      offerRenter: "Nabídka / zájemce",
       term: "Termín",
       price: "Cena",
       status: "Stav",
-      nextStep: "Co udělat",
-      requestDetail: "Detail žádosti",
-      reservationDetail: "Detail rezervace",
-      hideDetail: "Skrýt detail",
-      awaitingDecision: "Čeká na vaše rozhodnutí",
-      waitingRequestOne: "1 žádost čeká na vyřízení",
-      waitingRequestMany: "{count} žádostí čeká na vyřízení",
-      waitingPayment: "Rezervace čeká na platbu zájemce",
-      paidHandover: "Rezervace je zaplacená – čeká na předání",
-      pickedReturn: "Půjčení probíhá – po vrácení ho uzavřete",
-      showReservation: "Zobrazit rezervaci",
-      confirmHandover: "Potvrdit předání",
-      confirmReturn: "Potvrdit vrácení"
+      action: "Co udělat",
+      empty: "Teď nemáte žádnou žádost ani probíhající rezervaci."
     },
     sk: {
-      addListing: "Pridať ponuku",
-      manageListing: "Spravovať ponuku",
-      handleRequestOne: "Zobraziť žiadosť",
-      handleRequestMany: "Zobraziť žiadosti",
-      hideOverview: "Skryť prehľad",
-      renter: "Záujemca",
+      offers: "Ponuky",
+      reservations: "Žiadosti a rezervácie",
+      manage: "Spravovať ponuku",
+      offerRenter: "Ponuka / záujemca",
       term: "Termín",
       price: "Cena",
       status: "Stav",
-      nextStep: "Čo urobiť",
-      requestDetail: "Detail žiadosti",
-      reservationDetail: "Detail rezervácie",
-      hideDetail: "Skryť detail",
-      awaitingDecision: "Čaká na vaše rozhodnutie",
-      waitingRequestOne: "1 žiadosť čaká na vybavenie",
-      waitingRequestMany: "{count} žiadostí čaká na vybavenie",
-      waitingPayment: "Rezervácia čaká na platbu záujemcu",
-      paidHandover: "Rezervácia je zaplatená – čaká na odovzdanie",
-      pickedReturn: "Požičanie prebieha – po vrátení ho uzavrite",
-      showReservation: "Zobraziť rezerváciu",
-      confirmHandover: "Potvrdiť odovzdanie",
-      confirmReturn: "Potvrdiť vrátenie"
+      action: "Čo urobiť",
+      empty: "Teraz nemáte žiadnu žiadosť ani prebiehajúcu rezerváciu."
     },
     en: {
-      addListing: "Add listing",
-      manageListing: "Manage listing",
-      handleRequestOne: "View request",
-      handleRequestMany: "View requests",
-      hideOverview: "Hide overview",
-      renter: "Renter",
+      offers: "Listings",
+      reservations: "Requests and reservations",
+      manage: "Manage listing",
+      offerRenter: "Listing / renter",
       term: "Dates",
       price: "Price",
       status: "Status",
-      nextStep: "Next step",
-      requestDetail: "Request details",
-      reservationDetail: "Reservation details",
-      hideDetail: "Hide details",
-      awaitingDecision: "Waiting for your decision",
-      waitingRequestOne: "1 request needs your action",
-      waitingRequestMany: "{count} requests need your action",
-      waitingPayment: "Reservation is waiting for the renter's payment",
-      paidHandover: "Paid – waiting for handover",
-      pickedReturn: "Rental in progress – close it after return",
-      showReservation: "View reservation",
-      confirmHandover: "Confirm handover",
-      confirmReturn: "Confirm return"
+      action: "Next step",
+      empty: "You have no requests or active reservations right now."
     },
     de: {
-      addListing: "Angebot hinzufügen",
-      manageListing: "Angebot verwalten",
-      handleRequestOne: "Anfrage anzeigen",
-      handleRequestMany: "Anfragen anzeigen",
-      hideOverview: "Übersicht ausblenden",
-      renter: "Interessent",
+      offers: "Angebote",
+      reservations: "Anfragen und Reservierungen",
+      manage: "Angebot verwalten",
+      offerRenter: "Angebot / Interessent",
       term: "Zeitraum",
       price: "Preis",
       status: "Status",
-      nextStep: "Nächster Schritt",
-      requestDetail: "Anfragedetails",
-      reservationDetail: "Reservierungsdetails",
-      hideDetail: "Details ausblenden",
-      awaitingDecision: "Wartet auf Ihre Entscheidung",
-      waitingRequestOne: "1 Anfrage muss bearbeitet werden",
-      waitingRequestMany: "{count} Anfragen müssen bearbeitet werden",
-      waitingPayment: "Reservierung wartet auf die Zahlung des Interessenten",
-      paidHandover: "Bezahlt – Übergabe steht aus",
-      pickedReturn: "Ausleihe läuft – nach Rückgabe abschließen",
-      showReservation: "Reservierung anzeigen",
-      confirmHandover: "Übergabe bestätigen",
-      confirmReturn: "Rückgabe bestätigen"
+      action: "Nächster Schritt",
+      empty: "Sie haben derzeit keine Anfragen oder laufenden Reservierungen."
     },
     pl: {
-      addListing: "Dodaj ofertę",
-      manageListing: "Zarządzaj ofertą",
-      handleRequestOne: "Pokaż prośbę",
-      handleRequestMany: "Pokaż prośby",
-      hideOverview: "Ukryj przegląd",
-      renter: "Zainteresowany",
+      offers: "Oferty",
+      reservations: "Prośby i rezerwacje",
+      manage: "Zarządzaj ofertą",
+      offerRenter: "Oferta / zainteresowany",
       term: "Termin",
       price: "Cena",
       status: "Status",
-      nextStep: "Co zrobić",
-      requestDetail: "Szczegóły prośby",
-      reservationDetail: "Szczegóły rezerwacji",
-      hideDetail: "Ukryj szczegóły",
-      awaitingDecision: "Czeka na Twoją decyzję",
-      waitingRequestOne: "1 prośba czeka na rozpatrzenie",
-      waitingRequestMany: "{count} próśb czeka na rozpatrzenie",
-      waitingPayment: "Rezerwacja czeka na płatność zainteresowanego",
-      paidHandover: "Opłacona – czeka na przekazanie",
-      pickedReturn: "Wypożyczenie trwa – zamknij po zwrocie",
-      showReservation: "Pokaż rezerwację",
-      confirmHandover: "Potwierdź przekazanie",
-      confirmReturn: "Potwierdź zwrot"
+      action: "Co zrobić",
+      empty: "Nie masz teraz żadnych próśb ani trwających rezerwacji."
     }
   };
 
   let scheduled = false;
+  let applying = false;
 
-  function getLanguage() {
-    if (typeof window.getRentuloLanguage === "function") {
-      const language = window.getRentuloLanguage();
-      if (COPY[language]) {
-        return language;
-      }
-    }
+  function language() {
+    const value = String(document.documentElement.lang || "cs")
+      .toLowerCase()
+      .split("-")[0];
 
-    const htmlLanguage = String(document.documentElement.lang || "cs").slice(0, 2).toLowerCase();
-    return COPY[htmlLanguage] ? htmlLanguage : "cs";
+    return LABELS[value] ? value : "cs";
   }
 
-  function text(key, values) {
-    const language = getLanguage();
-    let value = COPY[language][key] || COPY.cs[key] || key;
-
-    if (values) {
-      Object.keys(values).forEach(function (name) {
-        value = value.replaceAll("{" + name + "}", String(values[name]));
-      });
-    }
-
-    return value;
+  function label(key) {
+    return LABELS[language()][key] || LABELS.cs[key] || key;
   }
 
   function setText(element, value) {
@@ -155,306 +80,300 @@
     }
   }
 
-  function inspectFlow(panel) {
-    if (!panel) {
-      return { kind: "none", count: 0 };
-    }
+  function createSectionHeader(className, text) {
+    const header = document.createElement("div");
+    header.className = "owner-section-header " + className;
 
-    const requestCards = Array.from(panel.querySelectorAll(".request-card"));
-    const pendingCount = panel.querySelectorAll('[data-offers-action="approve-reservation"]').length;
-    const pickupCount = panel.querySelectorAll('[data-offers-action="mark-picked-up"]').length;
-    const waitingPaymentCount = panel.querySelectorAll(".request-status.active").length;
-    const returnCount = panel.querySelectorAll('[data-offers-action="mark-returned"]').length;
+    const heading = document.createElement("h2");
+    heading.textContent = text;
+    header.appendChild(heading);
 
-    if (pendingCount > 0) {
-      return { kind: "pending", count: pendingCount };
-    }
-
-    if (pickupCount > 0) {
-      return { kind: "paid", count: pickupCount };
-    }
-
-    if (waitingPaymentCount > 0) {
-      return { kind: "reservation", count: waitingPaymentCount };
-    }
-
-    if (returnCount > 0) {
-      return { kind: "picked", count: returnCount };
-    }
-
-    if (requestCards.length > 0) {
-      return { kind: "reservation", count: requestCards.length };
-    }
-
-    return { kind: "none", count: 0 };
+    return header;
   }
 
-  function ensureAttention(info, flow) {
-    if (!info) {
-      return;
+  function simplifyOfferRow(record) {
+    const row = record.querySelector(":scope > .simple-offer-row");
+
+    if (!row) {
+      return "";
     }
 
-    let attention = info.querySelector(".offer-flow-attention");
+    row.classList.add("owner-offer-row");
 
-    if (!attention) {
-      attention = document.createElement("span");
-      attention.className = "offer-flow-attention";
-      info.appendChild(attention);
+    const offerName = (row.querySelector(".simple-offer-name") || {}).textContent || "";
+    const directValues = Array.from(row.children).filter(function (element) {
+      return element.classList && element.classList.contains("simple-offer-value");
+    });
+
+    if (directValues.length >= 3) {
+      directValues[1].classList.add("owner-offer-request-summary");
     }
 
-    if (flow.kind === "pending") {
-      if (attention.className !== "offer-flow-attention urgent") {
-        attention.className = "offer-flow-attention urgent";
-      }
-      setText(
-        attention,
-        flow.count === 1
-          ? text("waitingRequestOne")
-          : text("waitingRequestMany", { count: flow.count })
-      );
-      attention.hidden = false;
-      return;
-    }
-
-    if (flow.kind === "paid") {
-      if (attention.className !== "offer-flow-attention urgent") {
-        attention.className = "offer-flow-attention urgent";
-      }
-      setText(attention, text("paidHandover"));
-      attention.hidden = false;
-      return;
-    }
-
-    if (flow.kind === "picked") {
-      if (attention.className !== "offer-flow-attention active") {
-        attention.className = "offer-flow-attention active";
-      }
-      setText(attention, text("pickedReturn"));
-      attention.hidden = false;
-      return;
-    }
-
-    if (flow.kind === "reservation") {
-      if (attention.className !== "offer-flow-attention active") {
-        attention.className = "offer-flow-attention active";
-      }
-      setText(attention, text("waitingPayment"));
-      attention.hidden = false;
-      return;
-    }
-
-    if (attention.className !== "offer-flow-attention") {
-      attention.className = "offer-flow-attention";
-    }
-    attention.hidden = true;
-  }
-
-  function createManageMenu(actions) {
-    let menu = actions.querySelector(":scope > .offer-flow-manage");
-
-    if (!menu) {
-      menu = document.createElement("details");
-      menu.className = "offer-flow-manage";
-
-      const summary = document.createElement("summary");
-      summary.className = "offer-flow-manage-summary";
-
-      const panel = document.createElement("div");
-      panel.className = "offer-flow-manage-panel";
-
-      menu.append(summary, panel);
-      actions.appendChild(menu);
-    }
-
-    setText(menu.querySelector("summary"), text("manageListing"));
-    return menu;
-  }
-
-  function organizeOfferActions(row, flow, panel) {
     const actions = row.querySelector(":scope > .simple-offer-actions");
 
     if (!actions) {
-      return;
+      return offerName.trim();
     }
 
-    const primary = actions.querySelector(":scope > .offer-primary-button");
-    const activate = actions.querySelector(':scope > [data-offers-action="activate-offer"]');
-    const manageMenu = createManageMenu(actions);
-    const managePanel = manageMenu.querySelector(".offer-flow-manage-panel");
+    const openReservationsButton = actions.querySelector(
+      '[data-offers-action="open-offer-requests"]'
+    );
 
-    Array.from(actions.children).forEach(function (child) {
-      if (child === primary || child === activate || child === manageMenu) {
-        return;
+    if (openReservationsButton) {
+      openReservationsButton.remove();
+    }
+
+    if (!actions.querySelector(":scope > .owner-offer-manage")) {
+      const publishButton = actions.querySelector(
+        ':scope > [data-offers-action="publish-offer"]'
+      );
+      const otherActions = Array.from(actions.children).filter(function (element) {
+        return element !== publishButton;
+      });
+
+      if (otherActions.length) {
+        const details = document.createElement("details");
+        details.className = "owner-offer-manage";
+
+        const summary = document.createElement("summary");
+        summary.className = "owner-offer-manage-summary";
+        summary.textContent = label("manage");
+
+        const panel = document.createElement("div");
+        panel.className = "owner-offer-manage-panel";
+
+        otherActions.forEach(function (element) {
+          panel.appendChild(element);
+        });
+
+        details.appendChild(summary);
+        details.appendChild(panel);
+        actions.appendChild(details);
       }
-      managePanel.appendChild(child);
+    }
+
+    return offerName.trim();
+  }
+
+  function setFieldLabel(element, value) {
+    if (element) {
+      element.dataset.ownerLabel = value;
+      element.classList.add("owner-reservation-field");
+    }
+  }
+
+  function enhanceReservationCard(card, offerName) {
+    card.classList.add("owner-reservation-card");
+
+    card.querySelectorAll('[data-offers-action="mark-picked-up"]').forEach(function (button) {
+      button.remove();
     });
 
-    if (activate) {
-      activate.classList.add("offer-flow-primary");
-      if (activate.nextElementSibling !== manageMenu) {
-        actions.insertBefore(activate, manageMenu);
-      }
-    }
-
-    if (primary) {
-      if (actions.firstElementChild !== primary) {
-        actions.insertBefore(primary, actions.firstChild);
-      }
-
-      if (primary.dataset.offersAction === "open-offer-requests") {
-        const isPanelOpen = Boolean(panel && panel.classList.contains("open"));
-
-        if (isPanelOpen) {
-          setText(primary, text("hideOverview"));
-        } else if (flow.kind === "pending") {
-          setText(
-            primary,
-            flow.count === 1 ? text("handleRequestOne") : text("handleRequestMany")
-          );
-        } else if (flow.kind === "paid") {
-          setText(primary, text("confirmHandover"));
-        } else if (flow.kind === "picked") {
-          setText(primary, text("confirmReturn"));
-        } else if (flow.kind === "reservation") {
-          setText(primary, text("showReservation"));
-        }
-      }
-    }
-  }
-
-  function ensureFieldWrapper(element, wrapperClass, labelText) {
-    if (!element) {
-      return null;
-    }
-
-    let wrapper = element.parentElement;
-
-    if (!wrapper || !wrapper.classList.contains("offer-flow-field")) {
-      wrapper = document.createElement("div");
-      wrapper.className = "offer-flow-field " + wrapperClass;
-      element.parentNode.insertBefore(wrapper, element);
-      wrapper.appendChild(element);
-    }
-
-    let label = wrapper.querySelector(":scope > .offer-flow-field-label");
-
-    if (!label) {
-      label = document.createElement("span");
-      label.className = "offer-flow-field-label";
-      wrapper.insertBefore(label, wrapper.firstChild);
-    }
-
-    setText(label, labelText);
-    return wrapper;
-  }
-
-  function inspectRequestCard(card) {
-    if (!card) {
-      return { kind: "none" };
-    }
-
-    if (card.querySelector('[data-offers-action="approve-reservation"]')) {
-      return { kind: "pending" };
-    }
-
-    if (card.querySelector('[data-offers-action="mark-picked-up"]')) {
-      return { kind: "paid" };
-    }
-
-    if (card.querySelector('[data-offers-action="mark-returned"]')) {
-      return { kind: "picked" };
-    }
-
-    return { kind: "reservation" };
-  }
-
-  function enhanceRequestCard(card) {
-    const flow = inspectRequestCard(card);
     const row = card.querySelector(":scope > .request-row");
 
     if (!row) {
       return;
     }
 
-    const requestMain = row.querySelector(".request-main");
-    const requestDate = row.querySelector(".request-date");
-    const requestPrice = row.querySelector(".table-value");
-    const requestStatus = row.querySelector(".request-status");
-    const requestActions = row.querySelector(".row-actions");
+    const party = row.querySelector(":scope > .request-main");
+    const term = row.querySelector(":scope > .request-date");
+    const price = row.querySelector(":scope > .table-value");
+    const status = row.querySelector(":scope > .request-status");
+    const actions = row.querySelector(":scope > .row-actions");
 
-    ensureFieldWrapper(requestMain, "offer-flow-party", text("renter"));
-    ensureFieldWrapper(requestDate, "offer-flow-term", text("term"));
-    ensureFieldWrapper(requestPrice, "offer-flow-price", text("price"));
-    ensureFieldWrapper(requestStatus, "offer-flow-status", text("status"));
-    ensureFieldWrapper(requestActions, "offer-flow-actions", text("nextStep"));
+    if (party) {
+      party.classList.add("owner-reservation-party");
+      setFieldLabel(party, label("offerRenter"));
 
-    if (flow.kind === "pending" && requestStatus) {
-      setText(requestStatus, text("awaitingDecision"));
+      let offer = party.querySelector(":scope > .owner-reservation-offer");
+
+      if (!offer) {
+        offer = document.createElement("span");
+        offer.className = "owner-reservation-offer";
+        party.insertBefore(offer, party.firstChild);
+      }
+
+      setText(offer, offerName);
     }
 
-    const detail = card.querySelector(":scope > .request-detail");
-    const detailButton = card.querySelector('[data-offers-action="toggle-request-detail"]');
+    if (term) {
+      term.classList.add("owner-reservation-term");
+      setFieldLabel(term, label("term"));
+    }
 
-    if (detailButton) {
-      const closedDetailLabel = flow.kind === "pending" ? text("requestDetail") : text("reservationDetail");
-      setText(
-        detailButton,
-        detail && detail.classList.contains("open") ? text("hideDetail") : closedDetailLabel
-      );
+    if (price) {
+      price.classList.remove("hide-tablet");
+      price.classList.add("owner-reservation-price");
+      setFieldLabel(price, label("price"));
+    }
+
+    if (status) {
+      let wrapper = status.parentElement;
+
+      if (!wrapper || !wrapper.classList.contains("owner-reservation-status-field")) {
+        wrapper = document.createElement("div");
+        wrapper.className = "owner-reservation-status-field owner-reservation-field";
+        status.replaceWith(wrapper);
+        wrapper.appendChild(status);
+      }
+
+      wrapper.dataset.ownerLabel = label("status");
+    }
+
+    if (actions) {
+      actions.classList.add("owner-reservation-actions");
+      setFieldLabel(actions, label("action"));
     }
   }
 
-  function enhanceRequestPanel(panel, flow) {
-    if (!panel) {
-      return;
-    }
+  function updateGeneratedLabels(root) {
+    const offersHeader = root.querySelector(".owner-offers-section-header h2");
+    const reservationsHeader = root.querySelector(".owner-reservations-section h2");
+    const empty = root.querySelector(".owner-reservations-empty");
 
-    panel.classList.toggle("offer-flow-needs-action", flow.kind === "pending" || flow.kind === "paid" || flow.kind === "picked");
+    setText(offersHeader, label("offers"));
+    setText(reservationsHeader, label("reservations"));
+    setText(empty, label("empty"));
 
-    panel.querySelectorAll(".request-card").forEach(function (card) {
-      enhanceRequestCard(card);
+    root.querySelectorAll(".owner-offer-manage-summary").forEach(function (summary) {
+      setText(summary, label("manage"));
+    });
+
+    root.querySelectorAll(".owner-reservation-card").forEach(function (card) {
+      setFieldLabel(card.querySelector(".owner-reservation-party"), label("offerRenter"));
+      setFieldLabel(card.querySelector(".owner-reservation-term"), label("term"));
+      setFieldLabel(card.querySelector(".owner-reservation-price"), label("price"));
+
+      const statusField = card.querySelector(".owner-reservation-status-field");
+      if (statusField) statusField.dataset.ownerLabel = label("status");
+
+      setFieldLabel(card.querySelector(".owner-reservation-actions"), label("action"));
     });
   }
 
-  function enhanceRecord(record) {
-    const row = record.querySelector(":scope > .simple-offer-row");
+  function focusActionReservation(section) {
+    const params = new URLSearchParams(window.location.search);
 
-    if (!row) {
+    if (params.get("open") !== "actions") {
       return;
     }
 
-    const panel = record.querySelector(":scope > .request-panel");
-    const flow = inspectFlow(panel);
-    const values = row.querySelectorAll(":scope > .simple-offer-value:not(.simple-offer-status)");
-    const requestCountSource = values.length > 1 ? values[1] : null;
-    const info = row.querySelector(".simple-offer-info");
+    const cards = Array.from(section.querySelectorAll(".owner-reservation-card"));
+    const actionable = cards.find(function (card) {
+      return card.querySelector(
+        '[data-offers-action="approve-reservation"], ' +
+        '[data-offers-action="reject-reservation"], ' +
+        '[data-offers-action="mark-returned"]'
+      );
+    });
 
-    if (values[0]) {
-      values[0].classList.add("offer-flow-price-summary");
+    const target = actionable || cards[0];
+
+    if (target) {
+      window.setTimeout(function () {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 0);
     }
-
-    if (requestCountSource) {
-      requestCountSource.classList.add("offer-request-count-source");
-    }
-
-    ensureAttention(info, flow);
-    organizeOfferActions(row, flow, panel);
-    enhanceRequestPanel(panel, flow);
   }
 
-  function enhanceAll() {
-    scheduled = false;
-
-    const topAction = document.querySelector(".top-action-button");
-    setText(topAction, text("addListing"));
-
-    const list = document.getElementById("offersList");
-
-    if (!list) {
+  function enhance() {
+    if (applying) {
       return;
     }
 
-    list.querySelectorAll(".simple-offer-record").forEach(enhanceRecord);
+    const root = document.getElementById("offersList");
+
+    if (!root) {
+      return;
+    }
+
+    const offersList = root.querySelector(":scope > .offers-card-list");
+
+    if (!offersList) {
+      return;
+    }
+
+    const rawPanels = Array.from(
+      offersList.querySelectorAll(":scope > .simple-offer-record > .request-panel")
+    );
+
+    if (!rawPanels.length && root.querySelector(":scope > .owner-reservations-section")) {
+      updateGeneratedLabels(root);
+      return;
+    }
+
+    if (!rawPanels.length) {
+      return;
+    }
+
+    applying = true;
+
+    try {
+      offersList.classList.add("owner-offers-list");
+
+      let offersHeader = root.querySelector(":scope > .owner-offers-section-header");
+
+      if (!offersHeader) {
+        offersHeader = createSectionHeader("owner-offers-section-header", label("offers"));
+        root.insertBefore(offersHeader, offersList);
+      }
+
+      const reservationCards = [];
+
+      Array.from(offersList.querySelectorAll(":scope > .simple-offer-record")).forEach(function (record) {
+        const offerName = simplifyOfferRow(record);
+        const panel = record.querySelector(":scope > .request-panel");
+
+        if (!panel) {
+          return;
+        }
+
+        Array.from(panel.querySelectorAll(":scope .request-card")).forEach(function (card) {
+          enhanceReservationCard(card, offerName);
+          reservationCards.push(card);
+        });
+
+        panel.remove();
+      });
+
+      const oldReservations = root.querySelector(":scope > .owner-reservations-section");
+      if (oldReservations) oldReservations.remove();
+
+      const section = document.createElement("section");
+      section.className = "owner-reservations-section";
+
+      const header = createSectionHeader("owner-reservations-section-header", label("reservations"));
+
+      if (reservationCards.length) {
+        const count = document.createElement("span");
+        count.className = "owner-section-count";
+        count.textContent = String(reservationCards.length);
+        header.appendChild(count);
+      }
+
+      section.appendChild(header);
+
+      const list = document.createElement("div");
+      list.className = "owner-reservations-list";
+
+      if (reservationCards.length) {
+        reservationCards.forEach(function (card) {
+          list.appendChild(card);
+        });
+      } else {
+        const empty = document.createElement("div");
+        empty.className = "owner-reservations-empty";
+        empty.textContent = label("empty");
+        list.appendChild(empty);
+      }
+
+      section.appendChild(list);
+      root.appendChild(section);
+
+      focusActionReservation(section);
+    } finally {
+      applying = false;
+    }
   }
 
   function scheduleEnhance() {
@@ -463,32 +382,37 @@
     }
 
     scheduled = true;
-    window.requestAnimationFrame(enhanceAll);
+
+    window.requestAnimationFrame(function () {
+      scheduled = false;
+      enhance();
+    });
   }
 
-  function start() {
-    const list = document.getElementById("offersList");
+  function initialize() {
+    const root = document.getElementById("offersList");
 
-    if (!list) {
+    if (!root) {
       return;
     }
 
-    const observer = new MutationObserver(scheduleEnhance);
-    observer.observe(list, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-      attributes: true,
-      attributeFilter: ["class"]
+    const observer = new MutationObserver(function () {
+      scheduleEnhance();
     });
 
-    document.addEventListener("rentuloLanguageChanged", scheduleEnhance);
+    observer.observe(root, {
+      childList: true,
+      subtree: true
+    });
+
     scheduleEnhance();
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", start);
+    document.addEventListener("DOMContentLoaded", initialize, { once: true });
   } else {
-    start();
+    initialize();
   }
+
+  document.addEventListener("rentuloLanguageChanged", scheduleEnhance);
 })();
