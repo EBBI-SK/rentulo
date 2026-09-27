@@ -260,6 +260,11 @@ body[data-navigation-page="moje-nabidky"] .simple-offer-record .request-card + .
     flex-direction: column;
   }
 
+  .pickup-handoff-copy {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+
   .pickup-handoff-open,
   .pickup-handoff-input {
     width: 100%;
