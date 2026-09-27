@@ -206,6 +206,45 @@
   border-top: 1px solid #cfe3da !important;
 }
 
+
+.offer-other-reservations[hidden] {
+  display: none !important;
+}
+
+.offer-other-reservations {
+  display: grid;
+  gap: 8px;
+}
+
+.offer-other-reservations-control {
+  display: flex;
+  justify-content: flex-start;
+  padding-top: 2px;
+}
+
+.offer-other-reservations-toggle {
+  appearance: none;
+  border: 1px solid #cfe3da;
+  border-radius: 10px;
+  background: #eef6f2;
+  color: #173f35;
+  min-height: 38px;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.offer-other-reservations-toggle:hover {
+  background: #e6f1eb;
+}
+
+.offer-other-reservations-toggle:focus-visible {
+  outline: 1px solid rgba(64, 127, 101, 0.52);
+  outline-offset: 2px;
+}
+
 .simple-offer-record .request-row {
   grid-template-columns: minmax(190px, 1.15fr) 185px 105px minmax(145px, auto) minmax(250px, auto) !important;
   gap: 12px !important;
@@ -431,6 +470,14 @@
 
   .simple-offer-record .request-row {
     padding: 12px !important;
+  }
+
+  .offer-other-reservations-control {
+    width: 100%;
+  }
+
+  .offer-other-reservations-toggle {
+    width: 100%;
   }
 
   .offer-flow-actions .row-actions {
