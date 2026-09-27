@@ -1128,25 +1128,18 @@ const data = Array.isArray(updatedReservations)
       }, 0);
     }
 
-    function getOfferIdByReservationId(reservationId) {
-      const reservation = ownerReservations.find(function (item) {
-        return String(item.id) === String(reservationId);
-      });
-
-      return reservation ? reservation.offerId : "";
-    }
-
     function reopenReservationAfterRender(reservationId, panelType) {
-      const offerId = getOfferIdByReservationId(reservationId);
-
-      if (!offerId || panelType === "history") {
+      if (panelType === "history") {
         return;
       }
 
-      const openPanel = document.getElementById("open-panel-" + offerId);
+      const requestCard = document.getElementById("request-card-" + reservationId);
 
-      if (openPanel) {
-        openPanel.classList.add("open");
+      if (requestCard) {
+        requestCard.scrollIntoView({
+          behavior: "smooth",
+          block: "center"
+        });
       }
     }
 
@@ -1329,11 +1322,7 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
       }
 
       if (normalizeReservationStatus(status) === RESERVATION_STATUS_PAID) {
-        actions.push(`
-          <button class="small-button orange" type="button" data-offers-action="mark-picked-up" data-reservation-id="${escapeHtml(reservationId)}">
-            ${offersTranslate("offers.action.pickedUp", "Potvrdit předání")}
-          </button>
-        `);
+        // Handover is confirmed only through the verified pickup PIN flow.
       }
 
       if (normalizeReservationStatus(status) === RESERVATION_STATUS_PICKED_UP) {
@@ -1407,9 +1396,22 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
       `;
     }
 
+    function getReservationOfferName(reservation) {
+      const matchingOffer = ownerOffers.find(function (offer) {
+        return String(offer.id) === String(reservation.offerId || "");
+      });
+
+      if (matchingOffer) {
+        return getOfferDisplayName(matchingOffer);
+      }
+
+      return reservation.offerName || offersTranslate("offers.reservationOfferFallback", "Nabídka");
+    }
+
     function renderRequest(reservation) {
       const status = reservation.status;
       const statusText = getStatusText(status);
+      const offerName = getReservationOfferName(reservation);
 
       const renterName = reservation.renterName || offersTranslate("offers.renterFallback", "Zájemce");
       const renterEmail = canShowContact(status)
@@ -1420,32 +1422,45 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
       const endDate = reservation.endDate;
       const price = reservation.totalPrice;
       const reservationId = reservation.id;
-
       const actionButtons = renderRequestActions(reservation, status);
 
       return `
-        <article class="request-card" id="request-card-${escapeHtml(reservationId)}">
+        <article class="request-card owner-reservation-card" id="request-card-${escapeHtml(reservationId)}">
           <div class="request-row">
-            <div class="request-main">
+            <div class="owner-reservation-field owner-reservation-party">
+              <span class="owner-reservation-label">${offersTranslate("offers.reservationOffer", "Nabídka / zájemce")}</span>
+              <span class="owner-reservation-offer">${escapeHtml(offerName)}</span>
               <span class="request-name">${escapeHtml(renterName)}</span>
               <span class="request-email">${escapeHtml(renterEmail)}</span>
             </div>
 
-            <div class="request-date">
-              ${escapeHtml(formatOffersDate(startDate))} – ${escapeHtml(formatOffersDate(endDate))}
+            <div class="owner-reservation-field owner-reservation-term">
+              <span class="owner-reservation-label">${offersTranslate("offers.reservationTerm", "Termín")}</span>
+              <div class="request-date">
+                ${escapeHtml(formatOffersDate(startDate))} – ${escapeHtml(formatOffersDate(endDate))}
+              </div>
             </div>
 
-            <div class="table-value hide-tablet">
-              ${escapeHtml(formatOffersMoney(price))}
+            <div class="owner-reservation-field owner-reservation-price">
+              <span class="owner-reservation-label">${offersTranslate("offers.reservationPrice", "Cena")}</span>
+              <div class="table-value">
+                ${escapeHtml(formatOffersMoney(price))}
+              </div>
             </div>
 
-            <span class="request-status ${getRequestStatusClass(status)}">${escapeHtml(statusText)}</span>
+            <div class="owner-reservation-field owner-reservation-status">
+              <span class="owner-reservation-label">${offersTranslate("offers.reservationStatus", "Stav")}</span>
+              <span class="request-status ${getRequestStatusClass(status)}">${escapeHtml(statusText)}</span>
+            </div>
 
-            <div class="row-actions">
-              ${actionButtons}
-              <button class="history-toggle-button" type="button" data-offers-action="toggle-request-detail" data-reservation-id="${escapeHtml(reservationId)}">
-                ${offersTranslate("offers.detail.show", "Detail")}
-              </button>
+            <div class="owner-reservation-field owner-reservation-actions">
+              <span class="owner-reservation-label">${offersTranslate("offers.reservationAction", "Co udělat")}</span>
+              <div class="row-actions">
+                ${actionButtons}
+                <button class="history-toggle-button" type="button" data-offers-action="toggle-request-detail" data-reservation-id="${escapeHtml(reservationId)}">
+                  ${offersTranslate("offers.detail.show", "Detail")}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1475,134 +1490,115 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
       button.textContent = offersTranslate("offers.hideDetail", "Skrýt detail");
     }
 
-    function renderRequestPanel(panelId, title, requests, content) {
-      const countText = getRequestPanelCountText(requests);
+    function renderOfferManageMenu(offer, hasOpenReservations) {
+      const offerId = String(offer.id);
+      const isActive = isOfferActive(offer);
+      const isHidden = isOfferHidden(offer);
+
+      const visibilityActionHtml = isActive
+        ? `<button class="owner-offer-menu-action" type="button" data-offers-action="deactivate-offer" data-offer-id="${escapeHtml(offerId)}">${offersTranslate("offers.deactivate", "Deaktivovat nabídku")}</button>`
+        : isHidden
+          ? `<button class="owner-offer-menu-action" type="button" data-offers-action="activate-offer" data-offer-id="${escapeHtml(offerId)}">${offersTranslate("offers.activate", "Aktivovat nabídku")}</button>`
+          : "";
 
       return `
-        <section class="request-panel" id="${escapeHtml(panelId)}">
-          <div class="request-panel-header">
-            <h3>${escapeHtml(title)}</h3>
-            <span>${escapeHtml(countText)}</span>
+        <details class="owner-offer-manage">
+          <summary>${offersTranslate("offers.manageOffer", "Spravovat nabídku")}</summary>
+          <div class="owner-offer-menu">
+            ${isActive ? `<a href="detail.html?id=${encodeURIComponent(offerId)}">${offersTranslate("offers.publicDetail", "Detail nabídky")}</a>` : ""}
+            <a href="edit-nabidka.html?id=${encodeURIComponent(offerId)}">${offersTranslate("offers.edit", "Upravit nabídku")}</a>
+            ${visibilityActionHtml}
+            ${hasOpenReservations ? "" : `<button class="owner-offer-menu-action danger" type="button" data-offers-action="delete-offer" data-offer-id="${escapeHtml(offerId)}">${offersTranslate("offers.delete", "Smazat nabídku")}</button>`}
           </div>
-
-          <div class="request-list">
-            ${content}
-          </div>
-        </section>
+        </details>
       `;
     }
 
-    function toggleOfferRequests(offerId) {
-      const openPanel = document.getElementById("open-panel-" + offerId);
-      const isOpen = openPanel && openPanel.classList.contains("open");
+    function renderSimpleOffer(offer, hasOpenReservations) {
+      const offerId = String(offer.id);
+      const offerName = getOfferDisplayName(offer);
+      const offerCity = getOfferCity(offer);
+      const offerPrice = getOfferPrice(offer);
+      const isDraft = isOfferDraft(offer);
 
-      if (isOpen) {
-        openPanel.classList.remove("open");
-        return;
-      }
+      const publishActionHtml = isDraft
+        ? `
+          <button
+            type="button"
+            class="offer-primary-button orange"
+            data-offers-action="publish-offer"
+            data-offer-id="${escapeHtml(offerId)}"
+          >
+            ${offersTranslate("offers.publish", "Zveřejnit nabídku")}
+          </button>
+        `
+        : "";
 
-      if (openPanel) {
-        openPanel.classList.add("open");
-      }
+      return `
+        <article class="simple-offer-row owner-offer-row">
+          <div class="simple-offer-main">
+            ${renderToolImage(offer)}
+            <div class="simple-offer-info">
+              <strong class="simple-offer-name">${escapeHtml(offerName)}</strong>
+              <span class="simple-offer-meta">${escapeHtml(offerCity)}</span>
+            </div>
+          </div>
 
-      setTimeout(function () {
-        if (openPanel) {
-          openPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
-        }
-      }, 0);
+          <div class="simple-offer-value">
+            ${escapeHtml(formatOffersMoneyPerDay(offerPrice))}
+          </div>
+
+          <div class="simple-offer-value simple-offer-status status-${escapeHtml(String(offer.status || "active").toLowerCase())}">
+            ${escapeHtml(getOfferStatus(offer))}
+          </div>
+
+          <div class="simple-offer-actions owner-offer-actions">
+            ${publishActionHtml}
+            ${renderOfferManageMenu(offer, hasOpenReservations)}
+          </div>
+        </article>
+      `;
     }
 
-function renderSimpleOffer(offer, requests) {
-  const offerId = String(offer.id);
-  const offerName = getOfferDisplayName(offer);
-  const offerCity = getOfferCity(offer);
-  const offerPrice = getOfferPrice(offer);
-  const openPanelId = "open-panel-" + offerId;
-  const isDraft = isOfferDraft(offer);
-  const isHidden = isOfferHidden(offer);
-  const isActive = isOfferActive(offer);
+    function getOwnerReservationPriority(reservation) {
+      const status = normalizeReservationStatus(reservation.status);
 
-  const openRequests = requests.filter(function (reservation) {
-    return isOpenStatus(reservation.status);
-  });
+      if (status === RESERVATION_STATUS_PENDING) return 0;
+      if (status === RESERVATION_STATUS_APPROVED) return 1;
+      if (status === RESERVATION_STATUS_PAID) return 2;
+      if (status === RESERVATION_STATUS_PICKED_UP) return 3;
+      return 4;
+    }
 
-  const ownerActionRequests = openRequests.filter(function (reservation) {
-    return isOwnerActionStatus(reservation.status);
-  });
+    function getOwnerReservationDateValue(reservation) {
+      const start = Date.parse(String(reservation.startDate || ""));
 
-  const requestText = getRequestPanelCountText(openRequests);
+      if (Number.isFinite(start)) {
+        return start;
+      }
 
-  const openContent = openRequests.length
-    ? openRequests.map(renderRequest).join("")
-    : `<p class="request-empty-note">${offersTranslate("offers.noOpenRequests", "U této nabídky teď není žádná otevřená žádost.")}</p>`;
+      const created = Date.parse(String(reservation.createdAt || ""));
+      return Number.isFinite(created) ? created : Number.MAX_SAFE_INTEGER;
+    }
 
-  const primaryActionHtml = isDraft
-    ? `<button
-        type="button"
-        class="offer-primary-button orange"
-        data-offers-action="publish-offer"
-        data-offer-id="${escapeHtml(offerId)}"
-      >
-        ${offersTranslate("offers.publish", "Zveřejnit nabídku")}
-      </button>`
-    : openRequests.length
-      ? `<button
-          type="button"
-          class="offer-primary-button ${ownerActionRequests.length ? "urgent" : ""}"
-          data-offers-action="open-offer-requests"
-          data-offer-id="${escapeHtml(offerId)}"
-        >
-          ${getOfferRequestsButtonText(openRequests, ownerActionRequests)}
-        </button>`
-      : "";
+    function sortOwnerOpenReservations(reservations) {
+      return reservations.slice().sort(function (left, right) {
+        const priorityDifference = getOwnerReservationPriority(left) - getOwnerReservationPriority(right);
 
-  const visibilityActionHtml = isActive
-    ? `<button class="offer-visibility-action deactivate" type="button" data-offers-action="deactivate-offer" data-offer-id="${escapeHtml(offerId)}">${offersTranslate("offers.deactivate", "Deaktivovat nabídku")}</button>`
-    : isHidden
-      ? `<button class="offer-visibility-action activate" type="button" data-offers-action="activate-offer" data-offer-id="${escapeHtml(offerId)}">${offersTranslate("offers.activate", "Aktivovat nabídku")}</button>`
-      : "";
+        if (priorityDifference !== 0) {
+          return priorityDifference;
+        }
 
-  const directOfferActionsHtml = `
-    ${isActive ? `<a href="detail.html?id=${encodeURIComponent(offerId)}">${offersTranslate("offers.publicDetail", "Detail nabídky")}</a>` : ""}
-    ${visibilityActionHtml}
-    <a href="edit-nabidka.html?id=${encodeURIComponent(offerId)}">${offersTranslate("offers.edit", "Upravit nabídku")}</a>
-    ${openRequests.length ? "" : `<button class="offer-delete-action danger" type="button" data-offers-action="delete-offer" data-offer-id="${escapeHtml(offerId)}">${offersTranslate("offers.delete", "Smazat nabídku")}</button>`}
-  `;
+        const dateDifference = getOwnerReservationDateValue(left) - getOwnerReservationDateValue(right);
 
-  return `
-    <div class="simple-offer-record">
-      <article class="simple-offer-row">
-        <div class="simple-offer-main">
-          ${renderToolImage(offer)}
+        if (dateDifference !== 0) {
+          return dateDifference;
+        }
 
-          <div class="simple-offer-info">
-            <strong class="simple-offer-name">${escapeHtml(offerName)}</strong>
-            <span class="simple-offer-meta">${escapeHtml(offerCity)}</span>
-          </div>
-        </div>
+        return String(left.id || "").localeCompare(String(right.id || ""));
+      });
+    }
 
-        <div class="simple-offer-value">
-          ${escapeHtml(formatOffersMoneyPerDay(offerPrice))}
-        </div>
-
-        <div class="simple-offer-value">
-          ${escapeHtml(requestText)}
-        </div>
-
-        <div class="simple-offer-value simple-offer-status status-${escapeHtml(String(offer.status || "active").toLowerCase())}">
-          ${escapeHtml(getOfferStatus(offer))}
-        </div>
-
-        <div class="simple-offer-actions">
-          ${primaryActionHtml}
-          ${directOfferActionsHtml}
-        </div>
-      </article>
-
-      ${renderRequestPanel(openPanelId, offersTranslate("offers.openRequests", "Žádosti a rezervace"), openRequests, openContent)}
-    </div>
-  `;
-}
     function renderOffers(options) {
       if (ownerOffersLoadState === "error") {
         renderLoadErrorState();
@@ -1614,19 +1610,46 @@ function renderSimpleOffer(offer, requests) {
         return;
       }
 
-      const offersRowsHtml = ownerOffers.map(function (offer) {
-        const offerId = String(offer.id);
+      const openReservations = sortOwnerOpenReservations(
+        ownerReservations.filter(function (reservation) {
+          return isOpenStatus(reservation.status);
+        })
+      );
 
-        const offerRequests = ownerReservations.filter(function (reservation) {
-          return String(reservation.offerId) === String(offerId);
+      const offersRowsHtml = ownerOffers.map(function (offer) {
+        const hasOpenReservations = openReservations.some(function (reservation) {
+          return String(reservation.offerId) === String(offer.id);
         });
 
-        return renderSimpleOffer(offer, offerRequests);
+        return renderSimpleOffer(offer, hasOpenReservations);
       }).join("");
 
+      const reservationsHtml = openReservations.length
+        ? openReservations.map(renderRequest).join("")
+        : `
+          <div class="owner-reservations-empty">
+            ${offersTranslate("offers.noCurrentReservations", "Teď nemáte žádnou žádost ani probíhající rezervaci.")}
+          </div>
+        `;
+
       document.getElementById("offersList").innerHTML = `
-        <section class="offers-card-list">
-          ${offersRowsHtml}
+        <section class="owner-page-section owner-offers-section">
+          <div class="owner-section-header">
+            <h2>${offersTranslate("offers.sectionOffers", "Vaše nabídky")}</h2>
+          </div>
+          <div class="offers-card-list owner-offers-list">
+            ${offersRowsHtml}
+          </div>
+        </section>
+
+        <section class="owner-page-section owner-reservations-section">
+          <div class="owner-section-header">
+            <h2>${offersTranslate("offers.sectionReservations", "Žádosti a rezervace")}</h2>
+            ${openReservations.length ? `<span class="owner-section-count">${escapeHtml(formatOffersNumber(openReservations.length))}</span>` : ""}
+          </div>
+          <div class="owner-reservations-list">
+            ${reservationsHtml}
+          </div>
         </section>
       `;
 
@@ -1690,38 +1713,23 @@ function renderSimpleOffer(offer, requests) {
         return;
       }
 
-      const firstActionReservation = ownerReservations.find(function (reservation) {
-        const normalizedStatus = normalizeReservationStatus(reservation.status);
+      const firstActionReservation = sortOwnerOpenReservations(
+        ownerReservations.filter(function (reservation) {
+          return isOpenStatus(reservation.status);
+        })
+      )[0];
 
-return [
-  RESERVATION_STATUS_PENDING,
-  RESERVATION_STATUS_PAID,
-  RESERVATION_STATUS_PICKED_UP
-].includes(normalizedStatus);
-      });
-
-      const firstOpenReservation = firstActionReservation || ownerReservations.find(function (reservation) {
-        return isOpenStatus(reservation.status);
-      });
-
-      if (!firstOpenReservation) {
+      if (!firstActionReservation) {
         return;
       }
 
-      const offerId = String(firstOpenReservation.offerId || "");
-      const reservationId = String(firstOpenReservation.id || "");
+      const reservationId = String(firstActionReservation.id || "");
 
-      if (!offerId || !reservationId) {
+      if (!reservationId) {
         return;
       }
 
       setTimeout(function () {
-        const openPanel = document.getElementById("open-panel-" + offerId);
-
-        if (openPanel) {
-          openPanel.classList.add("open");
-        }
-
         const requestCard = document.getElementById("request-card-" + reservationId);
 
         if (requestCard) {
@@ -1750,7 +1758,6 @@ return [
         "approve-reservation",
         "reject-reservation",
         "cancel-reservation",
-        "mark-picked-up",
         "mark-returned",
         "publish-offer",
         "activate-offer",
@@ -1779,9 +1786,6 @@ return [
           case "cancel-reservation":
             await cancelApprovedReservation(reservationId);
             break;
-          case "mark-picked-up":
-            await markReservationPickedUp(reservationId);
-            break;
           case "mark-returned":
             await markReservationReturned(reservationId);
             break;
@@ -1796,9 +1800,6 @@ return [
             break;
           case "deactivate-offer":
             await changeOfferVisibility(offerId, "hidden");
-            break;
-          case "open-offer-requests":
-            toggleOfferRequests(offerId);
             break;
           case "delete-offer":
             await deleteOffer(offerId);
