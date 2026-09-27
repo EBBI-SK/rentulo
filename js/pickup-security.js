@@ -435,6 +435,11 @@
           }
         }
         setOwnerMessage(text("success"), "success");
+        try {
+          sessionStorage.setItem("rentuloOwnerFocusReservationId", reservationId);
+        } catch (_error) {
+          // The handoff is already confirmed even when session storage is unavailable.
+        }
         window.setTimeout(function () { window.location.reload(); }, 500);
         return;
       }
