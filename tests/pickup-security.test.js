@@ -127,6 +127,8 @@ test("paid reservation handoff buttons stay hidden until the entered PIN resolve
   const css = read(CSS);
   assert.match(source, /button\.hidden !== shouldBeHidden/);
   assert.match(source, /reservationId === verifiedReservationId/);
+  assert.match(source, /elements\.match && elements\.match\.contains\(button\)/);
+  assert.match(source, /shouldBeHidden = !\(isVerified && isVerifiedMatchButton\)/);
   assert.match(css, /data-offers-action="mark-picked-up"\]\[hidden\]/);
   assert.doesNotMatch(source, /pickup-primary-handover/);
   assert.doesNotMatch(css, /--pickup-action-label/);
@@ -147,6 +149,8 @@ test("verified PIN renders only the matched reservation in the handoff block", (
   assert.match(source, /elements\.match\.replaceChildren\(row\)/);
   assert.match(source, /elements\.match\.hidden = false/);
   assert.match(source, /elements\.form\.hidden = true/);
+  assert.match(source, /text\(isVerified \? "matched" : "handoffText"\)/);
+  assert.match(css, /\.pickup-handoff-match\s*\{[\s\S]*flex:\s*0 0 auto;[\s\S]*width:\s*100%;/);
   assert.doesNotMatch(source, /panel\.classList\.add\("open"\)/);
   assert.match(css, /pickup-handoff-match-row/);
   assert.match(css, /simple-offer-record \.request-card/);
