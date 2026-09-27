@@ -87,9 +87,10 @@ test("pickup selector offers every hour and quarter-hour minutes", () => {
   const hourOptions = sandbox.renderPickupHourOptions();
   const minuteOptions = sandbox.renderPickupMinuteOptions();
 
-  assert.match(hourOptions, /value="00">00<\/option>/);
+  assert.match(hourOptions, /^<option value="00">00<\/option>/);
   assert.match(hourOptions, /value="15">15<\/option>/);
   assert.match(hourOptions, /value="23">23<\/option>/);
+  assert.doesNotMatch(hourOptions, /value=""/);
   assert.doesNotMatch(hourOptions, /value="24"/);
 
   for (const minute of ["00", "15", "30", "45"]) {
