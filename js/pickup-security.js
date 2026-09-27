@@ -302,20 +302,28 @@
     if (!sourceButton) return false;
 
     const card = sourceButton.closest(".request-card");
-    const record = sourceButton.closest(".simple-offer-record");
     const elements = getHandoffElements();
-    if (!card || !record || !elements.match) return false;
+    if (!card || !elements.match) return false;
 
     const sourceRow = card.querySelector(":scope > .request-row");
-    const sourceOffer = record.querySelector(":scope > .simple-offer-row > .simple-offer-main");
-    if (!sourceRow || !sourceOffer) return false;
+    if (!sourceRow) return false;
 
     const row = sourceRow.cloneNode(true);
-    const offer = sourceOffer.cloneNode(true);
-
     row.classList.add("pickup-handoff-match-row");
-    offer.classList.add("pickup-handoff-match-offer");
-    row.insertBefore(offer, row.firstChild);
+
+    const record = sourceButton.closest(".simple-offer-record");
+    if (record) {
+      const sourceOffer = record.querySelector(":scope > .simple-offer-row > .simple-offer-main");
+      if (!sourceOffer) return false;
+
+      const offer = sourceOffer.cloneNode(true);
+      offer.classList.add("pickup-handoff-match-offer");
+      row.insertBefore(offer, row.firstChild);
+    } else if (card.classList.contains("owner-reservation-card")) {
+      row.classList.add("pickup-handoff-owner-row");
+    } else {
+      return false;
+    }
 
     row.querySelectorAll("[id]").forEach(function (element) {
       element.removeAttribute("id");
