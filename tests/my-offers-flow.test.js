@@ -6,29 +6,57 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const ROOT = path.resolve(__dirname, "..");
-const FLOW = path.join(ROOT, "js", "my-offers-flow.js");
 
 function read(file) {
   return fs.readFileSync(file, "utf8");
 }
 
-test("My offers prioritizes an approved reservation waiting for payment over older picked-up rows", () => {
-  const source = read(FLOW);
+test("My offers renders offers and reservations as two independent sections", () => {
+  const page = read(path.join(ROOT, "js", "offers-page.js"));
+  const html = read(path.join(ROOT, "moje-nabidky.html"));
+
+  assert.match(page, /class="owner-page-section owner-offers-section"/);
+  assert.match(page, /class="owner-page-section owner-reservations-section"/);
+  assert.match(page, /offers\.sectionOffers/);
+  assert.match(page, /offers\.sectionReservations/);
+  assert.match(page, /openReservations\.map\(renderRequest\)\.join\("")/);
+
+  assert.doesNotMatch(
+    html,
+    /<script src="js\/my-offers-flow\.js"><\/script>/
+  );
+});
+
+test("My offers keeps pickup confirmation inside the verified PIN flow", () => {
+  const page = read(path.join(ROOT, "js", "offers-page.js"));
 
   assert.match(
-    source,
-    /const waitingPaymentCount = panel\.querySelectorAll\("\.request-status\.active"\)\.length;/
+    page,
+    /Handover is confirmed only through the verified pickup PIN flow/
   );
 
-  const paidIndex = source.indexOf("if (pickupCount > 0)");
-  const waitingPaymentIndex = source.indexOf("if (waitingPaymentCount > 0)");
-  const pickedIndex = source.indexOf("if (returnCount > 0)");
+  assert.doesNotMatch(
+    page,
+    /data-offers-action="mark-picked-up"/
+  );
 
-  assert.ok(paidIndex >= 0);
-  assert.ok(waitingPaymentIndex > paidIndex);
-  assert.ok(pickedIndex > waitingPaymentIndex);
   assert.match(
-    source,
-    /return \{ kind: "reservation", count: waitingPaymentCount \};/
+    page,
+    /data-offers-action="mark-returned"/
   );
+});
+
+test("My offers simple layout includes translated section labels in all supported languages", () => {
+  const i18n = read(path.join(ROOT, "js", "i18n.js"));
+  const css = read(path.join(ROOT, "css", "my-offers-flow.css"));
+
+  assert.match(i18n, /"offers\.sectionOffers": "Vaše nabídky"/);
+  assert.match(i18n, /"offers\.sectionOffers": "Vaše ponuky"/);
+  assert.match(i18n, /"offers\.sectionOffers": "Your listings"/);
+  assert.match(i18n, /"offers\.sectionOffers": "Ihre Angebote"/);
+  assert.match(i18n, /"offers\.sectionOffers": "Twoje oferty"/);
+
+  assert.match(css, /\.owner-offer-row/);
+  assert.match(css, /\.owner-reservation-card/);
+  assert.match(css, /@media \(max-width: 560px\)/);
 });
