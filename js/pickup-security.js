@@ -220,8 +220,8 @@
     const isVerified = Boolean(verifiedReservationId);
     if (elements.title) elements.title.textContent = text(isVerified ? "verifiedTitle" : "handoffTitle");
     if (elements.description) {
-      elements.description.textContent = text("handoffText");
-      elements.description.hidden = isVerified;
+      elements.description.textContent = text(isVerified ? "matched" : "handoffText");
+      elements.description.hidden = false;
     }
     if (elements.feedback) elements.feedback.hidden = isVerified;
     if (elements.openButton) elements.openButton.textContent = text("handoffOpen");
@@ -247,9 +247,10 @@
     buttons.forEach(function (button) {
       const reservationId = button.dataset.reservationId || "";
       const isVerified = Boolean(verifiedReservationId && reservationId === verifiedReservationId);
-      const shouldBeHidden = !isVerified;
+      const isVerifiedMatchButton = Boolean(elements.match && elements.match.contains(button));
+      const shouldBeHidden = !(isVerified && isVerifiedMatchButton);
       if (button.hidden !== shouldBeHidden) button.hidden = shouldBeHidden;
-      if (isVerified) {
+      if (isVerified && isVerifiedMatchButton) {
         const label = text("confirmAction");
         if (button.textContent !== label) button.textContent = label;
         button.classList.add("pickup-confirm-ready");
