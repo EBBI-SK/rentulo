@@ -141,6 +141,9 @@ test("verified PIN renders only the matched reservation in the handoff block", (
   assert.match(source, /CSS\.escape\(reservationId\)/);
   assert.match(source, /sourceRow\.cloneNode\(true\)/);
   assert.match(source, /sourceOffer\.cloneNode\(true\)/);
+  assert.match(source, /card\.classList\.contains\("owner-reservation-card"\)/);
+  assert.match(source, /row\.classList\.add\("pickup-handoff-owner-row"\)/);
+  assert.match(css, /pickup-handoff-match-row\.pickup-handoff-owner-row/);
   assert.match(source, /elements\.match\.replaceChildren\(row\)/);
   assert.match(source, /elements\.match\.hidden = false/);
   assert.match(source, /elements\.form\.hidden = true/);
