@@ -166,7 +166,7 @@
     card.classList.add("owner-reservation-card");
 
     card.querySelectorAll('[data-offers-action="mark-picked-up"]').forEach(function (button) {
-      button.remove();
+      button.hidden = true;
     });
 
     const row = card.querySelector(":scope > .request-row");
