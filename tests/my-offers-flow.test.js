@@ -19,7 +19,9 @@ test("My offers renders offers and reservations as two independent sections", ()
   assert.match(page, /class="owner-page-section owner-reservations-section"/);
   assert.match(page, /offers\.sectionOffers/);
   assert.match(page, /offers\.sectionReservations/);
-  assert.match(page, /openReservations\.map\(renderRequest\)\.join\("")/);
+  assert.ok(
+    page.includes('openReservations.map(renderRequest).join("")')
+  );
 
   assert.doesNotMatch(
     html,
