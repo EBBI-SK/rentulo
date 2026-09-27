@@ -269,3 +269,30 @@ body[data-navigation-page="moje-nabidky"] .simple-offer-record .request-card + .
     align-self: flex-start;
   }
 }
+
+/* Verified pickup detail when My offers uses standalone reservation rows. */
+.pickup-handoff-match-row.pickup-handoff-owner-row {
+  grid-template-columns: minmax(220px, 1.35fr) 190px 105px minmax(145px, auto) minmax(220px, auto) !important;
+}
+
+@media (max-width: 1000px) {
+  .pickup-handoff-match-row.pickup-handoff-owner-row {
+    grid-template-columns: minmax(180px, 1fr) 165px 95px minmax(135px, auto) minmax(200px, auto) !important;
+    gap: 9px !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .pickup-handoff-match-row.pickup-handoff-owner-row {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 12px !important;
+    align-items: start !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .pickup-handoff-match-row.pickup-handoff-owner-row {
+    grid-template-columns: 1fr !important;
+  }
+}
+
