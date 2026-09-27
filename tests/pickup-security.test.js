@@ -156,6 +156,14 @@ test("verified PIN renders only the matched reservation in the handoff block", (
   assert.match(css, /simple-offer-record \.request-card/);
 });
 
+test("mobile pickup handoff copy does not keep the desktop flex basis as vertical height", () => {
+  const css = read(CSS);
+  assert.match(
+    css,
+    /@media \(max-width: 720px\)[\s\S]*\.pickup-handoff-copy\s*\{[\s\S]*flex:\s*0 0 auto;[\s\S]*width:\s*100%;/
+  );
+});
+
 test("final handover requires an explicit Předat věc click after PIN verification", () => {
   const source = read(UI);
   assert.match(source, /confirmAction: "Předat věc"/);
