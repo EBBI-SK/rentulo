@@ -61,7 +61,7 @@
     }
 
     function renderPickupHourOptions() {
-      const options = ['<option value="">--</option>'];
+      const options = [];
 
       for (let hour = 0; hour < 24; hour += 1) {
         const value = String(hour).padStart(2, "0");
