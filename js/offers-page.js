@@ -162,6 +162,7 @@
     let ownerCurrentUser = null;
     let ownerOffersLoadState = "idle";
     let accountMessageState = null;
+    let focusedReservationId = "";
 
     function getStatusText(status) {
   return getReservationStatusText(status);
@@ -185,6 +186,89 @@
         RESERVATION_STATUS_PAID,
         RESERVATION_STATUS_PICKED_UP
       ].includes(normalizedStatus);
+    }
+
+    function getReservationPriority(reservation) {
+      const normalizedStatus = normalizeReservationStatus(reservation && reservation.status);
+
+      if (normalizedStatus === RESERVATION_STATUS_PENDING) return 0;
+      if (normalizedStatus === RESERVATION_STATUS_PAID) return 1;
+      if (normalizedStatus === RESERVATION_STATUS_APPROVED) return 2;
+      if (normalizedStatus === RESERVATION_STATUS_PICKED_UP) return 3;
+      return 4;
+    }
+
+    function getReservationSortValue(reservation) {
+      const startValue = Date.parse(String((reservation && reservation.startDate) || ""));
+
+      if (Number.isFinite(startValue)) {
+        return startValue;
+      }
+
+      const createdValue = Date.parse(String((reservation && reservation.createdAt) || ""));
+
+      return Number.isFinite(createdValue) ? createdValue : Number.MAX_SAFE_INTEGER;
+    }
+
+    function selectCurrentOpenRequest(openRequests) {
+      if (!Array.isArray(openRequests) || !openRequests.length) {
+        return null;
+      }
+
+      if (focusedReservationId) {
+        const focused = openRequests.find(function (reservation) {
+          return String(reservation.id) === String(focusedReservationId);
+        });
+
+        if (focused) {
+          return focused;
+        }
+      }
+
+      return openRequests.slice().sort(function (left, right) {
+        const priorityDifference = getReservationPriority(left) - getReservationPriority(right);
+
+        if (priorityDifference !== 0) {
+          return priorityDifference;
+        }
+
+        const dateDifference = getReservationSortValue(left) - getReservationSortValue(right);
+
+        if (dateDifference !== 0) {
+          return dateDifference;
+        }
+
+        return String(left.id || "").localeCompare(String(right.id || ""));
+      })[0];
+    }
+
+    function getOtherReservationsLabel(count, expanded) {
+      if (expanded) {
+        return offersTranslate(
+          "offers.backToCurrentReservation",
+          "Zpět k aktuální rezervaci"
+        );
+      }
+
+      return offersTranslate(
+        "offers.otherReservations",
+        "Další rezervace ({count})",
+        { count: count }
+      );
+    }
+
+    function consumeFocusedReservationFromStorage() {
+      try {
+        const reservationId = sessionStorage.getItem("rentuloOwnerFocusReservationId") || "";
+
+        if (reservationId) {
+          sessionStorage.removeItem("rentuloOwnerFocusReservationId");
+        }
+
+        return reservationId;
+      } catch (_error) {
+        return "";
+      }
     }
 
     function showAccountMessage(title, text, tone) {
@@ -1117,6 +1201,7 @@ const data = Array.isArray(updatedReservations)
         return;
       }
 
+      focusedReservationId = panelType === "history" ? "" : String(reservationId || "");
       renderOffers();
 
       if (typeof window.refreshRentuloNotificationBadge === "function") {
@@ -1147,6 +1232,15 @@ const data = Array.isArray(updatedReservations)
 
       if (openPanel) {
         openPanel.classList.add("open");
+      }
+
+      const requestCard = document.getElementById("request-card-" + reservationId);
+
+      if (requestCard) {
+        requestCard.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest"
+        });
       }
     }
 
@@ -1475,21 +1569,104 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
       button.textContent = offersTranslate("offers.hideDetail", "Skrýt detail");
     }
 
-    function renderRequestPanel(panelId, title, requests, content) {
+    function renderRequestPanel(panelId, title, requests, currentReservation) {
       const countText = getRequestPanelCountText(requests);
+      const currentReservationId = currentReservation ? String(currentReservation.id) : "";
+      const otherRequests = currentReservation
+        ? requests.filter(function (reservation) {
+            return String(reservation.id) !== currentReservationId;
+          })
+        : [];
+
+      const currentContent = currentReservation
+        ? renderRequest(currentReservation)
+        : `<p class="request-empty-note">${offersTranslate("offers.noOpenRequests", "U této nabídky teď není žádná otevřená žádost.")}</p>`;
+
+      const otherContent = otherRequests.map(renderRequest).join("");
+      const otherReservationsId = panelId + "-other-reservations";
+
+      const otherReservationsToggle = otherRequests.length
+        ? `
+          <div class="offer-other-reservations-control">
+            <button
+              class="offer-other-reservations-toggle"
+              type="button"
+              data-offers-action="toggle-other-reservations"
+              data-panel-id="${escapeHtml(panelId)}"
+              data-other-count="${escapeHtml(String(otherRequests.length))}"
+              aria-controls="${escapeHtml(otherReservationsId)}"
+              aria-expanded="false"
+            >
+              ${escapeHtml(getOtherReservationsLabel(otherRequests.length, false))}
+            </button>
+          </div>
+        `
+        : "";
 
       return `
-        <section class="request-panel" id="${escapeHtml(panelId)}">
+        <section class="request-panel" id="${escapeHtml(panelId)}" data-current-reservation-id="${escapeHtml(currentReservationId)}" data-other-reservations-expanded="false">
           <div class="request-panel-header">
             <h3>${escapeHtml(title)}</h3>
             <span>${escapeHtml(countText)}</span>
           </div>
 
           <div class="request-list">
-            ${content}
+            <div class="offer-current-reservation">
+              ${currentContent}
+            </div>
+
+            <div class="offer-other-reservations" id="${escapeHtml(otherReservationsId)}" hidden>
+              ${otherContent}
+            </div>
+
+            ${otherReservationsToggle}
           </div>
         </section>
       `;
+    }
+
+    function setOtherReservationsExpanded(panel, expanded) {
+      if (!panel) {
+        return;
+      }
+
+      const otherReservations = panel.querySelector(".offer-other-reservations");
+      const button = panel.querySelector('[data-offers-action="toggle-other-reservations"]');
+
+      if (!otherReservations || !button) {
+        return;
+      }
+
+      const otherCount = Number(button.dataset.otherCount || 0);
+      otherReservations.hidden = !expanded;
+      panel.dataset.otherReservationsExpanded = expanded ? "true" : "false";
+      button.setAttribute("aria-expanded", expanded ? "true" : "false");
+      button.textContent = getOtherReservationsLabel(otherCount, expanded);
+    }
+
+    function toggleOtherReservations(panelId) {
+      const panel = document.getElementById(panelId);
+
+      if (!panel) {
+        return;
+      }
+
+      const expanded = panel.dataset.otherReservationsExpanded === "true";
+      setOtherReservationsExpanded(panel, !expanded);
+
+      if (expanded) {
+        const currentReservationId = panel.dataset.currentReservationId || "";
+        const currentCard = currentReservationId
+          ? document.getElementById("request-card-" + currentReservationId)
+          : null;
+
+        if (currentCard) {
+          currentCard.scrollIntoView({
+            behavior: "smooth",
+            block: "nearest"
+          });
+        }
+      }
     }
 
     function toggleOfferRequests(offerId) {
@@ -1531,10 +1708,7 @@ function renderSimpleOffer(offer, requests) {
   });
 
   const requestText = getRequestPanelCountText(openRequests);
-
-  const openContent = openRequests.length
-    ? openRequests.map(renderRequest).join("")
-    : `<p class="request-empty-note">${offersTranslate("offers.noOpenRequests", "U této nabídky teď není žádná otevřená žádost.")}</p>`;
+  const currentOpenRequest = selectCurrentOpenRequest(openRequests);
 
   const primaryActionHtml = isDraft
     ? `<button
@@ -1599,7 +1773,7 @@ function renderSimpleOffer(offer, requests) {
         </div>
       </article>
 
-      ${renderRequestPanel(openPanelId, offersTranslate("offers.openRequests", "Žádosti a rezervace"), openRequests, openContent)}
+      ${renderRequestPanel(openPanelId, offersTranslate("offers.openRequests", "Žádosti a rezervace"), openRequests, currentOpenRequest)}
     </div>
   `;
 }
@@ -1643,8 +1817,15 @@ function renderSimpleOffer(offer, requests) {
       ).map(function (element) {
         return element.id;
       });
+      const expandedOtherReservationPanelIds = Array.from(
+        document.querySelectorAll('#offersList .request-panel[data-other-reservations-expanded="true"][id]')
+      ).map(function (element) {
+        return element.id;
+      });
+
       return {
-        openElementIds: openElementIds
+        openElementIds: openElementIds,
+        expandedOtherReservationPanelIds: expandedOtherReservationPanelIds
       };
     }
 
@@ -1675,6 +1856,14 @@ function renderSimpleOffer(offer, requests) {
           }
         }
       });
+
+      (state.expandedOtherReservationPanelIds || []).forEach(function (panelId) {
+        const panel = document.getElementById(panelId);
+
+        if (panel) {
+          setOtherReservationsExpanded(panel, true);
+        }
+      });
     }
 
     function rerenderOffersForLanguageChange() {
@@ -1690,19 +1879,11 @@ function renderSimpleOffer(offer, requests) {
         return;
       }
 
-      const firstActionReservation = ownerReservations.find(function (reservation) {
-        const normalizedStatus = normalizeReservationStatus(reservation.status);
-
-return [
-  RESERVATION_STATUS_PENDING,
-  RESERVATION_STATUS_PAID,
-  RESERVATION_STATUS_PICKED_UP
-].includes(normalizedStatus);
-      });
-
-      const firstOpenReservation = firstActionReservation || ownerReservations.find(function (reservation) {
-        return isOpenStatus(reservation.status);
-      });
+      const firstOpenReservation = selectCurrentOpenRequest(
+        ownerReservations.filter(function (reservation) {
+          return isOpenStatus(reservation.status);
+        })
+      );
 
       if (!firstOpenReservation) {
         return;
@@ -1745,6 +1926,7 @@ return [
       const action = actionButton.dataset.offersAction;
       const reservationId = actionButton.dataset.reservationId || "";
       const offerId = actionButton.dataset.offerId || "";
+      const panelId = actionButton.dataset.panelId || "";
 
       const mutationActions = new Set([
         "approve-reservation",
@@ -1800,6 +1982,9 @@ return [
           case "open-offer-requests":
             toggleOfferRequests(offerId);
             break;
+          case "toggle-other-reservations":
+            toggleOtherReservations(panelId);
+            break;
           case "delete-offer":
             await deleteOffer(offerId);
             break;
@@ -1829,6 +2014,7 @@ return [
 
 
       if (loaded) {
+        focusedReservationId = consumeFocusedReservationFromStorage() || focusedReservationId;
         renderOffers();
       } else {
         renderLoadErrorState();
