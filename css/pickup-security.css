@@ -141,7 +141,8 @@
 }
 
 .pickup-handoff-match {
-  flex: 1 0 100%;
+  flex: 0 0 auto;
+  width: 100%;
   min-width: 0;
   border-top: 1px solid #e0ece6;
   padding-top: 12px;
