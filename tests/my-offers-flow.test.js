@@ -23,11 +23,14 @@ test("My offers separates reservations from listing rows", () => {
   assert.match(source, /owner-offer-request-summary/);
 });
 
-test("My offers keeps paid handover inside the verified PIN flow", () => {
+test("My offers keeps a hidden paid handover action available for the verified PIN flow", () => {
   const source = read(FLOW);
+  const pickupStart = source.indexOf('card.querySelectorAll(\'[data-offers-action="mark-picked-up"]\')');
+  const pickupBlock = source.slice(pickupStart, pickupStart + 220);
 
-  assert.ok(source.includes('data-offers-action="mark-picked-up"'));
-  assert.match(source, /button\.remove\(\)/);
+  assert.ok(pickupStart >= 0);
+  assert.match(pickupBlock, /button\.hidden = true/);
+  assert.doesNotMatch(pickupBlock, /button\.remove\(\)/);
   assert.ok(source.includes('data-offers-action="mark-returned"'));
 });
 
