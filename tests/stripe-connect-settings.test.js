@@ -23,10 +23,16 @@ test("Connect UI contains all five supported languages", () => {
   for (const lang of ["cs", "sk", "en", "de", "pl"]) assert.match(js, new RegExp("\\b" + lang + ": \\{"));
 });
 
-test("Connect UI explains private-person onboarding before redirecting to Stripe", () => {
+test("Connect UI explains private-person onboarding and payout timing before redirecting to Stripe", () => {
   assert.match(html, /id="connectSettingsGuidance"/);
+  assert.match(html, /id="connectSettingsGuidanceRelease"/);
+  assert.match(html, /id="connectSettingsGuidanceFirstPayout"/);
   assert.match(js, /nejde o registraci \\u017eivnosti ani firmy/);
-  assert.match(js, /https:\/\/rentulo\.eu/);
+  assert.match(js, /https:\/\/rentulo\.com/);
+  assert.doesNotMatch(js, /https:\/\/rentulo\.eu/);
+  assert.match(js, /Rentulo nedr\\u017e\\u00ed va\\u0161e pen\\u00edze na vlastn\\u00edm bankovn\\u00edm \\u00fa\\u010dtu/);
+  assert.match(js, /Rentulo okam\\u017eit\\u011b zad\\u00e1 Stripe pokyn k uvoln\\u011bn\\u00ed va\\u0161\\u00ed v\\u00fdplaty/);
+  assert.match(js, /Prvn\\u00ed v\\u00fdplata m\\u016f\\u017ee z bezpe\\u010dnostn\\u00edch a ov\\u011b\\u0159ovac\\u00edch d\\u016fvod\\u016f Stripe trvat n\\u011bkolik dn\\u00ed/);
   assert.match(js, /Rentulo je neukl\\u00e1d\\u00e1/);
   assert.match(js, /guidance\.hidden = currentStatus === "ready" \|\| currentStatus === "loading"/);
 });

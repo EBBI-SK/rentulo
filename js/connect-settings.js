@@ -10,11 +10,13 @@
       onboarding: "Nastaven\u00ed nen\u00ed dokon\u010den\u00e9",
       restricted: "Stripe vy\u017eaduje dopln\u011bn\u00ed \u00fadaj\u016f",
       ready: "P\u0159ipraveno na v\u00fdplaty",
-      guidanceTitle: "Co v\u00e1s \u010dek\u00e1 ve Stripe",
-      guidanceIdentity: "Stripe ov\u011b\u0159\u00ed va\u0161i toto\u017enost a bankovn\u00ed \u00fa\u010det, aby v\u00e1m mohl Rentulo pos\u00edlat v\u00fdplaty.",
+      guidanceTitle: "Jak funguj\u00ed v\u00fdplaty",
+      guidanceIdentity: "Platby a v\u00fdplaty zpracov\u00e1v\u00e1 Stripe. Rentulo nedr\u017e\u00ed va\u0161e pen\u00edze na vlastn\u00edm bankovn\u00edm \u00fa\u010dtu.",
+      guidanceRelease: "Po p\u0159ed\u00e1n\u00ed v\u011bci a potvrzen\u00ed PINem Rentulo okam\u017eit\u011b zad\u00e1 Stripe pokyn k uvoln\u011bn\u00ed va\u0161\u00ed v\u00fdplaty. Stripe n\u00e1sledn\u011b ode\u0161le pen\u00edze na v\u00e1\u0161 bankovn\u00ed \u00fa\u010det.",
+      guidanceFirstPayout: "Prvn\u00ed v\u00fdplata m\u016f\u017ee z bezpe\u010dnostn\u00edch a ov\u011b\u0159ovac\u00edch d\u016fvod\u016f Stripe trvat n\u011bkolik dn\u00ed. Dal\u0161\u00ed v\u00fdplaty b\u00fdvaj\u00ed zpravidla rychlej\u0161\u00ed.",
       guidancePrivate: "Pokud pronaj\u00edm\u00e1te jako soukrom\u00e1 osoba, nejde o registraci \u017eivnosti ani firmy.",
-      guidanceWebsite: "Pokud se Stripe zept\u00e1 na webovou str\u00e1nku, pou\u017eijte https://rentulo.eu.",
-      guidancePrivacy: "Bankovn\u00ed a ov\u011b\u0159ovac\u00ed \u00fadaje zad\u00e1v\u00e1te p\u0159\u00edmo Stripe; Rentulo je neukl\u00e1d\u00e1.",
+      guidanceWebsite: "Pokud se Stripe zept\u00e1 na webovou str\u00e1nku, pou\u017eijte https://rentulo.com.",
+      guidancePrivacy: "Bankovn\u00ed a ov\u011b\u0159ovac\u00ed \u00fadaje zad\u00e1v\u00e1te p\u0159\u00edmo ve Stripe; Rentulo je neukl\u00e1d\u00e1.",
       note: "Rentulo je zat\u00edm provozov\u00e1no pouze v \u010cesk\u00e9 republice. Stripe \u00fa\u010det pro v\u00fdplaty bude proto zalo\u017een pro \u010cesko.",
       start: "Nastavit v\u00fdplaty p\u0159es Stripe",
       continue: "Pokra\u010dovat v nastaven\u00ed",
@@ -32,11 +34,13 @@
       onboarding: "Nastavenie nie je dokon\u010den\u00e9",
       restricted: "Stripe vy\u017eaduje doplnenie \u00fadajov",
       ready: "Pripraven\u00e9 na v\u00fdplaty",
-      guidanceTitle: "\u010co v\u00e1s \u010dak\u00e1 v Stripe",
-      guidanceIdentity: "Stripe over\u00ed va\u0161u toto\u017enos\u0165 a bankov\u00fd \u00fa\u010det, aby v\u00e1m mohlo Rentulo posiela\u0165 v\u00fdplaty.",
+      guidanceTitle: "Ako funguj\u00fa v\u00fdplaty",
+      guidanceIdentity: "Platby a v\u00fdplaty sprac\u00fava Stripe. Rentulo nedr\u017e\u00ed va\u0161e peniaze na vlastnom bankovom \u00fa\u010dte.",
+      guidanceRelease: "Po odovzdan\u00ed veci a potvrden\u00ed PIN-om Rentulo okam\u017eite zad\u00e1 Stripe pokyn na uvo\u013enenie va\u0161ej v\u00fdplaty. Stripe n\u00e1sledne odo\u0161le peniaze na v\u00e1\u0161 bankov\u00fd \u00fa\u010det.",
+      guidanceFirstPayout: "Prv\u00e1 v\u00fdplata m\u00f4\u017ee z bezpe\u010dnostn\u00fdch a overovac\u00edch d\u00f4vodov Stripe trva\u0165 nieko\u013eko dn\u00ed. \u010eal\u0161ie v\u00fdplaty b\u00fdvaj\u00fa spravidla r\u00fdchlej\u0161ie.",
       guidancePrivate: "Ak prenaj\u00edmate ako s\u00fakromn\u00e1 osoba, nejde o registr\u00e1ciu \u017eivnosti ani firmy.",
-      guidanceWebsite: "Ak sa Stripe op\u00fdta na webov\u00fa str\u00e1nku, pou\u017eite https://rentulo.eu.",
-      guidancePrivacy: "Bankov\u00e9 a overovacie \u00fadaje zad\u00e1vate priamo Stripe; Rentulo ich neuklad\u00e1.",
+      guidanceWebsite: "Ak sa Stripe op\u00fdta na webov\u00fa str\u00e1nku, pou\u017eite https://rentulo.com.",
+      guidancePrivacy: "Bankov\u00e9 a overovacie \u00fadaje zad\u00e1vate priamo v Stripe; Rentulo ich neuklad\u00e1.",
       note: "Rentulo je zatia\u013e prev\u00e1dzkovan\u00e9 iba v \u010ceskej republike. Stripe \u00fa\u010det pre v\u00fdplaty bude preto zalo\u017een\u00fd pre \u010cesko.",
       start: "Nastavi\u0165 v\u00fdplaty cez Stripe",
       continue: "Pokra\u010dova\u0165 v nastaven\u00ed",
@@ -54,10 +58,12 @@
       onboarding: "Setup is not complete",
       restricted: "Stripe requires more information",
       ready: "Ready for payouts",
-      guidanceTitle: "What to expect in Stripe",
-      guidanceIdentity: "Stripe verifies your identity and bank account so Rentulo can send you payouts.",
+      guidanceTitle: "How payouts work",
+      guidanceIdentity: "Payments and payouts are processed by Stripe. Rentulo does not hold your money in its own bank account.",
+      guidanceRelease: "After you hand over the item and confirm the PIN, Rentulo immediately instructs Stripe to release your payout. Stripe then sends the money to your bank account.",
+      guidanceFirstPayout: "For security and verification reasons, your first payout through Stripe may take several days. Subsequent payouts are usually faster.",
       guidancePrivate: "If you rent out items as a private individual, this does not register you as a business or sole trader.",
-      guidanceWebsite: "If Stripe asks for a website, use https://rentulo.eu.",
+      guidanceWebsite: "If Stripe asks for a website, use https://rentulo.com.",
       guidancePrivacy: "You enter bank and verification details directly with Stripe; Rentulo does not store them.",
       note: "Rentulo currently operates only in the Czech Republic, so the Stripe payout account is created for Czechia.",
       start: "Set up payouts with Stripe",
@@ -76,10 +82,12 @@
       onboarding: "Einrichtung ist nicht abgeschlossen",
       restricted: "Stripe ben\u00f6tigt weitere Angaben",
       ready: "Bereit f\u00fcr Auszahlungen",
-      guidanceTitle: "Was Sie bei Stripe erwartet",
-      guidanceIdentity: "Stripe pr\u00fcft Ihre Identit\u00e4t und Ihr Bankkonto, damit Rentulo Ihnen Auszahlungen senden kann.",
+      guidanceTitle: "So funktionieren Auszahlungen",
+      guidanceIdentity: "Zahlungen und Auszahlungen werden von Stripe verarbeitet. Rentulo h\u00e4lt Ihr Geld nicht auf einem eigenen Bankkonto.",
+      guidanceRelease: "Nachdem Sie den Gegenstand \u00fcbergeben und die PIN best\u00e4tigt haben, weist Rentulo Stripe sofort an, Ihre Auszahlung freizugeben. Stripe \u00fcberweist das Geld anschlie\u00dfend auf Ihr Bankkonto.",
+      guidanceFirstPayout: "Die erste Auszahlung \u00fcber Stripe kann aus Sicherheits- und Verifizierungsgr\u00fcnden mehrere Tage dauern. Weitere Auszahlungen erfolgen in der Regel schneller.",
       guidancePrivate: "Wenn Sie als Privatperson vermieten, werden Sie dadurch nicht als Unternehmen oder Gewerbetreibender registriert.",
-      guidanceWebsite: "Wenn Stripe nach einer Website fragt, verwenden Sie https://rentulo.eu.",
+      guidanceWebsite: "Wenn Stripe nach einer Website fragt, verwenden Sie https://rentulo.com.",
       guidancePrivacy: "Bank- und Verifizierungsdaten geben Sie direkt bei Stripe ein; Rentulo speichert diese Daten nicht.",
       note: "Rentulo wird derzeit nur in Tschechien betrieben. Das Stripe-Auszahlungskonto wird daher f\u00fcr Tschechien erstellt.",
       start: "Auszahlungen mit Stripe einrichten",
@@ -98,10 +106,12 @@
       onboarding: "Konfiguracja nie jest uko\u0144czona",
       restricted: "Stripe wymaga uzupe\u0142nienia danych",
       ready: "Gotowe do wyp\u0142at",
-      guidanceTitle: "Czego spodziewa\u0107 si\u0119 w Stripe",
-      guidanceIdentity: "Stripe zweryfikuje Twoj\u0105 to\u017csamo\u015b\u0107 i konto bankowe, aby Rentulo mog\u0142o wysy\u0142a\u0107 Ci wyp\u0142aty.",
+      guidanceTitle: "Jak dzia\u0142aj\u0105 wyp\u0142aty",
+      guidanceIdentity: "P\u0142atno\u015bci i wyp\u0142aty s\u0105 obs\u0142ugiwane przez Stripe. Rentulo nie przechowuje Twoich pieni\u0119dzy na w\u0142asnym koncie bankowym.",
+      guidanceRelease: "Po przekazaniu przedmiotu i potwierdzeniu kodu PIN Rentulo natychmiast zleca Stripe zwolnienie Twojej wyp\u0142aty. Stripe nast\u0119pnie wysy\u0142a pieni\u0105dze na Twoje konto bankowe.",
+      guidanceFirstPayout: "Pierwsza wyp\u0142ata przez Stripe mo\u017ce ze wzgl\u0119d\u00f3w bezpiecze\u0144stwa i weryfikacji potrwa\u0107 kilka dni. Kolejne wyp\u0142aty s\u0105 zazwyczaj szybsze.",
       guidancePrivate: "Je\u015bli wynajmujesz jako osoba prywatna, nie oznacza to rejestracji dzia\u0142alno\u015bci gospodarczej ani firmy.",
-      guidanceWebsite: "Je\u015bli Stripe poprosi o stron\u0119 internetow\u0105, u\u017cyj https://rentulo.eu.",
+      guidanceWebsite: "Je\u015bli Stripe poprosi o stron\u0119 internetow\u0105, u\u017cyj https://rentulo.com.",
       guidancePrivacy: "Dane bankowe i weryfikacyjne podajesz bezpo\u015brednio Stripe; Rentulo ich nie przechowuje.",
       note: "Rentulo dzia\u0142a obecnie wy\u0142\u0105cznie w Czechach, dlatego konto Stripe do wyp\u0142at zostanie utworzone dla Czech.",
       start: "Skonfiguruj wyp\u0142aty przez Stripe",
@@ -149,6 +159,8 @@
     const guidance = document.getElementById("connectSettingsGuidance");
     const guidanceTitle = document.getElementById("connectSettingsGuidanceTitle");
     const guidanceIdentity = document.getElementById("connectSettingsGuidanceIdentity");
+    const guidanceRelease = document.getElementById("connectSettingsGuidanceRelease");
+    const guidanceFirstPayout = document.getElementById("connectSettingsGuidanceFirstPayout");
     const guidancePrivate = document.getElementById("connectSettingsGuidancePrivate");
     const guidanceWebsite = document.getElementById("connectSettingsGuidanceWebsite");
     const guidancePrivacy = document.getElementById("connectSettingsGuidancePrivacy");
@@ -162,6 +174,8 @@
     if (guidance) guidance.hidden = currentStatus === "ready" || currentStatus === "loading";
     if (guidanceTitle) guidanceTitle.textContent = text.guidanceTitle;
     if (guidanceIdentity) guidanceIdentity.textContent = text.guidanceIdentity;
+    if (guidanceRelease) guidanceRelease.textContent = text.guidanceRelease;
+    if (guidanceFirstPayout) guidanceFirstPayout.textContent = text.guidanceFirstPayout;
     if (guidancePrivate) guidancePrivate.textContent = text.guidancePrivate;
     if (guidanceWebsite) guidanceWebsite.textContent = text.guidanceWebsite;
     if (guidancePrivacy) guidancePrivacy.textContent = text.guidancePrivacy;
