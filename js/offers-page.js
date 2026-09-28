@@ -203,13 +203,14 @@
       messageBox.classList.add("active");
     }
 
-    function setAccountMessage(titleKey, titleFallback, textKey, textFallback, tone) {
+    function setAccountMessage(titleKey, titleFallback, textKey, textFallback, tone, values) {
       accountMessageState = {
         titleKey: titleKey,
         titleFallback: titleFallback,
         textKey: textKey,
         textFallback: textFallback,
-        tone: tone || "success"
+        tone: tone || "success",
+        values: values || null
       };
 
       renderAccountMessage();
@@ -232,7 +233,11 @@
 
       showAccountMessage(
         offersTranslate(accountMessageState.titleKey, accountMessageState.titleFallback),
-        offersTranslate(accountMessageState.textKey, accountMessageState.textFallback),
+        offersTranslate(
+          accountMessageState.textKey,
+          accountMessageState.textFallback,
+          accountMessageState.values
+        ),
         accountMessageState.tone
       );
     }
@@ -564,6 +569,95 @@ const data = Array.isArray(updatedReservations)
         return;
       }
 
+      const normalizedStatus = normalizeReservationStatus(reservation.status);
+
+      if (normalizedStatus === RESERVATION_STATUS_PAID) {
+        const supabaseClient = getSupabaseClient();
+
+        if (!supabaseClient) {
+          setAccountErrorMessage(
+            "offers.error.supabaseMissing",
+            "Služba je dočasně nedostupná. Obnovte stránku."
+          );
+          return;
+        }
+
+        const previewResult = await requestPaidReservationCancellation(
+          supabaseClient,
+          reservationId,
+          "preview"
+        );
+
+        if (previewResult.error || !previewResult.data) {
+          console.error("Náhled storna zaplacené rezervace se nepodařilo načíst:", previewResult.error);
+          setAccountErrorMessage(
+            "reservations.cancelPaid.previewError",
+            "Přesné vyúčtování storna se nepodařilo načíst. Zkuste to prosím znovu."
+          );
+          return;
+        }
+
+        const confirmed = await openOwnerReservationCancelModal(
+          reservation,
+          previewResult.data
+        );
+
+        if (!confirmed) {
+          return;
+        }
+
+        if (!isReservationCancellationWindowOpen(reservation)) {
+          setAccountErrorMessage(
+            "reservations.error.cannotCancel",
+            getReservationCancellationCutoffText()
+          );
+          renderOffers({ autoOpenFromUrl: false });
+          return;
+        }
+
+        const confirmResult = await requestPaidReservationCancellation(
+          supabaseClient,
+          reservationId,
+          "confirm"
+        );
+
+        if (confirmResult.error || !confirmResult.data) {
+          console.error("Storno zaplacené rezervace se nepodařilo dokončit:", confirmResult.error);
+          setAccountErrorMessage(
+            "reservations.cancelPaid.confirmError",
+            "Storno se nepodařilo dokončit. Zkuste to prosím znovu; opakovaný pokus nevytvoří druhý refund."
+          );
+          return;
+        }
+
+        const externalCostMinor = Number(confirmResult.data.external_cost_amount_minor);
+        const successKey = externalCostMinor > 0
+          ? "reservations.cancelPaid.ownerSuccess"
+          : "reservations.cancelPaid.ownerSuccessNoCost";
+        const successFallback = externalCostMinor > 0
+          ? "Rezervace byla zrušena. Nájemci Stripe vrací {refundAmount}. Náklad {externalCost} vám Rentulo vyúčtuje se splatností 7 dní."
+          : "Rezervace byla zrušena. Nájemci Stripe vrací {refundAmount} a nevznikl vám žádný náklad k úhradě.";
+
+        setAccountMessage(
+          "reservations.state.cancelledTitle",
+          "Rezervace byla zrušena",
+          successKey,
+          successFallback,
+          "success",
+          {
+            refundAmount: formatPaidCancellationMinorMoney(
+              confirmResult.data.refund_amount_minor
+            ),
+            externalCost: formatPaidCancellationMinorMoney(
+              confirmResult.data.external_cost_amount_minor
+            )
+          }
+        );
+
+        await reloadAndReopen(reservationId, "history");
+        return;
+      }
+
       const confirmed = await openOwnerReservationCancelModal(reservation);
 
       if (!confirmed) {
@@ -866,6 +960,7 @@ const data = Array.isArray(updatedReservations)
 
     let ownerReservationCancelModalResolve = null;
     let ownerReservationCancelModalReservation = null;
+    let ownerReservationCancelModalQuote = null;
     let ownerReservationCancelModalReturnFocus = null;
 
     function ensureOwnerReservationCancelModal() {
@@ -907,22 +1002,58 @@ const data = Array.isArray(updatedReservations)
       }
 
       const elements = getOwnerReservationCancelModalElements();
+      const normalizedStatus = normalizeReservationStatus(
+        ownerReservationCancelModalReservation.status
+      );
+      const isPaidCancellation =
+        normalizedStatus === RESERVATION_STATUS_PAID &&
+        ownerReservationCancelModalQuote;
       const startDate = formatOffersDate(ownerReservationCancelModalReservation.startDate);
       const endDate = formatOffersDate(ownerReservationCancelModalReservation.endDate);
 
       if (elements.title) {
-        elements.title.textContent = offersTranslate(
-          "reservations.cancelModal.title",
-          "Zrušit rezervaci?"
-        );
+        elements.title.textContent = isPaidCancellation
+          ? offersTranslate(
+              "reservations.cancelPaid.title",
+              "Zrušit zaplacenou rezervaci?"
+            )
+          : offersTranslate(
+              "reservations.cancelModal.title",
+              "Zrušit rezervaci?"
+            );
       }
 
       if (elements.description) {
-        elements.description.textContent = offersTranslate(
-          "reservations.cancelModal.description",
-          "Opravdu chcete tuto rezervaci zrušit? Termín {startDate} – {endDate} se znovu uvolní.",
-          { startDate: startDate, endDate: endDate }
-        );
+        if (isPaidCancellation) {
+          const externalCostMinor = Number(
+            ownerReservationCancelModalQuote.external_cost_amount_minor
+          );
+          const descriptionKey = externalCostMinor > 0
+            ? "reservations.cancelPaid.ownerDescription"
+            : "reservations.cancelPaid.ownerDescriptionNoCost";
+          const descriptionFallback = externalCostMinor > 0
+            ? "Nájemci vrátíme celou zaplacenou částku {refundAmount}. Skutečné náklady Stripe: {externalCost}. Rentulo vám tuto částku vyúčtuje se splatností 7 dní od storna."
+            : "Nájemci vrátíme celou zaplacenou částku {refundAmount}. Skutečné náklady Stripe jsou {externalCost}, takže vám nevznikne žádná částka k úhradě.";
+
+          elements.description.textContent = offersTranslate(
+            descriptionKey,
+            descriptionFallback,
+            {
+              refundAmount: formatPaidCancellationMinorMoney(
+                ownerReservationCancelModalQuote.refund_amount_minor
+              ),
+              externalCost: formatPaidCancellationMinorMoney(
+                ownerReservationCancelModalQuote.external_cost_amount_minor
+              )
+            }
+          );
+        } else {
+          elements.description.textContent = offersTranslate(
+            "reservations.cancelModal.description",
+            "Opravdu chcete tuto rezervaci zrušit? Termín {startDate} – {endDate} se znovu uvolní.",
+            { startDate: startDate, endDate: endDate }
+          );
+        }
       }
 
       if (elements.keepButton) {
@@ -933,10 +1064,15 @@ const data = Array.isArray(updatedReservations)
       }
 
       if (elements.confirmButton) {
-        elements.confirmButton.textContent = offersTranslate(
-          "reservations.cancel",
-          "Zrušit rezervaci"
-        );
+        elements.confirmButton.textContent = isPaidCancellation
+          ? offersTranslate(
+              "reservations.cancelPaid.confirm",
+              "Zrušit a vrátit platbu"
+            )
+          : offersTranslate(
+              "reservations.cancel",
+              "Zrušit rezervaci"
+            );
       }
     }
 
@@ -964,6 +1100,7 @@ const data = Array.isArray(updatedReservations)
 
       ownerReservationCancelModalResolve = null;
       ownerReservationCancelModalReservation = null;
+      ownerReservationCancelModalQuote = null;
       ownerReservationCancelModalReturnFocus = null;
 
       if (resolve) {
@@ -979,7 +1116,7 @@ const data = Array.isArray(updatedReservations)
       }
     }
 
-    function openOwnerReservationCancelModal(reservation) {
+    function openOwnerReservationCancelModal(reservation, quote) {
       ensureOwnerReservationCancelModal();
       const elements = getOwnerReservationCancelModalElements();
 
@@ -989,6 +1126,7 @@ const data = Array.isArray(updatedReservations)
       }
 
       ownerReservationCancelModalReservation = reservation;
+      ownerReservationCancelModalQuote = quote || null;
       ownerReservationCancelModalReturnFocus = document.activeElement;
       refreshOwnerReservationCancelModalText();
 
@@ -1334,6 +1472,7 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
             ${offersTranslate("offers.action.pickedUp", "Potvrdit předání")}
           </button>
         `);
+        actions.push(renderOwnerReservationCancellationAction(reservation));
       }
 
       if (normalizeReservationStatus(status) === RESERVATION_STATUS_PICKED_UP) {

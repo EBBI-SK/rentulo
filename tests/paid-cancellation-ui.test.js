@@ -1,0 +1,100 @@
+"use strict";
+
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+
+const PROJECT_ROOT = path.resolve(__dirname, "..");
+const RESERVATIONS_SHARED_PATH = path.join(PROJECT_ROOT, "js", "reservations.js");
+const RENTER_PAGE_PATH = path.join(PROJECT_ROOT, "js", "reservations-page.js");
+const OWNER_PAGE_PATH = path.join(PROJECT_ROOT, "js", "offers-page.js");
+const I18N_PATH = path.join(PROJECT_ROOT, "js", "i18n.js");
+
+function read(filePath) {
+  return fs.readFileSync(filePath, "utf8");
+}
+
+test("paid reservations are cancellable for both parties before the shared six-hour cutoff", () => {
+  const shared = read(RESERVATIONS_SHARED_PATH);
+
+  assert.match(
+    shared,
+    /function canRenterCancelReservation[\s\S]*RESERVATION_STATUS_PENDING[\s\S]*RESERVATION_STATUS_APPROVED[\s\S]*RESERVATION_STATUS_PAID/
+  );
+  assert.match(
+    shared,
+    /function canOwnerCancelReservation[\s\S]*RESERVATION_STATUS_APPROVED[\s\S]*RESERVATION_STATUS_PAID/
+  );
+  assert.match(shared, /return now\.getTime\(\) < cutoff\.getTime\(\)/);
+});
+
+test("shared paid cancellation client calls preview or confirm on the trusted Edge Function", () => {
+  const shared = read(RESERVATIONS_SHARED_PATH);
+
+  assert.match(shared, /function requestPaidReservationCancellation/);
+  assert.match(shared, /"cancel-paid-reservation"/);
+  assert.match(shared, /reservation_id:\s*reservationId/);
+  assert.match(shared, /action:\s*action/);
+  assert.match(shared, /action !== "preview" && action !== "confirm"/);
+  assert.match(shared, /formatPaidCancellationMinorMoney/);
+});
+
+test("renter paid cancellation previews exact Stripe cost before confirmation", () => {
+  const source = read(RENTER_PAGE_PATH);
+  const previewIndex = source.indexOf('"preview"');
+  const modalIndex = source.indexOf("openReservationCancelModal(\n          reservation,\n          previewResult.data");
+  const confirmIndex = source.indexOf('"confirm"', previewIndex + 1);
+
+  assert.ok(previewIndex >= 0, "renter preview call must exist");
+  assert.ok(modalIndex > previewIndex, "preview must load before the confirmation modal");
+  assert.ok(confirmIndex > modalIndex, "confirm must run only after the modal is accepted");
+  assert.match(source, /payment_amount_minor/);
+  assert.match(source, /external_cost_amount_minor/);
+  assert.match(source, /refund_amount_minor/);
+  assert.match(source, /reservations\.cancelPaid\.renterDescription/);
+  assert.match(source, /reservations\.cancelPaid\.confirm/);
+});
+
+test("owner paid cancellation previews the full renter refund and seven-day owner cost", () => {
+  const source = read(OWNER_PAGE_PATH);
+
+  assert.match(source, /normalizedStatus === RESERVATION_STATUS_PAID/);
+  assert.match(source, /requestPaidReservationCancellation[\s\S]*"preview"/);
+  assert.match(source, /openOwnerReservationCancelModal\([\s\S]*previewResult\.data/);
+  assert.match(source, /requestPaidReservationCancellation[\s\S]*"confirm"/);
+  assert.match(source, /reservations\.cancelPaid\.ownerDescription/);
+  assert.match(source, /reservations\.cancelPaid\.ownerDescriptionNoCost/);
+  assert.match(source, /7 dní od storna/);
+  assert.match(source, /actions\.push\(renderOwnerReservationCancellationAction\(reservation\)\)/);
+});
+
+test("paid cancellation UI does not use the ordinary browser status RPC for the paid branch", () => {
+  const renter = read(RENTER_PAGE_PATH);
+  const owner = read(OWNER_PAGE_PATH);
+
+  const renterPaidStart = renter.indexOf("if (normalizedStatus === RESERVATION_STATUS_PAID)");
+  const renterOrdinaryRpc = renter.indexOf('.rpc("change_my_reservation_status"', renterPaidStart);
+  const renterReturn = renter.indexOf("return;", renter.indexOf("renterSuccess", renterPaidStart));
+  assert.ok(renterPaidStart >= 0 && renterReturn > renterPaidStart);
+  assert.ok(renterOrdinaryRpc === -1 || renterOrdinaryRpc > renterReturn);
+
+  const ownerPaidStart = owner.indexOf("if (normalizedStatus === RESERVATION_STATUS_PAID)");
+  const ownerOrdinaryUpdate = owner.indexOf("updateReservationStatus(\n        reservationId,\n        RESERVATION_STATUS_CANCELLED", ownerPaidStart);
+  const ownerReturn = owner.indexOf("return;", owner.indexOf("reloadAndReopen(reservationId, \"history\")", ownerPaidStart));
+  assert.ok(ownerPaidStart >= 0 && ownerReturn > ownerPaidStart);
+  assert.ok(ownerOrdinaryUpdate === -1 || ownerOrdinaryUpdate > ownerReturn);
+});
+
+test("paid cancellation warning and result copy exists in all five supported languages", () => {
+  const i18n = read(I18N_PATH);
+
+  assert.equal((i18n.match(/"reservations\.cancelPaid\.title"/g) || []).length, 5);
+  assert.equal((i18n.match(/"reservations\.cancelPaid\.renterDescription"/g) || []).length, 5);
+  assert.equal((i18n.match(/"reservations\.cancelPaid\.ownerDescription"/g) || []).length, 5);
+  assert.equal((i18n.match(/"reservations\.cancelPaid\.confirm"/g) || []).length, 5);
+  assert.equal((i18n.match(/"reservations\.cancelPaid\.previewError"/g) || []).length, 5);
+  assert.equal((i18n.match(/"reservations\.cancelPaid\.confirmError"/g) || []).length, 5);
+  assert.equal((i18n.match(/"reservations\.cancelPaid\.renterSuccess"/g) || []).length, 5);
+  assert.equal((i18n.match(/"reservations\.cancelPaid\.ownerSuccess"/g) || []).length, 5);
+});

@@ -71,7 +71,7 @@ test("cancellation stays open before the exact six-hour cutoff and closes at it"
   );
 });
 
-test("old reservations without a stored cutoff keep the previous status-only behavior", () => {
+test("cancellable statuses without a stored cutoff remain status-based", () => {
   const context = loadReservationContext();
 
   assert.equal(
@@ -84,7 +84,7 @@ test("old reservations without a stored cutoff keep the previous status-only beh
   );
   assert.equal(
     context.isReservationCancellationWindowOpen({ status: "paid" }),
-    false
+    true
   );
 });
 
@@ -116,7 +116,7 @@ test("reservations page integration stores the server cutoff and renders a disab
   }
 });
 
-test("owner approved reservation uses the same six-hour cutoff and locked action", () => {
+test("owner approved and paid reservations use the same six-hour cutoff and locked action", () => {
   const source = fs.readFileSync(OFFERS_PATH, "utf8");
 
   assert.match(source, /cancellationCutoffAt:\s*row\.cancellation_cutoff_at/);

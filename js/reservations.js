@@ -110,12 +110,18 @@ function canRenterCancelReservation(reservation) {
 
   return (
     status === RESERVATION_STATUS_PENDING ||
-    status === RESERVATION_STATUS_APPROVED
+    status === RESERVATION_STATUS_APPROVED ||
+    status === RESERVATION_STATUS_PAID
   );
 }
 
 function canOwnerCancelReservation(reservation) {
-  return getReservationStatus(reservation) === RESERVATION_STATUS_APPROVED;
+  const status = getReservationStatus(reservation);
+
+  return (
+    status === RESERVATION_STATUS_APPROVED ||
+    status === RESERVATION_STATUS_PAID
+  );
 }
 
 function canOwnerConfirmPickedUpReservation(reservation) {
@@ -184,6 +190,69 @@ function getReservationCancellationCutoffText() {
     : "cs";
 
   return RESERVATION_CANCEL_CUTOFF_COPY[language] || RESERVATION_CANCEL_CUTOFF_COPY.cs;
+}
+
+const PAID_CANCELLATION_LOCALES = {
+  cs: "cs-CZ",
+  sk: "sk-SK",
+  en: "en-GB",
+  de: "de-DE",
+  pl: "pl-PL"
+};
+
+function formatPaidCancellationMinorMoney(value) {
+  const minor = Number(value);
+
+  if (!Number.isSafeInteger(minor)) {
+    return "-";
+  }
+
+  const language = typeof window !== "undefined" && typeof window.getRentuloLanguage === "function"
+    ? window.getRentuloLanguage()
+    : "cs";
+  const locale = PAID_CANCELLATION_LOCALES[language] || PAID_CANCELLATION_LOCALES.cs;
+
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: "CZK",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(minor / 100);
+}
+
+async function requestPaidReservationCancellation(
+  supabaseClient,
+  reservationId,
+  action
+) {
+  if (
+    !supabaseClient ||
+    !supabaseClient.functions ||
+    typeof supabaseClient.functions.invoke !== "function" ||
+    !reservationId ||
+    (action !== "preview" && action !== "confirm")
+  ) {
+    return { data: null, error: new Error("Paid cancellation request is unavailable.") };
+  }
+
+  try {
+    const result = await supabaseClient.functions.invoke(
+      "cancel-paid-reservation",
+      {
+        body: {
+          reservation_id: reservationId,
+          action: action
+        }
+      }
+    );
+
+    return {
+      data: result && result.data ? result.data : null,
+      error: result && result.error ? result.error : null
+    };
+  } catch (error) {
+    return { data: null, error: error };
+  }
 }
 
 function escapeReservationCancellationText(value) {
