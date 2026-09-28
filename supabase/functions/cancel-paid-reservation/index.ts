@@ -309,6 +309,45 @@ function publicQuote(context: CancellationContext, quote: Quote) {
   };
 }
 
+async function sendPaidCancellationEmail(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  reservationId: string,
+): Promise<"sent" | "failed"> {
+  try {
+    const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-reservation-email`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceRoleKey}`,
+        apikey: serviceRoleKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        reservation_id: reservationId,
+        event: "paid_cancelled",
+      }),
+    });
+
+    const emailBody = await emailResponse.json().catch(() => ({}));
+    if (!emailResponse.ok) {
+      console.error(
+        "cancel-paid-reservation: paid cancellation email failed",
+        emailResponse.status,
+        emailBody?.error || "unknown_error",
+      );
+      return "failed";
+    }
+
+    return "sent";
+  } catch (error) {
+    console.error(
+      "cancel-paid-reservation: paid cancellation email request failed",
+      error instanceof Error ? error.message : String(error),
+    );
+    return "failed";
+  }
+}
+
 denoRuntime.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
@@ -400,7 +439,11 @@ denoRuntime.serve(async (req) => {
       return jsonResponse({ ...existingResponse, error: "Stripe refund did not complete" }, 502);
     }
 
-    return jsonResponse(existingResponse);
+    const emailStatus = context.refund_status === "succeeded"
+      ? await sendPaidCancellationEmail(supabaseUrl, serviceRoleKey, context.reservation_id)
+      : "awaiting_refund";
+
+    return jsonResponse({ ...existingResponse, email_status: emailStatus });
   }
 
   const quoteResult = await loadQuote(stripeSecretKey, context);
@@ -543,5 +586,9 @@ denoRuntime.serve(async (req) => {
     return jsonResponse({ ...responseBody, error: "Stripe refund did not complete" }, 502);
   }
 
-  return jsonResponse(responseBody);
+  const emailStatus = refundStatus === "succeeded" && finalized.financials_finalized_at
+    ? await sendPaidCancellationEmail(supabaseUrl, serviceRoleKey, context.reservation_id)
+    : "awaiting_refund";
+
+  return jsonResponse({ ...responseBody, email_status: emailStatus });
 });

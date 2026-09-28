@@ -23,7 +23,32 @@ type EmailEvent =
   | "cancelled"
   | "paid"
   | "picked_up"
-  | "returned";
+  | "returned"
+  | "paid_cancelled";
+
+type StandardEmailEvent = Exclude<EmailEvent, "paid_cancelled">;
+
+type SupportedLanguage = "cs" | "sk" | "en" | "de" | "pl";
+
+type PaidCancellationRow = {
+  id: string;
+  payment_id: string;
+  cancelled_by_role: "renter" | "owner";
+  cancellation_kind: string;
+  refund_policy: string | null;
+  payment_amount_minor: number | null;
+  refund_amount_minor: number | null;
+  external_cost_amount_minor: number | null;
+  currency: string | null;
+  financials_finalized_at: string | null;
+};
+
+type OwnerCancellationDebt = {
+  amount_minor: number;
+  currency: string;
+  status: string;
+  due_at: string;
+};
 
 const eventStatus: Record<EmailEvent, string> = {
   new_request: "pending",
@@ -33,9 +58,10 @@ const eventStatus: Record<EmailEvent, string> = {
   paid: "paid",
   picked_up: "picked_up",
   returned: "returned",
+  paid_cancelled: "cancelled",
 };
 
-const templates = {
+const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [string, string]>> = {
   cs: {
     new_request: ["Nová žádost o půjčení", "U vaší nabídky čeká nová žádost o půjčení."],
     approved: ["Žádost byla schválena", "Majitel vaši žádost schválil. Rezervaci nyní můžete zaplatit."],
@@ -81,9 +107,160 @@ const templates = {
     picked_up: ["Rzecz została odebrana", "Właściciel oznaczył rzecz jako odebraną."],
     returned: ["Rzecz została zwrócona", "Wypożyczenie zostało oznaczone jako zakończone."],
   },
-} as const;
+};
 
-type SupportedLanguage = keyof typeof templates;
+const paidCancellationCopy = {
+  cs: {
+    renterSelf: [
+      "Rezervace byla zrušena – vrácení platby",
+      "Zrušili jste zaplacenou rezervaci. Vrácení platby bylo úspěšně zpracováno.",
+      "Zaplaceno",
+      "Skutečné náklady Stripe",
+      "Vráceno",
+      "Částka bude vrácena na původní platební metodu.",
+    ],
+    renterOwner: [
+      "Rezervace byla zrušena majitelem – vrácení platby",
+      "Majitel zrušil zaplacenou rezervaci. Byla vám vrácena celá zaplacená částka.",
+      "Zaplaceno",
+      "Vráceno",
+      "Částka bude vrácena na původní platební metodu.",
+    ],
+    ownerRenter: [
+      "Nájemce zrušil zaplacenou rezervaci",
+      "Nájemce zrušil zaplacenou rezervaci. Termín je znovu volný.",
+      "Nájemci vráceno",
+    ],
+    ownerSelf: [
+      "Zrušili jste zaplacenou rezervaci",
+      "Zrušili jste zaplacenou rezervaci. Nájemci byla vrácena celá zaplacená částka.",
+      "Nájemci vráceno",
+      "Skutečné náklady Stripe k úhradě",
+      "Splatnost",
+      "Rentulo po vás požaduje pouze skutečný externí náklad vzniklý tímto stornem.",
+    ],
+  },
+  sk: {
+    renterSelf: [
+      "Rezervácia bola zrušená – vrátenie platby",
+      "Zrušili ste zaplatenú rezerváciu. Vrátenie platby bolo úspešne spracované.",
+      "Zaplatené",
+      "Skutočné náklady Stripe",
+      "Vrátené",
+      "Suma bude vrátená na pôvodnú platobnú metódu.",
+    ],
+    renterOwner: [
+      "Rezervácia bola zrušená majiteľom – vrátenie platby",
+      "Majiteľ zrušil zaplatenú rezerváciu. Bola vám vrátená celá zaplatená suma.",
+      "Zaplatené",
+      "Vrátené",
+      "Suma bude vrátená na pôvodnú platobnú metódu.",
+    ],
+    ownerRenter: [
+      "Nájomca zrušil zaplatenú rezerváciu",
+      "Nájomca zrušil zaplatenú rezerváciu. Termín je znova voľný.",
+      "Nájomcovi vrátené",
+    ],
+    ownerSelf: [
+      "Zrušili ste zaplatenú rezerváciu",
+      "Zrušili ste zaplatenú rezerváciu. Nájomcovi bola vrátená celá zaplatená suma.",
+      "Nájomcovi vrátené",
+      "Skutočné náklady Stripe na úhradu",
+      "Splatnosť",
+      "Rentulo od vás požaduje iba skutočný externý náklad vzniknutý týmto stornom.",
+    ],
+  },
+  en: {
+    renterSelf: [
+      "Reservation cancelled – payment refund",
+      "You cancelled a paid reservation. The refund was processed successfully.",
+      "Paid",
+      "Actual Stripe costs",
+      "Refunded",
+      "The amount will be returned to the original payment method.",
+    ],
+    renterOwner: [
+      "Reservation cancelled by owner – payment refund",
+      "The owner cancelled the paid reservation. Your full payment was refunded.",
+      "Paid",
+      "Refunded",
+      "The amount will be returned to the original payment method.",
+    ],
+    ownerRenter: [
+      "Renter cancelled the paid reservation",
+      "The renter cancelled the paid reservation. The dates are available again.",
+      "Refunded to renter",
+    ],
+    ownerSelf: [
+      "You cancelled the paid reservation",
+      "You cancelled the paid reservation. The renter received a full refund.",
+      "Refunded to renter",
+      "Actual Stripe costs to pay",
+      "Due date",
+      "Rentulo requests only the actual external cost caused by this cancellation.",
+    ],
+  },
+  de: {
+    renterSelf: [
+      "Reservierung storniert – Rückerstattung",
+      "Sie haben eine bezahlte Reservierung storniert. Die Rückerstattung wurde erfolgreich verarbeitet.",
+      "Bezahlt",
+      "Tatsächliche Stripe-Kosten",
+      "Erstattet",
+      "Der Betrag wird auf die ursprüngliche Zahlungsmethode zurückerstattet.",
+    ],
+    renterOwner: [
+      "Reservierung vom Eigentümer storniert – Rückerstattung",
+      "Der Eigentümer hat die bezahlte Reservierung storniert. Der gesamte bezahlte Betrag wurde erstattet.",
+      "Bezahlt",
+      "Erstattet",
+      "Der Betrag wird auf die ursprüngliche Zahlungsmethode zurückerstattet.",
+    ],
+    ownerRenter: [
+      "Mieter hat die bezahlte Reservierung storniert",
+      "Der Mieter hat die bezahlte Reservierung storniert. Der Zeitraum ist wieder verfügbar.",
+      "An den Mieter erstattet",
+    ],
+    ownerSelf: [
+      "Sie haben die bezahlte Reservierung storniert",
+      "Sie haben die bezahlte Reservierung storniert. Der Mieter hat eine vollständige Rückerstattung erhalten.",
+      "An den Mieter erstattet",
+      "Tatsächliche Stripe-Kosten zur Zahlung",
+      "Fällig am",
+      "Rentulo fordert nur die tatsächlich durch diese Stornierung entstandenen externen Kosten an.",
+    ],
+  },
+  pl: {
+    renterSelf: [
+      "Rezerwacja anulowana – zwrot płatności",
+      "Anulowałeś opłaconą rezerwację. Zwrot został pomyślnie przetworzony.",
+      "Zapłacono",
+      "Rzeczywiste koszty Stripe",
+      "Zwrócono",
+      "Kwota zostanie zwrócona na pierwotną metodę płatności.",
+    ],
+    renterOwner: [
+      "Rezerwacja anulowana przez właściciela – zwrot płatności",
+      "Właściciel anulował opłaconą rezerwację. Zwrócono całą zapłaconą kwotę.",
+      "Zapłacono",
+      "Zwrócono",
+      "Kwota zostanie zwrócona na pierwotną metodę płatności.",
+    ],
+    ownerRenter: [
+      "Najemca anulował opłaconą rezerwację",
+      "Najemca anulował opłaconą rezerwację. Termin jest ponownie dostępny.",
+      "Zwrócono najemcy",
+    ],
+    ownerSelf: [
+      "Anulowałeś opłaconą rezerwację",
+      "Anulowałeś opłaconą rezerwację. Najemca otrzymał pełny zwrot.",
+      "Zwrócono najemcy",
+      "Rzeczywiste koszty Stripe do zapłaty",
+      "Termin płatności",
+      "Rentulo wymaga wyłącznie rzeczywistego kosztu zewnętrznego powstałego w wyniku tego anulowania.",
+    ],
+  },
+} as const;
 
 function normalizeLanguage(value: unknown): SupportedLanguage {
   return value === "sk" || value === "en" || value === "de" || value === "pl"
@@ -121,6 +298,27 @@ function formatReservationDate(value: unknown, language: SupportedLanguage): str
   }).format(date);
 }
 
+function formatTimestampDate(value: unknown, language: SupportedLanguage): string {
+  const date = new Date(String(value ?? ""));
+  if (Number.isNaN(date.getTime())) return String(value ?? "");
+
+  return new Intl.DateTimeFormat(dateLocales[language], {
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+    timeZone: "Europe/Prague",
+  }).format(date);
+}
+
+function formatCurrencyMinor(value: number, language: SupportedLanguage): string {
+  return new Intl.NumberFormat(dateLocales[language], {
+    style: "currency",
+    currency: "CZK",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value / 100);
+}
+
 function escapeHtml(value: unknown): string {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -135,6 +333,75 @@ function response(body: unknown, status = 200): Response {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+function paidCancellationMessage(
+  language: SupportedLanguage,
+  recipientIsOwner: boolean,
+  cancellation: PaidCancellationRow,
+  ownerDebt: OwnerCancellationDebt | null,
+): { subject: string; intro: string; financialHtml: string } {
+  const paymentAmount = formatCurrencyMinor(Number(cancellation.payment_amount_minor), language);
+  const refundAmount = formatCurrencyMinor(Number(cancellation.refund_amount_minor), language);
+  const externalCostAmount = formatCurrencyMinor(Number(cancellation.external_cost_amount_minor), language);
+  const copy = paidCancellationCopy[language];
+
+  if (!recipientIsOwner && cancellation.cancelled_by_role === "renter") {
+    const [subject, intro, paidLabel, costLabel, refundLabel, note] = copy.renterSelf;
+    return {
+      subject,
+      intro,
+      financialHtml: `
+        <div style="margin:18px 0;padding:16px;border:1px solid #d8e8e1;border-radius:12px;background:#f7fbf9">
+          <p style="margin:0 0 8px"><strong>${escapeHtml(paidLabel)}:</strong> ${escapeHtml(paymentAmount)}</p>
+          <p style="margin:0 0 8px"><strong>${escapeHtml(costLabel)}:</strong> ${escapeHtml(externalCostAmount)}</p>
+          <p style="margin:0"><strong>${escapeHtml(refundLabel)}:</strong> ${escapeHtml(refundAmount)}</p>
+        </div>
+        <p>${escapeHtml(note)}</p>`,
+    };
+  }
+
+  if (!recipientIsOwner && cancellation.cancelled_by_role === "owner") {
+    const [subject, intro, paidLabel, refundLabel, note] = copy.renterOwner;
+    return {
+      subject,
+      intro,
+      financialHtml: `
+        <div style="margin:18px 0;padding:16px;border:1px solid #d8e8e1;border-radius:12px;background:#f7fbf9">
+          <p style="margin:0 0 8px"><strong>${escapeHtml(paidLabel)}:</strong> ${escapeHtml(paymentAmount)}</p>
+          <p style="margin:0"><strong>${escapeHtml(refundLabel)}:</strong> ${escapeHtml(refundAmount)}</p>
+        </div>
+        <p>${escapeHtml(note)}</p>`,
+    };
+  }
+
+  if (recipientIsOwner && cancellation.cancelled_by_role === "renter") {
+    const [subject, intro, refundLabel] = copy.ownerRenter;
+    return {
+      subject,
+      intro,
+      financialHtml: `
+        <div style="margin:18px 0;padding:16px;border:1px solid #d8e8e1;border-radius:12px;background:#f7fbf9">
+          <p style="margin:0"><strong>${escapeHtml(refundLabel)}:</strong> ${escapeHtml(refundAmount)}</p>
+        </div>`,
+    };
+  }
+
+  const [subject, intro, refundLabel, costLabel, dueLabel, note] = copy.ownerSelf;
+  const debtAmount = ownerDebt ? formatCurrencyMinor(ownerDebt.amount_minor, language) : externalCostAmount;
+  const dueDate = ownerDebt ? formatTimestampDate(ownerDebt.due_at, language) : "";
+
+  return {
+    subject,
+    intro,
+    financialHtml: `
+      <div style="margin:18px 0;padding:16px;border:1px solid #d8e8e1;border-radius:12px;background:#f7fbf9">
+        <p style="margin:0 0 8px"><strong>${escapeHtml(refundLabel)}:</strong> ${escapeHtml(refundAmount)}</p>
+        <p style="margin:0 0 8px"><strong>${escapeHtml(costLabel)}:</strong> ${escapeHtml(debtAmount)}</p>
+        ${dueDate ? `<p style="margin:0"><strong>${escapeHtml(dueLabel)}:</strong> ${escapeHtml(dueDate)}</p>` : ""}
+      </div>
+      <p>${escapeHtml(note)}</p>`,
+  };
 }
 
 denoRuntime.serve(async (req) => {
@@ -190,8 +457,12 @@ denoRuntime.serve(async (req) => {
     return response({ error: "Invalid request" }, 400);
   }
 
-  if (isServiceRoleCall && event !== "paid") {
-    return response({ error: "Service role is only allowed for paid email events" }, 403);
+  if (isServiceRoleCall && event !== "paid" && event !== "paid_cancelled") {
+    return response({ error: "Service role is only allowed for trusted payment email events" }, 403);
+  }
+
+  if (!isServiceRoleCall && event === "paid_cancelled") {
+    return response({ error: "Paid cancellation email requires service role" }, 403);
   }
 
   const { data: reservation, error: reservationError } = await admin
@@ -221,9 +492,85 @@ denoRuntime.serve(async (req) => {
     return response({ error: "User is not allowed to send this email event" }, 403);
   }
 
+  let paidCancellation: PaidCancellationRow | null = null;
+  let ownerDebt: OwnerCancellationDebt | null = null;
+
+  if (event === "paid_cancelled") {
+    const { data: cancellation, error: cancellationError } = await admin
+      .from("reservation_cancellations")
+      .select(
+        "id, payment_id, cancelled_by_role, cancellation_kind, refund_policy, payment_amount_minor, refund_amount_minor, external_cost_amount_minor, currency, financials_finalized_at"
+      )
+      .eq("reservation_id", reservation.id)
+      .single();
+
+    if (cancellationError || !cancellation) {
+      return response({ error: "Paid cancellation record not found" }, 409);
+    }
+
+    paidCancellation = cancellation as PaidCancellationRow;
+
+    const paymentAmountMinor = Number(paidCancellation.payment_amount_minor);
+    const refundAmountMinor = Number(paidCancellation.refund_amount_minor);
+    const externalCostAmountMinor = Number(paidCancellation.external_cost_amount_minor);
+
+    if (
+      paidCancellation.cancellation_kind !== "paid_refund" ||
+      !paidCancellation.financials_finalized_at ||
+      paidCancellation.currency !== "czk" ||
+      !Number.isSafeInteger(paymentAmountMinor) || paymentAmountMinor <= 0 ||
+      !Number.isSafeInteger(refundAmountMinor) || refundAmountMinor <= 0 ||
+      !Number.isSafeInteger(externalCostAmountMinor) || externalCostAmountMinor < 0 ||
+      (
+        paidCancellation.cancelled_by_role === "renter" &&
+        paidCancellation.refund_policy !== "renter_external_cost_deducted"
+      ) ||
+      (
+        paidCancellation.cancelled_by_role === "owner" &&
+        paidCancellation.refund_policy !== "owner_full_refund_owner_cost"
+      )
+    ) {
+      return response({ error: "Paid cancellation financials are not finalized" }, 409);
+    }
+
+    const { data: payment, error: paymentError } = await admin
+      .from("payments")
+      .select("id, refund_status, stripe_refund_amount_minor")
+      .eq("id", paidCancellation.payment_id)
+      .single();
+
+    if (
+      paymentError || !payment ||
+      payment.refund_status !== "succeeded" ||
+      Number(payment.stripe_refund_amount_minor) !== refundAmountMinor
+    ) {
+      return response({ error: "Paid cancellation refund has not succeeded" }, 409);
+    }
+
+    if (paidCancellation.cancelled_by_role === "owner" && externalCostAmountMinor > 0) {
+      const { data: debt, error: debtError } = await admin
+        .from("owner_cancellation_debts")
+        .select("amount_minor, currency, status, due_at")
+        .eq("cancellation_id", paidCancellation.id)
+        .single();
+
+      if (
+        debtError || !debt ||
+        Number(debt.amount_minor) !== externalCostAmountMinor ||
+        debt.currency !== "czk"
+      ) {
+        return response({ error: "Owner cancellation debt is inconsistent" }, 409);
+      }
+
+      ownerDebt = debt as OwnerCancellationDebt;
+    }
+  }
+
   let recipientIds: string[];
   if (event === "new_request" || event === "paid") {
     recipientIds = [reservation.owner_id];
+  } else if (event === "paid_cancelled") {
+    recipientIds = Array.from(new Set([reservation.renter_id, reservation.owner_id]));
   } else if (event === "cancelled") {
     recipientIds = [actorIsOwner ? reservation.renter_id : reservation.owner_id];
   } else {
@@ -248,11 +595,32 @@ denoRuntime.serve(async (req) => {
     }
 
     const language = normalizeLanguage(profile.preferred_language);
-    const [subject, intro] = templates[language][event];
     const recipientIsOwner = profile.id === reservation.owner_id;
     const detailUrl = `${siteUrl}/${recipientIsOwner ? "moje-nabidky.html" : "moje-rezervace.html"}`;
     const offerName = reservation.offer_name || "Rentulo";
     const dateText = `${formatReservationDate(reservation.start_date, language)} \u2013 ${formatReservationDate(reservation.end_date, language)}`;
+
+    let subject: string;
+    let intro: string;
+    let extraHtml = "";
+
+    if (event === "paid_cancelled") {
+      if (!paidCancellation) {
+        return response({ error: "Paid cancellation record is unavailable" }, 500);
+      }
+
+      const paidMessage = paidCancellationMessage(
+        language,
+        recipientIsOwner,
+        paidCancellation,
+        ownerDebt,
+      );
+      subject = paidMessage.subject;
+      intro = paidMessage.intro;
+      extraHtml = paidMessage.financialHtml;
+    } else {
+      [subject, intro] = templates[language][event as StandardEmailEvent];
+    }
 
     const { data: insertedLogRow, error: logError } = await admin
       .from("reservation_email_deliveries")
@@ -319,6 +687,7 @@ denoRuntime.serve(async (req) => {
         <h1 style="font-size:24px">${escapeHtml(subject)}</h1>
         <p>${escapeHtml(intro)}</p>
         <p><strong>${escapeHtml(offerName)}</strong><br>${escapeHtml(dateText)}</p>
+        ${extraHtml}
         <p><a href="${escapeHtml(detailUrl)}" style="display:inline-block;padding:12px 18px;background:#75d94f;color:#103f32;text-decoration:none;border-radius:10px;font-weight:700">Rentulo</a></p>
         <p style="font-size:12px;color:#66736f">Rentulo</p>
       </div>`;

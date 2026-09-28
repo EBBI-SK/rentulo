@@ -61,7 +61,7 @@ test("Stripe webhook sends the paid email only after trusted payment completion"
   );
 });
 
-test("reservation email function allows service role only for paid events and preserves user authorization", () => {
+test("reservation email function allows service role for trusted payment events and preserves user authorization", () => {
   const source = readEmailFunction();
 
   assert.match(
@@ -70,7 +70,11 @@ test("reservation email function allows service role only for paid events and pr
   );
   assert.match(
     source,
-    /if \(isServiceRoleCall && event !== "paid"\) \{[\s\S]*Service role is only allowed for paid email events[\s\S]*403/
+    /if \(isServiceRoleCall && event !== "paid" && event !== "paid_cancelled"\) \{[\s\S]*Service role is only allowed for trusted payment email events[\s\S]*403/
+  );
+  assert.match(
+    source,
+    /if \(!isServiceRoleCall && event === "paid_cancelled"\) \{[\s\S]*Paid cancellation email requires service role[\s\S]*403/
   );
   assert.match(source, /if \(!isServiceRoleCall\) \{[\s\S]*auth\.getUser\(\)/);
   assert.match(
