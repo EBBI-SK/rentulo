@@ -1164,7 +1164,7 @@ const data = Array.isArray(updatedReservations)
       }
 
       if (normalizeReservationStatus(status) === RESERVATION_STATUS_PICKED_UP) {
-return `<p class="request-note success">${offersTranslate("offers.note.pickedUp", "Věc byla předána zájemci. Až ji dostanete zpět, potvrďte vrácení.")}</p>`;
+return `<p class="request-note success">${offersTranslate("offers.note.pickedUp", "Výplata byla uvolněna. Rentulo předalo Stripe pokyn k uvolnění vaší výplaty. Peníze nyní zpracovává Stripe a odešle je na váš bankovní účet. První výplata přes Stripe může trvat několik dní. Až věc dostanete zpět, potvrďte vrácení.")}</p>`;
       }
 
       if (normalizeReservationStatus(status) === RESERVATION_STATUS_RETURNED) {
