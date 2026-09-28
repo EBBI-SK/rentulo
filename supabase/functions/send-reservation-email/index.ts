@@ -127,9 +127,8 @@ const paidCancellationCopy = {
       "Částka bude vrácena na původní platební metodu.",
     ],
     ownerRenter: [
-      "Nájemce zrušil zaplacenou rezervaci",
-      "Nájemce zrušil zaplacenou rezervaci. Termín je znovu volný.",
-      "Nájemci vráceno",
+      "Nájemce zrušil rezervaci",
+      "Nájemce zrušil rezervaci. Termín je znovu volný.",
     ],
     ownerSelf: [
       "Zrušili jste zaplacenou rezervaci",
@@ -157,9 +156,8 @@ const paidCancellationCopy = {
       "Suma bude vrátená na pôvodnú platobnú metódu.",
     ],
     ownerRenter: [
-      "Nájomca zrušil zaplatenú rezerváciu",
-      "Nájomca zrušil zaplatenú rezerváciu. Termín je znova voľný.",
-      "Nájomcovi vrátené",
+      "Nájomca zrušil rezerváciu",
+      "Nájomca zrušil rezerváciu. Termín je znova voľný.",
     ],
     ownerSelf: [
       "Zrušili ste zaplatenú rezerváciu",
@@ -187,9 +185,8 @@ const paidCancellationCopy = {
       "The amount will be returned to the original payment method.",
     ],
     ownerRenter: [
-      "Renter cancelled the paid reservation",
-      "The renter cancelled the paid reservation. The dates are available again.",
-      "Refunded to renter",
+      "Renter cancelled the reservation",
+      "The renter cancelled the reservation. The dates are available again.",
     ],
     ownerSelf: [
       "You cancelled the paid reservation",
@@ -217,9 +214,8 @@ const paidCancellationCopy = {
       "Der Betrag wird auf die ursprüngliche Zahlungsmethode zurückerstattet.",
     ],
     ownerRenter: [
-      "Mieter hat die bezahlte Reservierung storniert",
-      "Der Mieter hat die bezahlte Reservierung storniert. Der Zeitraum ist wieder verfügbar.",
-      "An den Mieter erstattet",
+      "Mieter hat die Reservierung storniert",
+      "Der Mieter hat die Reservierung storniert. Der Zeitraum ist wieder verfügbar.",
     ],
     ownerSelf: [
       "Sie haben die bezahlte Reservierung storniert",
@@ -247,9 +243,8 @@ const paidCancellationCopy = {
       "Kwota zostanie zwrócona na pierwotną metodę płatności.",
     ],
     ownerRenter: [
-      "Najemca anulował opłaconą rezerwację",
-      "Najemca anulował opłaconą rezerwację. Termin jest ponownie dostępny.",
-      "Zwrócono najemcy",
+      "Najemca anulował rezerwację",
+      "Najemca anulował rezerwację. Termin jest ponownie dostępny.",
     ],
     ownerSelf: [
       "Anulowałeś opłaconą rezerwację",
@@ -352,7 +347,7 @@ function paidCancellationMessage(
       subject,
       intro,
       financialHtml: `
-        <div style="margin:18px 0;padding:16px;border:1px solid #d8e8e1;border-radius:12px;background:#f7fbf9">
+        <div style="margin:18px 0;padding:16px;border:1px solid #d8e8e1;border-radius:12px;background:#f7fbf9;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#103f32">
           <p style="margin:0 0 8px"><strong>${escapeHtml(paidLabel)}:</strong> ${escapeHtml(paymentAmount)}</p>
           <p style="margin:0 0 8px"><strong>${escapeHtml(costLabel)}:</strong> ${escapeHtml(externalCostAmount)}</p>
           <p style="margin:0"><strong>${escapeHtml(refundLabel)}:</strong> ${escapeHtml(refundAmount)}</p>
@@ -367,7 +362,7 @@ function paidCancellationMessage(
       subject,
       intro,
       financialHtml: `
-        <div style="margin:18px 0;padding:16px;border:1px solid #d8e8e1;border-radius:12px;background:#f7fbf9">
+        <div style="margin:18px 0;padding:16px;border:1px solid #d8e8e1;border-radius:12px;background:#f7fbf9;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#103f32">
           <p style="margin:0 0 8px"><strong>${escapeHtml(paidLabel)}:</strong> ${escapeHtml(paymentAmount)}</p>
           <p style="margin:0"><strong>${escapeHtml(refundLabel)}:</strong> ${escapeHtml(refundAmount)}</p>
         </div>
@@ -376,14 +371,11 @@ function paidCancellationMessage(
   }
 
   if (recipientIsOwner && cancellation.cancelled_by_role === "renter") {
-    const [subject, intro, refundLabel] = copy.ownerRenter;
+    const [subject, intro] = copy.ownerRenter;
     return {
       subject,
       intro,
-      financialHtml: `
-        <div style="margin:18px 0;padding:16px;border:1px solid #d8e8e1;border-radius:12px;background:#f7fbf9">
-          <p style="margin:0"><strong>${escapeHtml(refundLabel)}:</strong> ${escapeHtml(refundAmount)}</p>
-        </div>`,
+      financialHtml: "",
     };
   }
 
@@ -395,7 +387,7 @@ function paidCancellationMessage(
     subject,
     intro,
     financialHtml: `
-      <div style="margin:18px 0;padding:16px;border:1px solid #d8e8e1;border-radius:12px;background:#f7fbf9">
+      <div style="margin:18px 0;padding:16px;border:1px solid #d8e8e1;border-radius:12px;background:#f7fbf9;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#103f32">
         <p style="margin:0 0 8px"><strong>${escapeHtml(refundLabel)}:</strong> ${escapeHtml(refundAmount)}</p>
         <p style="margin:0 0 8px"><strong>${escapeHtml(costLabel)}:</strong> ${escapeHtml(debtAmount)}</p>
         ${dueDate ? `<p style="margin:0"><strong>${escapeHtml(dueLabel)}:</strong> ${escapeHtml(dueDate)}</p>` : ""}
@@ -683,13 +675,13 @@ denoRuntime.serve(async (req) => {
     }
 
     const html = `
-      <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;color:#103f32">
-        <h1 style="font-size:24px">${escapeHtml(subject)}</h1>
-        <p>${escapeHtml(intro)}</p>
-        <p><strong>${escapeHtml(offerName)}</strong><br>${escapeHtml(dateText)}</p>
+      <div style="font-family:Arial,Helvetica,sans-serif;max-width:620px;margin:0 auto;color:#103f32;font-size:16px;line-height:1.5">
+        <h1 style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:24px;line-height:1.25;font-weight:700;color:#103f32">${escapeHtml(subject)}</h1>
+        <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#103f32">${escapeHtml(intro)}</p>
+        <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#103f32"><strong>${escapeHtml(offerName)}</strong><br>${escapeHtml(dateText)}</p>
         ${extraHtml}
-        <p><a href="${escapeHtml(detailUrl)}" style="display:inline-block;padding:12px 18px;background:#75d94f;color:#103f32;text-decoration:none;border-radius:10px;font-weight:700">Rentulo</a></p>
-        <p style="font-size:12px;color:#66736f">Rentulo</p>
+        <p style="margin:18px 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5"><a href="${escapeHtml(detailUrl)}" style="display:inline-block;padding:12px 18px;background:#75d94f;color:#103f32;text-decoration:none;border-radius:10px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.25;font-weight:700">Rentulo</a></p>
+        <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.5;color:#66736f">Rentulo</p>
       </div>`;
 
     const resendResponse = await fetch("https://api.resend.com/emails", {
