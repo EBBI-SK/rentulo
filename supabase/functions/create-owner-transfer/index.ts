@@ -16,11 +16,21 @@ type StripeChargeResponse = {
   id?: string;
   amount?: number;
   amount_refunded?: number;
+  balance_transaction?: string | { id?: string } | null;
   currency?: string;
   paid?: boolean;
   captured?: boolean;
   refunded?: boolean;
   payment_intent?: string | { id?: string } | null;
+  error?: { message?: string; type?: string };
+};
+
+type StripeBalanceTransactionResponse = {
+  id?: string;
+  amount?: number;
+  currency?: string;
+  source?: string | { id?: string } | null;
+  type?: string;
   error?: { message?: string; type?: string };
 };
 
@@ -72,6 +82,40 @@ function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+function normalizeCurrency(value: unknown): string | null {
+  const currency = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return /^[a-z]{3}$/.test(currency) ? currency : null;
+}
+
+function calculateTransferAmountMinor(
+  settlementAmountMinor: number,
+  ownerPayout: number,
+  amountTotal: number,
+): number | null {
+  if (
+    !Number.isSafeInteger(settlementAmountMinor) ||
+    !Number.isSafeInteger(ownerPayout) ||
+    !Number.isSafeInteger(amountTotal) ||
+    settlementAmountMinor <= 0 ||
+    ownerPayout <= 0 ||
+    amountTotal <= 0 ||
+    ownerPayout > amountTotal
+  ) {
+    return null;
+  }
+
+  const numerator = BigInt(settlementAmountMinor) * BigInt(ownerPayout);
+  const denominator = BigInt(amountTotal);
+  const rounded = (numerator + denominator / 2n) / denominator;
+  const result = Number(rounded);
+
+  if (!Number.isSafeInteger(result) || result <= 0 || result > settlementAmountMinor) {
+    return null;
+  }
+
+  return result;
+}
+
 denoRuntime.serve(async (req) => {
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
@@ -109,7 +153,7 @@ denoRuntime.serve(async (req) => {
   const paymentResult = await admin
     .from("payments")
     .select(
-      "id, reservation_id, payer_id, owner_id, amount_total, platform_fee_amount, owner_payout, provider, status, currency, stripe_amount_total_minor, stripe_payment_intent_id, stripe_payment_intent_status, stripe_charge_id, stripe_transfer_id, stripe_transfer_amount_minor, transfer_status, refund_status, stripe_refund_amount_minor",
+      "id, reservation_id, payer_id, owner_id, amount_total, platform_fee_amount, owner_payout, provider, status, currency, stripe_amount_total_minor, stripe_payment_intent_id, stripe_payment_intent_status, stripe_charge_id, stripe_charge_balance_transaction_id, stripe_charge_balance_amount_minor, stripe_charge_balance_currency, stripe_transfer_id, stripe_transfer_amount_minor, stripe_transfer_currency, transfer_status, refund_status, stripe_refund_amount_minor",
     )
     .eq("reservation_id", reservationId)
     .single();
@@ -154,14 +198,11 @@ denoRuntime.serve(async (req) => {
     return jsonResponse({ error: "Payment snapshot does not match reservation" }, 409);
   }
 
-  const transferAmountMinor = Number(payment.owner_payout) * 100;
   if (
-    !Number.isSafeInteger(transferAmountMinor) ||
-    transferAmountMinor <= 0 ||
-    Number(payment.stripe_amount_total_minor) !== Number(payment.amount_total) * 100 ||
-    transferAmountMinor > Number(payment.stripe_amount_total_minor)
+    !Number.isSafeInteger(Number(payment.stripe_amount_total_minor)) ||
+    Number(payment.stripe_amount_total_minor) !== Number(payment.amount_total) * 100
   ) {
-    return jsonResponse({ error: "Transfer amount is invalid" }, 409);
+    return jsonResponse({ error: "Stored Stripe amount is invalid" }, 409);
   }
 
   if (payment.refund_status !== "not_requested" || Number(payment.stripe_refund_amount_minor) !== 0) {
@@ -169,13 +210,25 @@ denoRuntime.serve(async (req) => {
   }
 
   if (payment.stripe_transfer_id) {
+    const existingTransferCurrency = normalizeCurrency(payment.stripe_transfer_currency);
+    const existingBalanceCurrency = normalizeCurrency(payment.stripe_charge_balance_currency);
+    const existingTransferAmountMinor = Number(payment.stripe_transfer_amount_minor);
+    const existingBalanceAmountMinor = Number(payment.stripe_charge_balance_amount_minor);
+
     if (
       payment.transfer_status === "succeeded" &&
-      Number(payment.stripe_transfer_amount_minor) === transferAmountMinor
+      Number.isSafeInteger(existingTransferAmountMinor) &&
+      existingTransferAmountMinor > 0 &&
+      existingTransferCurrency &&
+      existingBalanceCurrency === existingTransferCurrency &&
+      Number.isSafeInteger(existingBalanceAmountMinor) &&
+      existingBalanceAmountMinor > 0 &&
+      payment.stripe_charge_balance_transaction_id
     ) {
       return jsonResponse({
         transfer_id: payment.stripe_transfer_id,
-        amount_minor: transferAmountMinor,
+        amount_minor: existingTransferAmountMinor,
+        currency: existingTransferCurrency,
         status: "succeeded",
         existing: true,
       });
@@ -230,6 +283,7 @@ denoRuntime.serve(async (req) => {
   );
   const charge = (await chargeResponse.json().catch(() => ({}))) as StripeChargeResponse;
   const chargePaymentIntentId = objectId(charge.payment_intent);
+  const balanceTransactionId = objectId(charge.balance_transaction);
 
   if (
     !chargeResponse.ok ||
@@ -240,7 +294,8 @@ denoRuntime.serve(async (req) => {
     Number(charge.amount_refunded || 0) !== 0 ||
     charge.currency !== "czk" ||
     Number(charge.amount) !== Number(payment.stripe_amount_total_minor) ||
-    chargePaymentIntentId !== payment.stripe_payment_intent_id
+    chargePaymentIntentId !== payment.stripe_payment_intent_id ||
+    !balanceTransactionId
   ) {
     console.error(
       "create-owner-transfer: source charge validation failed",
@@ -251,10 +306,49 @@ denoRuntime.serve(async (req) => {
     return jsonResponse({ error: "Source payment is not eligible for transfer" }, 409);
   }
 
+  const balanceResponse = await fetch(
+    `https://api.stripe.com/v1/balance_transactions/${encodeURIComponent(balanceTransactionId)}`,
+    { headers: { Authorization: `Bearer ${stripeSecretKey}` } },
+  );
+  const balance = (
+    await balanceResponse.json().catch(() => ({}))
+  ) as StripeBalanceTransactionResponse;
+  const settlementCurrency = normalizeCurrency(balance.currency);
+  const settlementAmountMinor = Number(balance.amount);
+  const balanceSourceId = objectId(balance.source);
+
+  if (
+    !balanceResponse.ok ||
+    balance.id !== balanceTransactionId ||
+    balance.type !== "charge" ||
+    balanceSourceId !== payment.stripe_charge_id ||
+    !settlementCurrency ||
+    !Number.isSafeInteger(settlementAmountMinor) ||
+    settlementAmountMinor <= 0
+  ) {
+    console.error(
+      "create-owner-transfer: source balance transaction validation failed",
+      balanceResponse.status,
+      balance.error?.type || "unknown_error",
+      balance.error?.message || "",
+    );
+    return jsonResponse({ error: "Source settlement is not eligible for transfer" }, 409);
+  }
+
+  const transferAmountMinor = calculateTransferAmountMinor(
+    settlementAmountMinor,
+    Number(payment.owner_payout),
+    Number(payment.amount_total),
+  );
+
+  if (transferAmountMinor === null) {
+    return jsonResponse({ error: "Transfer amount is invalid" }, 409);
+  }
+
   const transferGroup = `rentulo_reservation_${reservation.id}`;
   const params = new URLSearchParams();
   params.set("amount", String(transferAmountMinor));
-  params.set("currency", "czk");
+  params.set("currency", settlementCurrency);
   params.set("destination", accountId);
   params.set("source_transaction", payment.stripe_charge_id);
   params.set("transfer_group", transferGroup);
@@ -280,7 +374,7 @@ denoRuntime.serve(async (req) => {
     !transferResponse.ok ||
     !transfer.id ||
     Number(transfer.amount) !== transferAmountMinor ||
-    transfer.currency !== "czk" ||
+    transfer.currency !== settlementCurrency ||
     destinationId !== accountId ||
     sourceTransactionId !== payment.stripe_charge_id ||
     transfer.transfer_group !== transferGroup
@@ -299,6 +393,10 @@ denoRuntime.serve(async (req) => {
     p_reservation_id: reservation.id,
     p_stripe_transfer_id: transfer.id,
     p_transfer_amount_minor: transferAmountMinor,
+    p_transfer_currency: settlementCurrency,
+    p_stripe_charge_balance_transaction_id: balanceTransactionId,
+    p_stripe_charge_balance_amount_minor: settlementAmountMinor,
+    p_stripe_charge_balance_currency: settlementCurrency,
   });
 
   if (recorded.error) {
@@ -311,6 +409,7 @@ denoRuntime.serve(async (req) => {
   return jsonResponse({
     transfer_id: transfer.id,
     amount_minor: transferAmountMinor,
+    currency: settlementCurrency,
     status: "succeeded",
     existing: false,
   });

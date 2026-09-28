@@ -17,7 +17,7 @@ const MIGRATION_PATH = path.join(
   PROJECT_ROOT,
   "supabase",
   "migrations",
-  "20260926090000_add_stripe_owner_transfer_foundation.sql"
+  "20260928090000_support_settlement_currency_owner_transfers.sql"
 );
 
 function readFunction() {
@@ -54,7 +54,7 @@ test("owner transfer validates paid pickup state, Connect readiness and refund s
   assert.match(source, /stripe_refund_amount_minor\) !== 0/);
 });
 
-test("owner transfer revalidates the exact Stripe charge before moving money", () => {
+test("owner transfer revalidates the exact Stripe charge and its settlement transaction", () => {
   const source = readFunction();
 
   assert.match(source, /https:\/\/api\.stripe\.com\/v1\/charges\//);
@@ -64,14 +64,20 @@ test("owner transfer revalidates the exact Stripe charge before moving money", (
   assert.match(source, /charge\.currency !== "czk"/);
   assert.match(source, /chargePaymentIntentId !== payment\.stripe_payment_intent_id/);
   assert.match(source, /Number\(charge\.amount\) !== Number\(payment\.stripe_amount_total_minor\)/);
+  assert.match(source, /balanceTransactionId = objectId\(charge\.balance_transaction\)/);
+  assert.match(source, /https:\/\/api\.stripe\.com\/v1\/balance_transactions\//);
+  assert.match(source, /balance\.id !== balanceTransactionId/);
+  assert.match(source, /balanceSourceId !== payment\.stripe_charge_id/);
+  assert.match(source, /balance\.type !== "charge"/);
 });
 
-test("Stripe transfer uses destination, source transaction, transfer group and stable idempotency", () => {
+test("Stripe transfer uses settlement currency, destination, source transaction, transfer group and stable idempotency", () => {
   const source = readFunction();
 
   assert.match(source, /https:\/\/api\.stripe\.com\/v1\/transfers/);
   assert.match(source, /params\.set\("amount", String\(transferAmountMinor\)\)/);
-  assert.match(source, /params\.set\("currency", "czk"\)/);
+  assert.match(source, /params\.set\("currency", settlementCurrency\)/);
+  assert.doesNotMatch(source, /params\.set\("currency", "czk"\)/);
   assert.match(source, /params\.set\("destination", accountId\)/);
   assert.match(source, /params\.set\("source_transaction", payment\.stripe_charge_id\)/);
   assert.match(source, /params\.set\("transfer_group", transferGroup\)/);
@@ -80,27 +86,48 @@ test("Stripe transfer uses destination, source transaction, transfer group and s
   assert.match(source, /Idempotency-Key.*rentulo-owner-transfer-\$\{payment\.id\}/s);
 });
 
-test("owner transfer sends exactly the persisted owner payout in minor units", () => {
+test("owner payout is converted proportionally from CZK into the Stripe settlement currency", () => {
   const source = readFunction();
 
-  assert.match(source, /const transferAmountMinor = Number\(payment\.owner_payout\) \* 100/);
-  assert.match(source, /Number\(payment\.platform_fee_amount\) \+ Number\(payment\.owner_payout\) !== Number\(payment\.amount_total\)/);
-  assert.match(source, /transferAmountMinor > Number\(payment\.stripe_amount_total_minor\)/);
+  assert.match(source, /calculateTransferAmountMinor\(/);
+  assert.match(source, /BigInt\(settlementAmountMinor\) \* BigInt\(ownerPayout\)/);
+  assert.match(source, /const rounded = \(numerator \+ denominator \/ 2n\) \/ denominator/);
+  assert.match(source, /settlementAmountMinor,[\s\S]*Number\(payment\.owner_payout\),[\s\S]*Number\(payment\.amount_total\)/);
+  assert.match(source, /transfer\.currency !== settlementCurrency/);
 });
 
-test("database recorder is service-role only, validates pickup/refunds and is idempotent", () => {
+test("successful transfer recording persists settlement and transfer currencies", () => {
+  const source = readFunction();
+
+  assert.match(source, /p_transfer_currency: settlementCurrency/);
+  assert.match(source, /p_stripe_charge_balance_transaction_id: balanceTransactionId/);
+  assert.match(source, /p_stripe_charge_balance_amount_minor: settlementAmountMinor/);
+  assert.match(source, /p_stripe_charge_balance_currency: settlementCurrency/);
+  assert.match(source, /currency: settlementCurrency/);
+});
+
+test("database recorder validates settlement ratio, currencies, pickup/refunds and idempotency", () => {
   const sql = compact(readMigration());
 
-  assert.match(sql, /create or replace function public\.record_stripe_owner_transfer\(/i);
+  assert.match(sql, /add column if not exists stripe_charge_balance_amount_minor integer/i);
+  assert.match(sql, /add column if not exists stripe_charge_balance_currency text/i);
+  assert.match(sql, /add column if not exists stripe_transfer_currency text/i);
+  assert.match(sql, /create function public\.record_stripe_owner_transfer\(/i);
   assert.match(sql, /auth\.role\(\) <> 'service_role'/i);
   assert.match(sql, /v_reservation\.status not in \('picked_up', 'returned'\)/i);
   assert.match(sql, /v_payment\.refund_status <> 'not_requested'/i);
   assert.match(sql, /v_payment\.stripe_refund_amount_minor <> 0/i);
   assert.match(sql, /v_profile\.stripe_connect_status <> 'ready'/i);
   assert.match(sql, /v_profile\.stripe_connect_transfers_enabled is not true/i);
+  assert.match(sql, /p_stripe_charge_balance_currency <> p_transfer_currency/i);
+  assert.match(sql, /p_stripe_charge_balance_amount_minor::numeric \* v_payment\.owner_payout::numeric \/ v_payment\.amount_total::numeric/i);
   assert.match(sql, /if v_payment\.stripe_transfer_id is not null then/i);
-  assert.match(sql, /transfer_status = 'succeeded'/i);
+  assert.match(sql, /stripe_charge_balance_transaction_id = p_stripe_charge_balance_transaction_id/i);
+  assert.match(sql, /stripe_charge_balance_amount_minor = p_stripe_charge_balance_amount_minor/i);
+  assert.match(sql, /stripe_charge_balance_currency = p_stripe_charge_balance_currency/i);
   assert.match(sql, /stripe_transfer_amount_minor = p_transfer_amount_minor/i);
+  assert.match(sql, /stripe_transfer_currency = p_transfer_currency/i);
+  assert.match(sql, /transfer_status = 'succeeded'/i);
   assert.match(sql, /revoke all on function public\.record_stripe_owner_transfer[\s\S]*from public, anon, authenticated/i);
   assert.match(sql, /grant execute on function public\.record_stripe_owner_transfer[\s\S]*to service_role/i);
 });
