@@ -1444,8 +1444,10 @@ return (
     <div class="simple-reservation-actions">
       ${paymentAction}
       ${cancellationAction}
-      ${detailAction}
-      ${offerDetailAction}
+      <div class="reservation-detail-action-group">
+        ${detailAction}
+        ${offerDetailAction}
+      </div>
     </div>
 
     <div
