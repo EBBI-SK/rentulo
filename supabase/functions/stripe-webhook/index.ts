@@ -28,6 +28,8 @@ type WebhookEventRow = {
   attempt_count: number;
 };
 
+type RefundStatus = "pending" | "requires_action" | "succeeded" | "failed" | "canceled";
+
 const denoRuntime = (
   globalThis as typeof globalThis & { Deno: RentuloDenoRuntime }
 ).Deno;
@@ -151,6 +153,21 @@ function asString(value: unknown): string {
 
 function asInteger(value: unknown): number | null {
   return Number.isSafeInteger(value) ? Number(value) : null;
+}
+
+function allowedRefundStatus(value: unknown): RefundStatus | null {
+  return value === "pending" || value === "requires_action" || value === "succeeded" ||
+      value === "failed" || value === "canceled"
+    ? value
+    : null;
+}
+
+function stripeEventCreatedAt(event: StripeEvent): string | null {
+  if (!Number.isSafeInteger(event.created) || Number(event.created) <= 0) {
+    return null;
+  }
+
+  return new Date(Number(event.created) * 1000).toISOString();
 }
 
 function objectId(value: unknown): string | null {
@@ -320,6 +337,106 @@ async function sendPaidReservationEmail(
   return { ok: false, error: message };
 }
 
+async function handlePaidCancellationRefundEvent(
+  admin: AdminClient,
+  event: StripeEvent,
+  object: Record<string, unknown>,
+): Promise<Response> {
+  const stripeEventId = asString(event.id);
+  const eventType = asString(event.type);
+  const refundId = asString(object.id);
+  const objectType = asString(object.object);
+  const refundStatus = allowedRefundStatus(object.status);
+  const refundAmountMinor = asInteger(object.amount);
+  const currency = asString(object.currency).toLowerCase();
+  const chargeId = objectId(object.charge);
+  const refundBalanceTransactionId = objectId(object.balance_transaction);
+  const metadata = object.metadata && typeof object.metadata === "object"
+    ? object.metadata as Record<string, unknown>
+    : {};
+  const paymentId = asString(metadata.payment_id);
+  const reservationId = asString(metadata.reservation_id);
+  const cancellationId = asString(metadata.cancellation_id);
+
+  // Stripe can deliver refunds that do not belong to Rentulo. They are valid
+  // webhook traffic and must be ignored rather than retried as failures.
+  if (
+    !paymentId || !reservationId || !cancellationId ||
+    !isUuid(paymentId) || !isUuid(reservationId) || !isUuid(cancellationId)
+  ) {
+    const ignored = await updateEventStatus(admin, stripeEventId, "ignored", {
+      processed_at: new Date().toISOString(),
+      last_error: "Missing or invalid Rentulo refund metadata",
+    });
+
+    return ignored
+      ? jsonResponse({ received: true, ignored: true })
+      : jsonResponse({ error: "Webhook event could not be finalized" }, 500);
+  }
+
+  if (
+    objectType !== "refund" ||
+    !refundId ||
+    !refundStatus ||
+    refundAmountMinor === null || refundAmountMinor <= 0 ||
+    currency !== "czk" ||
+    !chargeId ||
+    (eventType === "refund.failed" && refundStatus !== "failed")
+  ) {
+    const failed = await updateEventStatus(admin, stripeEventId, "failed", {
+      payment_id: paymentId,
+      reservation_id: reservationId,
+      last_error: "Invalid Stripe refund payload",
+    });
+
+    return failed
+      ? jsonResponse({ error: "Invalid Stripe refund payload" }, 400)
+      : jsonResponse({ error: "Webhook event could not be finalized" }, 500);
+  }
+
+  const recorded = await admin.rpc("record_paid_cancellation_refund_webhook", {
+    p_payment_id: paymentId,
+    p_reservation_id: reservationId,
+    p_cancellation_id: cancellationId,
+    p_stripe_refund_id: refundId,
+    p_stripe_refund_status: refundStatus,
+    p_refund_amount_minor: refundAmountMinor,
+    p_currency: currency,
+    p_stripe_charge_id: chargeId,
+    p_stripe_refund_balance_transaction_id: refundBalanceTransactionId,
+    p_event_created_at: stripeEventCreatedAt(event),
+  });
+
+  if (recorded.error || !Array.isArray(recorded.data) || !recorded.data[0]) {
+    const message = recorded.error?.message || "Refund state could not be recorded";
+    console.error("stripe-webhook: refund state update failed", message);
+    await updateEventStatus(admin, stripeEventId, "failed", {
+      payment_id: paymentId,
+      reservation_id: reservationId,
+      last_error: message,
+    });
+    return jsonResponse({ error: "Refund state update failed" }, 500);
+  }
+
+  const refundEventFinalized = await updateEventStatus(admin, stripeEventId, "processed", {
+    payment_id: paymentId,
+    reservation_id: reservationId,
+    processed_at: new Date().toISOString(),
+    last_error: null,
+  });
+
+  if (!refundEventFinalized) {
+    return jsonResponse({ error: "Webhook event could not be finalized" }, 500);
+  }
+
+  return jsonResponse({
+    received: true,
+    refund: true,
+    refund_status: recorded.data[0].refund_status,
+    stale: recorded.data[0].stale === true,
+  });
+}
+
 denoRuntime.serve(async (req) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
@@ -365,6 +482,14 @@ denoRuntime.serve(async (req) => {
 
   if (eventState.duplicateDone) {
     return jsonResponse({ received: true, duplicate: true });
+  }
+
+  if (
+    eventType === "refund.created" ||
+    eventType === "refund.updated" ||
+    eventType === "refund.failed"
+  ) {
+    return await handlePaidCancellationRefundEvent(admin, event, object);
   }
 
   if (eventType !== "payment_intent.succeeded") {
