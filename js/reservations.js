@@ -306,7 +306,9 @@ function disableReservationCancellationButton(button) {
   button.setAttribute("title", explanation);
   button.removeAttribute("data-reservations-action");
 
-  const actions = button.closest(".reservation-detail-actions");
+  const actions = button.closest(
+    ".reservation-detail-actions, .simple-reservation-actions"
+  );
 
   if (actions && !actions.querySelector(".reservation-cancel-cutoff-note")) {
     const note = document.createElement("div");
@@ -415,8 +417,8 @@ function installReservationCancellationCutoffUi() {
 
   const style = document.createElement("style");
   style.textContent = `
-    .small-button.reservation-cancel-action.reservation-cancel-locked,
-    .small-button.reservation-cancel-action.reservation-cancel-locked:hover {
+    .reservation-cancel-action.reservation-cancel-locked,
+    .reservation-cancel-action.reservation-cancel-locked:hover {
       background: #f2f4f3 !important;
       color: #7a8580 !important;
       border-color: #d5dcda !important;

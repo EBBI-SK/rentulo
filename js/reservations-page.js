@@ -1270,30 +1270,46 @@ return (
       `;
     }
 
-    function renderReservationDetailActions(reservation, status) {
-      const normalizedStatus = normalizeReservationStatus(status);
-
-      if (
-        normalizedStatus !== RESERVATION_STATUS_PENDING &&
-        normalizedStatus !== RESERVATION_STATUS_APPROVED &&
-        normalizedStatus !== RESERVATION_STATUS_PAID
-      ) {
+    function renderRenterReservationCancellationAction(reservation) {
+      if (!canRenterCancelReservation(reservation)) {
         return "";
       }
 
       const reservationId = reservation.id || reservation.reservationId;
+      const label = reservationsTranslate("reservations.cancel", "Zrušit rezervaci");
+      const cutoff = getReservationCancellationCutoffAt(reservation);
+      const explanation = getReservationCancellationCutoffText();
+
+      if (cutoff && !isReservationCancellationWindowOpen(reservation)) {
+        return `
+          <button
+            class="reservation-primary-action reservation-cancel-action reservation-cancel-locked"
+            type="button"
+            disabled
+            aria-disabled="true"
+            title="${escapeHtml(explanation)}"
+          >
+            ${escapeHtml(label)}
+          </button>
+          <div class="reservation-cancel-cutoff-note">
+            ${escapeHtml(explanation)}
+          </div>
+        `;
+      }
+
+      const cutoffAttribute = cutoff
+        ? ` data-cancel-cutoff="${cutoff.getTime()}"`
+        : "";
 
       return `
-        <div class="reservation-detail-actions">
-          <button
-            type="button"
-            class="small-button reservation-cancel-action"
-            data-reservations-action="cancel"
-            data-reservation-id="${escapeHtml(reservationId)}"
-          >
-            ${escapeHtml(reservationsTranslate("reservations.cancel", "Zrušit rezervaci"))}
-          </button>
-        </div>
+        <button
+          class="reservation-primary-action reservation-cancel-action"
+          type="button"
+          data-reservations-action="cancel"
+          data-reservation-id="${escapeHtml(reservationId)}"${cutoffAttribute}
+        >
+          ${escapeHtml(label)}
+        </button>
       `;
     }
 
@@ -1350,8 +1366,6 @@ return (
           ${renderPaymentBox(reservation, status)}
 
           ${renderContactBox(reservation, status)}
-
-          ${renderReservationDetailActions(reservation, status)}
         </div>
       `;
     }
@@ -1383,6 +1397,8 @@ return (
           </button>
         `
         : "";
+
+      const cancellationAction = renderRenterReservationCancellationAction(reservation);
 
       const detailAction = `
         <button class="reservation-primary-action" id="detail-toggle-${escapeHtml(reservationId)}" type="button" data-reservations-action="toggle-detail" data-reservation-id="${escapeHtml(reservationId)}">
@@ -1423,6 +1439,7 @@ return (
 
     <div class="simple-reservation-actions">
       ${paymentAction}
+      ${cancellationAction}
       ${detailAction}
       ${offerDetailAction}
     </div>

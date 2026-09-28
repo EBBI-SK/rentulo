@@ -86,6 +86,28 @@ test("paid cancellation UI does not use the ordinary browser status RPC for the 
   assert.ok(ownerOrdinaryUpdate === -1 || ownerOrdinaryUpdate > ownerReturn);
 });
 
+
+test("renter cancellation is visible directly in the reservation row like owner cancellation", () => {
+  const page = read(RENTER_PAGE_PATH);
+  const shared = read(RESERVATIONS_SHARED_PATH);
+
+  assert.match(page, /function renderRenterReservationCancellationAction/);
+  assert.match(page, /const cancellationAction = renderRenterReservationCancellationAction\(reservation\)/);
+  assert.match(
+    page,
+    /class="simple-reservation-actions"[\s\S]*\$\{paymentAction\}[\s\S]*\$\{cancellationAction\}[\s\S]*\$\{detailAction\}/
+  );
+  assert.doesNotMatch(
+    page,
+    /renderContactBox\(reservation, status\)[\s\S]{0,120}renderReservationDetailActions/
+  );
+  assert.match(page, /data-reservations-action="cancel"/);
+  assert.match(page, /data-cancel-cutoff=/);
+  assert.match(page, /reservation-cancel-cutoff-note/);
+  assert.match(shared, /\.reservation-detail-actions, \.simple-reservation-actions/);
+  assert.match(shared, /\.reservation-cancel-action\.reservation-cancel-locked/);
+});
+
 test("paid cancellation warning and result copy exists in all five supported languages", () => {
   const i18n = read(I18N_PATH);
 
