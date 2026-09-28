@@ -111,6 +111,31 @@ test("renter cancellation is visible directly in the reservation row like owner 
   assert.match(shared, /\.reservation-cancel-action\.reservation-cancel-locked/);
 });
 
+test("renter cutoff explanation stays grouped directly below the disabled cancel action", () => {
+  const page = read(RENTER_PAGE_PATH);
+  const shared = read(RESERVATIONS_SHARED_PATH);
+  const renterHtml = read(RENTER_HTML_PATH);
+
+  assert.match(
+    page,
+    /reservation-cancel-action-stack reservation-cancel-action-stack-locked[\s\S]*reservation-cancel-locked[\s\S]*reservation-cancel-cutoff-note/
+  );
+  assert.match(
+    page,
+    /class="reservation-cancel-action-stack"[\s\S]*data-reservations-action="cancel"/
+  );
+  assert.match(shared, /button\.closest\("\.reservation-cancel-action-stack"\)/);
+  assert.match(shared, /actionStack\.classList\.add\("reservation-cancel-action-stack-locked"\)/);
+  assert.match(
+    renterHtml,
+    /\.simple-reservation-actions \.reservation-cancel-action-stack \{[\s\S]*flex-direction: column;[\s\S]*align-items: flex-end;/
+  );
+  assert.match(
+    renterHtml,
+    /\.reservation-cancel-action-stack \.reservation-cancel-cutoff-note \{[\s\S]*max-width: 280px;[\s\S]*text-align: right;/
+  );
+});
+
 test("renter and owner cancellation actions use the same compact visual semantics", () => {
   const renterHtml = read(RENTER_HTML_PATH);
   const ownerHtml = read(OWNER_HTML_PATH);

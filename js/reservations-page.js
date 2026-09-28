@@ -1282,17 +1282,19 @@ return (
 
       if (cutoff && !isReservationCancellationWindowOpen(reservation)) {
         return `
-          <button
-            class="reservation-primary-action reservation-cancel-action reservation-cancel-locked"
-            type="button"
-            disabled
-            aria-disabled="true"
-            title="${escapeHtml(explanation)}"
-          >
-            ${escapeHtml(label)}
-          </button>
-          <div class="reservation-cancel-cutoff-note">
-            ${escapeHtml(explanation)}
+          <div class="reservation-cancel-action-stack reservation-cancel-action-stack-locked">
+            <button
+              class="reservation-primary-action reservation-cancel-action reservation-cancel-locked"
+              type="button"
+              disabled
+              aria-disabled="true"
+              title="${escapeHtml(explanation)}"
+            >
+              ${escapeHtml(label)}
+            </button>
+            <div class="reservation-cancel-cutoff-note">
+              ${escapeHtml(explanation)}
+            </div>
           </div>
         `;
       }
@@ -1302,14 +1304,16 @@ return (
         : "";
 
       return `
-        <button
-          class="reservation-primary-action reservation-cancel-action"
-          type="button"
-          data-reservations-action="cancel"
-          data-reservation-id="${escapeHtml(reservationId)}"${cutoffAttribute}
-        >
-          ${escapeHtml(label)}
-        </button>
+        <div class="reservation-cancel-action-stack">
+          <button
+            class="reservation-primary-action reservation-cancel-action"
+            type="button"
+            data-reservations-action="cancel"
+            data-reservation-id="${escapeHtml(reservationId)}"${cutoffAttribute}
+          >
+            ${escapeHtml(label)}
+          </button>
+        </div>
       `;
     }
 

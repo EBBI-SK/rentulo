@@ -213,6 +213,25 @@
       border-color: #efc1b7 !important;
     }
 
+    .simple-reservation-actions .reservation-cancel-action-stack {
+      display: flex;
+      flex: 0 0 auto;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 7px;
+    }
+
+    .simple-reservation-actions .reservation-cancel-action-stack-locked {
+      max-width: 280px;
+    }
+
+    .simple-reservation-actions .reservation-cancel-action-stack .reservation-cancel-cutoff-note {
+      width: auto !important;
+      max-width: 280px;
+      margin-top: 0 !important;
+      text-align: right;
+    }
+
     /* Payment needs the renter's attention, so it follows the shared orange action semantics. */
     .simple-reservation-actions .reservation-primary-action.orange {
       background: #ff6a00 !important;
@@ -434,6 +453,16 @@
       .simple-reservation-actions .reservation-primary-action,
       .simple-reservation-actions .offer-detail-link {
         width: 100%;
+      }
+
+      .simple-reservation-actions .reservation-cancel-action-stack {
+        width: 100%;
+        align-items: stretch;
+      }
+
+      .simple-reservation-actions .reservation-cancel-action-stack .reservation-cancel-cutoff-note {
+        max-width: none;
+        text-align: left;
       }
 
       .simple-reservation-actions .reservation-primary-action.orange {

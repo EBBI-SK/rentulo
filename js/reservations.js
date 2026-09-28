@@ -306,9 +306,14 @@ function disableReservationCancellationButton(button) {
   button.setAttribute("title", explanation);
   button.removeAttribute("data-reservations-action");
 
-  const actions = button.closest(
+  const actionStack = button.closest(".reservation-cancel-action-stack");
+  const actions = actionStack || button.closest(
     ".reservation-detail-actions, .simple-reservation-actions"
   );
+
+  if (actionStack) {
+    actionStack.classList.add("reservation-cancel-action-stack-locked");
+  }
 
   if (actions && !actions.querySelector(".reservation-cancel-cutoff-note")) {
     const note = document.createElement("div");
