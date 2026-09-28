@@ -10,6 +10,9 @@ const RESERVATIONS_SHARED_PATH = path.join(PROJECT_ROOT, "js", "reservations.js"
 const RENTER_PAGE_PATH = path.join(PROJECT_ROOT, "js", "reservations-page.js");
 const OWNER_PAGE_PATH = path.join(PROJECT_ROOT, "js", "offers-page.js");
 const I18N_PATH = path.join(PROJECT_ROOT, "js", "i18n.js");
+const RENTER_HTML_PATH = path.join(PROJECT_ROOT, "moje-rezervace.html");
+const OWNER_HTML_PATH = path.join(PROJECT_ROOT, "moje-nabidky.html");
+const OWNER_FLOW_CSS_PATH = path.join(PROJECT_ROOT, "css", "my-offers-flow.css");
 
 function read(filePath) {
   return fs.readFileSync(filePath, "utf8");
@@ -106,6 +109,31 @@ test("renter cancellation is visible directly in the reservation row like owner 
   assert.match(page, /reservation-cancel-cutoff-note/);
   assert.match(shared, /\.reservation-detail-actions, \.simple-reservation-actions/);
   assert.match(shared, /\.reservation-cancel-action\.reservation-cancel-locked/);
+});
+
+test("renter and owner cancellation actions use the same compact visual semantics", () => {
+  const renterHtml = read(RENTER_HTML_PATH);
+  const ownerHtml = read(OWNER_HTML_PATH);
+  const ownerFlowCss = read(OWNER_FLOW_CSS_PATH);
+
+  assert.match(
+    renterHtml,
+    /\.simple-reservation-actions \.reservation-primary-action \{[\s\S]*min-height: 34px !important;[\s\S]*padding: 8px 11px !important;[\s\S]*border-radius: 9px !important;[\s\S]*font-weight: 900 !important;/
+  );
+  assert.match(
+    ownerFlowCss,
+    /\.owner-reservation-actions \.small-button,[\s\S]*min-height: 34px !important;[\s\S]*padding: 8px 11px !important;/
+  );
+
+  for (const source of [renterHtml, ownerHtml]) {
+    assert.match(source, /background: #fff8f6 !important;/);
+    assert.match(source, /color: #a43b2f !important;/);
+    assert.match(source, /border: 1px solid #efc1b7 !important;/);
+    assert.match(source, /background: #fff0ec !important;/);
+  }
+
+  assert.match(renterHtml, /\.simple-reservation-actions \.reservation-cancel-action/);
+  assert.match(ownerHtml, /\.request-row \.row-actions \.small-button\.reservation-cancel-action/);
 });
 
 test("paid cancellation warning and result copy exists in all five supported languages", () => {
