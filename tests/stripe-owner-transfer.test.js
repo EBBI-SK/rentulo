@@ -86,6 +86,56 @@ test("Stripe transfer uses settlement currency, destination, source transaction,
   assert.match(source, /Idempotency-Key.*rentulo-owner-transfer-\$\{payment\.id\}/s);
 });
 
+test("owner transfer recovers an existing Stripe transfer before attempting a new payout", () => {
+  const source = readFunction();
+  const lookupIndex = source.indexOf(
+    '`https://api.stripe.com/v1/transfers?${lookupParams.toString()}`'
+  );
+  const createIndex = source.indexOf('fetch("https://api.stripe.com/v1/transfers", {');
+
+  assert.ok(lookupIndex >= 0);
+  assert.ok(createIndex > lookupIndex);
+  assert.match(source, /lookupParams\.set\("transfer_group", transferGroup\)/);
+  assert.match(source, /lookupParams\.set\("limit", "2"\)/);
+  assert.match(source, /if \(!transfer\) \{/);
+});
+
+test("recovered Stripe transfer must match the exact payout evidence and Rentulo metadata", () => {
+  const source = readFunction();
+
+  assert.match(source, /function transferMatchesExpected\(/);
+  assert.match(source, /Number\(transfer\.amount\) === expected\.amountMinor/);
+  assert.match(source, /transfer\.currency === expected\.currency/);
+  assert.match(source, /objectId\(transfer\.destination\) === expected\.destinationId/);
+  assert.match(source, /objectId\(transfer\.source_transaction\) === expected\.sourceTransactionId/);
+  assert.match(source, /transfer\.transfer_group === expected\.transferGroup/);
+  assert.match(source, /transfer\.metadata\?\.payment_id === expected\.paymentId/);
+  assert.match(source, /transfer\.metadata\?\.reservation_id === expected\.reservationId/);
+  assert.match(source, /transfer\.metadata\?\.owner_id === expected\.ownerId/);
+  assert.match(source, /transferMatchesExpected\(existingTransfer, expectedTransfer\)/);
+  assert.match(source, /transferMatchesExpected\(createdTransfer, expectedTransfer\)/);
+});
+
+test("owner transfer lookup fails closed on Stripe errors, ambiguity or mismatched evidence", () => {
+  const source = readFunction();
+
+  assert.match(source, /!lookupResponse\.ok \|\| lookup\.object !== "list" \|\| !Array\.isArray\(lookup\.data\)/);
+  assert.match(source, /Existing owner transfer could not be verified/);
+  assert.match(source, /lookup\.has_more === true \|\| lookup\.data\.length > 1/);
+  assert.match(source, /Existing transfer state is inconsistent/);
+  assert.match(source, /if \(!transferMatchesExpected\(existingTransfer, expectedTransfer\)\)/);
+});
+
+test("matching Stripe transfer is recorded without creating a duplicate payout", () => {
+  const source = readFunction();
+
+  assert.match(source, /transfer = existingTransfer/);
+  assert.match(source, /recoveredExistingTransfer = true/);
+  assert.match(source, /admin\.rpc\("record_stripe_owner_transfer"/);
+  assert.match(source, /p_stripe_transfer_id: transfer\.id/);
+  assert.match(source, /existing: recoveredExistingTransfer/);
+});
+
 test("owner payout is converted proportionally from CZK into the Stripe settlement currency", () => {
   const source = readFunction();
 
@@ -93,7 +143,7 @@ test("owner payout is converted proportionally from CZK into the Stripe settleme
   assert.match(source, /BigInt\(settlementAmountMinor\) \* BigInt\(ownerPayout\)/);
   assert.match(source, /const rounded = \(numerator \+ denominator \/ 2n\) \/ denominator/);
   assert.match(source, /settlementAmountMinor,[\s\S]*Number\(payment\.owner_payout\),[\s\S]*Number\(payment\.amount_total\)/);
-  assert.match(source, /transfer\.currency !== settlementCurrency/);
+  assert.match(source, /transfer\.currency === expected\.currency/);
 });
 
 test("successful transfer recording persists settlement and transfer currencies", () => {

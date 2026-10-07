@@ -41,6 +41,14 @@ type StripeTransferResponse = {
   destination?: string | { id?: string } | null;
   source_transaction?: string | { id?: string } | null;
   transfer_group?: string | null;
+  metadata?: Record<string, string>;
+  error?: { message?: string; type?: string };
+};
+
+type StripeTransferListResponse = {
+  object?: string;
+  data?: StripeTransferResponse[];
+  has_more?: boolean;
   error?: { message?: string; type?: string };
 };
 
@@ -114,6 +122,32 @@ function calculateTransferAmountMinor(
   }
 
   return result;
+}
+
+function transferMatchesExpected(
+  transfer: StripeTransferResponse,
+  expected: {
+    amountMinor: number;
+    currency: string;
+    destinationId: string;
+    sourceTransactionId: string;
+    transferGroup: string;
+    paymentId: string;
+    reservationId: string;
+    ownerId: string;
+  },
+): boolean {
+  return Boolean(
+    transfer.id &&
+      Number(transfer.amount) === expected.amountMinor &&
+      transfer.currency === expected.currency &&
+      objectId(transfer.destination) === expected.destinationId &&
+      objectId(transfer.source_transaction) === expected.sourceTransactionId &&
+      transfer.transfer_group === expected.transferGroup &&
+      transfer.metadata?.payment_id === expected.paymentId &&
+      transfer.metadata?.reservation_id === expected.reservationId &&
+      transfer.metadata?.owner_id === expected.ownerId
+  );
 }
 
 denoRuntime.serve(async (req) => {
@@ -346,6 +380,75 @@ denoRuntime.serve(async (req) => {
   }
 
   const transferGroup = `rentulo_reservation_${reservation.id}`;
+  const expectedTransfer = {
+    amountMinor: transferAmountMinor,
+    currency: settlementCurrency,
+    destinationId: accountId,
+    sourceTransactionId: payment.stripe_charge_id,
+    transferGroup,
+    paymentId: payment.id,
+    reservationId: reservation.id,
+    ownerId: payment.owner_id,
+  };
+
+  // Before creating anything, recover a transfer that Stripe may already have
+  // accepted while Rentulo missed the response or failed to persist it. The
+  // lookup is deliberately fail-closed: if Stripe cannot prove there is no
+  // existing transfer for this reservation, we do not risk sending money twice.
+  const lookupParams = new URLSearchParams();
+  lookupParams.set("transfer_group", transferGroup);
+  lookupParams.set("limit", "2");
+
+  let transfer: StripeTransferResponse | null = null;
+  let recoveredExistingTransfer = false;
+  try {
+    const lookupResponse = await fetch(
+      `https://api.stripe.com/v1/transfers?${lookupParams.toString()}`,
+      { headers: { Authorization: `Bearer ${stripeSecretKey}` } },
+    );
+    const lookup = (
+      await lookupResponse.json().catch(() => ({}))
+    ) as StripeTransferListResponse;
+
+    if (!lookupResponse.ok || lookup.object !== "list" || !Array.isArray(lookup.data)) {
+      console.error(
+        "create-owner-transfer: existing transfer lookup failed",
+        lookupResponse.status,
+        lookup.error?.type || "unknown_error",
+        lookup.error?.message || "",
+      );
+      return jsonResponse({ error: "Existing owner transfer could not be verified" }, 502);
+    }
+
+    if (lookup.has_more === true || lookup.data.length > 1) {
+      console.error(
+        "create-owner-transfer: multiple existing transfers found for reservation",
+        reservation.id,
+      );
+      return jsonResponse({ error: "Existing transfer state is inconsistent" }, 409);
+    }
+
+    if (lookup.data.length === 1) {
+      const existingTransfer = lookup.data[0];
+      if (!transferMatchesExpected(existingTransfer, expectedTransfer)) {
+        console.error(
+          "create-owner-transfer: existing Stripe transfer does not match expected payout",
+          existingTransfer.id || "missing_transfer_id",
+        );
+        return jsonResponse({ error: "Existing transfer state is inconsistent" }, 409);
+      }
+
+      transfer = existingTransfer;
+      recoveredExistingTransfer = true;
+    }
+  } catch (error) {
+    console.error(
+      "create-owner-transfer: existing transfer lookup request failed",
+      error instanceof Error ? error.message : String(error),
+    );
+    return jsonResponse({ error: "Existing owner transfer could not be verified" }, 502);
+  }
+
   const params = new URLSearchParams();
   params.set("amount", String(transferAmountMinor));
   params.set("currency", settlementCurrency);
@@ -356,36 +459,32 @@ denoRuntime.serve(async (req) => {
   params.set("metadata[reservation_id]", reservation.id);
   params.set("metadata[owner_id]", payment.owner_id);
 
-  const transferResponse = await fetch("https://api.stripe.com/v1/transfers", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${stripeSecretKey}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-      "Idempotency-Key": `rentulo-owner-transfer-${payment.id}`,
-    },
-    body: params,
-  });
+  if (!transfer) {
+    const transferResponse = await fetch("https://api.stripe.com/v1/transfers", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${stripeSecretKey}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Idempotency-Key": `rentulo-owner-transfer-${payment.id}`,
+      },
+      body: params,
+    });
 
-  const transfer = (await transferResponse.json().catch(() => ({}))) as StripeTransferResponse;
-  const destinationId = objectId(transfer.destination);
-  const sourceTransactionId = objectId(transfer.source_transaction);
+    const createdTransfer = (
+      await transferResponse.json().catch(() => ({}))
+    ) as StripeTransferResponse;
 
-  if (
-    !transferResponse.ok ||
-    !transfer.id ||
-    Number(transfer.amount) !== transferAmountMinor ||
-    transfer.currency !== settlementCurrency ||
-    destinationId !== accountId ||
-    sourceTransactionId !== payment.stripe_charge_id ||
-    transfer.transfer_group !== transferGroup
-  ) {
-    console.error(
-      "create-owner-transfer: Stripe transfer creation failed",
-      transferResponse.status,
-      transfer.error?.type || "unknown_error",
-      transfer.error?.message || "",
-    );
-    return jsonResponse({ error: "Owner transfer could not be created" }, 502);
+    if (!transferResponse.ok || !transferMatchesExpected(createdTransfer, expectedTransfer)) {
+      console.error(
+        "create-owner-transfer: Stripe transfer creation failed",
+        transferResponse.status,
+        createdTransfer.error?.type || "unknown_error",
+        createdTransfer.error?.message || "",
+      );
+      return jsonResponse({ error: "Owner transfer could not be created" }, 502);
+    }
+
+    transfer = createdTransfer;
   }
 
   const recorded = await admin.rpc("record_stripe_owner_transfer", {
@@ -400,8 +499,8 @@ denoRuntime.serve(async (req) => {
   });
 
   if (recorded.error) {
-    // The Stripe request uses a stable idempotency key. A retry will retrieve the
-    // same transfer from Stripe and can safely retry the database recording step.
+    // A later retry first looks up the reservation transfer in Stripe and can
+    // safely repeat only the database recording step without creating a duplicate.
     console.error("create-owner-transfer: transfer recording failed", recorded.error.message);
     return jsonResponse({ error: "Owner transfer could not be recorded" }, 500);
   }
@@ -411,6 +510,6 @@ denoRuntime.serve(async (req) => {
     amount_minor: transferAmountMinor,
     currency: settlementCurrency,
     status: "succeeded",
-    existing: false,
+    existing: recoveredExistingTransfer,
   });
 });
