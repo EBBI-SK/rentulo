@@ -529,6 +529,24 @@
   opacity: 0.68;
 }
 
+.owner-debt-overdue-warning {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(180, 83, 9, 0.28);
+  border-radius: 10px;
+  background: rgba(255, 247, 237, 0.9);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.owner-debt-row.is-overdue {
+  border-color: rgba(180, 83, 9, 0.28);
+}
+
+.owner-debt-status.is-overdue {
+  font-weight: 700;
+}
+
 .owner-debts-load-error {
   padding: 12px 14px;
   border: 1px solid #efc1b7;

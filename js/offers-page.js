@@ -355,13 +355,30 @@
       };
     }
 
-    function getOwnerDebtStatusText(status) {
-      if (status === "paid") {
+    function isOwnerDebtOverdue(debt) {
+      if (!debt || debt.status !== "open" || !debt.dueAt) {
+        return false;
+      }
+
+      const dueAtMs = Date.parse(debt.dueAt);
+      return Number.isFinite(dueAtMs) && dueAtMs <= Date.now();
+    }
+
+    function hasOverdueOwnerDebt() {
+      return ownerCancellationDebts.some(isOwnerDebtOverdue);
+    }
+
+    function getOwnerDebtStatusText(debt) {
+      if (debt.status === "paid") {
         return offersTranslate("offers.debt.statusPaid", "Uhrazeno");
       }
 
-      if (status === "waived") {
+      if (debt.status === "waived") {
         return offersTranslate("offers.debt.statusWaived", "Odpuštěno");
+      }
+
+      if (isOwnerDebtOverdue(debt)) {
+        return offersTranslate("offers.debt.statusOverdue", "Po splatnosti");
       }
 
       return offersTranslate("offers.debt.statusOpen", "K úhradě");
@@ -395,15 +412,28 @@
         return;
       }
 
+      const overdueDebtExists = hasOverdueOwnerDebt();
+      const overdueWarning = overdueDebtExists
+        ? `<div class="owner-debt-overdue-warning">${offersTranslate(
+            "offers.debt.overdueWarning",
+            "Máte úhradu po splatnosti. Dokud ji neuhradíte, nemůžete potvrzovat nové rezervace."
+          )}</div>`
+        : "";
+
       const rowsHtml = ownerCancellationDebts.map(function (debt) {
+        const overdue = isOwnerDebtOverdue(debt);
         const statusClass = debt.status === "paid" || debt.status === "waived"
           ? "is-settled"
-          : "";
+          : overdue
+            ? "is-overdue"
+            : "";
         const statusBadgeClass = debt.status === "paid"
           ? "is-paid"
           : debt.status === "waived"
             ? "is-waived"
-            : "";
+            : overdue
+              ? "is-overdue"
+              : "";
         const payAction = debt.status === "open"
           ? `
             <button
@@ -445,7 +475,7 @@
               class="owner-debt-field owner-debt-status-field"
               data-owner-debt-label="${escapeHtml(offersTranslate("offers.debt.status", "Stav"))}"
             >
-              <span class="owner-debt-status ${statusBadgeClass}">${escapeHtml(getOwnerDebtStatusText(debt.status))}</span>
+              <span class="owner-debt-status ${statusBadgeClass}">${escapeHtml(getOwnerDebtStatusText(debt))}</span>
             </div>
 
             <div
@@ -466,6 +496,7 @@
             <p>${offersTranslate("offers.debt.description", "Zde vidíte skutečné externí náklady vzniklé při zrušení zaplacené rezervace.")}</p>
           </div>
         </div>
+        ${overdueWarning}
         <div class="owner-debt-list">${rowsHtml}</div>
       `;
     }
@@ -765,6 +796,18 @@ const data = Array.isArray(updatedReservations)
 
       if (error) {
         console.error(error);
+
+        if (
+          newStatus === RESERVATION_STATUS_APPROVED
+          && String(error.message || "").includes("OWNER_OVERDUE_CANCELLATION_DEBT")
+        ) {
+          setAccountErrorMessage(
+            "offers.debt.approvalBlocked",
+            "Rezervaci nelze potvrdit, dokud neuhradíte částku po splatnosti."
+          );
+          return null;
+        }
+
         setAccountErrorMessage("offers.error.saveStatus", "Stav rezervace se nepodařilo uložit. Zkuste to prosím znovu.");
         return null;
       }
@@ -1703,9 +1746,19 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
       const actions = [];
 
       if (normalizeReservationStatus(status) === RESERVATION_STATUS_PENDING) {
-        actions.push(`
-          <button class="small-button" type="button" data-offers-action="approve-reservation" data-reservation-id="${escapeHtml(reservationId)}">${offersTranslate("offers.action.approve", "Potvrdit")}</button>
-        `);
+        if (hasOverdueOwnerDebt()) {
+          const blockedText = offersTranslate(
+            "offers.debt.approvalBlocked",
+            "Rezervaci nelze potvrdit, dokud neuhradíte částku po splatnosti."
+          );
+          actions.push(`
+            <button class="small-button" type="button" disabled aria-disabled="true" title="${escapeHtml(blockedText)}">${offersTranslate("offers.action.approve", "Potvrdit")}</button>
+          `);
+        } else {
+          actions.push(`
+            <button class="small-button" type="button" data-offers-action="approve-reservation" data-reservation-id="${escapeHtml(reservationId)}">${offersTranslate("offers.action.approve", "Potvrdit")}</button>
+          `);
+        }
 
         actions.push(`
           <button class="small-button light" type="button" data-offers-action="reject-reservation" data-reservation-id="${escapeHtml(reservationId)}">${offersTranslate("offers.action.reject", "Odmítnout")}</button>
