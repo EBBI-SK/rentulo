@@ -131,7 +131,7 @@ test("matching Stripe transfer is recorded without creating a duplicate payout",
 
   assert.match(source, /transfer = existingTransfer/);
   assert.match(source, /recoveredExistingTransfer = true/);
-  assert.match(source, /admin\.rpc\("record_stripe_owner_transfer"/);
+  assert.match(source, /admin\.rpc\("record_stripe_owner_transfer_attempt"/);
   assert.match(source, /p_stripe_transfer_id: transfer\.id/);
   assert.match(source, /existing: recoveredExistingTransfer/);
 });

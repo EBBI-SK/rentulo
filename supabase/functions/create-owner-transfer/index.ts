@@ -52,6 +52,14 @@ type StripeTransferListResponse = {
   error?: { message?: string; type?: string };
 };
 
+type OwnerTransferAttemptClaim = {
+  payment_id?: string;
+  reservation_id?: string;
+  attempt_count?: number;
+  transfer_status?: string;
+  last_attempt_at?: string;
+};
+
 const denoRuntime = (globalThis as typeof globalThis & { Deno: RentuloDenoRuntime }).Deno;
 const encoder = new TextEncoder();
 
@@ -148,6 +156,15 @@ function transferMatchesExpected(
       transfer.metadata?.reservation_id === expected.reservationId &&
       transfer.metadata?.owner_id === expected.ownerId
   );
+}
+
+function firstRow<T>(value: T[] | T | null): T | null {
+  if (Array.isArray(value)) return value[0] || null;
+  return value || null;
+}
+
+function isRetryableStripeStatus(status: number): boolean {
+  return status === 408 || status === 425 || status === 429 || status >= 500;
 }
 
 denoRuntime.serve(async (req) => {
@@ -270,9 +287,58 @@ denoRuntime.serve(async (req) => {
     return jsonResponse({ error: "Existing transfer state is inconsistent" }, 409);
   }
 
-  if (payment.transfer_status !== "not_created") {
-    return jsonResponse({ error: "Transfer is already being processed" }, 409);
+  const claimResult = await admin.rpc("claim_stripe_owner_transfer_attempt", {
+    p_payment_id: payment.id,
+    p_reservation_id: reservation.id,
+  });
+
+  if (claimResult.error) {
+    console.error("create-owner-transfer: attempt claim failed", claimResult.error.message);
+    return jsonResponse({ error: "Owner transfer could not be claimed" }, 500);
   }
+
+  const claim = firstRow<OwnerTransferAttemptClaim>(
+    claimResult.data as OwnerTransferAttemptClaim[] | OwnerTransferAttemptClaim | null,
+  );
+  const attemptCount = Number(claim?.attempt_count);
+
+  if (
+    !claim ||
+    claim.payment_id !== payment.id ||
+    claim.reservation_id !== reservation.id ||
+    claim.transfer_status !== "pending" ||
+    !Number.isSafeInteger(attemptCount) ||
+    attemptCount < 1
+  ) {
+    return jsonResponse({ error: "Owner transfer is not ready for processing" }, 409);
+  }
+
+  const failAttempt = async (
+    errorMessage: string,
+    retryable: boolean,
+    responseMessage: string,
+    responseStatus: number,
+  ): Promise<Response> => {
+    const failed = await admin.rpc("mark_stripe_owner_transfer_attempt_failed", {
+      p_payment_id: payment.id,
+      p_reservation_id: reservation.id,
+      p_attempt_count: attemptCount,
+      p_error: errorMessage,
+      p_retryable: retryable,
+    });
+
+    if (failed.error) {
+      // A newer attempt or a success finalizer may already have won the race.
+      // Never overwrite that state; a genuinely abandoned pending claim can be
+      // reclaimed after the database-side 15 minute stale-claim timeout.
+      console.error(
+        "create-owner-transfer: attempt failure could not be recorded",
+        failed.error.message,
+      );
+    }
+
+    return jsonResponse({ error: responseMessage }, responseStatus);
+  };
 
   const profileResult = await admin
     .from("profiles")
@@ -280,47 +346,121 @@ denoRuntime.serve(async (req) => {
     .eq("id", payment.owner_id)
     .single();
 
-  if (profileResult.error || !profileResult.data?.stripe_connected_account_id) {
-    return jsonResponse({ error: "Owner payout account is not configured" }, 409);
+  if (profileResult.error) {
+    return await failAttempt(
+      `Owner payout profile lookup failed: ${profileResult.error.message || "unknown_error"}`,
+      true,
+      "Owner payout account could not be verified",
+      500,
+    );
+  }
+
+  if (!profileResult.data?.stripe_connected_account_id) {
+    return await failAttempt(
+      "Owner payout account is not configured",
+      true,
+      "Owner payout account is not configured",
+      409,
+    );
   }
   const profile = profileResult.data;
 
   if (profile.stripe_connect_status !== "ready" || profile.stripe_connect_transfers_enabled !== true) {
-    return jsonResponse({ error: "Owner payout account is not ready" }, 409);
+    return await failAttempt(
+      "Owner payout account is not ready in Rentulo",
+      true,
+      "Owner payout account is not ready",
+      409,
+    );
   }
 
   const accountId = profile.stripe_connected_account_id;
-  const accountResponse = await fetch(
-    `https://api.stripe.com/v1/accounts/${encodeURIComponent(accountId)}`,
-    { headers: { Authorization: `Bearer ${stripeSecretKey}` } },
-  );
-  const account = (await accountResponse.json().catch(() => ({}))) as StripeAccountResponse;
+  let accountResponse: Response;
+  let account: StripeAccountResponse;
+  try {
+    accountResponse = await fetch(
+      `https://api.stripe.com/v1/accounts/${encodeURIComponent(accountId)}`,
+      { headers: { Authorization: `Bearer ${stripeSecretKey}` } },
+    );
+    account = (await accountResponse.json().catch(() => ({}))) as StripeAccountResponse;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("create-owner-transfer: connected account request failed", message);
+    return await failAttempt(
+      `Stripe connected account request failed: ${message}`,
+      true,
+      "Owner payout account could not be verified",
+      502,
+    );
+  }
 
-  if (
-    !accountResponse.ok ||
-    account.id !== accountId ||
-    account.capabilities?.transfers !== "active" ||
-    account.payouts_enabled !== true
-  ) {
+  if (!accountResponse.ok) {
     console.error(
-      "create-owner-transfer: connected account is not ready",
+      "create-owner-transfer: connected account request failed",
       accountResponse.status,
       account.error?.type || "unknown_error",
       account.error?.message || "",
     );
-    return jsonResponse({ error: "Owner payout account is not ready" }, 409);
+    return await failAttempt(
+      `Stripe connected account request failed (${accountResponse.status}): ${account.error?.type || "unknown_error"} ${account.error?.message || ""}`,
+      isRetryableStripeStatus(accountResponse.status),
+      "Owner payout account could not be verified",
+      502,
+    );
   }
 
-  const chargeResponse = await fetch(
-    `https://api.stripe.com/v1/charges/${encodeURIComponent(payment.stripe_charge_id)}`,
-    { headers: { Authorization: `Bearer ${stripeSecretKey}` } },
-  );
-  const charge = (await chargeResponse.json().catch(() => ({}))) as StripeChargeResponse;
+  if (
+    account.id !== accountId ||
+    account.capabilities?.transfers !== "active" ||
+    account.payouts_enabled !== true
+  ) {
+    console.error("create-owner-transfer: connected account is not ready", accountId);
+    return await failAttempt(
+      "Stripe connected account is not ready for transfers or payouts",
+      true,
+      "Owner payout account is not ready",
+      409,
+    );
+  }
+
+  let chargeResponse: Response;
+  let charge: StripeChargeResponse;
+  try {
+    chargeResponse = await fetch(
+      `https://api.stripe.com/v1/charges/${encodeURIComponent(payment.stripe_charge_id)}`,
+      { headers: { Authorization: `Bearer ${stripeSecretKey}` } },
+    );
+    charge = (await chargeResponse.json().catch(() => ({}))) as StripeChargeResponse;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("create-owner-transfer: source charge request failed", message);
+    return await failAttempt(
+      `Stripe source charge request failed: ${message}`,
+      true,
+      "Source payment could not be verified",
+      502,
+    );
+  }
+
+  if (!chargeResponse.ok) {
+    console.error(
+      "create-owner-transfer: source charge request failed",
+      chargeResponse.status,
+      charge.error?.type || "unknown_error",
+      charge.error?.message || "",
+    );
+    return await failAttempt(
+      `Stripe source charge request failed (${chargeResponse.status}): ${charge.error?.type || "unknown_error"} ${charge.error?.message || ""}`,
+      isRetryableStripeStatus(chargeResponse.status),
+      "Source payment could not be verified",
+      502,
+    );
+  }
+
   const chargePaymentIntentId = objectId(charge.payment_intent);
   const balanceTransactionId = objectId(charge.balance_transaction);
 
   if (
-    !chargeResponse.ok ||
     charge.id !== payment.stripe_charge_id ||
     charge.paid !== true ||
     charge.captured !== true ||
@@ -331,28 +471,56 @@ denoRuntime.serve(async (req) => {
     chargePaymentIntentId !== payment.stripe_payment_intent_id ||
     !balanceTransactionId
   ) {
-    console.error(
-      "create-owner-transfer: source charge validation failed",
-      chargeResponse.status,
-      charge.error?.type || "unknown_error",
-      charge.error?.message || "",
+    console.error("create-owner-transfer: source charge validation failed", payment.stripe_charge_id);
+    return await failAttempt(
+      "Stripe source charge evidence does not match the Rentulo payment",
+      false,
+      "Source payment is not eligible for transfer",
+      409,
     );
-    return jsonResponse({ error: "Source payment is not eligible for transfer" }, 409);
   }
 
-  const balanceResponse = await fetch(
-    `https://api.stripe.com/v1/balance_transactions/${encodeURIComponent(balanceTransactionId)}`,
-    { headers: { Authorization: `Bearer ${stripeSecretKey}` } },
-  );
-  const balance = (
-    await balanceResponse.json().catch(() => ({}))
-  ) as StripeBalanceTransactionResponse;
+  let balanceResponse: Response;
+  let balance: StripeBalanceTransactionResponse;
+  try {
+    balanceResponse = await fetch(
+      `https://api.stripe.com/v1/balance_transactions/${encodeURIComponent(balanceTransactionId)}`,
+      { headers: { Authorization: `Bearer ${stripeSecretKey}` } },
+    );
+    balance = (
+      await balanceResponse.json().catch(() => ({}))
+    ) as StripeBalanceTransactionResponse;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("create-owner-transfer: source balance transaction request failed", message);
+    return await failAttempt(
+      `Stripe source balance transaction request failed: ${message}`,
+      true,
+      "Source settlement could not be verified",
+      502,
+    );
+  }
+
+  if (!balanceResponse.ok) {
+    console.error(
+      "create-owner-transfer: source balance transaction request failed",
+      balanceResponse.status,
+      balance.error?.type || "unknown_error",
+      balance.error?.message || "",
+    );
+    return await failAttempt(
+      `Stripe source balance transaction request failed (${balanceResponse.status}): ${balance.error?.type || "unknown_error"} ${balance.error?.message || ""}`,
+      isRetryableStripeStatus(balanceResponse.status),
+      "Source settlement could not be verified",
+      502,
+    );
+  }
+
   const settlementCurrency = normalizeCurrency(balance.currency);
   const settlementAmountMinor = Number(balance.amount);
   const balanceSourceId = objectId(balance.source);
 
   if (
-    !balanceResponse.ok ||
     balance.id !== balanceTransactionId ||
     balance.type !== "charge" ||
     balanceSourceId !== payment.stripe_charge_id ||
@@ -362,11 +530,14 @@ denoRuntime.serve(async (req) => {
   ) {
     console.error(
       "create-owner-transfer: source balance transaction validation failed",
-      balanceResponse.status,
-      balance.error?.type || "unknown_error",
-      balance.error?.message || "",
+      balanceTransactionId,
     );
-    return jsonResponse({ error: "Source settlement is not eligible for transfer" }, 409);
+    return await failAttempt(
+      "Stripe source settlement evidence does not match the Rentulo payment",
+      false,
+      "Source settlement is not eligible for transfer",
+      409,
+    );
   }
 
   const transferAmountMinor = calculateTransferAmountMinor(
@@ -376,7 +547,12 @@ denoRuntime.serve(async (req) => {
   );
 
   if (transferAmountMinor === null) {
-    return jsonResponse({ error: "Transfer amount is invalid" }, 409);
+    return await failAttempt(
+      "Calculated owner transfer amount is invalid",
+      false,
+      "Transfer amount is invalid",
+      409,
+    );
   }
 
   const transferGroup = `rentulo_reservation_${reservation.id}`;
@@ -417,7 +593,15 @@ denoRuntime.serve(async (req) => {
         lookup.error?.type || "unknown_error",
         lookup.error?.message || "",
       );
-      return jsonResponse({ error: "Existing owner transfer could not be verified" }, 502);
+      const retryable = !lookupResponse.ok
+        ? isRetryableStripeStatus(lookupResponse.status)
+        : true;
+      return await failAttempt(
+        `Stripe existing transfer lookup failed (${lookupResponse.status}): ${lookup.error?.type || "invalid_response"} ${lookup.error?.message || ""}`,
+        retryable,
+        "Existing owner transfer could not be verified",
+        502,
+      );
     }
 
     if (lookup.has_more === true || lookup.data.length > 1) {
@@ -425,7 +609,12 @@ denoRuntime.serve(async (req) => {
         "create-owner-transfer: multiple existing transfers found for reservation",
         reservation.id,
       );
-      return jsonResponse({ error: "Existing transfer state is inconsistent" }, 409);
+      return await failAttempt(
+        "Multiple Stripe transfers exist for the reservation transfer group",
+        false,
+        "Existing transfer state is inconsistent",
+        409,
+      );
     }
 
     if (lookup.data.length === 1) {
@@ -435,18 +624,26 @@ denoRuntime.serve(async (req) => {
           "create-owner-transfer: existing Stripe transfer does not match expected payout",
           existingTransfer.id || "missing_transfer_id",
         );
-        return jsonResponse({ error: "Existing transfer state is inconsistent" }, 409);
+        return await failAttempt(
+          "Existing Stripe transfer does not match the expected Rentulo payout evidence",
+          false,
+          "Existing transfer state is inconsistent",
+          409,
+        );
       }
 
       transfer = existingTransfer;
       recoveredExistingTransfer = true;
     }
   } catch (error) {
-    console.error(
-      "create-owner-transfer: existing transfer lookup request failed",
-      error instanceof Error ? error.message : String(error),
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("create-owner-transfer: existing transfer lookup request failed", message);
+    return await failAttempt(
+      `Stripe existing transfer lookup request failed: ${message}`,
+      true,
+      "Existing owner transfer could not be verified",
+      502,
     );
-    return jsonResponse({ error: "Existing owner transfer could not be verified" }, 502);
   }
 
   const params = new URLSearchParams();
@@ -460,36 +657,67 @@ denoRuntime.serve(async (req) => {
   params.set("metadata[owner_id]", payment.owner_id);
 
   if (!transfer) {
-    const transferResponse = await fetch("https://api.stripe.com/v1/transfers", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${stripeSecretKey}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Idempotency-Key": `rentulo-owner-transfer-${payment.id}`,
-      },
-      body: params,
-    });
+    let transferResponse: Response;
+    let createdTransfer: StripeTransferResponse;
+    try {
+      transferResponse = await fetch("https://api.stripe.com/v1/transfers", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${stripeSecretKey}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Idempotency-Key": `rentulo-owner-transfer-${payment.id}-attempt-${attemptCount}`,
+        },
+        body: params,
+      });
+      createdTransfer = (
+        await transferResponse.json().catch(() => ({}))
+      ) as StripeTransferResponse;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("create-owner-transfer: Stripe transfer request failed", message);
+      return await failAttempt(
+        `Stripe transfer request failed: ${message}`,
+        true,
+        "Owner transfer could not be created",
+        502,
+      );
+    }
 
-    const createdTransfer = (
-      await transferResponse.json().catch(() => ({}))
-    ) as StripeTransferResponse;
-
-    if (!transferResponse.ok || !transferMatchesExpected(createdTransfer, expectedTransfer)) {
+    if (!transferResponse.ok) {
       console.error(
         "create-owner-transfer: Stripe transfer creation failed",
         transferResponse.status,
         createdTransfer.error?.type || "unknown_error",
         createdTransfer.error?.message || "",
       );
-      return jsonResponse({ error: "Owner transfer could not be created" }, 502);
+      return await failAttempt(
+        `Stripe transfer creation failed (${transferResponse.status}): ${createdTransfer.error?.type || "unknown_error"} ${createdTransfer.error?.message || ""}`,
+        isRetryableStripeStatus(transferResponse.status),
+        "Owner transfer could not be created",
+        502,
+      );
+    }
+
+    if (!transferMatchesExpected(createdTransfer, expectedTransfer)) {
+      console.error(
+        "create-owner-transfer: created Stripe transfer does not match expected payout",
+        createdTransfer.id || "missing_transfer_id",
+      );
+      return await failAttempt(
+        "Created Stripe transfer does not match the expected Rentulo payout evidence",
+        false,
+        "Owner transfer returned inconsistent evidence",
+        502,
+      );
     }
 
     transfer = createdTransfer;
   }
 
-  const recorded = await admin.rpc("record_stripe_owner_transfer", {
+  const recorded = await admin.rpc("record_stripe_owner_transfer_attempt", {
     p_payment_id: payment.id,
     p_reservation_id: reservation.id,
+    p_attempt_count: attemptCount,
     p_stripe_transfer_id: transfer.id,
     p_transfer_amount_minor: transferAmountMinor,
     p_transfer_currency: settlementCurrency,
@@ -499,10 +727,17 @@ denoRuntime.serve(async (req) => {
   });
 
   if (recorded.error) {
-    // A later retry first looks up the reservation transfer in Stripe and can
-    // safely repeat only the database recording step without creating a duplicate.
+    // If Stripe already accepted the transfer, the next retry will recover it by
+    // transfer_group before any new POST. Marking this attempt retryable is safe;
+    // if the finalizer actually committed and only the response was lost, the
+    // failure RPC refuses to overwrite the succeeded row.
     console.error("create-owner-transfer: transfer recording failed", recorded.error.message);
-    return jsonResponse({ error: "Owner transfer could not be recorded" }, 500);
+    return await failAttempt(
+      `Owner transfer database recording failed: ${recorded.error.message}`,
+      true,
+      "Owner transfer could not be recorded",
+      500,
+    );
   }
 
   return jsonResponse({
