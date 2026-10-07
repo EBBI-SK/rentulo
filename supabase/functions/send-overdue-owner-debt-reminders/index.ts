@@ -34,8 +34,6 @@ const denoRuntime = (
   globalThis as typeof globalThis & { Deno: RentuloDenoRuntime }
 ).Deno;
 
-const encoder = new TextEncoder();
-
 const reminderCopy: Record<SupportedLanguage, ReminderCopy> = {
   cs: {
     subject: "Neuhrazený náklad po zrušení rezervace",
@@ -95,18 +93,6 @@ function jsonResponse(body: unknown, status = 200): Response {
       "Cache-Control": "no-store",
     },
   });
-}
-
-function timingSafeTextEqual(left: string, right: string): boolean {
-  const leftBytes = encoder.encode(left);
-  const rightBytes = encoder.encode(right);
-  if (leftBytes.length !== rightBytes.length) return false;
-
-  let diff = 0;
-  for (let index = 0; index < leftBytes.length; index += 1) {
-    diff |= leftBytes[index] ^ rightBytes[index];
-  }
-  return diff === 0;
 }
 
 function normalizeLanguage(value: unknown): SupportedLanguage {
@@ -187,11 +173,27 @@ denoRuntime.serve(async (req) => {
     return jsonResponse({ error: "Missing server configuration" }, 500);
   }
 
-  // Internal-only worker. Supabase Cron must call this function with the project
-  // service-role token in the Authorization header.
-  const authHeader = req.headers.get("Authorization") || "";
-  const accessToken = authHeader.replace(/^Bearer\s+/i, "").trim();
-  if (!accessToken || !timingSafeTextEqual(accessToken, serviceRoleKey)) {
+  const admin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  // Internal-only worker. The database cron sends a dedicated random secret
+  // stored in Supabase Vault. The raw secret is never committed to the repo and
+  // the worker verifies it through a service-role-only database function.
+  const cronSecret = (req.headers.get("x-rentulo-cron-secret") || "").trim();
+  if (!cronSecret) {
+    return jsonResponse({ error: "Unauthorized" }, 401);
+  }
+
+  const { data: cronAuthorized, error: cronAuthError } = await admin.rpc(
+    "verify_overdue_owner_debt_cron_secret",
+    { p_secret: cronSecret },
+  );
+
+  if (cronAuthError || cronAuthorized !== true) {
+    if (cronAuthError) {
+      console.error("send-overdue-owner-debt-reminders: cron auth failed", cronAuthError);
+    }
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
 
@@ -210,10 +212,6 @@ denoRuntime.serve(async (req) => {
       limit = requestedLimit;
     }
   }
-
-  const admin = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
 
   const { data: claimsData, error: claimsError } = await admin.rpc(
     "claim_overdue_owner_debt_reminders",

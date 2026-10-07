@@ -12,6 +12,10 @@ const worker = fs.readFileSync(
   path.join(ROOT, "supabase/functions/send-overdue-owner-debt-reminders/index.ts"),
   "utf8",
 );
+const cronMigration = fs.readFileSync(
+  path.join(ROOT, "supabase/migrations/20261007120000_schedule_owner_debt_reminders.sql"),
+  "utf8",
+);
 
 test("overdue debt reminder delivery log is backend-only and unique per debt", () => {
   assert.match(migration, /create table if not exists public\.owner_cancellation_debt_reminder_deliveries/i);
@@ -51,10 +55,13 @@ test("reminder claim RPC is service-role only", () => {
   );
 });
 
-test("reminder worker is internal-only and uses the trusted claim RPC", () => {
-  assert.match(worker, /timingSafeTextEqual\(accessToken, serviceRoleKey\)/);
+test("reminder worker is internal-only, verifies the Vault cron secret and uses the trusted claim RPC", () => {
+  assert.match(worker, /req\.headers\.get\("x-rentulo-cron-secret"\)/);
+  assert.match(worker, /\.rpc\(\s*"verify_overdue_owner_debt_cron_secret"/);
+  assert.match(worker, /cronAuthorized !== true/);
   assert.match(worker, /return jsonResponse\(\{ error: "Unauthorized" \}, 401\)/);
   assert.match(worker, /\.rpc\(\s*"claim_overdue_owner_debt_reminders"/);
+  assert.doesNotMatch(worker, /Authorization[\s\S]*service-role token/i);
 });
 
 test("reminder worker revalidates debt state immediately before sending", () => {
@@ -91,3 +98,50 @@ test("overdue reminder email keeps the existing Rentulo email visual language", 
   assert.match(worker, /formatCurrencyMinor/);
   assert.match(worker, /formatTimestampDate/);
 });
+
+test("overdue reminder cron enables the required Supabase extensions", () => {
+  assert.match(cronMigration, /create extension if not exists pg_cron/i);
+  assert.match(cronMigration, /create extension if not exists pg_net with schema extensions/i);
+  assert.match(cronMigration, /create extension if not exists supabase_vault with schema vault/i);
+});
+
+test("overdue reminder cron keeps environment URL and authentication secret in Vault", () => {
+  assert.match(cronMigration, /vault\.create_secret\([\s\S]*'rentulo_project_url'/i);
+  assert.match(cronMigration, /'UNCONFIGURED'[\s\S]*'rentulo_project_url'/i);
+  assert.match(cronMigration, /rentulo_owner_debt_cron_secret/i);
+  assert.match(cronMigration, /replace\(gen_random_uuid\(\)::text, '-', ''\)/i);
+  assert.doesNotMatch(cronMigration, /vspposovhdgvbeukoivh/i);
+  assert.doesNotMatch(cronMigration, /service[_-]?role[_-]?key\s*[:=]/i);
+});
+
+test("cron secret verifier is service-role only", () => {
+  assert.match(cronMigration, /create or replace function public\.verify_overdue_owner_debt_cron_secret/i);
+  assert.match(cronMigration, /vault\.decrypted_secrets/i);
+  assert.match(
+    cronMigration,
+    /revoke all on function public\.verify_overdue_owner_debt_cron_secret\(text\)[\s\S]*from public, anon, authenticated/i,
+  );
+  assert.match(
+    cronMigration,
+    /grant execute on function public\.verify_overdue_owner_debt_cron_secret\(text\)[\s\S]*to service_role/i,
+  );
+});
+
+test("overdue reminder cron runs hourly and invokes only the reminder Edge Function", () => {
+  assert.match(cronMigration, /rentulo-send-overdue-owner-debt-reminders-hourly/);
+  assert.match(cronMigration, /'0 \* \* \* \*'/);
+  assert.match(cronMigration, /net\.http_post/i);
+  assert.match(cronMigration, /functions\/v1\/send-overdue-owner-debt-reminders/);
+  assert.match(cronMigration, /'x-rentulo-cron-secret', cfg\.cron_secret/);
+  assert.match(cronMigration, /jsonb_build_object\('limit', 25\)/);
+});
+
+test("cron stays inert until a valid environment-specific Supabase project URL is configured", () => {
+  assert.ok(
+    cronMigration.includes(
+      "where cfg.project_url ~ '^https://[a-z0-9-]+[.]supabase[.]co/?$'",
+    ),
+  );
+  assert.match(cronMigration, /length\(cfg\.cron_secret\) >= 64/i);
+});
+
