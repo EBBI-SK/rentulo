@@ -337,6 +337,90 @@ async function sendPaidReservationEmail(
   return { ok: false, error: message };
 }
 
+async function handleOwnerCancellationDebtPaymentEvent(
+  admin: AdminClient,
+  event: StripeEvent,
+  object: Record<string, unknown>,
+): Promise<Response> {
+  const stripeEventId = asString(event.id);
+  const objectType = asString(object.object);
+  const paymentIntentId = asString(object.id);
+  const paymentIntentStatus = asString(object.status);
+  const currency = asString(object.currency).toLowerCase();
+  const amountReceivedMinor = asInteger(object.amount_received);
+  const metadata = object.metadata && typeof object.metadata === "object"
+    ? object.metadata as Record<string, unknown>
+    : {};
+  const debtId = asString(metadata.owner_cancellation_debt_id);
+  const ownerId = asString(metadata.owner_id);
+
+  if (!isUuid(debtId) || !isUuid(ownerId)) {
+    const failed = await updateEventStatus(admin, stripeEventId, "failed", {
+      last_error: "Invalid owner cancellation debt payment metadata",
+    });
+
+    return failed
+      ? jsonResponse({ error: "Invalid owner cancellation debt payment metadata" }, 400)
+      : jsonResponse({ error: "Webhook event could not be finalized" }, 500);
+  }
+
+  if (
+    objectType !== "payment_intent" ||
+    !paymentIntentId ||
+    paymentIntentStatus !== "succeeded" ||
+    currency !== "czk" ||
+    amountReceivedMinor === null ||
+    amountReceivedMinor <= 0
+  ) {
+    const failed = await updateEventStatus(admin, stripeEventId, "failed", {
+      owner_cancellation_debt_id: debtId,
+      last_error: "Invalid owner cancellation debt PaymentIntent payload",
+    });
+
+    return failed
+      ? jsonResponse({ error: "Invalid owner cancellation debt PaymentIntent payload" }, 400)
+      : jsonResponse({ error: "Webhook event could not be finalized" }, 500);
+  }
+
+  const completion = await admin.rpc(
+    "complete_owner_cancellation_debt_payment_from_webhook",
+    {
+      p_debt_id: debtId,
+      p_owner_id: ownerId,
+      p_stripe_payment_intent_id: paymentIntentId,
+      p_stripe_payment_intent_status: paymentIntentStatus,
+      p_amount_received_minor: amountReceivedMinor,
+      p_currency: currency,
+    },
+  );
+
+  if (completion.error || !Array.isArray(completion.data) || !completion.data[0]) {
+    const message = completion.error?.message || "Owner cancellation debt could not be settled";
+    console.error("stripe-webhook: owner debt payment completion failed", message);
+    await updateEventStatus(admin, stripeEventId, "failed", {
+      owner_cancellation_debt_id: debtId,
+      last_error: message,
+    });
+    return jsonResponse({ error: "Owner cancellation debt payment completion failed" }, 500);
+  }
+
+  const debtEventFinalized = await updateEventStatus(admin, stripeEventId, "processed", {
+    owner_cancellation_debt_id: debtId,
+    processed_at: new Date().toISOString(),
+    last_error: null,
+  });
+
+  if (!debtEventFinalized) {
+    return jsonResponse({ error: "Webhook event could not be finalized" }, 500);
+  }
+
+  return jsonResponse({
+    received: true,
+    owner_cancellation_debt: true,
+    debt_status: completion.data[0].debt_status,
+  });
+}
+
 async function handlePaidCancellationRefundEvent(
   admin: AdminClient,
   event: StripeEvent,
@@ -490,6 +574,16 @@ denoRuntime.serve(async (req) => {
     eventType === "refund.failed"
   ) {
     return await handlePaidCancellationRefundEvent(admin, event, object);
+  }
+
+  if (eventType === "payment_intent.succeeded") {
+    const metadata = object.metadata && typeof object.metadata === "object"
+      ? object.metadata as Record<string, unknown>
+      : {};
+
+    if (asString(metadata.payment_kind) === "owner_cancellation_debt") {
+      return await handleOwnerCancellationDebtPaymentEvent(admin, event, object);
+    }
   }
 
   if (eventType !== "payment_intent.succeeded") {
