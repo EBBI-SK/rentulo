@@ -80,6 +80,39 @@
       return date.toLocaleDateString(getOffersLocale());
     }
 
+    function formatOffersDateTime(value) {
+      if (!value) {
+        return "-";
+      }
+
+      const date = new Date(value);
+
+      if (Number.isNaN(date.getTime())) {
+        return String(value);
+      }
+
+      return date.toLocaleString(getOffersLocale(), {
+        dateStyle: "medium",
+        timeStyle: "short"
+      });
+    }
+
+    function formatOwnerDebtMoney(amountMinor, currency) {
+      const minor = Number(amountMinor);
+      const normalizedCurrency = String(currency || "").toUpperCase();
+
+      if (!Number.isSafeInteger(minor) || minor < 0 || normalizedCurrency !== "CZK") {
+        return "-";
+      }
+
+      return new Intl.NumberFormat(getOffersLocale(), {
+        style: "currency",
+        currency: "CZK",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(minor / 100);
+    }
+
     function getOffersPluralText(prefix, count, fallbacks) {
       const pluralCategory = new Intl.PluralRules(getOffersLocale()).select(Number(count));
       const supportedCategory = ["one", "few", "many", "other"].includes(pluralCategory)
@@ -159,8 +192,10 @@
 
     let ownerOffers = [];
     let ownerReservations = [];
+    let ownerCancellationDebts = [];
     let ownerCurrentUser = null;
     let ownerOffersLoadState = "idle";
+    let ownerDebtsLoadState = "idle";
     let accountMessageState = null;
 
     function getStatusText(status) {
@@ -310,6 +345,131 @@
       `;
     }
 
+    function normalizeOwnerDebt(row) {
+      return {
+        id: row.id || "",
+        amountMinor: Number(row.amount_minor),
+        currency: String(row.currency || "").toLowerCase(),
+        status: String(row.status || "").toLowerCase(),
+        dueAt: row.due_at || ""
+      };
+    }
+
+    function getOwnerDebtStatusText(status) {
+      if (status === "paid") {
+        return offersTranslate("offers.debt.statusPaid", "Uhrazeno");
+      }
+
+      if (status === "waived") {
+        return offersTranslate("offers.debt.statusWaived", "Odpuštěno");
+      }
+
+      return offersTranslate("offers.debt.statusOpen", "K úhradě");
+    }
+
+    function renderOwnerDebtSection() {
+      const section = document.getElementById("ownerDebtsSection");
+
+      if (!section) {
+        return;
+      }
+
+      if (ownerDebtsLoadState === "error") {
+        section.hidden = false;
+        section.innerHTML = `
+          <div class="owner-debts-header">
+            <div>
+              <h2>${offersTranslate("offers.debt.heading", "Úhrady po zrušení rezervace")}</h2>
+            </div>
+          </div>
+          <div class="owner-debts-load-error">
+            ${offersTranslate("offers.debt.loadError", "Údaje o úhradách se nepodařilo načíst. Obnovte stránku a zkuste to znovu.")}
+          </div>
+        `;
+        return;
+      }
+
+      if (!ownerCancellationDebts.length) {
+        section.hidden = true;
+        section.innerHTML = "";
+        return;
+      }
+
+      const rowsHtml = ownerCancellationDebts.map(function (debt) {
+        const statusClass = debt.status === "paid" || debt.status === "waived"
+          ? "is-settled"
+          : "";
+        const statusBadgeClass = debt.status === "paid"
+          ? "is-paid"
+          : debt.status === "waived"
+            ? "is-waived"
+            : "";
+        const payAction = debt.status === "open"
+          ? `
+            <button
+              type="button"
+              class="owner-debt-pay"
+              data-offers-action="pay-owner-debt"
+              data-debt-id="${escapeHtml(debt.id)}"
+            >
+              ${offersTranslate("offers.debt.pay", "Uhradit")}
+            </button>
+          `
+          : "";
+
+        return `
+          <article class="owner-debt-row ${statusClass}">
+            <div
+              class="owner-debt-field owner-debt-main"
+              data-owner-debt-label="${escapeHtml(offersTranslate("offers.debt.reasonLabel", "Důvod"))}"
+            >
+              <strong class="owner-debt-title">${offersTranslate("offers.debt.reason", "Náklad po zrušení zaplacené rezervace")}</strong>
+              <span class="owner-debt-reference">${offersTranslate("offers.debt.reference", "Referenční ID")}: ${escapeHtml(debt.id)}</span>
+            </div>
+
+            <div
+              class="owner-debt-field owner-debt-amount"
+              data-owner-debt-label="${escapeHtml(offersTranslate("offers.debt.amount", "Částka"))}"
+            >
+              <span class="owner-debt-value">${escapeHtml(formatOwnerDebtMoney(debt.amountMinor, debt.currency))}</span>
+            </div>
+
+            <div
+              class="owner-debt-field owner-debt-due"
+              data-owner-debt-label="${escapeHtml(offersTranslate("offers.debt.due", "Splatnost"))}"
+            >
+              <span class="owner-debt-value">${escapeHtml(formatOffersDateTime(debt.dueAt))}</span>
+            </div>
+
+            <div
+              class="owner-debt-field owner-debt-status-field"
+              data-owner-debt-label="${escapeHtml(offersTranslate("offers.debt.status", "Stav"))}"
+            >
+              <span class="owner-debt-status ${statusBadgeClass}">${escapeHtml(getOwnerDebtStatusText(debt.status))}</span>
+            </div>
+
+            <div
+              class="owner-debt-field owner-debt-action"
+              data-owner-debt-label="${escapeHtml(offersTranslate("offers.debt.action", "Akce"))}"
+            >
+              ${payAction}
+            </div>
+          </article>
+        `;
+      }).join("");
+
+      section.hidden = false;
+      section.innerHTML = `
+        <div class="owner-debts-header">
+          <div>
+            <h2>${offersTranslate("offers.debt.heading", "Úhrady po zrušení rezervace")}</h2>
+            <p>${offersTranslate("offers.debt.description", "Zde vidíte skutečné externí náklady vzniklé při zrušení zaplacené rezervace.")}</p>
+          </div>
+        </div>
+        <div class="owner-debt-list">${rowsHtml}</div>
+      `;
+    }
+
     function normalizeOffer(row) {
       return {
         id: row.id,
@@ -419,6 +579,20 @@
         return false;
       }
 
+      ownerDebtsLoadState = "loading";
+      const ownerDebtsResult = await supabaseClient.rpc("get_my_owner_cancellation_debts");
+
+      if (ownerDebtsResult.error) {
+        ownerDebtsLoadState = "error";
+        ownerCancellationDebts = [];
+        console.error(ownerDebtsResult.error);
+      } else {
+        ownerDebtsLoadState = "ready";
+        ownerCancellationDebts = Array.isArray(ownerDebtsResult.data)
+          ? ownerDebtsResult.data.map(normalizeOwnerDebt)
+          : [];
+      }
+
       ownerOffers = Array.isArray(offersResult.data)
         ? offersResult.data.map(normalizeOffer)
         : [];
@@ -494,6 +668,82 @@ function getOfferStatus(offer) {
 
     
     
+
+    async function payOwnerCancellationDebt(debtId) {
+      const supabaseClient = getSupabaseClient();
+
+      if (!supabaseClient || !debtId) {
+        setAccountErrorMessage(
+          "offers.debt.paymentError",
+          "Platbu se nepodařilo zahájit. Obnovte stránku a zkuste to znovu."
+        );
+        return;
+      }
+
+      const result = await supabaseClient.functions.invoke(
+        "create-owner-debt-checkout",
+        {
+          body: {
+            debt_id: debtId
+          }
+        }
+      );
+
+      if (result.error) {
+        console.error("Owner debt Checkout could not be created:", result.error);
+        setAccountErrorMessage(
+          "offers.debt.paymentError",
+          "Platbu se nepodařilo zahájit. Zkuste to prosím znovu."
+        );
+        return;
+      }
+
+      const checkoutUrl = result.data && typeof result.data.url === "string"
+        ? result.data.url.trim()
+        : "";
+
+      if (!checkoutUrl) {
+        console.error("Owner debt Checkout did not return a valid URL.");
+        setAccountErrorMessage(
+          "offers.debt.paymentError",
+          "Platbu se nepodařilo zahájit. Zkuste to prosím znovu."
+        );
+        return;
+      }
+
+      window.location.href = checkoutUrl;
+    }
+
+    function showOwnerDebtCheckoutReturnMessage() {
+      const params = new URLSearchParams(window.location.search);
+      const paymentState = params.get("debt_payment");
+
+      if (paymentState !== "success" && paymentState !== "cancelled") {
+        return;
+      }
+
+      if (paymentState === "success") {
+        setAccountMessage(
+          "offers.debt.paymentSuccessTitle",
+          "Platba byla odeslána.",
+          "offers.debt.paymentSuccessText",
+          "Jakmile Stripe platbu potvrdí, stav úhrady se v Rentulo aktualizuje."
+        );
+      } else {
+        setAccountMessage(
+          "offers.debt.paymentCancelledTitle",
+          "Platba nebyla dokončena.",
+          "offers.debt.paymentCancelledText",
+          "Dluh zůstává k úhradě. Platbu můžete spustit znovu tlačítkem Uhradit.",
+          "error"
+        );
+      }
+
+      params.delete("debt_payment");
+      const query = params.toString();
+      const cleanUrl = window.location.pathname + (query ? "?" + query : "") + window.location.hash;
+      window.history.replaceState({}, "", cleanUrl);
+    }
 
     async function updateReservationStatus(reservationId, newStatus) {
       const supabaseClient = getSupabaseClient();
@@ -1884,6 +2134,7 @@ return [
       const action = actionButton.dataset.offersAction;
       const reservationId = actionButton.dataset.reservationId || "";
       const offerId = actionButton.dataset.offerId || "";
+      const debtId = actionButton.dataset.debtId || "";
 
       const mutationActions = new Set([
         "approve-reservation",
@@ -1894,7 +2145,8 @@ return [
         "publish-offer",
         "activate-offer",
         "deactivate-offer",
-        "delete-offer"
+        "delete-offer",
+        "pay-owner-debt"
       ]);
       const isMutationAction = mutationActions.has(action);
 
@@ -1942,6 +2194,9 @@ return [
           case "delete-offer":
             await deleteOffer(offerId);
             break;
+          case "pay-owner-debt":
+            await payOwnerCancellationDebt(debtId);
+            break;
           default:
             break;
         }
@@ -1968,12 +2223,14 @@ return [
 
 
       if (loaded) {
+        renderOwnerDebtSection();
         renderOffers();
       } else {
         renderLoadErrorState();
       }
 
       showAccountMessageFromStorage();
+      showOwnerDebtCheckoutReturnMessage();
     }
 
     document.addEventListener("click", handleOffersActionClick);
@@ -1996,5 +2253,6 @@ return [
         rerenderOffersForLanguageChange();
       }
 
+      renderOwnerDebtSection();
       renderAccountMessage();
     });

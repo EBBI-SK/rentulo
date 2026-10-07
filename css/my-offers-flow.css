@@ -393,3 +393,187 @@
     grid-column: 1 / -1;
   }
 }
+
+/* Owner cancellation debt payment summary. Enforcement is added separately. */
+.owner-debts-section {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.owner-debts-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.owner-debts-header h2 {
+  margin: 0;
+  color: #173f35;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.owner-debts-header p {
+  margin: 4px 0 0;
+  color: #66736e;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.owner-debt-list {
+  display: grid;
+  gap: 8px;
+}
+
+.owner-debt-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.5fr) 130px 165px 120px minmax(115px, auto);
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #efc69f;
+  border-radius: 14px;
+  background: #fffaf5;
+  box-shadow: 0 8px 22px rgba(23, 63, 53, 0.04);
+}
+
+.owner-debt-row.is-settled {
+  border-color: #cfe3da;
+  background: #fff;
+}
+
+.owner-debt-field {
+  min-width: 0;
+}
+
+.owner-debt-field::before {
+  content: attr(data-owner-debt-label);
+  display: block;
+  margin-bottom: 5px;
+  color: #6a7973;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.035em;
+}
+
+.owner-debt-title {
+  display: block;
+  color: #173f35;
+  font-size: 13px;
+  line-height: 1.25;
+  font-weight: 900;
+}
+
+.owner-debt-reference {
+  display: block;
+  margin-top: 3px;
+  color: #6a7973;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.owner-debt-value {
+  color: #173f35;
+  font-size: 13px;
+  line-height: 1.3;
+  font-weight: 800;
+}
+
+.owner-debt-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 6px 9px;
+  border: 1px solid #efbd8e;
+  border-radius: 999px;
+  background: #fff3e8;
+  color: #8a4b16;
+  font-size: 11px;
+  line-height: 1.15;
+  font-weight: 900;
+  text-align: center;
+}
+
+.owner-debt-status.is-paid,
+.owner-debt-status.is-waived {
+  border-color: #c9e2d6;
+  background: #eef8e9;
+  color: #3d7d28;
+}
+
+.owner-debt-pay {
+  min-height: 38px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: #ff6a00;
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.owner-debt-pay:hover {
+  background: #e85f00;
+}
+
+.owner-debt-pay:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+.owner-debts-load-error {
+  padding: 12px 14px;
+  border: 1px solid #efc1b7;
+  border-radius: 14px;
+  background: #fff8f6;
+  color: #6f2d25;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .owner-debt-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .owner-debt-main,
+  .owner-debt-action {
+    grid-column: 1 / -1;
+  }
+
+  .owner-debt-action .owner-debt-pay {
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .owner-debts-header h2 {
+    font-size: 16px;
+  }
+
+  .owner-debt-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .owner-debt-main,
+  .owner-debt-amount,
+  .owner-debt-due,
+  .owner-debt-status-field,
+  .owner-debt-action {
+    grid-column: 1;
+  }
+
+  .owner-debt-status {
+    width: 100%;
+  }
+}
