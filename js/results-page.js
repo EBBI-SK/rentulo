@@ -86,7 +86,21 @@
 
     function isNearbySearchMode() {
       const params = getResultsParams();
-      return params.get("okoli") === "1";
+      const whereInput = document.getElementById("results-search-where");
+      return params.get("okoli") === "1" &&
+        (!whereInput || whereInput.dataset.locationMode !== "manual");
+    }
+
+    function parseResultsGpsCoordinate(value, minimum, maximum) {
+      if (value === null || value === undefined ||
+          (typeof value === "string" && !value.trim())) {
+        return null;
+      }
+
+      const coordinate = Number(value);
+      return Number.isFinite(coordinate) && coordinate >= minimum && coordinate <= maximum
+        ? coordinate
+        : null;
     }
 
     function clearLegacyStoredVisitorLocation() {
@@ -98,35 +112,11 @@
     }
 
     function getSearchLatitude() {
-      const params = getResultsParams();
-      const latitudeFromUrl = Number(params.get("lat"));
-
-      if (
-        Number.isFinite(latitudeFromUrl) &&
-        latitudeFromUrl >= -90 &&
-        latitudeFromUrl <= 90 &&
-        params.get("lat") !== null
-      ) {
-        return latitudeFromUrl;
-      }
-
-      return null;
+      return parseResultsGpsCoordinate(getResultsParams().get("lat"), -90, 90);
     }
 
     function getSearchLongitude() {
-      const params = getResultsParams();
-      const longitudeFromUrl = Number(params.get("lng"));
-
-      if (
-        Number.isFinite(longitudeFromUrl) &&
-        longitudeFromUrl >= -180 &&
-        longitudeFromUrl <= 180 &&
-        params.get("lng") !== null
-      ) {
-        return longitudeFromUrl;
-      }
-
-      return null;
+      return parseResultsGpsCoordinate(getResultsParams().get("lng"), -180, 180);
     }
 
     function toRadians(value) {
@@ -258,14 +248,14 @@
       const locationsByOfferId = new Map();
 
       data.forEach(function (row) {
-        const latitude = Number(row && row.map_latitude);
-        const longitude = Number(row && row.map_longitude);
+        const latitude = parseResultsGpsCoordinate(row && row.map_latitude, -90, 90);
+        const longitude = parseResultsGpsCoordinate(row && row.map_longitude, -180, 180);
 
         if (
           row &&
           row.id &&
-          Number.isFinite(latitude) &&
-          Number.isFinite(longitude)
+          latitude !== null &&
+          longitude !== null
         ) {
           locationsByOfferId.set(String(row.id), {
             latitude: latitude,
@@ -374,21 +364,14 @@
       const userLatitude = getSearchLatitude();
       const userLongitude = getSearchLongitude();
 
-      const offerLatitude = offer.pickupLatitude !== undefined && offer.pickupLatitude !== null
-        ? Number(offer.pickupLatitude)
-        : null;
-
-      const offerLongitude = offer.pickupLongitude !== undefined && offer.pickupLongitude !== null
-        ? Number(offer.pickupLongitude)
-        : null;
+      const offerLatitude = parseResultsGpsCoordinate(offer.pickupLatitude, -90, 90);
+      const offerLongitude = parseResultsGpsCoordinate(offer.pickupLongitude, -180, 180);
 
       if (
         userLatitude === null ||
         userLongitude === null ||
         offerLatitude === null ||
-        offerLongitude === null ||
-        Number.isNaN(offerLatitude) ||
-        Number.isNaN(offerLongitude)
+        offerLongitude === null
       ) {
         return null;
       }
@@ -397,20 +380,8 @@
     }
 
     function offerHasGpsLocation(offer) {
-      const latitude = offer.pickupLatitude !== undefined && offer.pickupLatitude !== null
-        ? Number(offer.pickupLatitude)
-        : null;
-
-      const longitude = offer.pickupLongitude !== undefined && offer.pickupLongitude !== null
-        ? Number(offer.pickupLongitude)
-        : null;
-
-      return (
-        latitude !== null &&
-        longitude !== null &&
-        !Number.isNaN(latitude) &&
-        !Number.isNaN(longitude)
-      );
+      return parseResultsGpsCoordinate(offer.pickupLatitude, -90, 90) !== null &&
+        parseResultsGpsCoordinate(offer.pickupLongitude, -180, 180) !== null;
     }
 
     function formatDistance(distanceKm) {
@@ -700,7 +671,7 @@ const HOME_CATEGORY_GROUPS = {
       banner.classList.remove("active");
       banner.classList.remove("warning");
 
-      if (!isNearbySearchMode()) {
+      if (!isNearbySearchMode() || !offers.length) {
         return;
       }
 
@@ -744,17 +715,18 @@ const HOME_CATEGORY_GROUPS = {
 
     function applyResultsModeTranslations() {
       const whereInput = document.getElementById("results-search-where");
+      const title = document.getElementById("resultsTitle");
 
       if (isNearbySearchMode()) {
         if (whereInput && whereInput.dataset.locationMode === "nearby") {
           whereInput.value = resultsTranslate("results.myLocation", "Moje poloha");
         }
+      }
 
-        const title = document.getElementById("resultsTitle");
-
-        if (title) {
-          title.textContent = resultsTranslate("results.nearbyPageTitle", "Věci ve vašem okolí");
-        }
+      if (title) {
+        title.textContent = isNearbySearchMode()
+          ? resultsTranslate("results.nearbyPageTitle", "Věci ve vašem okolí")
+          : resultsTranslate("results.title", "Věci k půjčení");
       }
     }
 
@@ -859,6 +831,7 @@ const HOME_CATEGORY_GROUPS = {
 
     function applySearchAndUpdateUrl() {
       updateUrlFromCurrentControls();
+      applyResultsModeTranslations();
       renderResults();
     }
 
@@ -874,8 +847,6 @@ const HOME_CATEGORY_GROUPS = {
         renderEmptyResults("no-offers");
         return;
       }
-
-      updateNearbyBanner(offers);
 
       const whatQuery = document.getElementById("results-search-what").value;
       const whereQuery = document.getElementById("results-search-where").value;
@@ -893,6 +864,7 @@ const HOME_CATEGORY_GROUPS = {
       });
 
       const sortedOffers = sortOffersForNearbySearch(filteredOffers);
+      updateNearbyBanner(sortedOffers);
 
       if (!sortedOffers.length) {
         renderEmptyResults("no-match");
@@ -945,7 +917,10 @@ const HOME_CATEGORY_GROUPS = {
       });
 
       document.getElementById("results-search-where").addEventListener("input", function () {
-        delete this.dataset.locationMode;
+        if (isNearbySearchMode()) {
+          this.dataset.locationMode = "manual";
+        }
+        applyResultsModeTranslations();
         renderResults();
       });
 
