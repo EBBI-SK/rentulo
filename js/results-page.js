@@ -386,7 +386,10 @@
 
     function formatDistance(distanceKm) {
       if (distanceKm === null || Number.isNaN(distanceKm)) {
-        return resultsTranslate("results.locationMissing", "Poloha není uložená");
+        if (getSearchLatitude() === null || getSearchLongitude() === null) {
+          return resultsTranslate("results.userLocationMissing", "Vaše poloha není dostupná");
+        }
+        return resultsTranslate("results.locationMissing", "Poloha nabídky není uložená");
       }
 
       const distanceMeters = Math.round(distanceKm * 1000);
