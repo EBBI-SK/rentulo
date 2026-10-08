@@ -365,8 +365,9 @@ function setupAddressAutocomplete() {
 function resetRegistrationConsentCheckboxes() {
   const termsBusiness = document.getElementById("termsBusiness");
   const termsPrivacy = document.getElementById("termsPrivacy");
+  const privateIndividualConfirmation = document.getElementById("privateIndividualConfirmation");
 
-  [termsBusiness, termsPrivacy].forEach(function (checkbox) {
+  [termsBusiness, termsPrivacy, privateIndividualConfirmation].forEach(function (checkbox) {
     if (!checkbox) {
       return;
     }
@@ -476,6 +477,7 @@ async function createUserAccount(event) {
   const passwordConfirmInput = document.getElementById("passwordConfirm");
   const termsBusiness = document.getElementById("termsBusiness");
   const termsPrivacy = document.getElementById("termsPrivacy");
+  const privateIndividualConfirmation = document.getElementById("privateIndividualConfirmation");
   const requiredFields = [
     fullNameInput,
     emailInput,
@@ -490,7 +492,8 @@ async function createUserAccount(event) {
   if (
     requiredFields.some(function (field) { return !field; }) ||
     !termsBusiness ||
-    !termsPrivacy
+    !termsPrivacy ||
+    !privateIndividualConfirmation
   ) {
     registrationShowError(
       "registration.error.supabase",
@@ -508,7 +511,7 @@ async function createUserAccount(event) {
     }
   });
 
-  [termsBusiness, termsPrivacy].forEach(function (field) {
+  [termsBusiness, termsPrivacy, privateIndividualConfirmation].forEach(function (field) {
     if (!field.checked) {
       registrationMarkError(field);
       hasError = true;
@@ -518,7 +521,7 @@ async function createUserAccount(event) {
   if (hasError) {
     registrationShowError(
       "registration.error.required",
-      "Vyplňte prosím všechna pole a potvrďte oba souhlasy."
+      "Vyplňte prosím všechna pole a zaškrtněte všechna tři povinná políčka."
     );
     registrationFocusFirstError();
     return;
@@ -592,6 +595,8 @@ async function createUserAccount(event) {
           preferred_language: preferredLanguage,
           terms_business_accepted: true,
           terms_privacy_accepted: true,
+          private_individual_confirmed: true,
+          private_individual_confirmed_at: now,
           terms_accepted_at: now
         }
       }
