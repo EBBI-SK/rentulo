@@ -906,6 +906,28 @@
         height: clamp(420px, 62vh, 520px);
       }
     }
+    /* Desktop home: reserve room for the shared footer without overlaying content. */
+    @media (min-width: 1101px) {
+      body {
+        display: flex;
+        flex-direction: column;
+      }
+
+      main {
+        display: flex;
+        flex: 1 0 auto;
+      }
+
+      .home-hero {
+        flex: 1 1 auto;
+        min-height: 0;
+      }
+
+      .home-copy {
+        transform: translateY(clamp(-36px, calc(700px - 100vh), 0px));
+      }
+    }
+
   </style>
 </head>
 
