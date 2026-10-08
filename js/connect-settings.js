@@ -23,6 +23,8 @@
       loadingButton: "Otev\u00edr\u00e1m Stripe\u2026",
       readyButton: "V\u00fdplaty jsou nastaven\u00e9",
       error: "Stav v\u00fdplat se nepoda\u0159ilo na\u010d\u00edst. Zkuste to pros\u00edm znovu.",
+      unavailable: "Stav výplat není dostupný",
+      retry: "Načíst stav znovu",
       openError: "Stripe nastaven\u00ed se nepoda\u0159ilo otev\u0159\u00edt. Zkuste to pros\u00edm znovu."
     },
     sk: {
@@ -47,6 +49,8 @@
       loadingButton: "Otv\u00e1ram Stripe\u2026",
       readyButton: "V\u00fdplaty s\u00fa nastaven\u00e9",
       error: "Stav v\u00fdplat sa nepodarilo na\u010d\u00edta\u0165. Sk\u00faste to znova.",
+      unavailable: "Stav výplat nie je dostupný",
+      retry: "Načítať stav znova",
       openError: "Nastavenie Stripe sa nepodarilo otvori\u0165. Sk\u00faste to znova."
     },
     en: {
@@ -71,6 +75,8 @@
       loadingButton: "Opening Stripe\u2026",
       readyButton: "Payouts are set up",
       error: "Payout status could not be loaded. Please try again.",
+      unavailable: "Payout status unavailable",
+      retry: "Reload payout status",
       openError: "Stripe setup could not be opened. Please try again."
     },
     de: {
@@ -95,6 +101,8 @@
       loadingButton: "Stripe wird ge\u00f6ffnet\u2026",
       readyButton: "Auszahlungen sind eingerichtet",
       error: "Der Auszahlungsstatus konnte nicht geladen werden. Bitte versuchen Sie es erneut.",
+      unavailable: "Auszahlungsstatus nicht verfügbar",
+      retry: "Status erneut laden",
       openError: "Die Stripe-Einrichtung konnte nicht ge\u00f6ffnet werden. Bitte versuchen Sie es erneut."
     },
     pl: {
@@ -119,6 +127,8 @@
       loadingButton: "Otwieranie Stripe\u2026",
       readyButton: "Wyp\u0142aty s\u0105 skonfigurowane",
       error: "Nie uda\u0142o si\u0119 wczyta\u0107 statusu wyp\u0142at. Spr\u00f3buj ponownie.",
+      unavailable: "Status wypłat niedostępny",
+      retry: "Sprawdź status ponownie",
       openError: "Nie uda\u0142o si\u0119 otworzy\u0107 konfiguracji Stripe. Spr\u00f3buj ponownie."
     }
   };
@@ -171,7 +181,7 @@
     if (title) title.textContent = text.title;
     if (description) description.textContent = text.description;
     if (statusLabel) statusLabel.textContent = text.statusLabel;
-    if (guidance) guidance.hidden = currentStatus === "ready" || currentStatus === "loading";
+    if (guidance) guidance.hidden = currentStatus === "ready" || currentStatus === "loading" || currentStatus === "error";
     if (guidanceTitle) guidanceTitle.textContent = text.guidanceTitle;
     if (guidanceIdentity) guidanceIdentity.textContent = text.guidanceIdentity;
     if (guidanceRelease) guidanceRelease.textContent = text.guidanceRelease;
@@ -183,33 +193,37 @@
     if (buttonLoading) buttonLoading.textContent = text.loadingButton;
     if (status) {
       status.dataset.status = currentStatus;
-      status.textContent = currentStatus === "ready" ? text.ready : currentStatus === "restricted" ? text.restricted : currentStatus === "onboarding" ? text.onboarding : currentStatus === "not_started" ? text.notStarted : text.loading;
+      status.textContent = currentStatus === "ready" ? text.ready : currentStatus === "restricted" ? text.restricted : currentStatus === "onboarding" ? text.onboarding : currentStatus === "not_started" ? text.notStarted : currentStatus === "error" ? text.unavailable : text.loading;
     }
-    if (buttonLabel) buttonLabel.textContent = currentStatus === "ready" ? text.readyButton : currentStatus === "not_started" ? text.start : text.continue;
+    if (buttonLabel) buttonLabel.textContent = currentStatus === "ready" ? text.readyButton : currentStatus === "error" ? text.retry : currentStatus === "not_started" ? text.start : text.continue;
     if (button) button.disabled = currentStatus === "ready" || currentStatus === "loading";
   }
 
   async function loadStatus() {
-    const supabase = client();
-    if (!supabase) return;
     currentStatus = "loading";
     render();
     setMessage("", "");
-    const { data, error } = await supabase.functions.invoke("get-connect-status", { body: {} });
-    if (error || !data || !["not_started", "onboarding", "restricted", "ready"].includes(data.status)) {
-      console.error("Stripe Connect status load failed", error || data);
-      currentStatus = "not_started";
+
+    try {
+      const supabase = client();
+      if (!supabase) throw new Error("Supabase client is unavailable");
+      const { data, error } = await supabase.functions.invoke("get-connect-status", { body: {} });
+      if (error || !data || !["not_started", "onboarding", "restricted", "ready"].includes(data.status)) {
+        throw error || new Error("Unexpected Stripe Connect status");
+      }
+      currentStatus = data.status;
+      render();
+    } catch (error) {
+      console.error("Stripe Connect status load failed", error);
+      currentStatus = "error";
       render();
       setMessage((COPY[language()] || COPY.cs).error, "error");
-      return;
     }
-    currentStatus = data.status;
-    render();
   }
 
   async function openOnboarding() {
     const supabase = client();
-    if (!supabase || currentStatus === "ready") return;
+    if (!supabase || !["not_started", "onboarding", "restricted"].includes(currentStatus)) return;
     setMessage("", "");
     setLoading(true);
     try {
@@ -227,21 +241,34 @@
     }
   }
 
+  async function handleConnectButtonClick() {
+    if (currentStatus === "error") {
+      await loadStatus();
+      return;
+    }
+    await openOnboarding();
+  }
+
   async function initialize() {
     const button = document.getElementById("connectSettingsButton");
     if (!button) return;
-    button.addEventListener("click", openOnboarding);
+    button.addEventListener("click", function () { void handleConnectButtonClick(); });
     await loadStatus();
     const params = new URLSearchParams(window.location.search);
-    if (params.get("connect") === "refresh" && currentStatus !== "ready") {
-      await openOnboarding();
-    } else if (params.has("connect")) {
+    const resumeOnboarding = params.get("connect") === "refresh";
+    if (params.has("connect")) {
       params.delete("connect");
       const query = params.toString();
       window.history.replaceState({}, "", window.location.pathname + (query ? "?" + query : ""));
     }
+    if (resumeOnboarding && ["not_started", "onboarding", "restricted"].includes(currentStatus)) {
+      await openOnboarding();
+    }
   }
 
-  document.addEventListener("rentuloLanguageChanged", render);
+  document.addEventListener("rentuloLanguageChanged", function () {
+    render();
+    if (currentStatus === "error") setMessage((COPY[language()] || COPY.cs).error, "error");
+  });
   document.addEventListener("DOMContentLoaded", function () { void initialize(); });
 })();

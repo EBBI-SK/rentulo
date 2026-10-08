@@ -23,6 +23,9 @@ type DeactivationStatus = {
   blocking_as_owner_count: number;
   blocking_as_renter_count: number;
   offers_to_close_count: number;
+  open_owner_debts_count: number;
+  unfinished_refunds_count: number;
+  unresolved_owner_transfers_count: number;
 };
 
 type FinalizeResult = {
@@ -52,6 +55,30 @@ function firstRow<T>(value: unknown): T | null {
   }
 
   return null;
+}
+
+function activeReservationBlockResponse(status: DeactivationStatus | null): Response {
+  return jsonResponse({
+    error: "Account has active reservations",
+    code: "ACCOUNT_HAS_ACTIVE_RESERVATIONS",
+    ...(status ? {
+      blocking_reservations_count: status.blocking_reservations_count,
+      blocking_as_owner_count: status.blocking_as_owner_count,
+      blocking_as_renter_count: status.blocking_as_renter_count,
+    } : {}),
+  }, 409);
+}
+
+function financialBlockResponse(status: DeactivationStatus | null): Response {
+  return jsonResponse({
+    error: "Account has unresolved financial obligations",
+    code: "ACCOUNT_HAS_FINANCIAL_OBLIGATIONS",
+    ...(status ? {
+      open_owner_debts_count: status.open_owner_debts_count,
+      unfinished_refunds_count: status.unfinished_refunds_count,
+      unresolved_owner_transfers_count: status.unresolved_owner_transfers_count,
+    } : {}),
+  }, 409);
 }
 
 denoRuntime.serve(async (req) => {
@@ -106,7 +133,7 @@ denoRuntime.serve(async (req) => {
   // A previously deactivated account is allowed to continue so a safe retry can
   // finish the Auth soft-delete after a temporary server/network failure.
   const { data: statusData, error: statusError } = await userClient.rpc(
-    "get_my_account_deactivation_status",
+    "get_my_account_deactivation_status_v2",
   );
 
   if (statusError) {
@@ -132,17 +159,10 @@ denoRuntime.serve(async (req) => {
   }
 
   if (status.account_status === "active" && !status.can_deactivate) {
-    return jsonResponse(
-      {
-        error: "Account has active reservations",
-        code: "ACCOUNT_HAS_ACTIVE_RESERVATIONS",
-        blocking_reservations_count: status.blocking_reservations_count,
-        blocking_as_owner_count: status.blocking_as_owner_count,
-        blocking_as_renter_count: status.blocking_as_renter_count,
-        offers_to_close_count: status.offers_to_close_count,
-      },
-      409,
-    );
+    if (status.blocking_reservations_count > 0) {
+      return activeReservationBlockResponse(status);
+    }
+    return financialBlockResponse(status);
   }
 
   let finalizeResult: FinalizeResult = {
@@ -160,14 +180,23 @@ denoRuntime.serve(async (req) => {
     if (finalizeError) {
       const detail = `${finalizeError.message || ""} ${finalizeError.details || ""}`;
 
-      if (detail.includes("Account has active reservations")) {
-        return jsonResponse(
-          {
-            error: "Account has active reservations",
-            code: "ACCOUNT_HAS_ACTIVE_RESERVATIONS",
-          },
-          409,
-        );
+      if (
+        detail.includes("Account has active reservations") ||
+        detail.includes("Account has unresolved financial obligations")
+      ) {
+        // The finalizer may have seen a blocker created after the first check.
+        // Re-read the caller's own status to report accurate counts if possible.
+        let refreshed: DeactivationStatus | null = null;
+        try {
+          const { data, error } = await userClient.rpc("get_my_account_deactivation_status_v2");
+          if (!error) refreshed = firstRow<DeactivationStatus>(data);
+        } catch (refreshError) {
+          console.warn("account-deactivation: could not refresh blocker details", refreshError);
+        }
+
+        return detail.includes("Account has active reservations")
+          ? activeReservationBlockResponse(refreshed)
+          : financialBlockResponse(refreshed);
       }
 
       console.error("account-deactivation: database finalization failed", finalizeError.message);

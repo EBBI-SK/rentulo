@@ -198,7 +198,8 @@ html[data-focus-input="pointer"] .field select:focus {
   font-weight: 800;
 }
 
-.connect-status[data-status="restricted"] {
+.connect-status[data-status="restricted"],
+.connect-status[data-status="error"] {
   border-color: #efc9c4;
   background: #fff8f7;
   color: #a53229;

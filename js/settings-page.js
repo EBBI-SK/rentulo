@@ -634,6 +634,71 @@
     return null;
   }
 
+  function showReservationCancellationBlock(message, status) {
+    if (!status || typeof status.blocking_reservations_count !== "number" ||
+        status.blocking_reservations_count <= 0) {
+      setTranslatedMessage(
+        message,
+        "settings.cancelAccountCheckError",
+        "Možnost zrušení účtu se nepodařilo zkontrolovat. Zkuste to prosím znovu.",
+        "error"
+      );
+      return;
+    }
+
+    setTranslatedMessage(
+      message,
+      "settings.cancelAccountBlocked",
+      "Účet zatím nelze zrušit. Máte {count} rozpracovaných rezervací ({owner} jako majitel, {renter} jako zájemce). Nejdříve je dokončete nebo zrušte.",
+      "error",
+      {
+        count: status.blocking_reservations_count,
+        owner: status.blocking_as_owner_count || 0,
+        renter: status.blocking_as_renter_count || 0
+      }
+    );
+  }
+
+  function showFinancialCancellationBlock(message, status) {
+    const fields = [
+      "open_owner_debts_count",
+      "unfinished_refunds_count",
+      "unresolved_owner_transfers_count"
+    ];
+
+    if (!status || !fields.every(function (key) {
+      return typeof status[key] === "number" && status[key] >= 0;
+    }) || fields.every(function (key) { return status[key] === 0; })) {
+      setTranslatedMessage(
+        message,
+        "settings.cancelAccountFinancialBlockedGeneric",
+        "Účet zatím nelze zrušit kvůli nedokončeným finančním operacím. Zkuste kontrolu opakovat později nebo kontaktujte podporu.",
+        "error"
+      );
+      return;
+    }
+
+    setTranslatedMessage(
+      message,
+      "settings.cancelAccountFinancialBlocked",
+      "Účet zatím nelze zrušit. Neuhrazené storno poplatky: {debts}, nedokončené vratky: {refunds}, nevyřešené výplaty: {transfers}. Dluhy uhraďte v Moje nabídky; u ostatních operací vyčkejte na dokončení nebo kontaktujte podporu.",
+      "error",
+      {
+        debts: status.open_owner_debts_count,
+        refunds: status.unfinished_refunds_count,
+        transfers: status.unresolved_owner_transfers_count
+      }
+    );
+  }
+
+  function resetAccountCancellationAfterBlock() {
+    setAccountCancellationConfirmationVisible(false);
+    const checkButton = document.getElementById("checkAccountCancellationButton");
+    if (checkButton) {
+      checkButton.hidden = false;
+    }
+  }
+
   function setAccountCancellationConfirmationVisible(visible) {
     const confirmation = document.getElementById("accountCancellationConfirmation");
     const password = document.getElementById("cancelAccountPassword");
@@ -680,11 +745,11 @@
     }
 
     setMessage(message, "", "");
-    setAccountCancellationConfirmationVisible(false);
+    resetAccountCancellationAfterBlock();
     setButtonLoading(button, true);
 
     try {
-      const { data, error } = await client.rpc("get_my_account_deactivation_status");
+      const { data, error } = await client.rpc("get_my_account_deactivation_status_v2");
 
       if (error) {
         throw error;
@@ -712,17 +777,22 @@
       }
 
       if (!status.can_deactivate) {
-        setTranslatedMessage(
-          message,
-          "settings.cancelAccountBlocked",
-          "Účet zatím nelze zrušit. Máte {count} rozpracovaných rezervací ({owner} jako majitel, {renter} jako zájemce). Nejdříve je dokončete nebo zrušte.",
-          "error",
-          {
-            count: status.blocking_reservations_count || 0,
-            owner: status.blocking_as_owner_count || 0,
-            renter: status.blocking_as_renter_count || 0,
-          }
-        );
+        if (status.blocking_reservations_count > 0) {
+          showReservationCancellationBlock(message, status);
+        } else if (
+          status.open_owner_debts_count > 0 ||
+          status.unfinished_refunds_count > 0 ||
+          status.unresolved_owner_transfers_count > 0
+        ) {
+          showFinancialCancellationBlock(message, status);
+        } else {
+          setTranslatedMessage(
+            message,
+            "settings.cancelAccountCheckError",
+            "Možnost zrušení účtu se nepodařilo zkontrolovat. Zkuste to prosím znovu.",
+            "error"
+          );
+        }
         return;
       }
 
@@ -839,18 +909,14 @@
         const code = details && details.code ? details.code : "";
 
         if (code === "ACCOUNT_HAS_ACTIVE_RESERVATIONS") {
-          setAccountCancellationConfirmationVisible(false);
-          setTranslatedMessage(
-            message,
-            "settings.cancelAccountBlocked",
-            "Účet zatím nelze zrušit. Máte {count} rozpracovaných rezervací ({owner} jako majitel, {renter} jako zájemce). Nejdříve je dokončete nebo zrušte.",
-            "error",
-            {
-              count: details.blocking_reservations_count || 0,
-              owner: details.blocking_as_owner_count || 0,
-              renter: details.blocking_as_renter_count || 0,
-            }
-          );
+          resetAccountCancellationAfterBlock();
+          showReservationCancellationBlock(message, details);
+          return;
+        }
+
+        if (code === "ACCOUNT_HAS_FINANCIAL_OBLIGATIONS") {
+          resetAccountCancellationAfterBlock();
+          showFinancialCancellationBlock(message, details);
           return;
         }
 
