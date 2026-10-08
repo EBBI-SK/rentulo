@@ -471,3 +471,60 @@ body[data-navigation-page="uvod"] .home-map-zoom-controls {
     font-size: 12px !important;
   }
 }
+
+/* Public-page credit: always in document flow, never over the page content. */
+.rentulo-credit-footer {
+  position: static;
+  width: 100%;
+  padding: 10px 0 18px;
+  border-top: 1px solid var(--rentulo-line);
+  color: var(--rentulo-muted);
+  font-family: var(--rentulo-font);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.rentulo-credit-footer-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px 24px;
+  width: min(1480px, calc(100% - 64px));
+  margin: 0 auto;
+}
+
+.rentulo-credit-footer-byline {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.rentulo-credit-footer-byline a {
+  color: var(--rentulo-ink);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.rentulo-credit-footer-byline a:hover {
+  color: var(--rentulo-green);
+}
+
+.rentulo-credit-footer-byline a:focus-visible {
+  outline: 2px solid var(--rentulo-green);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+@media (max-width: 640px) {
+  .rentulo-credit-footer {
+    padding: 12px 0 20px;
+  }
+
+  .rentulo-credit-footer-inner {
+    width: calc(100% - 28px);
+    flex-direction: column;
+    gap: 4px;
+    text-align: center;
+  }
+}

@@ -1983,6 +1983,46 @@ function navShouldLoadAccountData(page) {
   ].includes(page);
 }
 
+const navCreditPublicPages = new Set([
+  "uvod",
+  "vysledky",
+  "detail",
+  "jak-to-funguje",
+  "kontakt",
+  "registrace",
+  "prihlaseni",
+  "obchodni-podminky",
+  "ochrana-osobnich-udaju"
+]);
+
+function navRenderCreditFooter(page) {
+  if (!navCreditPublicPages.has(page)) {
+    return;
+  }
+
+  let footer = document.getElementById("rentuloCreditFooter");
+  if (!footer) {
+    footer = document.createElement("footer");
+    footer.id = "rentuloCreditFooter";
+    footer.className = "rentulo-credit-footer";
+    footer.innerHTML = `
+      <div class="rentulo-credit-footer-inner">
+        <span class="rentulo-credit-footer-copyright">© 2026 Rentulo</span>
+        <span class="rentulo-credit-footer-byline">
+          <span data-rentulo-credit-label></span>
+          <a href="https://ebbi.sk" target="_blank" rel="noopener noreferrer">EBBI s. r. o.</a>
+        </span>
+      </div>
+    `;
+    document.body.appendChild(footer);
+  }
+
+  const label = footer.querySelector("[data-rentulo-credit-label]");
+  if (label) {
+    label.textContent = navTranslate("footer.creditLabel", "Web vytvořila");
+  }
+}
+
 function navGetAuthStateRefreshPlan(event, previousUserId, nextUserId) {
   const userChanged = previousUserId !== nextUserId;
   const profileUpdated = event === "USER_UPDATED";
@@ -2001,6 +2041,7 @@ async function initializeSharedNavigation() {
     return;
   }
 
+  navRenderCreditFooter(page);
   navEnableFocusInputTracking();
   navSetupContextBackLinks();
   await navGetVerifiedUser();
@@ -2073,6 +2114,7 @@ document.addEventListener("rentuloLanguageChanged", function () {
 
   if (page) {
     renderSharedNavigation(page);
+    navRenderCreditFooter(page);
   }
 });
 

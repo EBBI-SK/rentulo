@@ -4,6 +4,7 @@
 
   const translations = {
       "cs": {
+          "footer.creditLabel": "Web vytvořila",
           "detail.back": "← Zpět",
           "detail.documentTitle": "Detail věci - Rentulo",
           "home.category.construction": "Stavba",
@@ -1213,6 +1214,7 @@
           "detail.category.other": "Ostatní"
       },
       "sk": {
+          "footer.creditLabel": "Web vytvorila",
           "detail.back": "← Späť",
           "detail.documentTitle": "Detail veci - Rentulo",
           "home.category.construction": "Stavba",
@@ -2424,6 +2426,7 @@
           "detail.category.other": "Ostatné"
       },
       "en": {
+          "footer.creditLabel": "Website created by",
           "detail.back": "← Back",
           "detail.documentTitle": "Listing details - Rentulo",
           "home.category.construction": "Construction",
@@ -3633,6 +3636,7 @@
           "detail.category.other": "Other"
       },
       "de": {
+          "footer.creditLabel": "Website erstellt von",
           "detail.back": "← Zurück",
           "detail.documentTitle": "Angebotsdetails - Rentulo",
           "home.category.construction": "Bau",
@@ -4842,6 +4846,7 @@
           "detail.category.other": "Sonstiges"
       },
       "pl": {
+          "footer.creditLabel": "Stronę stworzyła",
           "detail.back": "← Wróć",
           "detail.documentTitle": "Szczegóły rzeczy - Rentulo",
           "detail.backToListings": "Powrót do ofert",
