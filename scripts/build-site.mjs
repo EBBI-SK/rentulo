@@ -146,4 +146,27 @@ writeFileSync(join(output, 'js/supabase-config.js'), builtConfig, 'utf8');
 const seoRuntime = readFileSync(join(root, 'scripts/seo-runtime.js'), 'utf8');
 writeFileSync(join(output, 'js/seo.js'),
   `const RENTULO_SEO_DATA = ${JSON.stringify(seoPages)};\n${seoRuntime}`, 'utf8');
+// Crawl access must stay open on TEST so bots can read X-Robots-Tag: noindex.
+// The TEST deployment does not publish a sitemap; only PROD builds prepare it.
+const robotsLines = ['User-agent: *', 'Allow: /'];
+if (target === 'prod') {
+  robotsLines.push('', `Sitemap: ${seoBaseUrl}/sitemap.xml`);
+}
+writeFileSync(join(output, 'robots.txt'), `${robotsLines.join('\n')}\n`, 'utf8');
+
+if (target === 'prod') {
+  // Only public Czech canonical URLs belong in the sitemap. Dynamic offers,
+  // search results, private pages and alternate UI languages are excluded.
+  const sitemapUrls = Object.values(seoPages.public)
+    .map(page => `${seoBaseUrl}${page.path}`);
+  const sitemapXml = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ...sitemapUrls.map(url => `  <url><loc>${escapeHtml(url)}</loc></url>`),
+    '</urlset>',
+    ''
+  ].join('\n');
+  writeFileSync(join(output, 'sitemap.xml'), sitemapXml, 'utf8');
+}
+
 console.log(`Rentulo ${target.toUpperCase()} static build completed (${parsed.hostname})`);
