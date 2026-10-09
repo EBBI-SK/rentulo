@@ -47,7 +47,7 @@ async function renderRequest(row, { method = 'GET', id = offerId, host = 'rentul
 
 test('SEO route is a dedicated server function; legacy HTML path stays untouched', () => {
   const vercel = JSON.parse(readFileSync(path.join(root, 'vercel.json'), 'utf8'));
-  assert.deepEqual(vercel.rewrites, [{ source: '/nabidka/:id', destination: '/api/offer-page?id=:id' }]);
+  assert.deepEqual(vercel.rewrites.find(rule => rule.source === '/nabidka/:id'), { source: '/nabidka/:id', destination: '/api/offer-page?id=:id' });
   assert.ok(vercel.functions['api/offer-page.mjs'].includeFiles.includes('detail.html'));
   assert.ok(vercel.functions['api/offer-page.mjs'].includeFiles.includes('js/supabase-config.js'));
   assert.equal(vercel.redirects.some(rule => rule.source === '/detail.html'), false);

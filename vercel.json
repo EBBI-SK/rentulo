@@ -112,11 +112,18 @@
     {
       "source": "/nabidka/:id",
       "destination": "/api/offer-page?id=:id"
+    },
+    {
+      "source": "/sitemap.xml",
+      "destination": "/api/sitemap"
     }
   ],
   "functions": {
     "api/offer-page.mjs": {
       "includeFiles": "{detail.html,js/supabase-config.js}"
+    },
+    "api/sitemap.mjs": {
+      "includeFiles": "{detail.html,js/supabase-config.js,scripts/seo-pages.json}"
     }
   }
 }
