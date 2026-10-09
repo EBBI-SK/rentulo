@@ -109,6 +109,14 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
   },
 };
 
+const referenceLabels: Record<SupportedLanguage, { offer: string; reservation: string }> = {
+  cs: { offer: "Číslo nabídky", reservation: "Číslo rezervace" },
+  sk: { offer: "Číslo ponuky", reservation: "Číslo rezervácie" },
+  en: { offer: "Listing number", reservation: "Reservation number" },
+  de: { offer: "Angebotsnummer", reservation: "Reservierungsnummer" },
+  pl: { offer: "Numer oferty", reservation: "Numer rezerwacji" },
+};
+
 const paidCancellationCopy = {
   cs: {
     renterSelf: [
@@ -459,7 +467,7 @@ denoRuntime.serve(async (req) => {
 
   const { data: reservation, error: reservationError } = await admin
     .from("reservations")
-    .select("id, offer_id, owner_id, renter_id, offer_name, start_date, end_date, status")
+    .select("id, offer_id, owner_id, renter_id, offer_name, start_date, end_date, status, reservation_number")
     .eq("id", reservationId)
     .single();
 
@@ -482,6 +490,16 @@ denoRuntime.serve(async (req) => {
       (renterEvents.includes(event) && !actorIsRenter))
   ) {
     return response({ error: "User is not allowed to send this email event" }, 403);
+  }
+
+  const { data: offerReference, error: offerReferenceError } = await admin
+    .from("offers")
+    .select("offer_number")
+    .eq("id", reservation.offer_id)
+    .single();
+
+  if (offerReferenceError || !offerReference) {
+    return response({ error: "Offer reference lookup failed" }, 500);
   }
 
   let paidCancellation: PaidCancellationRow | null = null;
@@ -679,6 +697,7 @@ denoRuntime.serve(async (req) => {
         <h1 style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:24px;line-height:1.25;font-weight:700;color:#103f32">${escapeHtml(subject)}</h1>
         <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#103f32">${escapeHtml(intro)}</p>
         <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#103f32"><strong>${escapeHtml(offerName)}</strong><br>${escapeHtml(dateText)}</p>
+        <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#103f32">${escapeHtml(referenceLabels[language].reservation)}: <strong>${escapeHtml(reservation.reservation_number)}</strong><br>${escapeHtml(referenceLabels[language].offer)}: <strong>${escapeHtml(offerReference.offer_number)}</strong></p>
         ${extraHtml}
         <p style="margin:18px 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5"><a href="${escapeHtml(detailUrl)}" style="display:inline-block;padding:12px 18px;background:#75d94f;color:#103f32;text-decoration:none;border-radius:10px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.25;font-weight:700">Rentulo</a></p>
         <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.5;color:#66736f">Rentulo</p>

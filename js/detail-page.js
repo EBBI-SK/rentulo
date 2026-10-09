@@ -228,6 +228,7 @@
     function normalizeSupabaseOffer(row) {
       return {
         id: row.id,
+        offerNumber: row.offer_number || "",
 ownerId: row.owner_id,
 owner_id: row.owner_id,
         name: row.name,
@@ -748,7 +749,7 @@ const hasGps = offerHasGpsLocation(offer);
                 <h1>${escapeHtml(offerName)}</h1>
 
                 <div class="category-line">
-                  ${escapeHtml(offerCategory)}
+                  ${escapeHtml(offerCategory)}${offer.offerNumber ? ` · ${escapeHtml(detailTranslate("reference.offer"))}: ${escapeHtml(offer.offerNumber)}` : ""}
                 </div>
 
                 <div class="badges">

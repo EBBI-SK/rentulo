@@ -323,6 +323,8 @@ function historyRenderDetail(reservation, role) {
         <div><span>${escapeHtml(historyT("history.detail.term", "Termín"))}</span><strong>${escapeHtml(historyFormatDate(startDate))} – ${escapeHtml(historyFormatDate(endDate))}</strong></div>
         <div><span>${escapeHtml(historyT("history.detail.total", "Celková cena"))}</span><strong>${escapeHtml(historyFormatMoney(price))}</strong></div>
         <div><span>${escapeHtml(counterpart.label)}</span><strong>${escapeHtml(counterpart.name)}</strong></div>
+        ${reservation.reservation_number ? `<div><span>${escapeHtml(historyT("reference.reservation", "Číslo rezervace"))}</span><strong>${escapeHtml(reservation.reservation_number)}</strong></div>` : ""}
+        ${reservation.offer_number ? `<div><span>${escapeHtml(historyT("reference.offer", "Číslo nabídky"))}</span><strong>${escapeHtml(reservation.offer_number)}</strong></div>` : ""}
       </div>
       <div class="history-review-grid">
         ${historyRenderReviewForm(reservation, role)}
@@ -349,7 +351,7 @@ function historyRenderRow(reservation, role) {
           ${historyRenderPhotoMarkup(reservation, name)}
           <div class="simple-reservation-info">
             <strong>${escapeHtml(name)}</strong>
-            <span>${escapeHtml(counterpart.label)}: ${escapeHtml(counterpart.name)}</span>
+            <span>${escapeHtml(counterpart.label)}: ${escapeHtml(counterpart.name)}${reservation.reservation_number ? ` · ${escapeHtml(historyT("reference.reservation", "Číslo rezervace"))}: ${escapeHtml(reservation.reservation_number)}` : ""}</span>
           </div>
         </div>
         <div class="simple-reservation-date">${escapeHtml(historyFormatDate(startDate))} – ${escapeHtml(historyFormatDate(endDate))}</div>

@@ -504,6 +504,7 @@
     function normalizeOffer(row) {
       return {
         id: row.id,
+        offerNumber: row.offer_number || "",
         ownerId: row.owner_id,
         name: row.name || "",
         category: row.category || "",
@@ -521,6 +522,8 @@
     function normalizeReservation(row) {
       return {
         id: row.id,
+        reservationNumber: row.reservation_number || "",
+        offerNumber: row.offer_number || "",
         offerId: row.offer_id,
         ownerId: row.owner_id,
         renterId: row.renter_id,
@@ -1871,6 +1874,7 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
             <div class="request-main">
               <span class="request-name">${escapeHtml(renterName)}</span>
               <span class="request-email">${escapeHtml(renterEmail)}</span>
+              ${reservation.reservationNumber ? `<span class="request-email">${escapeHtml(offersTranslate("reference.reservation", "Číslo rezervace"))}: ${escapeHtml(reservation.reservationNumber)}</span>` : ""}
             </div>
 
             <div class="request-date">
@@ -2019,7 +2023,7 @@ function renderSimpleOffer(offer, requests) {
 
           <div class="simple-offer-info">
             <strong class="simple-offer-name">${escapeHtml(offerName)}</strong>
-            <span class="simple-offer-meta">${escapeHtml(offerCity)}</span>
+            <span class="simple-offer-meta">${escapeHtml(offerCity)}${offer.offerNumber ? ` · ${escapeHtml(offersTranslate("reference.offer", "Číslo nabídky"))}: ${escapeHtml(offer.offerNumber)}` : ""}</span>
           </div>
         </div>
 

@@ -223,6 +223,8 @@ function formatReservationScheduleValue(dateValue, timeValue) {
       return {
         id: row.id,
         reservationId: row.id,
+        reservationNumber: row.reservation_number || "",
+        offerNumber: row.offer_number || "",
 
         offerId: row.offer_id,
         toolId: row.offer_id,
@@ -1363,6 +1365,8 @@ return (
               <span>${escapeHtml(scheduleCopy.return)}</span>
               <strong>${escapeHtml(returnSchedule)}</strong>
             </div>
+            ${reservation.reservationNumber ? `<div class="info-box"><span>${escapeHtml(reservationsTranslate("reference.reservation", "Číslo rezervace"))}</span><strong>${escapeHtml(reservation.reservationNumber)}</strong></div>` : ""}
+            ${reservation.offerNumber ? `<div class="info-box"><span>${escapeHtml(reservationsTranslate("reference.offer", "Číslo nabídky"))}</span><strong>${escapeHtml(reservation.offerNumber)}</strong></div>` : ""}
           </div>
 
           ${renderReservationStateBox(reservation, status)}
@@ -1425,7 +1429,7 @@ return (
 
       <div class="simple-reservation-info">
         <strong>${escapeHtml(toolName)}</strong>
-        <span>${escapeHtml(city)}</span>
+        <span>${escapeHtml(city)}${reservation.reservationNumber ? ` · ${escapeHtml(reservationsTranslate("reference.reservation", "Číslo rezervace"))}: ${escapeHtml(reservation.reservationNumber)}` : ""}</span>
       </div>
     </div>
 

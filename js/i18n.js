@@ -4,6 +4,8 @@
 
   const translations = {
       "cs": {
+          "reference.offer": "Číslo nabídky",
+          "reference.reservation": "Číslo rezervace",
           "footer.creditLabel": "Web vytvořila",
           "detail.back": "← Zpět",
           "detail.documentTitle": "Detail věci - Rentulo",
@@ -1214,6 +1216,8 @@
           "detail.category.other": "Ostatní"
       },
       "sk": {
+          "reference.offer": "Číslo ponuky",
+          "reference.reservation": "Číslo rezervácie",
           "footer.creditLabel": "Web vytvorila",
           "detail.back": "← Späť",
           "detail.documentTitle": "Detail veci - Rentulo",
@@ -2426,6 +2430,8 @@
           "detail.category.other": "Ostatné"
       },
       "en": {
+          "reference.offer": "Listing number",
+          "reference.reservation": "Reservation number",
           "footer.creditLabel": "Website created by",
           "detail.back": "← Back",
           "detail.documentTitle": "Listing details - Rentulo",
@@ -3636,6 +3642,8 @@
           "detail.category.other": "Other"
       },
       "de": {
+          "reference.offer": "Angebotsnummer",
+          "reference.reservation": "Reservierungsnummer",
           "footer.creditLabel": "Website erstellt von",
           "detail.back": "← Zurück",
           "detail.documentTitle": "Angebotsdetails - Rentulo",
@@ -4846,6 +4854,8 @@
           "detail.category.other": "Sonstiges"
       },
       "pl": {
+          "reference.offer": "Numer oferty",
+          "reference.reservation": "Numer rezerwacji",
           "footer.creditLabel": "Stronę stworzyła",
           "detail.back": "← Wróć",
           "detail.documentTitle": "Szczegóły rzeczy - Rentulo",
