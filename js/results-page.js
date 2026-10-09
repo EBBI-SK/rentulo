@@ -566,7 +566,7 @@ function getOfferPhoto(offer) {
             </div>
 
             <div class="result-actions">
-              <a class="result-button" href="detail.html?id=${encodeURIComponent(offerId)}">
+              <a class="result-button" href="/nabidka/${encodeURIComponent(offerId)}">
                 ${escapeHtml(resultsTranslate("results.viewDetail", "Zobrazit detail"))}
               </a>
             </div>

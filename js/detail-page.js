@@ -191,8 +191,60 @@
     }
 
     function getOfferIdFromUrl() {
-      const params = new URLSearchParams(window.location.search);
-      return params.get("id");
+      // A public SEO URL takes precedence over any additional query parameters.
+      const match = window.location.pathname.match(
+        /^\/nabidka\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i
+      );
+      if (match) return match[1];
+      return new URLSearchParams(window.location.search).get("id");
+    }
+
+    function showCanonicalOfferUrl(offer) {
+      // Old bookmarks continue to load. After an active offer is confirmed,
+      // display the SEO URL so copying the browser address shares its photo.
+      const id = String(offer?.id || "");
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return;
+      if (!/^https?:$/.test(window.location.protocol)) return;
+      if (!/\/detail\.html$/i.test(window.location.pathname)) return;
+      if (window.history && typeof window.history.replaceState === "function") {
+        window.history.replaceState(window.history.state, "", "/nabidka/" + id.toLowerCase());
+      }
+    }
+
+    function getOfferLoginReturnTo() {
+      // The login allowlist already accepts this legacy UUID URL. Keep it so
+      // logging in from a public SEO link cannot break reservation checkout.
+      const offerId = getOfferIdFromUrl();
+      return offerId ? "detail.html?id=" + encodeURIComponent(offerId) : "detail.html";
+    }
+
+    function updateOfferBrowserMetadata(offer) {
+      const name = String(getOfferName(offer) || "").replace(/\s+/g, " ").trim();
+      const city = String(getOfferCity(offer) || "").replace(/\s+/g, " ").trim();
+      const price = getOfferPrice(offer);
+      const locale = typeof getRentuloLanguage === "function"
+        ? getRentuloLanguage() : "cs";
+      const place = city && city !== "-" ? city : "";
+      const title = `${name.slice(0, 72)}${place ? ` – ${place.slice(0, 40)}` : ""} | Rentulo`;
+      const amount = Number(price).toLocaleString(getDetailLocale());
+      const descriptions = {
+        cs: `Půjčte si ${name}${place ? ` v lokalitě ${place}` : ""} za ${amount} Kč/den. Rezervujte jednoduše na Rentulo.`,
+        sk: `Požičajte si ${name}${place ? ` v lokalite ${place}` : ""} za ${amount} Kč/deň. Rezervujte jednoducho na Rentulo.`,
+        en: `Rent ${name}${place ? ` in ${place}` : ""} for ${amount} CZK/day. Book easily on Rentulo.`,
+        de: `Mieten Sie ${name}${place ? ` in ${place}` : ""} für ${amount} CZK pro Tag. Einfach auf Rentulo reservieren.`,
+        pl: `Wypożycz ${name}${place ? ` w ${place}` : ""} za ${amount} CZK/dzień. Zarezerwuj na Rentulo.`
+      };
+      document.title = title;
+      const description = (descriptions[locale] || descriptions.cs).slice(0, 200);
+      const descriptionMeta = document.querySelector('meta[name="description"]');
+      if (descriptionMeta) descriptionMeta.setAttribute("content", description);
+      const ogTitle = document.querySelector('meta[property="og:title"]');
+      if (ogTitle) ogTitle.setAttribute("content", title);
+      const ogDescription = document.querySelector('meta[property="og:description"]');
+      if (ogDescription) ogDescription.setAttribute("content", description);
+      const ogLocale = document.querySelector('meta[property="og:locale"]');
+      const locales = { cs: "cs_CZ", sk: "sk_SK", en: "en_GB", de: "de_DE", pl: "pl_PL" };
+      if (ogLocale) ogLocale.setAttribute("content", locales[locale] || locales.cs);
     }
 
     function getDaysBetween(startDate, endDate) {
@@ -688,6 +740,7 @@ const data = Array.isArray(blockingReservations)
       const offerCity = getOfferCity(offer);
 
       const price = getOfferPrice(offer);
+      updateOfferBrowserMetadata(offer);
 
       const currentUserId = currentUser ? String(currentUser.id || "") : "";
 const ownerId = String(offer.ownerId || offer.owner_id || "");
@@ -717,7 +770,7 @@ const hasGps = offerHasGpsLocation(offer);
     detailTranslate("detail.loginRequiredTitle"),
     detailTranslate("detail.loginRequiredText"),
     `prihlaseni.html?returnTo=${encodeURIComponent(
-  window.location.pathname.split("/").pop() + window.location.search
+  getOfferLoginReturnTo()
 )}`,
     detailTranslate("nav.login")
   );
@@ -869,7 +922,7 @@ const hasGps = offerHasGpsLocation(offer);
         showDetailBookingMessage(detailTranslate("detail.error.loginAgain"));
         window.location.href =
   `prihlaseni.html?returnTo=${encodeURIComponent(
-    window.location.pathname.split("/").pop() + window.location.search
+    getOfferLoginReturnTo()
   )}`;
         return false;
       }
@@ -1243,6 +1296,7 @@ const hasGps = offerHasGpsLocation(offer);
 
         detailPageState = "ready";
         await renderDetail(offer);
+        showCanonicalOfferUrl(offer);
       } catch (error) {
         console.error(error);
         detailPageState = "error";

@@ -107,5 +107,16 @@
     }
   ],
   "buildCommand": "npm run build",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/nabidka/:id",
+      "destination": "/api/offer-page?id=:id"
+    }
+  ],
+  "functions": {
+    "api/offer-page.mjs": {
+      "includeFiles": "{detail.html,js/supabase-config.js}"
+    }
+  }
 }
