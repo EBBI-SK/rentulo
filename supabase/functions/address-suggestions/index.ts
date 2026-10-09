@@ -30,24 +30,37 @@ type CacheEntry = {
   suggestions: AddressSuggestion[];
 };
 
-const ALLOWED_ORIGINS = new Set([
-  "https://rentulo-seven.vercel.app",
-  "https://rentulo.eu",
-  "https://www.rentulo.eu",
-  "http://localhost:3000",
-  "http://localhost:5500",
-  "http://127.0.0.1:5500"
-]);
+// Determine the allowed browser origins from the actual Supabase project, not
+// from a client-controlled request header. An unknown project is denied.
+function allowedOriginsForProject(supabaseUrl: string | undefined): Set<string> {
+  const projectUrl = (supabaseUrl || "").trim().replace(/\/+$/, "");
+  if (projectUrl === "https://vspposovhdgvbeukoivh.supabase.co") {
+    return new Set([
+      "https://rentulo.eu",
+      "https://www.rentulo.eu",
+      "http://localhost:3000",
+      "http://localhost:5500",
+      "http://127.0.0.1:5500"
+    ]);
+  }
+  if (projectUrl === "https://tfvgxrdjrpicgtvovehl.supabase.co") {
+    return new Set(["https://rentulo.com", "https://www.rentulo.com"]);
+  }
+  return new Set();
+}
+
+const ALLOWED_ORIGINS = allowedOriginsForProject(denoRuntime.env.get("SUPABASE_URL"));
+const GEOCODING_USER_AGENT = ALLOWED_ORIGINS.has("https://rentulo.com")
+  ? "Rentulo/1.0 (https://rentulo.com; contact: rentulo@rentulo.com)"
+  : "Rentulo/1.0 (https://rentulo.eu; contact: rentulo@rentulo.com)";
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const MAX_CACHE_ENTRIES = 120;
 const cache = new Map<string, CacheEntry>();
 
 function getCorsHeaders(origin: string | null): Record<string, string> {
-  const allowedOrigin = origin && ALLOWED_ORIGINS.has(origin) ? origin : "https://rentulo-seven.vercel.app";
-
   return {
-    "Access-Control-Allow-Origin": allowedOrigin,
+    ...(origin && ALLOWED_ORIGINS.has(origin) ? { "Access-Control-Allow-Origin": origin } : {}),
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Vary": "Origin"
@@ -350,7 +363,7 @@ async function fetchWithTimeout(url: string, timeoutMs = 4500): Promise<Response
       signal: controller.signal,
       headers: {
         Accept: "application/json",
-        "User-Agent": "Rentulo/1.0 (https://rentulo.eu)"
+        "User-Agent": GEOCODING_USER_AGENT
       }
     });
   } finally {

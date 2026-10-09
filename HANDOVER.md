@@ -426,7 +426,7 @@ Po bode 13:
 
 Pri ďalšej práci:
 
-1. pred zmenou skontrolovať aktuálny stav a históriu,
+1. **pred každým krokom** skontrolovať históriu predchádzajúcich prác, posledné rozhodnutia a aktuálny GitHub `main`; zistiť, čo už bolo vykonané a overené, a hotové kroky neopakovať,
 2. navrhnúť presný rozsah zmeny,
 3. meniť až po odsúhlasení,
 4. meniť iba dohodnutú vec,

@@ -11,6 +11,16 @@ const denoRuntime = (
   globalThis as typeof globalThis & { Deno: RentuloDenoRuntime }
 ).Deno;
 
+// Use the current site for TEST and the future site for PROD. Never identify
+// a geocoding request using the retired Vercel domain or a legacy email.
+function geocodingUserAgent(supabaseUrl: string | undefined): string | null {
+  const projectUrl = (supabaseUrl || "").trim().replace(/\/+$/, "");
+  const siteUrl =
+    projectUrl === "https://vspposovhdgvbeukoivh.supabase.co" ? "https://rentulo.eu" :
+    projectUrl === "https://tfvgxrdjrpicgtvovehl.supabase.co" ? "https://rentulo.com" : null;
+  return siteUrl ? `Rentulo/1.0 (${siteUrl}; contact: rentulo@rentulo.com)` : null;
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -76,6 +86,7 @@ async function geocodeWithNominatim(
   street: string,
   city: string,
   postalCode: string,
+  userAgent: string,
 ): Promise<GeocodeResult> {
   const url = new URL("https://nominatim.openstreetmap.org/search");
 
@@ -96,8 +107,7 @@ async function geocodeWithNominatim(
       headers: {
         Accept: "application/json",
         "Accept-Language": "cs",
-        "User-Agent":
-          "Rentulo/1.0 (https://rentulo-seven.vercel.app; contact: info@rentulo.cz)",
+        "User-Agent": userAgent,
       },
     });
   } catch (error) {
@@ -135,6 +145,7 @@ async function geocodeWithPhoton(
   street: string,
   city: string,
   postalCode: string,
+  userAgent: string,
 ): Promise<GeocodeResult> {
   const url = new URL("https://photon.komoot.io/structured");
   const streetParts = splitStreetAndHouseNumber(street);
@@ -159,8 +170,7 @@ async function geocodeWithPhoton(
       headers: {
         Accept: "application/json",
         "Accept-Language": "cs",
-        "User-Agent":
-          "Rentulo/1.0 (https://rentulo-seven.vercel.app; contact: info@rentulo.cz)",
+        "User-Agent": userAgent,
       },
     });
   } catch (error) {
@@ -206,8 +216,9 @@ denoRuntime.serve(async (req) => {
 
   const supabaseUrl = denoRuntime.env.get("SUPABASE_URL");
   const anonKey = denoRuntime.env.get("SUPABASE_ANON_KEY");
+  const userAgent = geocodingUserAgent(supabaseUrl);
 
-  if (!supabaseUrl || !anonKey) {
+  if (!supabaseUrl || !anonKey || !userAgent) {
     return jsonResponse({ error: "Missing server configuration" }, 500);
   }
 
@@ -238,7 +249,7 @@ denoRuntime.serve(async (req) => {
     return jsonResponse({ error: "Incomplete pickup location" }, 400);
   }
 
-  const nominatimResult = await geocodeWithNominatim(street, city, postalCode);
+  const nominatimResult = await geocodeWithNominatim(street, city, postalCode, userAgent);
   if (nominatimResult.kind === "ok") {
     return jsonResponse({
       ok: true,
@@ -249,7 +260,7 @@ denoRuntime.serve(async (req) => {
 
   // Public geocoding services may occasionally reject shared cloud IPs or be temporarily unavailable.
   // Use Photon as a fallback so creating an offer does not depend on a single provider.
-  const photonResult = await geocodeWithPhoton(street, city, postalCode);
+  const photonResult = await geocodeWithPhoton(street, city, postalCode, userAgent);
   if (photonResult.kind === "ok") {
     return jsonResponse({
       ok: true,

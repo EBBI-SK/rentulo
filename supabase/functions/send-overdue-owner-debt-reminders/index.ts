@@ -34,6 +34,23 @@ const denoRuntime = (
   globalThis as typeof globalThis & { Deno: RentuloDenoRuntime }
 ).Deno;
 
+// Never send users to a different Rentulo environment. A missing SITE_URL
+// uses the canonical address for this Supabase project; a mismatch fails closed.
+function resolveRentuloSiteUrl(
+  supabaseUrl: string | undefined,
+  configuredSiteUrl: string | undefined,
+): string | null {
+  const projectUrl = (supabaseUrl || "").trim().replace(/\/+$/, "");
+  const expectedUrl =
+    projectUrl === "https://vspposovhdgvbeukoivh.supabase.co" ? "https://rentulo.eu" :
+    projectUrl === "https://tfvgxrdjrpicgtvovehl.supabase.co" ? "https://rentulo.com" : null;
+  if (!expectedUrl) return null;
+  const configured = (configuredSiteUrl || "").trim();
+  return !configured || configured === expectedUrl || configured === `${expectedUrl}/`
+    ? expectedUrl
+    : null;
+}
+
 const reminderCopy: Record<SupportedLanguage, ReminderCopy> = {
   cs: {
     subject: "Neuhrazený náklad po zrušení rezervace",
@@ -166,11 +183,11 @@ denoRuntime.serve(async (req) => {
   const serviceRoleKey = denoRuntime.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const resendApiKey = denoRuntime.env.get("RESEND_API_KEY");
   const emailFrom = denoRuntime.env.get("EMAIL_FROM");
-  const siteUrl = (denoRuntime.env.get("SITE_URL") || "https://rentulo-seven.vercel.app").replace(/\/$/, "");
+  const siteUrl = resolveRentuloSiteUrl(supabaseUrl, denoRuntime.env.get("SITE_URL"));
 
-  if (!supabaseUrl || !serviceRoleKey || !resendApiKey || !emailFrom) {
-    console.error("send-overdue-owner-debt-reminders: missing server configuration");
-    return jsonResponse({ error: "Missing server configuration" }, 500);
+  if (!supabaseUrl || !serviceRoleKey || !resendApiKey || !emailFrom || !siteUrl) {
+    console.error("send-overdue-owner-debt-reminders: missing or mismatched server configuration");
+    return jsonResponse({ error: "Missing or invalid server configuration" }, 500);
   }
 
   const admin = createClient(supabaseUrl, serviceRoleKey, {
