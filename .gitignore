@@ -24,3 +24,6 @@ secrets*
 *.swo
 .DS_Store
 Thumbs.db
+
+# Generated Vercel static build output
+/dist/

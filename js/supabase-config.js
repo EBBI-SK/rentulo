@@ -1,5 +1,16 @@
 const SUPABASE_URL = "https://vspposovhdgvbeukoivh.supabase.co/";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_1WQZ-gW9198Qu2amXZ-nPg_1dkadBSz";
+// The build sets this separately for each Vercel project. Source defaults to TEST.
+const RENTULO_DEPLOY_TARGET = "test";
+const RENTULO_HOSTNAME =
+  window.location && typeof window.location.hostname === "string"
+    ? window.location.hostname.toLowerCase()
+    : "";
+// Never use a TEST client on the public PROD domain, or vice versa.
+const RENTULO_WRONG_DOMAIN =
+  (RENTULO_DEPLOY_TARGET === "test" && /(^|\.)rentulo\.com$/.test(RENTULO_HOSTNAME)) ||
+  (RENTULO_DEPLOY_TARGET === "prod" && /(^|\.)rentulo\.eu$/.test(RENTULO_HOSTNAME));
+
 
 const RENTULO_REMEMBER_LOGIN_KEY = "rentuloRememberLogin";
 
@@ -106,7 +117,7 @@ const rentuloAuthStorage = {
 };
 
 const rentuloSupabase =
-  window.supabase && typeof window.supabase.createClient === "function"
+  !RENTULO_WRONG_DOMAIN && window.supabase && typeof window.supabase.createClient === "function"
     ? window.supabase.createClient(
         SUPABASE_URL,
         SUPABASE_PUBLISHABLE_KEY,

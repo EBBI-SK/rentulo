@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "build": "node scripts/build-site.mjs"
   },
   "devDependencies": {
     "supabase": "^2.109.1"

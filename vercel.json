@@ -17,10 +17,6 @@
       "source": "/(.*)",
       "headers": [
         {
-          "key": "Content-Security-Policy",
-          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; img-src 'self' data: blob: https://vspposovhdgvbeukoivh.supabase.co https://*.tile.openstreetmap.org; connect-src 'self' https://vspposovhdgvbeukoivh.supabase.co wss://vspposovhdgvbeukoivh.supabase.co https://cdn.jsdelivr.net; font-src 'self' data: https://fonts.gstatic.com; media-src 'self' blob:; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests"
-        },
-        {
           "key": "X-Content-Type-Options",
           "value": "nosniff"
         },
@@ -45,6 +41,59 @@
           "value": "same-origin-allow-popups"
         }
       ]
+    },
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": {
+            "re": "^(?:www\\.)?rentulo\\.eu$"
+          }
+        }
+      ],
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; img-src 'self' data: blob: https://vspposovhdgvbeukoivh.supabase.co https://*.tile.openstreetmap.org; connect-src 'self' https://vspposovhdgvbeukoivh.supabase.co wss://vspposovhdgvbeukoivh.supabase.co https://cdn.jsdelivr.net; font-src 'self' data: https://fonts.gstatic.com; media-src 'self' blob:; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": {
+            "re": "^(?:www\\.)?rentulo\\.com$"
+          }
+        }
+      ],
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; img-src 'self' data: blob: https://tfvgxrdjrpicgtvovehl.supabase.co https://*.tile.openstreetmap.org; connect-src 'self' https://tfvgxrdjrpicgtvovehl.supabase.co wss://tfvgxrdjrpicgtvovehl.supabase.co https://cdn.jsdelivr.net; font-src 'self' data: https://fonts.gstatic.com; media-src 'self' blob:; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "missing": [
+        {
+          "type": "host",
+          "value": {
+            "re": "^(?:www\\.)?rentulo\\.(?:eu|com)$"
+          }
+        }
+      ],
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; img-src 'self' data: blob: https://vspposovhdgvbeukoivh.supabase.co https://tfvgxrdjrpicgtvovehl.supabase.co https://*.tile.openstreetmap.org; connect-src 'self' https://vspposovhdgvbeukoivh.supabase.co wss://vspposovhdgvbeukoivh.supabase.co https://tfvgxrdjrpicgtvovehl.supabase.co wss://tfvgxrdjrpicgtvovehl.supabase.co https://cdn.jsdelivr.net; font-src 'self' data: https://fonts.gstatic.com; media-src 'self' blob:; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests"
+        }
+      ]
     }
-  ]
+  ],
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist"
 }
