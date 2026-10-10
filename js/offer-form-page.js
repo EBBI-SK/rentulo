@@ -55,6 +55,7 @@ let offerSaveInProgress = false;
 
       offerAddressSuggestions = [];
       offerAddressActiveIndex = -1;
+      offerAddressRequestId += 1; // Invalidate any older in-flight response.
 
       if (offerAddressTimer) {
         window.clearTimeout(offerAddressTimer);
@@ -240,16 +241,11 @@ let offerSaveInProgress = false;
         const city = cityInput.value.trim();
         const postalCode = postalCodeInput.value.trim();
 
-        offerAddressRequestId += 1;
+        // Don't leave proposals for the previous input visible or accept a late response.
+        closeOfferAddressSuggestions();
         const requestId = offerAddressRequestId;
 
-        if (offerAddressTimer) {
-          window.clearTimeout(offerAddressTimer);
-          offerAddressTimer = null;
-        }
-
         if (query.length < OFFER_ADDRESS_SUGGESTION_MIN_LENGTH) {
-          closeOfferAddressSuggestions();
           return;
         }
 

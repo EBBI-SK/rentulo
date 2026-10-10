@@ -123,7 +123,12 @@ function buildStreet(properties: Record<string, unknown>): string {
     return "";
   }
 
-  if (!houseNumber || streetName.includes(houseNumber)) {
+  // A number elsewhere in a street name (e.g. "17. listopadu") is not
+  // the house number. A full existing suffix such as "846/1" is, however.
+  const suffix = streetName.match(/\s+(\d+(?:\/\d+)?[a-zA-Z]?)$/);
+  if (!houseNumber || (suffix && (
+    houseNumberMatches(suffix[1], houseNumber) || houseNumberMatches(houseNumber, suffix[1])
+  ))) {
     return streetName;
   }
 
@@ -160,7 +165,7 @@ function houseNumberMatches(candidate: unknown, required: unknown): boolean {
   return normalizedCandidate.split("/").includes(normalizedRequired);
 }
 
-function cityMatches(candidate: unknown, required: unknown): boolean {
+function cityMatches(candidate: unknown, required: unknown, allowPrefix = false): boolean {
   const normalizedCandidate = normalizeComparableText(candidate);
   const normalizedRequired = normalizeComparableText(required);
 
@@ -172,7 +177,8 @@ function cityMatches(candidate: unknown, required: unknown): boolean {
     normalizedCandidate === normalizedRequired ||
     normalizedCandidate.startsWith(`${normalizedRequired} `) ||
     normalizedCandidate.endsWith(` ${normalizedRequired}`) ||
-    normalizedRequired.startsWith(`${normalizedCandidate} `)
+    normalizedRequired.startsWith(`${normalizedCandidate} `) ||
+    (allowPrefix && normalizedRequired.length >= 3 && normalizedCandidate.startsWith(normalizedRequired))
   );
 }
 
@@ -208,53 +214,102 @@ function parseAddressQuery(query: string): {
   streetQuery: string;
   city: string;
   postalCode: string;
+  cityMayBePartial: boolean;
 } {
   const parts = query
     .split(",")
     .map((part) => cleanText(part, 160))
     .filter(Boolean);
 
-  if (parts.length <= 1) {
-    return {
-      streetQuery: query,
-      city: "",
-      postalCode: ""
-    };
-  }
-
-  const streetQuery = parts.shift() || query;
+  let streetQuery = parts.shift() || query;
   let city = "";
   let postalCode = "";
+  let cityMayBePartial = false;
+
+  // People also type "Václavské náměstí 1 Praha" without a comma, or
+  // "Vaclavske nam. 1 pra" while still entering the city.
+  const combined = streetQuery.match(/^(.+?)\s+(\d+(?:\/\d+)?[a-zA-Z]?)\s+(.+)$/);
+  if (combined) {
+    const possibleCity = cleanText(combined[3], 100);
+    if (possibleCity.length >= 3 && /^[\p{L}\p{M}][\p{L}\p{M}.\-\s]*(?:\s+\d{1,2})?$/u.test(possibleCity)) {
+      streetQuery = `${cleanText(combined[1], 140)} ${combined[2]}`;
+      city = possibleCity;
+      cityMayBePartial = true;
+    }
+  }
 
   for (const part of parts) {
     const digits = normalizePostalDigits(part);
-
     if (!postalCode && digits.length === 5 && /^[\d\s]+$/.test(part)) {
       postalCode = normalizePostalCode(part);
       continue;
     }
 
+    const cityAndPostal = part.match(/^(.+?)\s+(\d{3}\s?\d{2})$/);
+    if (cityAndPostal) {
+      city = cleanText([city, cityAndPostal[1]].filter(Boolean).join(" "), 100);
+      postalCode = normalizePostalCode(cityAndPostal[2]);
+      continue;
+    }
+
     city = cleanText([city, part].filter(Boolean).join(" "), 100);
+    cityMayBePartial = false;
   }
 
-  return {
-    streetQuery,
-    city,
-    postalCode
-  };
+  return { streetQuery, city, postalCode, cityMayBePartial };
+}
+
+function normalizeStreetForMatch(value: unknown): string {
+  return normalizeComparableText(value)
+    .replace(/\bnam\.?(?=\s|$)/g, "namesti")
+    .replace(/[.,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function suggestionScore(
+  suggestion: AddressSuggestion,
+  requestedStreet: string,
+  requestedHouseNumber: string,
+  requestedCity: string
+): number {
+  const parsed = parseStreetAndHouseNumber(suggestion.street);
+  const candidateStreet = normalizeStreetForMatch(parsed ? parsed.street : suggestion.street);
+  const expectedStreet = normalizeStreetForMatch(requestedStreet);
+  let score = 0;
+
+  if (expectedStreet && candidateStreet === expectedStreet) score += 60;
+  else if (expectedStreet && (candidateStreet.startsWith(expectedStreet) || expectedStreet.startsWith(candidateStreet))) score += 20;
+
+  if (requestedHouseNumber && parsed) {
+    if (normalizeHouseNumber(parsed.houseNumber) === normalizeHouseNumber(requestedHouseNumber)) score += 50;
+    else if (houseNumberMatches(parsed.houseNumber, requestedHouseNumber)) score += 10;
+  }
+
+  if (requestedCity && normalizeComparableText(suggestion.city) === normalizeComparableText(requestedCity)) score += 10;
+  return score;
+}
+
+function samePhysicalAddress(a: AddressSuggestion, b: AddressSuggestion): boolean {
+  return normalizeStreetForMatch(a.street) === normalizeStreetForMatch(b.street) &&
+    normalizePostalDigits(a.postalCode) === normalizePostalDigits(b.postalCode) &&
+    (cityMatches(a.city, b.city) || cityMatches(b.city, a.city)) &&
+    Math.abs(a.latitude - b.latitude) <= 0.0008 &&
+    Math.abs(a.longitude - b.longitude) <= 0.0012;
 }
 
 function mapPhotonFeatures(
   data: unknown,
   requiredHouseNumber = "",
   requiredCity = "",
-  requiredPostalCode = ""
+  requiredPostalCode = "",
+  requestedStreet = "",
+  allowCityPrefix = false
 ): AddressSuggestion[] {
   const features = Array.isArray((data as { features?: unknown[] })?.features)
     ? (data as { features: unknown[] }).features
     : [];
-  const suggestions: AddressSuggestion[] = [];
-  const seen = new Set<string>();
+  const results: AddressSuggestion[] = [];
 
   for (const feature of features) {
     const properties =
@@ -293,7 +348,7 @@ function mapPhotonFeatures(
       continue;
     }
 
-    if (requiredCity && !cityMatches(city, requiredCity)) {
+    if (requiredCity && !cityMatches(city, requiredCity, allowCityPrefix)) {
       continue;
     }
 
@@ -301,14 +356,7 @@ function mapPhotonFeatures(
       continue;
     }
 
-    const dedupeKey = `${street}|${city}|${postalCode}`.toLocaleLowerCase("cs-CZ");
-
-    if (seen.has(dedupeKey)) {
-      continue;
-    }
-
-    seen.add(dedupeKey);
-    suggestions.push({
+    results.push({
       street,
       city,
       postalCode,
@@ -316,10 +364,26 @@ function mapPhotonFeatures(
       longitude,
       label: `${street}, ${city}, ${postalCode}`
     });
+  }
 
-    if (suggestions.length >= 5) {
-      break;
+  // Rank exact street + house first, then remove duplicate Photon records
+  // (e.g. the same Prague address with "Praha" and "Praha 1" locality labels).
+  results.sort((a, b) =>
+    suggestionScore(b, requestedStreet, requiredHouseNumber, requiredCity) -
+    suggestionScore(a, requestedStreet, requiredHouseNumber, requiredCity)
+  );
+
+  const suggestions: AddressSuggestion[] = [];
+  const seen = new Set<string>();
+  for (const item of results) {
+    const dedupeKey = [item.street, item.city, item.postalCode]
+      .map((part) => normalizeComparableText(part)).join("|");
+    if (seen.has(dedupeKey) || suggestions.some((other) => samePhysicalAddress(other, item))) {
+      continue;
     }
+    seen.add(dedupeKey);
+    suggestions.push(item);
+    if (suggestions.length >= 5) break;
   }
 
   return suggestions;
@@ -375,7 +439,9 @@ async function fetchPhotonSuggestions(
   url: URL,
   requiredHouseNumber = "",
   requiredCity = "",
-  requiredPostalCode = ""
+  requiredPostalCode = "",
+  requestedStreet = "",
+  allowCityPrefix = false
 ): Promise<AddressSuggestion[]> {
   try {
     const response = await fetchWithTimeout(url.toString());
@@ -390,7 +456,9 @@ async function fetchPhotonSuggestions(
       data,
       requiredHouseNumber,
       requiredCity,
-      requiredPostalCode
+      requiredPostalCode,
+      requestedStreet,
+      allowCityPrefix
     );
   } catch (error) {
     console.warn(
@@ -485,6 +553,7 @@ denoRuntime.serve(async (req) => {
   const streetQuery = parsedQuery.streetQuery;
   const city = cleanText(payload.city, 100) || parsedQuery.city;
   const postalCode = normalizePostalCode(payload.postalCode) || parsedQuery.postalCode;
+  const allowCityPrefix = !cleanText(payload.city, 100) && parsedQuery.cityMayBePartial;
   const parsedAddress = parseStreetAndHouseNumber(streetQuery);
   const street = parsedAddress ? parsedAddress.street : streetQuery;
   const houseNumber = parsedAddress ? parsedAddress.houseNumber : "";
@@ -514,7 +583,9 @@ denoRuntime.serve(async (req) => {
       structuredUrl,
       houseNumber,
       city,
-      postalCode
+      postalCode,
+      street,
+      allowCityPrefix
     );
 
     if (suggestions.length === 0 && postalCode) {
@@ -529,7 +600,9 @@ denoRuntime.serve(async (req) => {
         cityOnlyUrl,
         houseNumber,
         city,
-        ""
+        "",
+        street,
+        allowCityPrefix
       );
     }
   }
@@ -544,7 +617,9 @@ denoRuntime.serve(async (req) => {
       forwardUrl,
       houseNumber,
       city,
-      postalCode
+      postalCode,
+      street,
+      allowCityPrefix
     );
   }
 
@@ -558,23 +633,26 @@ denoRuntime.serve(async (req) => {
       forwardUrl,
       houseNumber,
       city,
-      ""
+      "",
+      street,
+      allowCityPrefix
+    );
+  }
+
+  // A short city fragment ("pra") may not be accepted by Photon's
+  // structured city parameter. Search the street/house more broadly as a
+  // last resort, but STILL filter each result against the typed city.
+  if (suggestions.length === 0 && allowCityPrefix && city && houseNumber) {
+    const streetOnlyUrl = createStructuredUrl(street, houseNumber, "", postalCode);
+    suggestions = await fetchPhotonSuggestions(
+      streetOnlyUrl, houseNumber, city, postalCode, street, true
     );
   }
 
   if (suggestions.length === 0 && houseNumber && !city && !postalCode) {
-    const structuredUrl = createStructuredUrl(
-      street,
-      houseNumber,
-      "",
-      ""
-    );
-
+    const structuredUrl = createStructuredUrl(street, houseNumber, "", "");
     suggestions = await fetchPhotonSuggestions(
-      structuredUrl,
-      houseNumber,
-      "",
-      ""
+      structuredUrl, houseNumber, "", "", street, allowCityPrefix
     );
   }
 

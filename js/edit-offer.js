@@ -295,16 +295,11 @@ function setupEditPickupAddressAutocomplete() {
     const city = cityInput.value.trim();
     const postalCode = postalCodeInput.value.trim();
 
-    editAddressRequestId += 1;
+    // Don't leave proposals for the previous input visible or accept a late response.
+    closeEditAddressSuggestions();
     const requestId = editAddressRequestId;
 
-    if (editAddressTimer) {
-      window.clearTimeout(editAddressTimer);
-      editAddressTimer = null;
-    }
-
     if (query.length < EDIT_ADDRESS_SUGGESTION_MIN_LENGTH) {
-      closeEditAddressSuggestions();
       return;
     }
 
