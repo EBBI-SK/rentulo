@@ -131,6 +131,14 @@ function applyHomeDynamicTranslations() {
     );
   }
 
+  const zoomControls = document.querySelector(".home-map-zoom-controls");
+  if (zoomControls) {
+    zoomControls.setAttribute(
+      "aria-label",
+      homeTranslate("home.mapZoomControlsAriaLabel", "Ovládání přiblížení mapy")
+    );
+  }
+
   applyHomeMapGestureTranslations();
 }
 

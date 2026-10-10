@@ -6,9 +6,14 @@
     return fallback || key;
   }
 
-  function setMessage(element, text, type) {
+  function setMessage(element, text, type, translationKey = "") {
     if (!element) return;
     element.textContent = text || "";
+    if (text && translationKey) {
+      element.dataset.i18n = translationKey;
+    } else {
+      delete element.dataset.i18n;
+    }
     element.className = "status-message";
     if (text) element.classList.add("active", type || "success");
   }
@@ -58,6 +63,12 @@
       code === "same_password" ||
       message.includes("new password should be different from the old password")
     );
+  }
+
+  function getRequestErrorKey(error) {
+    return isEmailRateLimitError(error)
+      ? "passwordRecovery.error.rateLimit"
+      : "passwordRecovery.error.generic";
   }
 
   function getRequestErrorMessage(error) {
@@ -226,7 +237,7 @@
 
     setMessage(message, "", "");
     if (!isValidEmail(email)) {
-      setMessage(message, t("passwordRecovery.error.emailRequired", "Zadejte platný e-mail."), "error");
+      setMessage(message, t("passwordRecovery.error.emailRequired", "Zadejte platný e-mail."), "error", "passwordRecovery.error.emailRequired");
       if (emailInput) emailInput.focus();
       return;
     }
@@ -243,16 +254,16 @@
 
       if (error) {
         console.error(error);
-        setMessage(message, getRequestErrorMessage(error), "error");
+        setMessage(message, getRequestErrorMessage(error), "error", getRequestErrorKey(error));
         return;
       }
 
-      setMessage(message, t("passwordRecovery.sent", "Pokud je e-mail registrovaný, poslali jsme na něj odkaz pro obnovu hesla."), "success");
+      setMessage(message, t("passwordRecovery.sent", "Pokud je e-mail registrovaný, poslali jsme na něj odkaz pro obnovu hesla."), "success", "passwordRecovery.sent");
       showRequestSentState();
       if (emailInput) emailInput.value = "";
     } catch (error) {
       console.error(error);
-      setMessage(message, getRequestErrorMessage(error), "error");
+      setMessage(message, getRequestErrorMessage(error), "error", getRequestErrorKey(error));
     } finally {
       if (button) {
         button.disabled = false;
@@ -278,13 +289,14 @@
           "passwordRecovery.error.passwordRequirements",
           "Heslo musí mít alespoň 8 znaků a obsahovat malé písmeno, velké písmeno, číslici a symbol."
         ),
-        "error"
+        "error",
+        "passwordRecovery.error.passwordRequirements"
       );
       if (passwordInput) passwordInput.focus();
       return;
     }
     if (password !== confirmation) {
-      setMessage(message, t("passwordRecovery.error.passwordMismatch", "Zadaná hesla se neshodují."), "error");
+      setMessage(message, t("passwordRecovery.error.passwordMismatch", "Zadaná hesla se neshodují."), "error", "passwordRecovery.error.passwordMismatch");
       return;
     }
 
@@ -306,7 +318,8 @@
               "passwordRecovery.error.passwordRequirements",
               "Heslo musí mít alespoň 8 znaků a obsahovat malé písmeno, velké písmeno, číslici a symbol."
             ),
-            "error"
+            "error",
+            "passwordRecovery.error.passwordRequirements"
           );
         } else if (isSameAsOldPasswordError(error)) {
           setMessage(
@@ -315,10 +328,11 @@
               "passwordRecovery.error.sameAsOldPassword",
               "Nové heslo musí být jiné než současné heslo."
             ),
-            "error"
+            "error",
+            "passwordRecovery.error.sameAsOldPassword"
           );
         } else {
-          setMessage(message, t("passwordRecovery.error.invalidLink", "Odkaz pro obnovu hesla je neplatný nebo vypršel. Požádejte o nový odkaz."), "error");
+          setMessage(message, t("passwordRecovery.error.invalidLink", "Odkaz pro obnovu hesla je neplatný nebo vypršel. Požádejte o nový odkaz."), "error", "passwordRecovery.error.invalidLink");
         }
         return;
       }
@@ -327,14 +341,14 @@
       clearRecoverySessionActive();
       if (passwordInput) passwordInput.value = "";
       if (confirmInput) confirmInput.value = "";
-      setMessage(message, t("passwordRecovery.updated", "Heslo bylo změněno."), "success");
+      setMessage(message, t("passwordRecovery.updated", "Heslo bylo změněno."), "success", "passwordRecovery.updated");
 
       window.setTimeout(function () {
         window.location.replace(getPostResetDestination());
       }, 900);
     } catch (error) {
       console.error(error);
-      setMessage(message, t("passwordRecovery.error.generic", "Obnovu hesla se nepodařilo dokončit. Zkuste to znovu."), "error");
+      setMessage(message, t("passwordRecovery.error.generic", "Obnovu hesla se nepodařilo dokončit. Zkuste to znovu."), "error", "passwordRecovery.error.generic");
     } finally {
       if (button && !passwordUpdated) {
         button.disabled = false;
@@ -342,6 +356,18 @@
       }
     }
   }
+
+  document.addEventListener("rentuloLanguageChanged", function () {
+    const requestButton = document.getElementById("requestResetButton");
+    const saveButton = document.getElementById("savePasswordButton");
+
+    if (requestButton && requestButton.disabled) {
+      requestButton.textContent = t("passwordRecovery.sending", "Odesílám...");
+    }
+    if (saveButton && saveButton.disabled) {
+      saveButton.textContent = t("passwordRecovery.saving", "Ukládám...");
+    }
+  });
 
   document.addEventListener("DOMContentLoaded", async function () {
     updateBackToLoginLinks();
@@ -352,7 +378,7 @@
     const requestMessage = document.getElementById("requestMessage");
 
     if (!client) {
-      setMessage(requestMessage, t("passwordRecovery.error.generic", "Obnovu hesla se nepodařilo dokončit. Zkuste to znovu."), "error");
+      setMessage(requestMessage, t("passwordRecovery.error.generic", "Obnovu hesla se nepodařilo dokončit. Zkuste to znovu."), "error", "passwordRecovery.error.generic");
       return;
     }
 
@@ -367,7 +393,8 @@
           "passwordRecovery.error.invalidLink",
           "Odkaz pro obnovu hesla je neplatný nebo vypršel. Pošlete si nový odkaz."
         ),
-        "error"
+        "error",
+        "passwordRecovery.error.invalidLink"
       );
       return;
     }
