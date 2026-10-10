@@ -96,6 +96,37 @@ test("sorts the exact Prague house first and merges nearby duplicate localities"
   assert.equal(results[0].longitude, 14.4245);
 });
 
+test("precise street matching accepts normal forms and partial street words, not another street", () => {
+  const { context } = runServer();
+  assert.equal(vm.runInNewContext('matchesRequestedStreet("Václavské náměstí", "Vaclavske nam.")', context), true);
+  assert.equal(vm.runInNewContext('matchesRequestedStreet("Václavské náměstí", "Vacl")', context), true);
+  assert.equal(vm.runInNewContext('matchesRequestedStreet("Václavské náměstí", "Václavské náměstí")', context), true);
+  assert.equal(vm.runInNewContext('matchesRequestedStreet("Na Václavce", "Vaclavske nam")', context), false);
+  assert.equal(vm.runInNewContext('matchesRequestedStreet("náměstí Václava Havla", "Vaclavske nam")', context), false);
+});
+
+test("specific Prague house does not include similarly named buildings on another street", async () => {
+  const mock = runServer([
+    photonFeature("Na Václavce", "117/1", "Praha", "150 00", 50.073, 14.398),
+    photonFeature("Václavské náměstí", "846/1", "Praha 1", "110 00", 50.0823, 14.423),
+    photonFeature("Václavské náměstí", "1", "Praha", "110 00", 50.0832, 14.4245),
+    photonFeature("náměstí Václava Havla", "1", "Praha", "110 00", 50.095, 14.415)
+  ]);
+  const results = await mock.query("Vaclavske nam. 1 pra");
+  assert.equal(results.length, 2);
+  assert.equal(results[0].street, "Václavské náměstí 1");
+  assert.equal(results.every(item => item.street.startsWith("Václavské náměstí")), true);
+});
+
+test("without a house number, autocomplete retains broad street suggestions", async () => {
+  const mock = runServer([
+    photonFeature("Václavské náměstí", "1", "Praha", "110 00", 50.0832, 14.4245),
+    photonFeature("Na Václavce", "117/1", "Praha", "150 00", 50.073, 14.398)
+  ]);
+  const results = await mock.query("Vacl", "Praha");
+  assert.equal(results.length, 2);
+});
+
 test("does not merge similarly named houses at different physical locations", () => {
   const { context } = runServer();
   context.testFeatures = { features: [

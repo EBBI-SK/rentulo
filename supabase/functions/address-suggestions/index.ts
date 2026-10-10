@@ -267,6 +267,25 @@ function normalizeStreetForMatch(value: unknown): string {
     .trim();
 }
 
+// Once a house number is supplied, the street is specific enough to reject
+// fuzzy Photon matches from other streets. Allow the last typed street word to
+// be incomplete (e.g. "Vacl" or "nam"), without matching a different street.
+function matchesRequestedStreet(candidate: unknown, requested: unknown): boolean {
+  const candidateWords = normalizeStreetForMatch(candidate).split(" ").filter(Boolean);
+  const requestedWords = normalizeStreetForMatch(requested).split(" ").filter(Boolean);
+
+  if (!candidateWords.length || !requestedWords.length ||
+      requestedWords.length > candidateWords.length) {
+    return false;
+  }
+
+  return requestedWords.every((word, index) =>
+    index === requestedWords.length - 1
+      ? candidateWords[index].startsWith(word)
+      : candidateWords[index] === word
+  );
+}
+
 function suggestionScore(
   suggestion: AddressSuggestion,
   requestedStreet: string,
@@ -354,6 +373,14 @@ function mapPhotonFeatures(
 
     if (requiredPostalCode && !postalCodeMatches(postalCode, requiredPostalCode)) {
       continue;
+    }
+
+    if (requiredHouseNumber && requestedStreet) {
+      const candidate = parseStreetAndHouseNumber(street);
+      const candidateName = candidate ? candidate.street : street;
+      if (!matchesRequestedStreet(candidateName, requestedStreet)) {
+        continue;
+      }
     }
 
     results.push({
