@@ -27,6 +27,17 @@ function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+function getPragueCalendarDate(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Prague", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(now);
+  const values: Record<string, string> = {};
+  for (const part of parts) {
+    if (["year", "month", "day"].includes(part.type)) values[part.type] = part.value;
+  }
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
 async function createPickupPin(secret: string, reservationId: string, paymentId: string): Promise<string> {
   const key = await crypto.subtle.importKey(
     "raw",
@@ -104,7 +115,7 @@ denoRuntime.serve(async (req) => {
 
   const { data: reservation, error: reservationError } = await admin
     .from("reservations")
-    .select("id, renter_id, owner_id, status")
+    .select("id, renter_id, owner_id, status, start_date")
     .eq("id", reservationId)
     .single();
 
@@ -118,6 +129,15 @@ denoRuntime.serve(async (req) => {
 
   if (reservation.status !== "paid") {
     return jsonResponse({ error: "Pickup PIN is not available", code: "pin_unavailable" }, 409);
+  }
+
+  // Future reservations retain their PIN; past pickup dates must not reveal one.
+  // Use Prague's calendar date, never the server's UTC date or the client's clock.
+  if (reservation.start_date < getPragueCalendarDate()) {
+    return jsonResponse({
+      error: "The scheduled pickup date has passed",
+      code: "pickup_day_expired",
+    }, 409);
   }
 
   const { data: payment, error: paymentError } = await admin

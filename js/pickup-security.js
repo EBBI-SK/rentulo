@@ -7,6 +7,7 @@
       pinHint: "Tento 6místný PIN sdělte majiteli až při osobním předání věci.",
       pinLoading: "Načítám PIN…",
       pinUnavailable: "PIN teď není dostupný. Obnovte stránku a zkuste to znovu.",
+      pinExpired: "Termín pro převzetí již uplynul.",
       handoffTitle: "Předáváte věc nájemci?",
       handoffText: "Zadejte 6místný PIN od nájemce. Rentulo najde správnou rezervaci za vás.",
       handoffOpen: "Zadat PIN",
@@ -33,6 +34,7 @@
       pinHint: "Tento 6-miestny PIN povedzte majiteľovi až pri osobnom odovzdaní veci.",
       pinLoading: "Načítavam PIN…",
       pinUnavailable: "PIN teraz nie je dostupný. Obnovte stránku a skúste to znova.",
+      pinExpired: "Termín prevzatia už uplynul.",
       handoffTitle: "Odovzdávate vec nájomcovi?",
       handoffText: "Zadajte 6-miestny PIN od nájomcu. Rentulo nájde správnu rezerváciu za vás.",
       handoffOpen: "Zadať PIN",
@@ -59,6 +61,7 @@
       pinHint: "Give this 6-digit PIN to the owner only when the item is physically handed over.",
       pinLoading: "Loading PIN…",
       pinUnavailable: "The PIN is not available right now. Refresh the page and try again.",
+      pinExpired: "The scheduled pickup date has passed.",
       handoffTitle: "Handing an item to the renter?",
       handoffText: "Enter the renter's 6-digit PIN. Rentulo will find the correct reservation for you.",
       handoffOpen: "Enter PIN",
@@ -85,6 +88,7 @@
       pinHint: "Geben Sie diesen 6-stelligen PIN dem Eigentümer erst bei der persönlichen Übergabe des Gegenstands.",
       pinLoading: "PIN wird geladen…",
       pinUnavailable: "Der PIN ist derzeit nicht verfügbar. Laden Sie die Seite neu und versuchen Sie es erneut.",
+      pinExpired: "Der vereinbarte Abholtag ist bereits vorbei.",
       handoffTitle: "Übergeben Sie einen Gegenstand?",
       handoffText: "Geben Sie den 6-stelligen PIN des Mieters ein. Rentulo findet die richtige Reservierung.",
       handoffOpen: "PIN eingeben",
@@ -111,6 +115,7 @@
       pinHint: "Podaj ten 6-cyfrowy PIN właścicielowi dopiero podczas osobistego przekazania przedmiotu.",
       pinLoading: "Ładowanie PIN-u…",
       pinUnavailable: "PIN nie jest teraz dostępny. Odśwież stronę i spróbuj ponownie.",
+      pinExpired: "Termin odbioru już minął.",
       handoffTitle: "Przekazujesz przedmiot najemcy?",
       handoffText: "Wpisz 6-cyfrowy PIN najemcy. Rentulo znajdzie właściwą rezerwację.",
       handoffOpen: "Wpisz PIN",
@@ -199,6 +204,22 @@
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "";
     return date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function getPragueCalendarDate(now = new Date()) {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Prague", year: "numeric", month: "2-digit", day: "2-digit"
+    }).formatToParts(now);
+    const values = {};
+    parts.forEach(function (part) {
+      if (["year", "month", "day"].includes(part.type)) values[part.type] = part.value;
+    });
+    return values.year + "-" + values.month + "-" + values.day;
+  }
+
+  function isExpiredPickupDate(value, now = new Date()) {
+    const pickupDate = String(value || "");
+    return /^\d{4}-\d{2}-\d{2}$/.test(pickupDate) && pickupDate < getPragueCalendarDate(now);
   }
 
   function setOwnerMessage(message, tone) {
@@ -501,9 +522,26 @@
     openHandoffForm();
   }
 
+  function showExpiredRenterPin(block) {
+    block.classList.add("expired");
+    block.innerHTML = `<span>${escapeHtml(text("pinExpired"))}</span>`;
+  }
+
   async function loadRenterPin(row, reservationId, block) {
+    // Avoid a request after the pickup date; the Edge Function enforces this too.
+    if (isExpiredPickupDate(row.dataset.pickupDate)) {
+      showExpiredRenterPin(block);
+      return;
+    }
+
     const result = await invoke("get-pickup-pin", { reservation_id: reservationId });
     if (!row.isConnected || !block.isConnected) return;
+
+    // Also protect the UI if the request finishes after Prague midnight.
+    if (isExpiredPickupDate(row.dataset.pickupDate) || result.data?.code === "pickup_day_expired") {
+      showExpiredRenterPin(block);
+      return;
+    }
 
     if (!result.ok || !result.data || !/^\d{6}$/.test(String(result.data.pin || ""))) {
       block.innerHTML = `<strong>${escapeHtml(text("pinTitle"))}</strong><span>${escapeHtml(text("pinUnavailable"))}</span>`;
@@ -519,6 +557,14 @@
     `;
   }
 
+  function refreshExpiredRenterPins() {
+    document.querySelectorAll(".simple-reservation-row[data-pickup-date]").forEach(function (row) {
+      if (!isExpiredPickupDate(row.dataset.pickupDate)) return;
+      const block = row.querySelector(".pickup-pin-card");
+      if (block && !block.classList.contains("expired")) showExpiredRenterPin(block);
+    });
+  }
+
   function enhanceRenterRows() {
     document.querySelectorAll(".simple-reservation-row").forEach(function (row) {
       const paidStatus = row.querySelector(".simple-reservation-status.status-paid");
@@ -532,13 +578,15 @@
       const block = document.createElement("section");
       block.className = "pickup-pin-card";
       block.setAttribute("aria-live", "polite");
-      block.innerHTML = `<strong>${escapeHtml(text("pinTitle"))}</strong><span>${escapeHtml(text("pinLoading"))}</span>`;
+      const expired = isExpiredPickupDate(row.dataset.pickupDate);
+      if (expired) showExpiredRenterPin(block);
+      else block.innerHTML = `<strong>${escapeHtml(text("pinTitle"))}</strong><span>${escapeHtml(text("pinLoading"))}</span>`;
 
       const detailRow = row.querySelector(".detail-row");
       if (detailRow) row.insertBefore(block, detailRow);
       else row.appendChild(block);
 
-      loadRenterPin(row, reservationId, block);
+      if (!expired) loadRenterPin(row, reservationId, block);
     });
   }
 
@@ -590,6 +638,11 @@
       const observer = new MutationObserver(function () { enhanceRenterRows(); });
       observer.observe(reservationsList, { childList: true, subtree: true });
       enhanceRenterRows();
+      // A tab can stay open overnight. Remove a now-expired PIN without reloading.
+      window.setInterval(refreshExpiredRenterPins, 30000);
+      document.addEventListener("visibilitychange", function () {
+        if (!document.hidden) refreshExpiredRenterPins();
+      });
     }
 
     const offersList = document.getElementById("offersList");

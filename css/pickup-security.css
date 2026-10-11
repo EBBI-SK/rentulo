@@ -9,6 +9,11 @@
   color: #173f35;
 }
 
+.pickup-pin-card.expired {
+  border-color: #d8e0dc;
+  background: #f7f9f8;
+}
+
 .pickup-pin-card > strong,
 .pickup-pin-copy > strong {
   font-size: 13px;

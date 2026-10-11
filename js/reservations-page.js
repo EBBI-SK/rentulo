@@ -1423,7 +1423,7 @@ return (
         : "";
 
       return `
-  <article class="simple-reservation-row ${isPriority ? "priority" : ""}">
+  <article class="simple-reservation-row ${isPriority ? "priority" : ""}" data-pickup-date="${escapeHtml(startDate)}">
     <div class="simple-reservation-main">
       ${renderToolThumb(reservation)}
 
