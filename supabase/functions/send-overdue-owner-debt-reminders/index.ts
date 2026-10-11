@@ -148,8 +148,16 @@ function escapeHtml(value: unknown): string {
     .replaceAll("'", "&#039;");
 }
 
+// Keep the admin client type tied to the actual createClient call. A bare
+// ReturnType<typeof createClient> loses the inferred schema and breaks Deno check.
+function createReminderAdminClient(supabaseUrl: string, serviceRoleKey: string) {
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
 async function setDeliveryStatus(
-  admin: ReturnType<typeof createClient>,
+  admin: ReturnType<typeof createReminderAdminClient>,
   deliveryId: string,
   status: "sent" | "failed" | "skipped",
   values: Record<string, unknown> = {},
@@ -190,9 +198,7 @@ denoRuntime.serve(async (req) => {
     return jsonResponse({ error: "Missing or invalid server configuration" }, 500);
   }
 
-  const admin = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+  const admin = createReminderAdminClient(supabaseUrl, serviceRoleKey);
 
   // Internal-only worker. The database cron sends a dedicated random secret
   // stored in Supabase Vault. The raw secret is never committed to the repo and
