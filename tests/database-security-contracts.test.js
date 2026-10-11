@@ -160,8 +160,8 @@ test("latest server status-transition guard keeps role-specific transitions with
   );
   assert.doesNotMatch(sql, /app\.test_payment_authorized/i);
   assert.doesNotMatch(sql, /from\s+public\.test_payment_users/i);
-  assert.match(sql, /old\.start_date\s+is\s+null/i);
-  assert.match(sql, /old\.pickup_time\s+is\s+null/i);
-  assert.match(sql, /now\(\)\s*<\s*\(\(old\.start_date\s*\+\s*old\.pickup_time\)\s*at\s*time\s*zone\s*'Europe\/Prague'\)/i);
-  assert.match(sql, /message\s*=\s*'PICKUP_NOT_STARTED'/i);
+  assert.match(sql, /old\.start_date\s+is\s+distinct\s+from\s+\(now\(\)\s+at\s+time\s+zone\s+'Europe\/Prague'\)::date/i);
+  assert.match(sql, /message\s*=\s*'PICKUP_WRONG_DAY'/i);
+  const pickupRule = sql.slice(sql.indexOf('-- Trusted pickup PIN confirmation'), sql.indexOf('-- Trusted paid cancellation'));
+  assert.doesNotMatch(pickupRule, /old\.pickup_time|old\.end_date/i);
 });

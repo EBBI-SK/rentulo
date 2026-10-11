@@ -24,6 +24,7 @@
       confirmAction: "Předat věc",
       confirming: "Předávám věc…",
       success: "Předáno. Rezervace pokračuje až do vrácení věci.",
+      wrongDay: "PIN lze použít pouze v den plánovaného převzetí (od 00:00 do konce dne).",
       tooEarly: "Předání zatím nelze potvrdit. Počkejte na sjednané datum a čas převzetí.",
       genericError: "Předání se nepodařilo potvrdit. Zkuste to prosím znovu."
     },
@@ -49,6 +50,7 @@
       confirmAction: "Odovzdať vec",
       confirming: "Odovzdávam vec…",
       success: "Odovzdané. Rezervácia pokračuje až do vrátenia veci.",
+      wrongDay: "PIN možno použiť iba v deň plánovaného prevzatia (od 00:00 do konca dňa).",
       tooEarly: "Odovzdanie zatiaľ nemožno potvrdiť. Počkajte na dohodnutý dátum a čas prevzatia.",
       genericError: "Odovzdanie sa nepodarilo potvrdiť. Skúste to prosím znova."
     },
@@ -74,6 +76,7 @@
       confirmAction: "Hand over item",
       confirming: "Handing over item…",
       success: "Handed over. The reservation now continues until the item is returned.",
+      wrongDay: "The PIN can only be used on the scheduled pickup date (from midnight to the end of that day).",
       tooEarly: "Handover cannot be confirmed yet. Wait until the scheduled pickup date and time.",
       genericError: "Handover could not be confirmed. Please try again."
     },
@@ -99,6 +102,7 @@
       confirmAction: "Gegenstand übergeben",
       confirming: "Gegenstand wird übergeben…",
       success: "Übergeben. Die Reservierung läuft nun bis zur Rückgabe weiter.",
+      wrongDay: "Der PIN kann nur am vereinbarten Abholtag (von 00:00 Uhr bis zum Tagesende) verwendet werden.",
       tooEarly: "Die Übergabe kann erst zum vereinbarten Abholdatum und zur vereinbarten Uhrzeit bestätigt werden.",
       genericError: "Die Übergabe konnte nicht bestätigt werden. Bitte versuchen Sie es erneut."
     },
@@ -124,6 +128,7 @@
       confirmAction: "Przekaż przedmiot",
       confirming: "Przekazuję przedmiot…",
       success: "Przekazano. Rezerwacja trwa teraz do momentu zwrotu przedmiotu.",
+      wrongDay: "PIN można wykorzystać tylko w dniu zaplanowanego odbioru (od 00:00 do końca dnia).",
       tooEarly: "Nie można jeszcze potwierdzić przekazania. Poczekaj do ustalonej daty i godziny odbioru.",
       genericError: "Nie udało się potwierdzić przekazania. Spróbuj ponownie."
     }
@@ -403,6 +408,11 @@
         return;
       }
 
+      if (data.code === "pickup_wrong_day") {
+        elements.feedback.textContent = text("wrongDay");
+        return;
+      }
+
       if (data.code === "invalid_pin") {
         const remaining = Number(data.attempts_remaining || 0);
         elements.feedback.textContent = text("invalid") + " " + (
@@ -454,7 +464,9 @@
       }
 
       const data = result.data || {};
-      if (data.code === "pickup_not_started") {
+      if (data.code === "pickup_wrong_day") {
+        setOwnerMessage(text("wrongDay"), "error");
+      } else if (data.code === "pickup_not_started") {
         setOwnerMessage(text("tooEarly"), "error");
       } else if (data.code === "locked") {
         const time = formatLockTime(data.locked_until);

@@ -235,6 +235,12 @@ denoRuntime.serve(async (req) => {
 
   if (pickupResult.error) {
     const message = pickupResult.error.message || "";
+    if (message.includes("PICKUP_WRONG_DAY")) {
+      return jsonResponse({
+        error: "The PIN can only be used on the scheduled pickup date",
+        code: "pickup_wrong_day",
+      }, 409);
+    }
     if (message.includes("PICKUP_NOT_STARTED")) {
       return jsonResponse({
         error: "Pickup cannot be confirmed before its scheduled date and time",

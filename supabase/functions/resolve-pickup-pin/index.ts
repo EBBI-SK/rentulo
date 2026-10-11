@@ -10,6 +10,7 @@ type ReservationRow = {
   renter_id: string;
   owner_id: string;
   status: string;
+  start_date: string;
 };
 
 type PaymentRow = {
@@ -84,6 +85,17 @@ async function createPickupPin(secret: string, reservationId: string, paymentId:
   ) >>> 0;
 
   return String(value % 1_000_000).padStart(6, "0");
+}
+
+function pickupDateInPrague(at: Date): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Prague",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(at);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 function firstRow<T>(value: T[] | T | null): T | null {
@@ -169,7 +181,7 @@ denoRuntime.serve(async (req) => {
 
   const { data: reservations, error: reservationsError } = await admin
     .from("reservations")
-    .select("id, renter_id, owner_id, status")
+    .select("id, renter_id, owner_id, status, start_date")
     .eq("owner_id", actor.id)
     .eq("status", "paid");
 
@@ -199,11 +211,18 @@ denoRuntime.serve(async (req) => {
   for (const payment of payments) paymentByReservation.set(payment.reservation_id, payment);
 
   const matches: string[] = [];
+  const pickupDay = pickupDateInPrague(new Date());
+  let matchedOutsidePickupDay = false;
   for (const reservation of ownerReservations) {
     const payment = paymentByReservation.get(reservation.id);
     if (!payment || !isEligiblePayment(payment, reservation)) continue;
     const expectedPin = await createPickupPin(pickupPinSecret, reservation.id, payment.id);
-    if (timingSafeTextEqual(pin, expectedPin)) matches.push(reservation.id);
+    if (!timingSafeTextEqual(pin, expectedPin)) continue;
+    if (reservation.start_date === pickupDay) {
+      matches.push(reservation.id);
+    } else {
+      matchedOutsidePickupDay = true;
+    }
   }
 
   if (matches.length === 1) {
@@ -246,6 +265,13 @@ denoRuntime.serve(async (req) => {
   if (matches.length > 1) {
     console.error("resolve-pickup-pin: ambiguous PIN collision for owner", actor.id);
     return jsonResponse({ error: "PIN is ambiguous", code: "ambiguous_pin" }, 409);
+  }
+
+  if (matchedOutsidePickupDay) {
+    return jsonResponse({
+      error: "The PIN can only be used on the scheduled pickup date",
+      code: "pickup_wrong_day",
+    }, 409);
   }
 
   const attemptResult = await admin.rpc("register_failed_owner_pickup_pin", {

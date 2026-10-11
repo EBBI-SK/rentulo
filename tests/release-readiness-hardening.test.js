@@ -9,6 +9,8 @@ const vm = require("node:vm");
 const root = path.resolve(__dirname, "..");
 const read = (name) => fs.readFileSync(path.join(root, name), "utf8");
 const migration = read("supabase/migrations/20261011103000_guard_pickup_and_remove_test_payment.sql");
+const pickupDayMigration = read("supabase/migrations/20261011170000_limit_pickup_pin_to_pickup_day.sql");
+const lookup = read("supabase/functions/resolve-pickup-pin/index.ts");
 const edge = read("supabase/functions/confirm-pickup/index.ts");
 const pickup = read("js/pickup-security.js");
 const detail = read("js/detail-page.js");
@@ -24,30 +26,82 @@ function isolateFunction(source, name, followingMarker, mocks = {}) {
   return vm.runInNewContext(`(${code})`, mocks);
 }
 
-test("database rejects early pickup using Europe/Prague local date and time", () => {
-  assert.match(migration, /old\.start_date\s*\+\s*old\.pickup_time/);
-  assert.match(migration, /now\(\)\s*<\s*\(\(old\.start_date \+ old\.pickup_time\) at time zone 'Europe\/Prague'\)/);
-  assert.match(migration, /old\.start_date is null/);
-  assert.match(migration, /old\.pickup_time is null/);
-  assert.match(migration, /message = 'PICKUP_NOT_STARTED'/);
-  assert.match(migration, /old\.status = 'paid'[\s\S]*?new\.status = 'picked_up'[\s\S]*?PICKUP_NOT_STARTED[\s\S]*?return new;/);
-  assert.match(migration, /auth\.role\(\) = 'service_role'/);
+test("database authorizes PIN pickup only on the scheduled Europe/Prague date", () => {
+  const pickupStart = pickupDayMigration.indexOf("-- Trusted pickup PIN confirmation");
+  const pickupEnd = pickupDayMigration.indexOf("-- Trusted paid cancellation", pickupStart);
+  assert.ok(pickupStart >= 0 && pickupEnd > pickupStart);
+  const guard = pickupDayMigration.slice(pickupStart, pickupEnd);
+  assert.match(guard, /auth\.role\(\) = 'service_role'/);
+  assert.match(guard, /old\.status = 'paid'[\s\S]*?new\.status = 'picked_up'/);
+  assert.match(guard, /old\.start_date is distinct from \(now\(\) at time zone 'Europe\/Prague'\)::date/);
+  assert.match(guard, /message = 'PICKUP_WRONG_DAY'/);
+  assert.match(guard, /return new;/);
+  assert.doesNotMatch(guard, /old\.pickup_time|old\.end_date|PICKUP_NOT_STARTED/);
+  assert.doesNotMatch(pickupDayMigration, /truncate|delete\s+from\s+public\.reservations/i);
+
+  // All non-pickup transition rules must remain byte-for-byte identical.
+  const marker = "-- Trusted paid cancellation";
+  const afterPickup = (sql) => sql.slice(sql.indexOf(marker), sql.lastIndexOf("$function$;"));
+  assert.equal(afterPickup(pickupDayMigration), afterPickup(migration));
 });
 
-test("early pickup can never initiate Stripe transfer", () => {
+test("Prague calendar-day boundaries work across midnight, winter and DST changes", () => {
+  const start = lookup.indexOf("function pickupDateInPrague(");
+  const end = lookup.indexOf("function firstRow", start);
+  assert.ok(start >= 0 && end > start);
+  const js = lookup.slice(start, end).trim()
+    .replace("at: Date", "at")
+    .replace("): string", ")");
+  const toDate = vm.runInNewContext(`(${js})`, { Intl });
+  for (const [utc, expectedDay] of [
+    ["2026-10-19T21:59:59.999Z", "2026-10-19"],
+    ["2026-10-19T22:00:00.000Z", "2026-10-20"],
+    ["2026-10-20T21:59:59.999Z", "2026-10-20"],
+    ["2026-10-20T22:00:00.000Z", "2026-10-21"],
+    ["2026-12-31T22:59:59.999Z", "2026-12-31"],
+    ["2026-12-31T23:00:00.000Z", "2027-01-01"],
+    ["2026-03-28T23:00:00.000Z", "2026-03-29"],
+    ["2026-03-29T21:59:59.999Z", "2026-03-29"],
+    ["2026-03-29T22:00:00.000Z", "2026-03-30"],
+    ["2026-10-24T22:00:00.000Z", "2026-10-25"],
+    ["2026-10-25T22:59:59.999Z", "2026-10-25"],
+    ["2026-10-25T23:00:00.000Z", "2026-10-26"],
+  ]) {
+    assert.equal(toDate(new Date(utc)), expectedDay, utc);
+  }
+});
+
+test("owner lookup verifies only paid reservations scheduled for the current Prague day", () => {
+  assert.match(lookup, /\.eq\("owner_id", actor\.id\)/);
+  assert.match(lookup, /\.eq\("status", "paid"\)/);
+  assert.match(lookup, /\.select\("id, renter_id, owner_id, status, start_date"\)/);
+  assert.match(lookup, /const pickupDay = pickupDateInPrague\(new Date\(\)\)/);
+  assert.match(lookup, /reservation\.start_date === pickupDay/);
+  assert.match(lookup, /if \(matchedOutsidePickupDay\) \{[\s\S]*?code: "pickup_wrong_day"/);
+  assert.ok(
+    lookup.indexOf("if (matchedOutsidePickupDay)") < lookup.indexOf('admin.rpc("register_failed_owner_pickup_pin"'),
+    "A correct PIN entered on the wrong day must not consume invalid PIN attempts"
+  );
+  assert.match(lookup, /reservation_id: matches\[0\], status: "verified"/);
+});
+
+test("wrong-day pickup cannot initiate a Stripe transfer, even through a direct RPC call", () => {
   const guard = edge.indexOf('admin.rpc("confirm_reservation_pickup"');
   const payout = edge.indexOf('/functions/v1/create-owner-transfer');
   assert.ok(guard >= 0 && payout > guard);
   assert.match(edge.slice(guard, payout), /pickupResult\.error/);
-  assert.match(edge.slice(guard, payout), /message\.includes\("PICKUP_NOT_STARTED"\)/);
-  assert.match(edge, /code: "pickup_not_started"/);
+  assert.match(edge.slice(guard, payout), /message\.includes\("PICKUP_WRONG_DAY"\)/);
+  assert.match(edge.slice(guard, payout), /code: "pickup_wrong_day"/);
   assert.match(edge.slice(guard, payout), /return jsonResponse\(/);
+  assert.match(pickupDayMigration, /app\.pickup_pin_authorized/);
 });
 
-test("owner sees a helpful early-pickup message in all five languages", () => {
-  assert.equal((pickup.match(/tooEarly: "/g) || []).length, 5);
-  assert.match(pickup, /data\.code === "pickup_not_started"/);
-  assert.match(pickup, /setOwnerMessage\(text\("tooEarly"\), "error"\)/);
+test("owner sees a helpful wrong-day PIN message in all five languages", () => {
+  assert.equal((pickup.match(/wrongDay: "/g) || []).length, 5);
+  assert.match(pickup, /data\.code === "pickup_wrong_day"/);
+  assert.match(pickup, /elements\.feedback\.textContent = text\("wrongDay"\)/);
+  assert.match(pickup, /setOwnerMessage\(text\("wrongDay"\), "error"\)/);
+  assert.match(pickup, /wrongDay: "PIN lze pou/);
 });
 
 test("legacy browser fake-payment shortcut is removed without deleting test bookings", () => {
