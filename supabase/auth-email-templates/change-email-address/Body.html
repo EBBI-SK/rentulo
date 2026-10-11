@@ -8,42 +8,48 @@
       <h1 style="margin:0 0 16px;font-size:26px;line-height:1.3;color:#0e5037;">Potvrďte změnu e-mailové adresy</h1>
       <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#64706b;">Obdrželi jsme žádost o změnu e-mailové adresy vašeho účtu Rentulo na:</p>
       <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#103f32;"><strong>{{ .NewEmail }}</strong></p>
-      <p style="margin:0 0 28px;font-size:16px;line-height:1.6;color:#64706b;">Kliknutím na tlačítko níže potvrďte změnu e-mailové adresy.</p>
+      <p style="margin:0 0 12px;font-size:16px;line-height:1.6;color:#64706b;">Kliknutím na tlačítko níže potvrďte změnu e-mailové adresy.</p>
+      <p style="margin:0 0 28px;font-size:14px;line-height:1.6;color:#64706b;">Z bezpečnostních důvodů posíláme potvrzení na původní i novou e-mailovou adresu. Změna se dokončí až po potvrzení obou zpráv.</p>
       <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:14px 24px;background:#ff6a00;color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;border-radius:10px;">Potvrdit novou e-mailovou adresu</a>
       <p style="margin:28px 0 0;font-size:14px;line-height:1.6;color:#64706b;">Pokud jste o tuto změnu nežádali, tento e-mail ignorujte. Vaše současná e-mailová adresa zůstane platná, dokud nebude změna potvrzena.</p>
 {{else if eq .Data.preferred_language "sk"}}
       <h1 style="margin:0 0 16px;font-size:26px;line-height:1.3;color:#0e5037;">Potvrďte zmenu e-mailovej adresy</h1>
       <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#64706b;">Dostali sme žiadosť o zmenu e-mailovej adresy vášho účtu Rentulo na:</p>
       <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#103f32;"><strong>{{ .NewEmail }}</strong></p>
-      <p style="margin:0 0 28px;font-size:16px;line-height:1.6;color:#64706b;">Kliknutím na tlačidlo nižšie potvrďte zmenu e-mailovej adresy.</p>
+      <p style="margin:0 0 12px;font-size:16px;line-height:1.6;color:#64706b;">Kliknutím na tlačidlo nižšie potvrďte zmenu e-mailovej adresy.</p>
+      <p style="margin:0 0 28px;font-size:14px;line-height:1.6;color:#64706b;">Z bezpečnostných dôvodov posielame potvrdenie na pôvodnú aj novú e-mailovú adresu. Zmena sa dokončí až po potvrdení oboch správ.</p>
       <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:14px 24px;background:#ff6a00;color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;border-radius:10px;">Potvrdiť novú e-mailovú adresu</a>
       <p style="margin:28px 0 0;font-size:14px;line-height:1.6;color:#64706b;">Ak ste o túto zmenu nežiadali, e-mail ignorujte. Vaša súčasná e-mailová adresa zostane platná, kým sa zmena nepotvrdí.</p>
 {{else if eq .Data.preferred_language "en"}}
       <h1 style="margin:0 0 16px;font-size:26px;line-height:1.3;color:#0e5037;">Confirm your new email address</h1>
       <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#64706b;">We received a request to change the email address of your Rentulo account to:</p>
       <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#103f32;"><strong>{{ .NewEmail }}</strong></p>
-      <p style="margin:0 0 28px;font-size:16px;line-height:1.6;color:#64706b;">Click the button below to confirm your new email address.</p>
+      <p style="margin:0 0 12px;font-size:16px;line-height:1.6;color:#64706b;">Click the button below to confirm your new email address.</p>
+      <p style="margin:0 0 28px;font-size:14px;line-height:1.6;color:#64706b;">For security, we send a confirmation to both your current and new email addresses. The change is completed only after you confirm both messages.</p>
       <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:14px 24px;background:#ff6a00;color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;border-radius:10px;">Confirm new email address</a>
       <p style="margin:28px 0 0;font-size:14px;line-height:1.6;color:#64706b;">If you did not request this change, you can safely ignore this email. Your current email address will remain in place until the change is confirmed.</p>
 {{else if eq .Data.preferred_language "de"}}
       <h1 style="margin:0 0 16px;font-size:26px;line-height:1.3;color:#0e5037;">Bestätigen Sie Ihre neue E-Mail-Adresse</h1>
       <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#64706b;">Wir haben eine Anfrage erhalten, die E-Mail-Adresse Ihres Rentulo-Kontos auf folgende Adresse zu ändern:</p>
       <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#103f32;"><strong>{{ .NewEmail }}</strong></p>
-      <p style="margin:0 0 28px;font-size:16px;line-height:1.6;color:#64706b;">Klicken Sie auf die Schaltfläche unten, um Ihre neue E-Mail-Adresse zu bestätigen.</p>
+      <p style="margin:0 0 12px;font-size:16px;line-height:1.6;color:#64706b;">Klicken Sie auf die Schaltfläche unten, um Ihre neue E-Mail-Adresse zu bestätigen.</p>
+      <p style="margin:0 0 28px;font-size:14px;line-height:1.6;color:#64706b;">Aus Sicherheitsgründen senden wir eine Bestätigung an die bisherige und die neue E-Mail-Adresse. Die Änderung wird erst nach Bestätigung beider Nachrichten abgeschlossen.</p>
       <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:14px 24px;background:#ff6a00;color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;border-radius:10px;">Neue E-Mail-Adresse bestätigen</a>
       <p style="margin:28px 0 0;font-size:14px;line-height:1.6;color:#64706b;">Falls Sie diese Änderung nicht angefordert haben, können Sie diese E-Mail ignorieren. Ihre bisherige E-Mail-Adresse bleibt gültig, bis die Änderung bestätigt wurde.</p>
 {{else if eq .Data.preferred_language "pl"}}
       <h1 style="margin:0 0 16px;font-size:26px;line-height:1.3;color:#0e5037;">Potwierdź nowy adres e-mail</h1>
       <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#64706b;">Otrzymaliśmy prośbę o zmianę adresu e-mail Twojego konta Rentulo na:</p>
       <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#103f32;"><strong>{{ .NewEmail }}</strong></p>
-      <p style="margin:0 0 28px;font-size:16px;line-height:1.6;color:#64706b;">Kliknij poniższy przycisk, aby potwierdzić nowy adres e-mail.</p>
+      <p style="margin:0 0 12px;font-size:16px;line-height:1.6;color:#64706b;">Kliknij poniższy przycisk, aby potwierdzić nowy adres e-mail.</p>
+      <p style="margin:0 0 28px;font-size:14px;line-height:1.6;color:#64706b;">Ze względów bezpieczeństwa wysyłamy potwierdzenie na stary i nowy adres e-mail. Zmiana zostanie zakończona dopiero po potwierdzeniu obu wiadomości.</p>
       <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:14px 24px;background:#ff6a00;color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;border-radius:10px;">Potwierdź nowy adres e-mail</a>
       <p style="margin:28px 0 0;font-size:14px;line-height:1.6;color:#64706b;">Jeśli nie prosiłeś o tę zmianę, możesz zignorować tę wiadomość. Twój obecny adres e-mail pozostanie aktywny do czasu potwierdzenia zmiany.</p>
 {{else}}
       <h1 style="margin:0 0 16px;font-size:26px;line-height:1.3;color:#0e5037;">Confirm your new email address</h1>
       <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#64706b;">We received a request to change the email address of your Rentulo account to:</p>
       <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#103f32;"><strong>{{ .NewEmail }}</strong></p>
-      <p style="margin:0 0 28px;font-size:16px;line-height:1.6;color:#64706b;">Click the button below to confirm your new email address.</p>
+      <p style="margin:0 0 12px;font-size:16px;line-height:1.6;color:#64706b;">Click the button below to confirm your new email address.</p>
+      <p style="margin:0 0 28px;font-size:14px;line-height:1.6;color:#64706b;">For security, we send a confirmation to both your current and new email addresses. The change is completed only after you confirm both messages.</p>
       <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:14px 24px;background:#ff6a00;color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;border-radius:10px;">Confirm new email address</a>
       <p style="margin:28px 0 0;font-size:14px;line-height:1.6;color:#64706b;">If you did not request this change, you can safely ignore this email. Your current email address will remain in place until the change is confirmed.</p>
 {{end}}

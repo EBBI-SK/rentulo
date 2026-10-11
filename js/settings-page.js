@@ -274,7 +274,7 @@
       setTranslatedMessage(
         profileMessage,
         "settings.emailConfirmationPending",
-        "Změna e-mailu na {email} čeká na potvrzení. Do potvrzení zůstává aktivní původní e-mail.",
+        "Změna e-mailu na {email} čeká na potvrzení odkazů v původní i nové e-mailové schránce. Do té doby zůstává aktivní původní adresa.",
         "success",
         { email: pendingEmail }
       );
@@ -452,7 +452,7 @@
           ? "settings.profileSavedEmailConfirmation"
           : "settings.profileSaved",
         emailConfirmationRequired
-          ? "Osobní údaje byly uloženy. Změnu e-mailu potvrďte odkazem zaslaným na novou adresu."
+          ? "Osobní údaje byly uloženy. Pro změnu e-mailu potvrďte odkazy ve zprávách zaslaných na původní i novou adresu."
           : "Osobní údaje byly uloženy.",
         "success"
       );

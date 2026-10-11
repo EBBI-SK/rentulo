@@ -70,6 +70,33 @@
       gap: 28px;
     }
 
+
+    .email-change-notice {
+      flex: 0 0 auto;
+      width: min(1100px, calc(100% - 32px));
+      margin: 8px auto 0;
+      padding: 13px 18px;
+      border: 1px solid #cfe5da;
+      border-radius: 14px;
+      background: var(--green-soft);
+      color: var(--green-dark);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .email-change-notice[hidden] {
+      display: none;
+    }
+
+    .email-change-notice strong {
+      display: block;
+      font-weight: 800;
+    }
+
+    .email-change-notice p {
+      margin: 3px 0 0;
+    }
+
     .logo {
       display: inline-flex;
       align-items: center;
@@ -944,6 +971,11 @@
 
     <nav class="nav" id="mainNav"></nav>
   </header>
+
+  <div id="emailChangeNotice" class="email-change-notice" role="status" aria-live="polite" hidden>
+    <strong data-i18n="auth.emailChangeFirstConfirmedTitle">První potvrzení bylo přijato.</strong>
+    <p data-i18n="auth.emailChangeFirstConfirmedText">Pro dokončení změny e-mailu ještě potvrďte odkaz ve druhé zprávě, která přišla na druhou e-mailovou adresu.</p>
+  </div>
 
   <main>
     <section class="home-hero">

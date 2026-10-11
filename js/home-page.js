@@ -1,4 +1,5 @@
 document.addEventListener("DOMContentLoaded", function () {
+  showHomeEmailChangeConfirmationNotice();
   clearLegacyStoredVisitorLocation();
   setupHomeSearch();
   setupCategorySearch();
@@ -20,6 +21,17 @@ let homeMapLoadState = "loading";
 let homeVisitorLocation = null;
 let homeMapReturnView = getHomeMapReturnView();
 let homeMapReturnViewPending = Boolean(homeMapReturnView);
+
+function showHomeEmailChangeConfirmationNotice() {
+  const notice = document.getElementById("emailChangeNotice");
+  if (!notice) return;
+
+  const hash = new URLSearchParams(String(window.location.hash || "").replace(/^#/, ""));
+  const confirmationMessage = hash.get("message") || "";
+  if (/^Confirmation link accepted\. Please proceed to confirm link sent to the other email\.?$/i.test(confirmationMessage)) {
+    notice.hidden = false;
+  }
+}
 
 function homeTranslate(key, fallback) {
   if (typeof window.rentuloTranslate === "function") {
@@ -193,6 +205,62 @@ function applyHomeMapReturnView() {
   );
 }
 
+// Zjednodušená hranice ČR (souřadnice [délka, šířka]), pouze pro zobrazení mapy.
+const HOME_CZECH_BORDER = [
+  [16.960288, 48.596982],
+  [16.499283, 48.785808],
+  [16.029647, 48.733899],
+  [15.253416, 49.039074],
+  [14.901447, 48.964402],
+  [14.338898, 48.555305],
+  [13.595946, 48.877172],
+  [13.031329, 49.307068],
+  [12.521024, 49.547415],
+  [12.415191, 49.969121],
+  [12.240111, 50.266338],
+  [12.966837, 50.484076],
+  [13.338132, 50.733234],
+  [14.056228, 50.926918],
+  [14.307013, 51.117268],
+  [14.570718, 51.002339],
+  [15.016996, 51.106674],
+  [15.490972, 50.78473],
+  [16.238627, 50.697733],
+  [16.176253, 50.422607],
+  [16.719476, 50.215747],
+  [16.868769, 50.473974],
+  [17.554567, 50.362146],
+  [17.649445, 50.049038],
+  [18.392914, 49.988629],
+  [18.853144, 49.49623],
+  [18.554971, 49.495015],
+  [18.399994, 49.315001],
+  [18.170498, 49.271515],
+  [18.104973, 49.043983],
+  [17.913512, 48.996493],
+  [17.886485, 48.903475],
+  [17.545007, 48.800019],
+  [17.101985, 48.816969],
+  [16.960288, 48.596982]
+];
+
+function isVisitorInCzechRepublic(location) {
+  if (!location || !Number.isFinite(location.latitude) || !Number.isFinite(location.longitude)) return false;
+  if (Math.abs(location.latitude) > 90 || Math.abs(location.longitude) > 180) return false;
+
+  // Odd-even ray casting: přibližné určení státu bez posílání polohy třetí straně.
+  let inside = false;
+  for (let i = 0, previous = HOME_CZECH_BORDER.length - 1; i < HOME_CZECH_BORDER.length; previous = i++) {
+    const [lonA, latA] = HOME_CZECH_BORDER[i];
+    const [lonB, latB] = HOME_CZECH_BORDER[previous];
+    if ((latA > location.latitude) !== (latB > location.latitude) &&
+        location.longitude < (lonB - lonA) * (location.latitude - latA) / (latB - latA) + lonA) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
 function applyVisitorLocation(position) {
   const location = {
     latitude: Number(position && position.coords ? position.coords.latitude : NaN),
@@ -200,6 +268,16 @@ function applyVisitorLocation(position) {
   };
 
   if (!Number.isFinite(location.latitude) || !Number.isFinite(location.longitude)) return;
+
+  // Rentulo zatím funguje pouze v ČR: návštěvníky ze zahraničí nepřibližujeme na jejich polohu.
+  // Pokud se již načetly nabídky, mapa zůstane přiblížena na české nabídky.
+  if (!isVisitorInCzechRepublic(location)) {
+    if (homeVisitorLocation) {
+      homeVisitorLocation = null;
+      renderHomeOffersMap();
+    }
+    return;
+  }
 
   homeVisitorLocation = location;
 
