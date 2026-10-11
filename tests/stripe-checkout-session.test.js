@@ -73,7 +73,8 @@ test("Stripe Checkout correlates Checkout and PaymentIntent objects with interna
   assert.match(SOURCE, /"metadata\[payment_id\]", payment\.id/);
   assert.match(SOURCE, /"payment_intent_data\[metadata\]\[reservation_id\]", reservation\.id/);
   assert.match(SOURCE, /"payment_intent_data\[metadata\]\[payment_id\]", payment\.id/);
-  assert.match(SOURCE, /"Idempotency-Key": `rentulo-checkout-\$\{payment\.id\}`/);
+  assert.match(SOURCE, /let checkoutIdempotencyKey = `rentulo-checkout-\$\{payment\.id\}`/);
+  assert.match(SOURCE, /"Idempotency-Key": checkoutIdempotencyKey/);
   assert.match(SOURCE, /provider_payment_id: checkoutSession\.id/);
   assert.match(SOURCE, /paymentUpdate\.stripe_payment_intent_id = intentId/);
 });

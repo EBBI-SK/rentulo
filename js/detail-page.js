@@ -393,9 +393,15 @@ function renderDetailImage(offer) {
       }
 
       return `
-        <div class="image-box">
-          <div class="image-icon">⌁</div>
-          <div class="image-label">${escapeHtml(offerName)}</div>
+        <div class="image-box no-photo">
+          <div class="image-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="3"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <path d="m4 18 5-5 3 3 3-4 5 6"></path>
+            </svg>
+          </div>
+          <div class="image-label">${escapeHtml(detailTranslate("offer.noPhoto"))}</div>
         </div>
       `;
     }
@@ -530,9 +536,11 @@ function renderDetailImage(offer) {
       }
     }
 
-    function renderSidebarMessage(type, title, text, buttonHref, buttonText) {
+    function renderSidebarMessage(type, title, text, buttonHref, buttonText, price) {
       return `
         <div class="message-card ${type === "warning" ? "warning" : ""}">
+          <div class="price">${escapeHtml(formatDetailNumber(price))}</div>
+          <div class="price-small">${escapeHtml(detailTranslate("detail.currencyPerDay"))}</div>
           <strong>${escapeHtml(title)}</strong><br>
           ${escapeHtml(text)}
           <br>
@@ -772,7 +780,8 @@ const hasGps = offerHasGpsLocation(offer);
     `prihlaseni.html?returnTo=${encodeURIComponent(
   getOfferLoginReturnTo()
 )}`,
-    detailTranslate("nav.login")
+    detailTranslate("nav.login"),
+    price
   );
 } else if (isOwner) {
   sidebarContent = renderSidebarMessage(
@@ -780,7 +789,8 @@ const hasGps = offerHasGpsLocation(offer);
     detailTranslate("detail.ownItemTitle"),
     detailTranslate("detail.ownItemText"),
     "moje-nabidky.html",
-    detailTranslate("account.myListingsTitle")
+    detailTranslate("account.myListingsTitle"),
+    price
   );
 } else if (!isActive) {
         sidebarContent = renderUnavailableSidebar(

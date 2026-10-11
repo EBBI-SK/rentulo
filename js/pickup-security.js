@@ -24,6 +24,7 @@
       confirmAction: "Předat věc",
       confirming: "Předávám věc…",
       success: "Předáno. Rezervace pokračuje až do vrácení věci.",
+      tooEarly: "Předání zatím nelze potvrdit. Počkejte na sjednané datum a čas převzetí.",
       genericError: "Předání se nepodařilo potvrdit. Zkuste to prosím znovu."
     },
     sk: {
@@ -48,6 +49,7 @@
       confirmAction: "Odovzdať vec",
       confirming: "Odovzdávam vec…",
       success: "Odovzdané. Rezervácia pokračuje až do vrátenia veci.",
+      tooEarly: "Odovzdanie zatiaľ nemožno potvrdiť. Počkajte na dohodnutý dátum a čas prevzatia.",
       genericError: "Odovzdanie sa nepodarilo potvrdiť. Skúste to prosím znova."
     },
     en: {
@@ -72,6 +74,7 @@
       confirmAction: "Hand over item",
       confirming: "Handing over item…",
       success: "Handed over. The reservation now continues until the item is returned.",
+      tooEarly: "Handover cannot be confirmed yet. Wait until the scheduled pickup date and time.",
       genericError: "Handover could not be confirmed. Please try again."
     },
     de: {
@@ -96,6 +99,7 @@
       confirmAction: "Gegenstand übergeben",
       confirming: "Gegenstand wird übergeben…",
       success: "Übergeben. Die Reservierung läuft nun bis zur Rückgabe weiter.",
+      tooEarly: "Die Übergabe kann erst zum vereinbarten Abholdatum und zur vereinbarten Uhrzeit bestätigt werden.",
       genericError: "Die Übergabe konnte nicht bestätigt werden. Bitte versuchen Sie es erneut."
     },
     pl: {
@@ -120,6 +124,7 @@
       confirmAction: "Przekaż przedmiot",
       confirming: "Przekazuję przedmiot…",
       success: "Przekazano. Rezerwacja trwa teraz do momentu zwrotu przedmiotu.",
+      tooEarly: "Nie można jeszcze potwierdzić przekazania. Poczekaj do ustalonej daty i godziny odbioru.",
       genericError: "Nie udało się potwierdzić przekazania. Spróbuj ponownie."
     }
   };
@@ -449,7 +454,9 @@
       }
 
       const data = result.data || {};
-      if (data.code === "locked") {
+      if (data.code === "pickup_not_started") {
+        setOwnerMessage(text("tooEarly"), "error");
+      } else if (data.code === "locked") {
         const time = formatLockTime(data.locked_until);
         setOwnerMessage(time ? text("locked") + " " + text("lockedUntil", { time: time }) : text("locked"), "error");
       } else {

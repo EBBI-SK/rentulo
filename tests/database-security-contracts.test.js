@@ -127,7 +127,7 @@ test("public availability RPC exposes only dates for blocking reservations", () 
   );
 });
 
-test("latest server status-transition guard keeps role-specific transitions and test-payment authorization", () => {
+test("latest server status-transition guard keeps role-specific transitions without fake payments", () => {
   const { sql: rawSql } = latestMigrationMatching(
     /create\s+(?:or\s+replace\s+)?function\s+public\.protect_reservation_status_transition\s*\(\s*\)/i,
     "public.protect_reservation_status_transition()"
@@ -158,9 +158,10 @@ test("latest server status-transition guard keeps role-specific transitions and 
     sql,
     /auth\.uid\(\)\s*=\s*old\.renter_id[\s\S]*old\.status\s+in\s*\(\s*'pending'\s*,\s*'approved'\s*\)/i
   );
-  assert.match(
-    sql,
-    /current_setting\s*\(\s*'app\.test_payment_authorized'\s*,\s*true\s*\)\s*=\s*'on'/i
-  );
-  assert.match(sql, /from\s+public\.test_payment_users/i);
+  assert.doesNotMatch(sql, /app\.test_payment_authorized/i);
+  assert.doesNotMatch(sql, /from\s+public\.test_payment_users/i);
+  assert.match(sql, /old\.start_date\s+is\s+null/i);
+  assert.match(sql, /old\.pickup_time\s+is\s+null/i);
+  assert.match(sql, /now\(\)\s*<\s*\(\(old\.start_date\s*\+\s*old\.pickup_time\)\s*at\s*time\s*zone\s*'Europe\/Prague'\)/i);
+  assert.match(sql, /message\s*=\s*'PICKUP_NOT_STARTED'/i);
 });

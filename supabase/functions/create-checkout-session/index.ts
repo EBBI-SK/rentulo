@@ -11,6 +11,13 @@ type CheckoutSessionResponse = {
   id?: string;
   url?: string | null;
   payment_intent?: string | { id?: string } | null;
+  status?: "open" | "complete" | "expired";
+  payment_status?: string;
+  mode?: string;
+  currency?: string;
+  amount_total?: number;
+  client_reference_id?: string;
+  metadata?: { reservation_id?: string; payment_id?: string };
   error?: {
     message?: string;
     type?: string;
@@ -246,8 +253,54 @@ denoRuntime.serve(async (req) => {
     return jsonResponse({ error: "Payment is not in a payable state" }, 409);
   }
 
+  // Reuse the existing hosted Checkout session. The fixed idempotency key
+  // must not be replayed with new parameters (such as the newly pinned locale),
+  // otherwise Stripe correctly rejects it as an idempotency-key mismatch.
+  let checkoutIdempotencyKey = `rentulo-checkout-${payment.id}`;
+  const previousSessionId = String(payment.provider_payment_id || "").trim();
+  if (previousSessionId) {
+    if (!/^cs_(test_|live_)[A-Za-z0-9]+$/.test(previousSessionId)) {
+      console.error("create-checkout-session: stored session identifier is invalid", payment.id);
+      return jsonResponse({ error: "Stored payment session is invalid" }, 409);
+    }
+
+    const previousResponse = await fetch(
+      `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(previousSessionId)}`,
+      { headers: { Authorization: `Bearer ${stripeSecretKey}` } },
+    );
+    const previous = (await previousResponse.json().catch(() => ({}))) as CheckoutSessionResponse;
+    if (!previousResponse.ok) {
+      console.error("create-checkout-session: previous Stripe session lookup failed", previousResponse.status);
+      return jsonResponse({ error: "Existing payment session could not be verified" }, 502);
+    }
+    if (
+      previous.id !== previousSessionId ||
+      previous.mode !== "payment" ||
+      previous.currency !== "czk" ||
+      previous.amount_total !== stripeAmountTotalMinor ||
+      previous.client_reference_id !== reservation.id ||
+      previous.metadata?.reservation_id !== reservation.id ||
+      previous.metadata?.payment_id !== payment.id
+    ) {
+      console.error("create-checkout-session: previous Stripe session does not match reservation", payment.id);
+      return jsonResponse({ error: "Existing payment session does not match reservation" }, 409);
+    }
+
+    if (previous.status === "open" && previous.url && previous.payment_status === "unpaid") {
+      return jsonResponse({ url: previous.url });
+    }
+    if (previous.status !== "expired") {
+      return jsonResponse({ error: "Payment is already processing or cannot be restarted" }, 409);
+    }
+
+    // The old session cannot be charged again after expiry. Generate exactly
+    // one replacement per expired session, including under concurrent retries.
+    checkoutIdempotencyKey = `rentulo-checkout-${payment.id}-after-${previousSessionId}`;
+  }
+
   const checkoutParams = new URLSearchParams();
   checkoutParams.set("mode", "payment");
+  checkoutParams.set("locale", "cs");
   checkoutParams.set("success_url", `${siteUrl}/moje-rezervace.html?payment=success`);
   checkoutParams.set("cancel_url", `${siteUrl}/moje-rezervace.html?payment=cancelled`);
   checkoutParams.set("client_reference_id", reservation.id);
@@ -283,7 +336,7 @@ denoRuntime.serve(async (req) => {
     headers: {
       Authorization: `Bearer ${stripeSecretKey}`,
       "Content-Type": "application/x-www-form-urlencoded",
-      "Idempotency-Key": `rentulo-checkout-${payment.id}`,
+      "Idempotency-Key": checkoutIdempotencyKey,
     },
     body: checkoutParams,
   });

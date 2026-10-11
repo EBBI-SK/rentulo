@@ -235,6 +235,12 @@ denoRuntime.serve(async (req) => {
 
   if (pickupResult.error) {
     const message = pickupResult.error.message || "";
+    if (message.includes("PICKUP_NOT_STARTED")) {
+      return jsonResponse({
+        error: "Pickup cannot be confirmed before its scheduled date and time",
+        code: "pickup_not_started",
+      }, 409);
+    }
     if (/temporarily locked/i.test(message)) {
       const latestState = await admin
         .from("reservation_pickup_security")

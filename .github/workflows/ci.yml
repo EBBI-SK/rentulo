@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - main
+      - production
   pull_request:
     branches:
       - main
+      - production
   workflow_dispatch:
 
 permissions:
@@ -118,3 +120,22 @@ jobs:
 
       - name: Run automated tests
         run: npm test
+
+      - name: Build TEST static site
+        run: RENTULO_DEPLOY_TARGET=test npm run build
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Typecheck Supabase Edge Functions
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -d '' functions < <(find supabase/functions -mindepth 2 -maxdepth 2 -name index.ts -print0 | sort -z)
+          if (( ${#functions[@]} == 0 )); then
+            echo "::error::No Edge Function entrypoints were found."
+            exit 1
+          fi
+          deno check "${functions[@]}"
