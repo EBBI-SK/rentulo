@@ -114,3 +114,192 @@ test("SMS preference is explicitly user-controlled and localized in five languag
   assert.equal((i18n.match(/"settings\.smsOptIn"/g) || []).length, 5);
   assert.match(read("ochrana-osobnich-udaju.html"), /BulkGate/);
 });
+
+// BOD 12 / P1-1: run the REAL TS worker handler in a mocked Deno runtime.
+// We strip types (Node 22) and replace only its external imports; the queue
+// control flow, concurrency limits, and SMS dispatch boundary stay unchanged.
+const vm = require("node:vm");
+const { stripTypeScriptTypes } = require("node:module");
+const reliabilityMigration = read("supabase/migrations/20261012150000_harden_reservation_notification_worker.sql");
+
+async function runWorkerHarness({
+  jobs = [], mode = "disabled", ackFailureId = null,
+  markerAccepted = true, smsTransportFails = false, emailDelayMs = 0,
+} = {}) {
+  const steps = [];
+  const ackCalls = [];
+  let activeTransports = 0;
+  let maximumActiveTransports = 0;
+  let batchLimit = null;
+  let handler;
+  const envValues = {
+    SUPABASE_URL: "https://vspposovhdgvbeukoivh.supabase.co",
+    SUPABASE_SERVICE_ROLE_KEY: "test-server-role",
+    SMS_SEND_MODE: mode,
+    SMS_ALLOWED_NUMBERS: "+421905123456",
+    BULKGATE_APPLICATION_ID: "1234",
+    BULKGATE_APPLICATION_TOKEN: "test-bulkgate-token",
+  };
+
+  const admin = {
+    rpc(name, args) {
+      return {
+        abortSignal() {
+          steps.push(name);
+          if (name === "verify_reservation_notification_cron_secret") return Promise.resolve({ data: true, error: null });
+          if (name === "claim_reservation_notification_deliveries") {
+            batchLimit = args.p_limit;
+            return Promise.resolve({ data: jobs.slice(0, batchLimit), error: null });
+          }
+          if (name === "mark_reservation_sms_dispatch_started") {
+            return Promise.resolve({ data: markerAccepted, error: null });
+          }
+          if (name === "finish_reservation_notification_delivery") {
+            ackCalls.push(args);
+            return Promise.resolve({ data: args.p_delivery_id !== ackFailureId, error: null });
+          }
+          throw Error(`Unexpected RPC ${name}`);
+        },
+      };
+    },
+    from(table) {
+      return {
+        select() { return this; },
+        eq() { return this; },
+        single() { return this; },
+        abortSignal() {
+          if (table === "profiles") return Promise.resolve({ data: {
+            phone: "+421905123456", preferred_language: "sk", sms_notifications: true,
+          }, error: null });
+          if (table === "reservations") return Promise.resolve({ data: { reservation_number: "R-000020" }, error: null });
+          throw Error(`Unexpected table ${table}`);
+        },
+      };
+    },
+  };
+
+  const fetchMock = async (url, options) => {
+    if (url.includes("/send-reservation-email")) {
+      activeTransports += 1;
+      maximumActiveTransports = Math.max(maximumActiveTransports, activeTransports);
+      if (emailDelayMs) await new Promise((resolve) => setTimeout(resolve, emailDelayMs));
+      activeTransports -= 1;
+      return new Response(JSON.stringify({
+        ok: true, results: [{ recipient_id: JSON.parse(options.body).recipient_id, status: "sent" }],
+      }), { status: 200 });
+    }
+    if (url.includes("portal.bulkgate.com")) {
+      steps.push("bulkgate_api_request");
+      if (smsTransportFails) throw new Error("Network failed after the provider boundary");
+      return new Response(JSON.stringify({ data: { status: "accepted", sms_id: "sms-test-1" } }), { status: 200 });
+    }
+    throw Error(`Unexpected transport ${url}`);
+  };
+
+  const sourceWithoutImports = worker.replace(/^import .*;\s*$/gm, "");
+  const script = stripTypeScriptTypes(sourceWithoutImports);
+  const context = vm.createContext({
+    Deno: { serve(fn) { handler = fn; }, env: { get(name) { return envValues[name]; } } },
+    createClient() { return admin; },
+    phoneToE164(value) { return value ? String(value) : null; },
+    smsMessage() { return "Rentulo: rezervacia R-000020"; },
+    Response,
+    AbortSignal,
+    fetch: fetchMock,
+    console: { error(message) { steps.push(message); } },
+  });
+  vm.runInContext(script, context, { timeout: 1000 });
+
+  const response = await handler(new Request("https://test.invalid/", {
+    method: "POST",
+    headers: { "x-rentulo-cron-secret": "x".repeat(80) },
+    body: JSON.stringify({ limit: 15 }),
+  }));
+  return {
+    status: response.status, body: await response.json(), ackCalls,
+    steps, maximumActiveTransports, batchLimit,
+  };
+}
+
+function testClaim(index, channel = "email") {
+  return {
+    delivery_id: `notification-${index}`, claim_token: `claim-${index}`,
+    reservation_id: `reservation-${index}`, recipient_id: `recipient-${index}`,
+    channel, event_type: "new_request",
+  };
+}
+
+test("P1-1: timeout budget leaves headroom before Cron's 60-second limit", () => {
+  const value = (name) => Number(worker.match(new RegExp(`const ${name} = (\\d+);`))?.[1]);
+  const batch = value("MAX_BATCH_SIZE");
+  const concurrent = value("MAX_CONCURRENT_DELIVERIES");
+  const db = value("DB_TIMEOUT_MS");
+  const sms = value("SMS_PROVIDER_TIMEOUT_MS");
+  assert.equal(batch, 10);
+  assert.equal(concurrent, 5);
+  const worstCaseBudget = 2 * db + Math.ceil(batch / concurrent) * (3 * db + sms);
+  assert.ok(worstCaseBudget <= 55000, `Cron could time out: ${worstCaseBudget}ms`);
+});
+
+test("P1-1: worker caps Cron batch at ten and processes at most five in parallel", async () => {
+  const jobs = Array.from({ length: 15 }, (_, i) => testClaim(i));
+  const run = await runWorkerHarness({ jobs, emailDelayMs: 15 });
+  assert.equal(run.status, 200);
+  assert.equal(run.batchLimit, 10, "Cron's old limit 15 must be clamped");
+  assert.equal(run.ackCalls.length, 10);
+  assert.equal(new Set(run.ackCalls.map((call) => call.p_delivery_id)).size, 10);
+  assert.equal(run.maximumActiveTransports, 5);
+  assert.equal(run.body.claimed, 10);
+  assert.equal(run.body.sent, 10);
+  assert.equal(run.body.acknowledgement_failures, 0);
+});
+
+test("P1-1: failed acknowledgement does not discard other claimed deliveries", async () => {
+  const jobs = Array.from({ length: 10 }, (_, i) => testClaim(i));
+  const run = await runWorkerHarness({ jobs, ackFailureId: "notification-3" });
+  assert.equal(run.status, 500);
+  assert.equal(run.body.acknowledgement_failures, 1);
+  assert.equal(run.body.sent, 9);
+  assert.equal(run.ackCalls.length, 10, "every claim must get its own acknowledgement attempt");
+});
+
+test("P1-1: live SMS only reaches BulkGate AFTER its database dispatch marker", async () => {
+  const run = await runWorkerHarness({ jobs: [testClaim(1, "sms")], mode: "live" });
+  assert.equal(run.status, 200);
+  assert.equal(run.body.sent, 1);
+  assert.ok(run.steps.indexOf("mark_reservation_sms_dispatch_started") >= 0);
+  assert.ok(run.steps.indexOf("mark_reservation_sms_dispatch_started") < run.steps.indexOf("bulkgate_api_request"));
+  assert.equal(run.ackCalls[0].p_provider_message_id, "sms-test-1");
+});
+
+test("P1-1: failure to persist SMS dispatch marker prevents ANY provider call", async () => {
+  const run = await runWorkerHarness({ jobs: [testClaim(1, "sms")], mode: "live", markerAccepted: false });
+  assert.equal(run.status, 200);
+  assert.equal(run.body.retried, 1);
+  assert.ok(!run.steps.includes("bulkgate_api_request"));
+});
+
+test("P1-1: ambiguous SMS transport failure requires manual review, not retry", async () => {
+  const run = await runWorkerHarness({ jobs: [testClaim(1, "sms")], mode: "live", smsTransportFails: true });
+  assert.equal(run.status, 200);
+  assert.equal(run.body.dead, 1);
+  assert.equal(run.ackCalls[0].p_outcome, "dead");
+  assert.match(run.ackCalls[0].p_error, /manual review required/);
+});
+
+test("P1-1: SQL safely recovers abandoned fifth attempts and never reclaims dispatched SMS", () => {
+  assert.match(reliabilityMigration, /add column if not exists sms_dispatch_started_at timestamptz/);
+  assert.match(reliabilityMigration, /where d\.channel = 'sms' and d\.status = 'sending'/);
+  assert.match(reliabilityMigration, /create or replace function public\.mark_reservation_sms_dispatch_started/);
+  assert.match(reliabilityMigration, /d\.claim_token = p_claim_token/);
+  assert.match(reliabilityMigration, /d\.lease_until > now\(\)/);
+  assert.match(reliabilityMigration, /d\.sms_dispatch_started_at is null/);
+  assert.match(reliabilityMigration, /d\.attempt_count >= 5/);
+  assert.match(reliabilityMigration, /d\.lease_until < now\(\)/);
+  assert.match(reliabilityMigration, /d\.channel <> 'sms' or d\.sms_dispatch_started_at is null/);
+  assert.match(reliabilityMigration, /Live SMS dispatch outcome unknown; manual review required/);
+  assert.match(reliabilityMigration, /when p_outcome = 'retry' and \(/);
+  assert.match(reliabilityMigration, /d\.channel = 'sms' and d\.sms_dispatch_started_at is not null/);
+  assert.match(reliabilityMigration, /auth\.role\(\) <> 'service_role'/);
+  assert.match(reliabilityMigration, /from public, anon, authenticated/);
+});

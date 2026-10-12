@@ -31,6 +31,13 @@ type DeliveryResult = {
   error?: string;
 };
 
+// Bound each Cron run well below its 60s HTTP timeout, even when transports
+// are slow.  Ten jobs run in at most two waves of five concurrent requests.
+const MAX_BATCH_SIZE = 10;
+const MAX_CONCURRENT_DELIVERIES = 5;
+const DB_TIMEOUT_MS = 4000;
+const EMAIL_TIMEOUT_MS = 12000;
+const SMS_PROVIDER_TIMEOUT_MS = 10000;
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -62,7 +69,7 @@ async function deliverEmail(
         recipient_id: claim.recipient_id,
         notification_delivery_id: claim.delivery_id,
       }),
-      signal: AbortSignal.timeout(25000),
+      signal: AbortSignal.timeout(EMAIL_TIMEOUT_MS),
     });
   } catch {
     return { outcome: "retry", error: "Email transport unavailable" };
@@ -99,9 +106,11 @@ async function deliverSms(
 
   const [profileResult, reservationResult] = await Promise.all([
     admin.from("profiles").select("phone, preferred_language, sms_notifications")
-      .eq("id", claim.recipient_id).single(),
+      .eq("id", claim.recipient_id).single()
+      .abortSignal(AbortSignal.timeout(DB_TIMEOUT_MS)),
     admin.from("reservations").select("reservation_number")
-      .eq("id", claim.reservation_id).single(),
+      .eq("id", claim.reservation_id).single()
+      .abortSignal(AbortSignal.timeout(DB_TIMEOUT_MS)),
   ]);
   if (profileResult.error || reservationResult.error) {
     return { outcome: "retry", error: "SMS recipient lookup failed" };
@@ -136,6 +145,21 @@ async function deliverSms(
     return { outcome: "dead", error: "SMS provider is not configured" };
   }
 
+  // Persist the irreversible dispatch boundary BEFORE calling BulkGate.
+  // If the RPC errors or times out (even after committing), do NOT send.
+  // A later claim/lease recovery will safely quarantine any marked SMS.
+  try {
+    const marked = await admin.rpc("mark_reservation_sms_dispatch_started", {
+      p_delivery_id: claim.delivery_id,
+      p_claim_token: claim.claim_token,
+    }).abortSignal(AbortSignal.timeout(DB_TIMEOUT_MS));
+    if (marked.error || marked.data !== true) {
+      return { outcome: "retry", error: "SMS dispatch marker unavailable; SMS not submitted" };
+    }
+  } catch {
+    return { outcome: "retry", error: "SMS dispatch marker unavailable; SMS not submitted" };
+  }
+
   let provider: Response;
   try {
     provider = await fetch("https://portal.bulkgate.com/api/1.0/simple/transactional", {
@@ -151,7 +175,7 @@ async function deliverSms(
         duplicates_check: "on",
         tag: `rentulo-${claim.delivery_id}`,
       }),
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(SMS_PROVIDER_TIMEOUT_MS),
     });
   } catch {
     // A timeout is ambiguous: the provider might have accepted the SMS.
@@ -162,7 +186,9 @@ async function deliverSms(
   const accepted = provider.ok && result?.data?.status === "accepted" &&
     typeof result?.data?.sms_id === "string";
   if (accepted) return { outcome: "sent", messageId: result.data.sms_id };
-  if (provider.status === 429) return { outcome: "retry", error: "SMS rate limit" };
+  // After the provider boundary even an explicit rate limit is quarantined
+  // rather than automatically risking a second paid SMS.
+  if (provider.status === 429) return { outcome: "dead", error: "SMS rate limit after dispatch initiation; manual review required" };
   if (provider.status === 400) return { outcome: "skipped", error: "SMS provider rejected recipient or payload" };
   if (provider.status >= 500 || provider.ok) {
     return { outcome: "dead", error: "Ambiguous SMS provider response; manual review required" };
@@ -179,25 +205,43 @@ runtime.serve(async (request: Request) => {
     return json({ error: "Unauthorized" }, 401);
   }
   const admin = createClient(url, roleKey);
-  const verified = await admin.rpc("verify_reservation_notification_cron_secret", {
-    p_secret: suppliedSecret,
-  });
+  let verified;
+  try {
+    verified = await admin.rpc("verify_reservation_notification_cron_secret", {
+      p_secret: suppliedSecret,
+    }).abortSignal(AbortSignal.timeout(DB_TIMEOUT_MS));
+  } catch {
+    return json({ error: "Unauthorized" }, 401);
+  }
   if (verified.error || verified.data !== true) return json({ error: "Unauthorized" }, 401);
 
   const params = await request.json().catch(() => ({}));
   const requestedLimit = Number(params?.limit);
+  // Older Cron migrations request 15. Always cap the effective claim at 10.
   const limit = Number.isSafeInteger(requestedLimit)
-    ? Math.min(Math.max(requestedLimit, 1), 25) : 15;
-  const claims = await admin.rpc("claim_reservation_notification_deliveries", {
-    p_limit: limit,
-  });
+    ? Math.min(Math.max(requestedLimit, 1), MAX_BATCH_SIZE) : MAX_BATCH_SIZE;
+  let claims;
+  try {
+    claims = await admin.rpc("claim_reservation_notification_deliveries", {
+      p_limit: limit,
+    }).abortSignal(AbortSignal.timeout(DB_TIMEOUT_MS));
+  } catch {
+    console.error("process-reservation-notifications: queue claim failed");
+    return json({ error: "Queue unavailable" }, 500);
+  }
   if (claims.error || !Array.isArray(claims.data)) {
     console.error("process-reservation-notifications: queue claim failed");
     return json({ error: "Queue unavailable" }, 500);
   }
 
-  const summary = { claimed: claims.data.length, sent: 0, simulated: 0, skipped: 0, retried: 0, dead: 0 };
-  for (const claim of claims.data as Claim[]) {
+  const summary = {
+    claimed: claims.data.length, sent: 0, simulated: 0,
+    skipped: 0, retried: 0, dead: 0, acknowledgement_failures: 0,
+  };
+  const pending = claims.data as Claim[];
+  let nextIndex = 0;
+
+  async function processClaim(claim: Claim): Promise<void> {
     let result: DeliveryResult;
     try {
       result = claim.channel === "email"
@@ -208,20 +252,46 @@ runtime.serve(async (request: Request) => {
     } catch {
       result = { outcome: "retry", error: "Notification worker failed" };
     }
-    const finished = await admin.rpc("finish_reservation_notification_delivery", {
-      p_delivery_id: claim.delivery_id,
-      p_claim_token: claim.claim_token,
-      p_outcome: result.outcome,
-      p_provider_message_id: result.messageId || null,
-      p_error: result.error || null,
-    });
-    if (finished.error || finished.data !== true) {
+
+    try {
+      const finished = await admin.rpc("finish_reservation_notification_delivery", {
+        p_delivery_id: claim.delivery_id,
+        p_claim_token: claim.claim_token,
+        p_outcome: result.outcome,
+        p_provider_message_id: result.messageId || null,
+        p_error: result.error || null,
+      }).abortSignal(AbortSignal.timeout(DB_TIMEOUT_MS));
+      if (finished.error || finished.data !== true) {
+        summary.acknowledgement_failures += 1;
+        console.error("process-reservation-notifications: acknowledgement failed");
+        return;
+      }
+    } catch {
+      summary.acknowledgement_failures += 1;
       console.error("process-reservation-notifications: acknowledgement failed");
-      return json({ error: "Queue acknowledgement failed", ...summary }, 500);
+      return;
     }
+
     if (result.outcome === "retry") summary.retried += 1;
     else if (result.outcome === "dead") summary.dead += 1;
     else summary[result.outcome] += 1;
+  }
+
+  // The claim/lease is per-delivery. Never let one failed acknowledgement
+  // prevent the remaining independently claimed notifications from finishing.
+  async function drain(): Promise<void> {
+    while (nextIndex < pending.length) {
+      const claim = pending[nextIndex++];
+      await processClaim(claim);
+    }
+  }
+  await Promise.all(Array.from(
+    { length: Math.min(MAX_CONCURRENT_DELIVERIES, pending.length) },
+    () => drain(),
+  ));
+
+  if (summary.acknowledgement_failures > 0) {
+    return json({ error: "Queue acknowledgement failed", ...summary }, 500);
   }
   return json({ ok: true, ...summary });
 });
