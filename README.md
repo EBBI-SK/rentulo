@@ -2,7 +2,7 @@
 
 Rentulo je webová platforma na požičiavanie vecí medzi súkromnými osobami v **Českej republike**. Prvá verzia (V1) nie je určená podnikateľom. Prevádzkovateľom je **EBBI s. r. o.**
 
-> **Stav dokumentácie: 12. 10. 2026.** Referenčný GitHub `main`: `8ef44e2` (11. 10. 2026); GitHub CI **#391 úspešné, 367/367 testov**. Je to stav k uvedenému commitu, nie trvalá garancia. Aplikácia sa vyvíja a testuje na `rentulo.eu`; verejná produkcia `rentulo.com` **nebola spustená**.
+> **Stav dokumentácie: 12. 10. 2026.** Referenčný GitHub `main`: `fc69cc0` (BOD 13); podľa poslednej projektovej CI kontroly **#393 úspešné, 375/375 testov**. Je to dátumový snapshot, nie trvalá garancia; po tejto dokumentačnej zmene treba nové CI overenie. Aplikácia sa vyvíja a testuje na `rentulo.eu`; verejná produkcia `rentulo.com` **nebola spustená**.
 
 ## Technológie a architektúra
 
@@ -11,7 +11,7 @@ Rentulo je webová platforma na požičiavanie vecí medzi súkromnými osobami 
 - **Supabase**: Auth, PostgreSQL, RLS/RPC, Storage, Edge Functions a databázové migrácie.
 - **Stripe**: Checkout, Connect, serverový webhook, refundy a transfery prenajímateľom; aktuálne sa používajú **testovacie Stripe platby**.
 - **Vercel**: hosting, build a serverless API pre SEO detail ponuky a dynamickú sitemap.
-- **Resend**: rezervačné e-maily; Supabase Auth má vlastné jazykové e-mailové šablóny.
+- **Resend** a **BulkGate**: rezervačné e-maily a voliteľné SMS cez spoločnú databázovú frontu a bezpečný worker; Supabase Auth má vlastné jazykové e-mailové šablóny.
 - **OpenStreetMap**, **Nominatim** a **Photon**: mapa, geokódovanie a návrhy adries.
 
 ## Štruktúra repozitára
@@ -26,7 +26,7 @@ Rentulo je webová platforma na požičiavanie vecí medzi súkromnými osobami 
 ├── scripts/                      # build a SEO katalóg
 ├── supabase/
 │   ├── auth-email-templates/     # zdrojové šablóny Auth e-mailov
-│   ├── functions/                # Supabase Edge Functions (17)
+│   ├── functions/                # Supabase Edge Functions (18)
 │   ├── migrations/               # aktuálne SQL migrácie
 │   ├── migrations-archive/       # historický archív; nespúšťať znovu
 │   └── snippets/                # pomocné SQL
@@ -50,7 +50,7 @@ npm run build
 ```
 
 - `npm ci` nainštaluje závislosti podľa `package-lock.json`; používame Supabase CLI ako vývojovú závislosť.
-- `npm test` spustí Node.js testy v `tests/`. Na referenčnom commite `8ef44e2` prešlo **367/367**.
+- `npm test` spustí Node.js testy v `tests/`. K referenčnému commitu `fc69cc0` bolo v projektovom CI potvrdených **375/375** testov (beh #393); ďalší commit vyžaduje nový beh.
 - `npm run build` predvolene vytvorí **TEST** web v `dist/`. Výstup je možné lokálne prehliadať cez HTTP server (napríklad VS Code Live Server).
 - Build **neaplikuje databázové migrácie, nenasadzuje Supabase Edge Functions ani neprepína PROD**.
 
@@ -67,8 +67,20 @@ npm run build
 - Po potvrdení prevzatia sa iniciuje Stripe transfer prenajímateľovi; pri dočasnej chybe existuje automatický retry. To neznamená okamžité pripísanie na bankový účet.
 - Storno a refund zaplatenej rezervácie; náklady pri storne nájomcu, plný refund nájomcovi pri storne prenajímateľa a prípadný dlh prenajímateľa voči platforme.
 - Päť jazykov: **CZ (`cs`), SK (`sk`), EN, DE, PL**. Predvolený jazyk je čeština.
+- Rezervačné e-maily a voliteľné SMS cez jednotnú serverovú frontu; užívateľské SMS upozornenia sa aktivujú opt-in v `nastaveni.html`. SMS bez PIN-u a kontaktných údajov.
 
 Čas `pickup_time` naďalej určuje **šesťhodinovú hranicu storna**; samotné potvrdenie prevzatia PIN-om je viazané na *deň*, nie na konkrétnu hodinu. Detailné pravidlá sú v [HANDOVER.md](HANDOVER.md).
+
+## BOD 13 – rezervačné e-maily a SMS (TEST)
+
+Zjednotený systém používa tabuľku `reservation_notification_deliveries` a serverový worker `process-reservation-notifications`; udalosti vznikajú databázovo a spracúvajú sa asynchrónne (cron každú minútu). **E-maily fungujú nezávisle od zapnutia SMS.** SMS sú voliteľné, vyžadujú platné telefónne číslo a súhlas v nastaveniach profilu. Podporované základné SMS udalosti: **nová žiadosť, schválenie, zaplatenie, zrušenie**; špeciálne zaplatené storno sa vyhodnocuje až po potvrdenom refunde/finančnom uzavretí.
+
+**Reálny TEST 12. 10. 2026:** pri rezervácii `R-000019` prišli SMS za novú žiadosť, schválenie a zaplatenie; pri `R-000020` prišla SMS za zrušenie. **4/4 SMS prevzaté na testovacom mobile**, všetky mali v databáze `status=sent`, BulkGate ID a `attempt_count=1`, bez chyby; e-mailové udalosti boli `sent`. Nová žiadosť `R-000020` bola v `dry_run` iba `simulated`. BulkGate TEST aplikácia mala v okamihu kontroly využitie **4/5 SMS denne**.
+
+- **Supabase TEST (`rentulo.eu`):** pre skúšky sa dočasne použilo `SMS_SEND_MODE=live` iba s `SMS_ALLOWED_NUMBERS`; po skončení bol režim podľa vykonaného administrátorského postupu obnovený na **`dry_run`**. Hodnoty secrets nemožno overiť z maskovaného screenshotu; pred ďalším testom znovu skontrolovať režim.
+- **PROD (`rentulo.com`):** SMS neaktivované. Aktuálny kód dokonca blokuje `live` mimo TEST projektu. Produkčné nasadenie vyžaduje osobitné schválenie, bezpečnostnú kontrolu, nezávislé nastavenia a overenie vlastníctva telefónneho čísla. Žiadny TEST výsledok neznamená pripravenosť PROD.
+
+Podrobnosti o migráciách, crone, bezpečnosti, diagnostike a ďalších obmedzeniach sú v [HANDOVER.md – BOD 13](HANDOVER.md#21-bod-13--zjednotené-rezervačné-notifikácie-test).
 
 ## TEST a PROD – striktne oddelené
 
@@ -93,10 +105,10 @@ SEO: build pridáva metadata, canonical a Open Graph; `api/offer-page.mjs` gener
 
 ## Bezpečnosť a prevádzkové upozornenia
 
-- Verejná `SUPABASE_PUBLISHABLE_KEY` vo frontende nie je servisný kľúč. Práva vynucuje RLS a bezpečné RPC/Edge Functions. `SUPABASE_SERVICE_ROLE_KEY`, Stripe, Resend a ostatné tajomstvá **nikdy neukladať do repozitára ani do ZIP-u**.
+- Verejná `SUPABASE_PUBLISHABLE_KEY` vo frontende nie je servisný kľúč. Práva vynucuje RLS a bezpečné RPC/Edge Functions. `SUPABASE_SERVICE_ROLE_KEY`, Stripe, Resend, BulkGate a ostatné tajomstvá **nikdy neukladať do repozitára ani do ZIP-u**.
 - Staršia klientsky použiteľná testovacia platobná RPC `mark_my_reservation_paid_test` bola odstránená migráciou z 11. 10. 2026; historická tabuľka `test_payment_users` ostáva bez prístupov pre `public`, `anon` a `authenticated`. Účinok migrácií na konkrétnom prostredí treba preveriť osobitne.
 - `vercel.json` nastavuje CSP, HSTS, ochranné HTTP hlavičky a `X-Robots-Tag: noindex` na príslušných hostoch.
 - Bezpečnostné výsledky CodeQL (0 otvorených / 6 uzavretých) pochádzajú **z 18. 8. 2026**; nie sú novým bezpečnostným auditom.
 - Právne dokumenty a kontakty pre V1 sú pripravené v zdrojovom kóde; pred ostrým spustením je nutné overiť ich finálnu účinnosť, právnu správnosť a skutočnú funkčnosť e-mailových schránok.
 
-**Aplikácia nie je automaticky pripravená na ostrú prevádzku len preto, že CI prešlo.** Zostáva samostatná kontrola PROD nastavení, migrácií, Stripe live integrácie, Auth a Resend, bezpečnosti, právnych údajov, DNS/TLS a end-to-end smoke testov. Úplný odovzdávací dokument a kontrolný zoznam: **[HANDOVER.md](HANDOVER.md)**.
+**Aplikácia nie je automaticky pripravená na ostrú prevádzku len preto, že CI prešlo.** Zostáva samostatná kontrola PROD nastavení, migrácií, Stripe live integrácie, Auth, Resend a produkčných SMS, bezpečnosti, právnych údajov, DNS/TLS a end-to-end smoke testov. Úplný odovzdávací dokument a kontrolný zoznam: **[HANDOVER.md](HANDOVER.md)**.
