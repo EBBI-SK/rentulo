@@ -137,42 +137,6 @@ function formatReservationScheduleValue(dateValue, timeValue) {
       }, 4500);
     }
 
-    async function sendReservationEmailSafely(reservationId, eventType) {
-      if (!reservationId || !eventType) {
-        return;
-      }
-
-      if (typeof window.apiSendReservationEmail === "function") {
-        await window.apiSendReservationEmail(reservationId, eventType);
-        return;
-      }
-
-      const supabaseClient = getSupabaseClient();
-
-      if (!supabaseClient) {
-        console.warn("E-mailové upozornění nebylo odesláno: Supabase není dostupný.");
-        return;
-      }
-
-      try {
-        const { error } = await supabaseClient.functions.invoke(
-          "send-reservation-email",
-          {
-            body: {
-              reservation_id: reservationId,
-              event: eventType
-            }
-          }
-        );
-
-        if (error) {
-          console.warn("E-mailové upozornění se nepodařilo odeslat:", error);
-        }
-      } catch (error) {
-        console.warn("E-mailové upozornění se nepodařilo odeslat:", error);
-      }
-    }
-
     function getSafeReservationStatusText(status) {
       if (normalizeReservationStatus(status) === RESERVATION_STATUS_PICKED_UP) {
         return reservationsTranslate("reservations.status.pickedUp", "Převzato");
@@ -1060,7 +1024,6 @@ return (
         return;
       }
 
-      await sendReservationEmailSafely(reservationId, "cancelled");
       await retryLoadReservations();
 
       showReservationsNotice(

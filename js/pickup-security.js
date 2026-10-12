@@ -472,13 +472,6 @@
       });
 
       if (result.ok && result.data && result.data.status === "picked_up") {
-        if (typeof window.apiSendReservationEmail === "function") {
-          try {
-            await window.apiSendReservationEmail(reservationId, "picked_up");
-          } catch (_error) {
-            // Pickup remains confirmed even if the optional notification fails.
-          }
-        }
         setOwnerMessage(text("success"), "success");
         window.setTimeout(function () { window.location.reload(); }, 500);
         return;

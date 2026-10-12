@@ -476,3 +476,7 @@ html[data-focus-input="pointer"] .field select:focus {
     width: 100%;
   }
 }
+
+/* BOD 13: compact opt-in for transactional reservation SMS. */
+.settings-sms-choice { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; line-height: 1.5; }
+.settings-sms-choice input { width: 18px; height: 18px; flex: 0 0 auto; margin-top: 2px; }

@@ -461,7 +461,12 @@ denoRuntime.serve(async (req) => {
     actorId = actor.id;
   }
 
-  let payload: { reservation_id?: string; event?: EmailEvent };
+  let payload: {
+    reservation_id?: string;
+    event?: EmailEvent;
+    recipient_id?: string;
+    notification_delivery_id?: string;
+  };
   try {
     payload = await req.json();
   } catch {
@@ -475,8 +480,34 @@ denoRuntime.serve(async (req) => {
     return response({ error: "Invalid request" }, 400);
   }
 
-  if (isServiceRoleCall && event !== "paid" && event !== "paid_cancelled") {
-    return response({ error: "Service role is only allowed for trusted payment email events" }, 403);
+  const isWorkerDelivery = isServiceRoleCall &&
+    typeof payload.recipient_id === "string" &&
+    typeof payload.notification_delivery_id === "string";
+
+  if (!isServiceRoleCall && (payload.recipient_id || payload.notification_delivery_id)) {
+    return response({ error: "Only the trusted notification worker can select recipients" }, 403);
+  }
+
+  if (isServiceRoleCall && !isWorkerDelivery && event !== "paid" && event !== "paid_cancelled") {
+    return response({ error: "Service role requires a claimed delivery for non-payment email events" }, 403);
+  }
+
+  if (isWorkerDelivery) {
+    // The worker must own a real, claimed DB delivery: the server cannot
+    // forge the recipient or bypass the transactional event outbox.
+    const { data: delivery, error: deliveryError } = await admin
+      .from("reservation_notification_deliveries")
+      .select("id")
+      .eq("id", payload.notification_delivery_id)
+      .eq("reservation_id", reservationId)
+      .eq("event_type", event)
+      .eq("recipient_id", payload.recipient_id)
+      .eq("channel", "email")
+      .eq("status", "sending")
+      .maybeSingle();
+    if (deliveryError || !delivery) {
+      return response({ error: "Claimed notification delivery not found" }, 403);
+    }
   }
 
   if (!isServiceRoleCall && event === "paid_cancelled") {
@@ -493,8 +524,14 @@ denoRuntime.serve(async (req) => {
     return response({ error: "Reservation not found" }, 404);
   }
 
-  if (reservation.status !== eventStatus[event]) {
+  // Queued events are proof of the status *at the transaction time*.
+  // A later transition must not silently drop an already queued email.
+  // Normal browser calls still require the current status.
+  if (!isWorkerDelivery && reservation.status !== eventStatus[event]) {
     return response({ error: "Reservation status does not match the email event" }, 409);
+  }
+  if (isWorkerDelivery && event === "paid_cancelled" && reservation.status !== "cancelled") {
+    return response({ error: "Paid cancellation status is inconsistent" }, 409);
   }
 
   const actorIsOwner = actorId === reservation.owner_id;
@@ -595,7 +632,13 @@ denoRuntime.serve(async (req) => {
   }
 
   let recipientIds: string[];
-  if (event === "new_request" || event === "paid") {
+  if (isWorkerDelivery) {
+    if (payload.recipient_id !== reservation.owner_id &&
+        payload.recipient_id !== reservation.renter_id) {
+      return response({ error: "Recipient is not in the reservation" }, 403);
+    }
+    recipientIds = [payload.recipient_id as string];
+  } else if (event === "new_request" || event === "paid") {
     recipientIds = [reservation.owner_id];
   } else if (event === "paid_cancelled") {
     recipientIds = Array.from(new Set([reservation.renter_id, reservation.owner_id]));
@@ -671,7 +714,7 @@ denoRuntime.serve(async (req) => {
 
       const { data: existingDelivery, error: existingDeliveryError } = await admin
         .from("reservation_email_deliveries")
-        .select("id, status")
+        .select("id, status, created_at")
         .eq("reservation_id", reservation.id)
         .eq("event_type", event)
         .eq("recipient_id", profile.id)
@@ -681,10 +724,21 @@ denoRuntime.serve(async (req) => {
         return response({ error: "Existing email delivery lookup failed" }, 500);
       }
 
-      if (existingDelivery.status !== "failed") {
+      if (existingDelivery.status === "sent") {
         results.push({ recipient_id: profile.id, status: "duplicate" });
         continue;
       }
+
+      if (existingDelivery.status === "sending" &&
+          Date.now() - new Date(existingDelivery.created_at).getTime() < 180000) {
+        // Do not report success for a fresh in-flight request. The outbox
+        // will retry later if its original worker died.
+        results.push({ recipient_id: profile.id, status: "in_progress" });
+        continue;
+      }
+
+      // Failed or stranded requests are safe to resubmit with Resend's
+      // stable Idempotency-Key (same log row ID on every attempt).
 
       const { data: retryLogRow, error: retryLogError } = await admin
         .from("reservation_email_deliveries")
@@ -726,6 +780,7 @@ denoRuntime.serve(async (req) => {
       headers: {
         Authorization: `Bearer ${resendApiKey}`,
         "Content-Type": "application/json",
+        "Idempotency-Key": `rentulo-${logRow.id}`,
       },
       body: JSON.stringify({
         from: emailFrom,

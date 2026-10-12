@@ -226,7 +226,7 @@
       const response = await client
         .from("profiles")
         .select(
-          "full_name, email, phone, street, city, postal_code, preferred_language"
+          "full_name, email, phone, street, city, postal_code, preferred_language, sms_notifications"
         )
         .eq("id", user.id)
         .maybeSingle();
@@ -268,6 +268,8 @@
     }
 
     setProfileFields(profile, user);
+    const smsCheck = document.getElementById("settingsSmsEnabled");
+    if (smsCheck) smsCheck.checked = profile?.sms_notifications === true;
 
     const pendingEmail = normalizeEmail(user && user.new_email);
     if (pendingEmail && pendingEmail !== authEmail) {
@@ -466,6 +468,41 @@
         "error"
       );
       return user;
+    } finally {
+      setButtonLoading(button, false);
+    }
+  }
+
+  function phoneEligibleForSms(value) {
+    const phone = normalizeText(value).replace(/[\s()\-]/g, "");
+    return /^\d{9}$/.test(phone) || /^\+[1-9]\d{7,14}$/.test(phone) || /^00[1-9]\d{7,14}$/.test(phone);
+  }
+
+  async function saveSmsPreference(client, user) {
+    const checkbox = document.getElementById("settingsSmsEnabled");
+    const phoneInput = document.getElementById("profilePhone");
+    const button = document.getElementById("settingsSaveSmsButton");
+    const message = document.getElementById("settingsSmsMessage");
+    if (!checkbox || (button && button.disabled)) return;
+    const smsEnabled = checkbox.checked;
+    if (smsEnabled && !phoneEligibleForSms(phoneInput && phoneInput.value)) {
+      setTranslatedMessage(message, "settings.smsInvalidPhone",
+        "Pro SMS uložte platné telefonní číslo v osobních údajích.", "error");
+      return;
+    }
+
+    setButtonLoading(button, true);
+    setMessage(message, "", "");
+    try {
+      const { error } = await client.from("profiles")
+        .update({ sms_notifications: smsEnabled, updated_at: new Date().toISOString() })
+        .eq("id", user.id);
+      if (error) throw error;
+      setTranslatedMessage(message, "settings.smsSaved", "SMS nastavení bylo uloženo.", "success");
+    } catch (error) {
+      console.error(error);
+      setTranslatedMessage(message, "settings.smsSaveError",
+        "SMS nastavení se nepodařilo uložit.", "error");
     } finally {
       setButtonLoading(button, false);
     }
@@ -1017,6 +1054,7 @@
 
     const profileForm = document.getElementById("profileForm");
     const passwordForm = document.getElementById("passwordForm");
+    const saveSmsButton = document.getElementById("settingsSaveSmsButton");
     const retryButton = document.getElementById("settingsRetryButton");
     const checkAccountCancellationButton = document.getElementById("checkAccountCancellationButton");
     const cancelAccountButton = document.getElementById("cancelAccountButton");
@@ -1028,6 +1066,12 @@
       profileForm.addEventListener("submit", async function (event) {
         event.preventDefault();
         currentUser = await saveProfile(client, currentUser);
+      });
+    }
+
+    if (saveSmsButton) {
+      saveSmsButton.addEventListener("click", function () {
+        saveSmsPreference(client, currentUser);
       });
     }
 

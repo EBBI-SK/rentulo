@@ -31,17 +31,25 @@ const cancelSource = fs.readFileSync(CANCEL_FUNCTION_PATH, "utf8");
 const emailSource = fs.readFileSync(EMAIL_FUNCTION_PATH, "utf8");
 const migrationSource = fs.readFileSync(MIGRATION_PATH, "utf8").replace(/\s+/g, " ");
 
-test("paid cancellation email event is stored idempotently for both recipients", () => {
+const queueMigration = fs.readFileSync(
+  path.join(PROJECT_ROOT, "supabase", "migrations", "20261012100000_unify_reservation_notification_outbox.sql"), "utf8");
+
+test("paid cancellation emails are queued for both parties only after refund success", () => {
   assert.match(migrationSource, /reservation_email_deliveries_event_type_check/i);
   assert.match(migrationSource, /'paid_cancelled'/i);
   assert.match(emailSource, /\| "paid_cancelled";/);
-  assert.match(emailSource, /event_type:\s*event/);
-  assert.match(emailSource, /recipientIds = Array\.from\(new Set\(\[reservation\.renter_id, reservation\.owner_id\]\)\)/);
-  assert.match(emailSource, /existingDelivery\.status !== "failed"/);
+  assert.match(queueMigration, /queue_finalized_paid_cancellation_notifications/);
+  assert.match(queueMigration, /p\.refund_status = 'succeeded'/);
+  assert.match(queueMigration, /c\.financials_finalized_at is not null/);
+  assert.match(queueMigration, /v_reservation\.owner_id/);
+  assert.match(queueMigration, /v_reservation\.renter_id/);
+  assert.match(queueMigration, /unique \(reservation_id, event_type, recipient_id, channel\)/);
 });
 
-test("paid cancellation email can only be invoked as a trusted service-role payment event", () => {
-  assert.match(emailSource, /isServiceRoleCall && event !== "paid" && event !== "paid_cancelled"/);
+test("trusted worker notification is verified against a claimed delivery", () => {
+  assert.match(emailSource, /isWorkerDelivery = isServiceRoleCall/);
+  assert.match(emailSource, /Claimed notification delivery not found/);
+  assert.match(emailSource, /\.eq\("recipient_id", payload\.recipient_id\)/);
   assert.match(emailSource, /!isServiceRoleCall && event === "paid_cancelled"/);
   assert.match(emailSource, /Paid cancellation email requires service role/);
 });
@@ -113,22 +121,17 @@ test("paid cancellation copy remains available in all five supported languages",
   assert.match(emailSource, /Rezerwacja anulowana – zwrot płatności/);
 });
 
-test("refund endpoint triggers paid cancellation email only after a succeeded finalized refund", () => {
-  assert.match(cancelSource, /event:\s*"paid_cancelled"/);
-  assert.match(cancelSource, /Authorization:\s*`Bearer \$\{serviceRoleKey\}`/);
-  assert.match(cancelSource, /apikey:\s*serviceRoleKey/);
-  assert.match(
-    cancelSource,
-    /context\.refund_status === "succeeded"[\s\S]*sendPaidCancellationEmail\(supabaseUrl, serviceRoleKey, context\.reservation_id\)/
-  );
-  assert.match(
-    cancelSource,
-    /refundStatus === "succeeded" && finalized\.financials_finalized_at[\s\S]*sendPaidCancellationEmail\(supabaseUrl, serviceRoleKey, context\.reservation_id\)/
-  );
+test("refund endpoint leaves notification scheduling to Stripe/financial completion triggers", () => {
+  assert.doesNotMatch(cancelSource, /sendPaidCancellationEmail/);
+  assert.match(queueMigration, /after update of refund_status on public\.payments/);
+  assert.match(queueMigration, /after update of financials_finalized_at on public\.reservation_cancellations/);
+  assert.match(queueMigration, /v_cancellation\.cancelled_by_role = 'renter'/);
+  assert.match(queueMigration, /v_cancellation\.cancelled_by_role = 'owner'/);
 });
 
-test("email failure cannot roll back an already completed Stripe refund", () => {
-  assert.match(cancelSource, /Promise<"sent" \| "failed">/);
-  assert.match(cancelSource, /return "failed";/);
-  assert.match(cancelSource, /return jsonResponse\(\{ \.\.\.responseBody, email_status: emailStatus \}\);/);
+test("notification provider failure cannot roll back a completed Stripe refund", () => {
+  assert.doesNotMatch(cancelSource, /sendPaidCancellationEmail/);
+  assert.match(cancelSource, /return jsonResponse\(existingResponse\)/);
+  assert.match(cancelSource, /return jsonResponse\(responseBody\)/);
+  assert.match(cancelSource, /admin\.rpc\("finalize_paid_reservation_cancellation_refund"/);
 });

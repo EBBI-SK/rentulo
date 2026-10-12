@@ -137,6 +137,24 @@
         </div>
       </section>
 
+      <section class="settings-card" id="notificationSettingsSection">
+        <div class="settings-card-heading">
+          <h2 data-i18n="settings.smsTitle">SMS upozornění</h2>
+          <p data-i18n="settings.smsDescription">Volitelné SMS k důležitým změnám rezervace. E-maily zůstávají nezávislé.</p>
+        </div>
+        <label class="settings-sms-choice" for="settingsSmsEnabled">
+          <input type="checkbox" id="settingsSmsEnabled" />
+          <span data-i18n="settings.smsOptIn">Chci dostávat důležité SMS k rezervacím.</span>
+        </label>
+        <p class="profile-note" data-i18n="settings.smsPhoneNote">SMS mohou chodit jen na platné telefonní číslo v osobních údajích. Aktivaci lze kdykoli vypnout.</p>
+        <div class="actions">
+          <button type="button" class="primary-button" id="settingsSaveSmsButton">
+            <span data-i18n="settings.smsSave">Uložit SMS upozornění</span>
+          </button>
+          <span class="message" id="settingsSmsMessage" role="status" aria-live="polite"></span>
+        </div>
+      </section>
+
       <section class="settings-card" id="connectSettingsSection">
         <div class="settings-card-heading">
           <h2 id="connectSettingsTitle">Výplaty za pronájmy</h2>

@@ -988,13 +988,6 @@ const hasGps = offerHasGpsLocation(offer);
           console.warn("ID nové rezervace se nepodařilo uložit do sessionStorage.", storageError);
         }
 
-        if (typeof window.apiSendReservationEmail === "function") {
-          try {
-            await window.apiSendReservationEmail(data.id, "new_request");
-          } catch (emailError) {
-            console.warn("E-mail o nové rezervaci se nepodařilo odeslat.", emailError);
-          }
-        }
       }
 
       window.location.href = "moje-rezervace.html";
