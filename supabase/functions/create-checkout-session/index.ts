@@ -268,14 +268,20 @@ denoRuntime.serve(async (req) => {
     return jsonResponse({ error: "Reservation payment deadline has expired" }, 409);
   }
 
+    const checkoutPaymentId = payment.id;
+  const checkoutRenterId = actor.id;
+
   async function finishCheckoutAttempt(sessionId: string): Promise<boolean> {
     const result = await admin.rpc("finish_reservation_checkout_attempt", {
-      p_payment_id: payment.id,
-      p_renter_id: actor.id,
+      p_payment_id: checkoutPaymentId,
+      p_renter_id: checkoutRenterId,
       p_session_id: sessionId,
     });
     if (result.error || result.data !== true) {
-      console.error("create-checkout-session: could not finalize checkout attempt", payment.id);
+      console.error(
+        "create-checkout-session: could not finalize checkout attempt",
+        checkoutPaymentId,
+      );
       return false;
     }
     return true;
