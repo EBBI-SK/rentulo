@@ -90,6 +90,14 @@ test("five languages show expired status and deadlines, expiry goes to history",
   assert.match(email, /reservation\.expires_at\).*getTime\(\) <= Date\.now\(\)/s);
 });
 
+test("expiry deadlines omit the city suffix while retaining Prague time zone", () => {
+  for (const file of ["js/reservations-page.js", "js/offers-page.js"]) {
+    const script = read(file);
+    assert.equal(script.includes("(Praha)"), false, file);
+    assert.ok(script.includes('timeZone: "Europe/Prague"'), file);
+  }
+});
+
 function testHarness({ payments = [], stripe = {}, due = true, expectedExpiration = true } = {}) {
   const calls = { rpc: [], stripe: [], issue: [] };
   let handler;

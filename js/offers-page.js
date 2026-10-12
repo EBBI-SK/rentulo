@@ -1862,7 +1862,7 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
         : pending ? "reservations.expiration.ownerDeadline" : "offers.expiration.customerPaymentDeadline";
       const label = expired ? "Lhůta uplynula – ověřujeme stav"
         : pending ? "Schválit do" : "Zákazník má zaplatit do";
-      return `<small class="reservation-expiration-note">${escapeHtml(offersTranslate(key, label))}: ${escapeHtml(formatted)} (Praha)</small>`;
+      return `<small class="reservation-expiration-note">${escapeHtml(offersTranslate(key, label))}: ${escapeHtml(formatted)}</small>`;
     }
 
     function renderRequest(reservation) {

@@ -1311,7 +1311,7 @@ return (
           ? "reservations.expiration.ownerDeadline" : "reservations.expiration.paymentDeadline";
       const label = passed ? "Lhůta uplynula – ověřujeme stav" :
         normalized === RESERVATION_STATUS_PENDING ? "Schválit do" : "Zaplatit do";
-      return `<small class="reservation-expiration-note">${escapeHtml(reservationsTranslate(key, label))}: ${escapeHtml(deadlineText)} (Praha)</small>`;
+      return `<small class="reservation-expiration-note">${escapeHtml(reservationsTranslate(key, label))}: ${escapeHtml(deadlineText)}</small>`;
     }
 
     function renderReservationDetailPanel(reservation) {
