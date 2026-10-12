@@ -248,6 +248,10 @@ pickupLongitude:
     : null,
         status: row.status || "pending",
         statusText: getSafeReservationStatusText(row.status || "pending"),
+        expiresAt: row.expires_at || "",
+        approvedAt: row.approved_at || "",
+        expiredAt: row.expired_at || "",
+        expiryReason: row.expiry_reason || "",
 
         contactVisibleAfterPayment: Boolean(row.contact_visible_after_payment),
 
@@ -1282,6 +1286,34 @@ return (
       `;
     }
 
+    function formatReservationExpiry(value) {
+      if (!value) return "";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+      const lang = typeof window.getRentuloLanguage === "function"
+        ? window.getRentuloLanguage() : "cs";
+      const locales = { cs: "cs-CZ", sk: "sk-SK", en: "en-GB", de: "de-DE", pl: "pl-PL" };
+      return new Intl.DateTimeFormat(locales[lang] || "cs-CZ", {
+        dateStyle: "short", timeStyle: "short", timeZone: "Europe/Prague"
+      }).format(date);
+    }
+
+    function renderReservationDeadline(reservation, status) {
+      const normalized = normalizeReservationStatus(status);
+      if (normalized !== RESERVATION_STATUS_PENDING &&
+          normalized !== RESERVATION_STATUS_APPROVED) return "";
+      if (!reservation.expiresAt) return ""; // grandfathered TEST reservations
+      const deadlineText = formatReservationExpiry(reservation.expiresAt);
+      if (!deadlineText) return "";
+      const passed = new Date(reservation.expiresAt).getTime() <= Date.now();
+      const key = passed ? "reservations.expiration.review" :
+        normalized === RESERVATION_STATUS_PENDING
+          ? "reservations.expiration.ownerDeadline" : "reservations.expiration.paymentDeadline";
+      const label = passed ? "Lhůta uplynula – ověřujeme stav" :
+        normalized === RESERVATION_STATUS_PENDING ? "Schválit do" : "Zaplatit do";
+      return `<small class="reservation-expiration-note">${escapeHtml(reservationsTranslate(key, label))}: ${escapeHtml(deadlineText)} (Praha)</small>`;
+    }
+
     function renderReservationDetailPanel(reservation) {
       const status = getSafeReservationStatus(reservation);
 
@@ -1292,6 +1324,7 @@ return (
         : normalizedStatus === RESERVATION_STATUS_APPROVED
           ? reservationsTranslate("reservations.payment.waitingLower", "čeká na platbu")
           : reservationsTranslate("reservations.payment.pendingLower", "dostupná po schválení");
+      const deadlineNote = renderReservationDeadline(reservation, normalizedStatus);
       const scheduleCopy = getReservationScheduleCopy();
       const pickupSchedule = formatReservationScheduleValue(
         getSafeReservationDateFrom(reservation),
@@ -1332,6 +1365,13 @@ return (
             ${reservation.offerNumber ? `<div class="info-box"><span>${escapeHtml(reservationsTranslate("reference.offer", "Číslo nabídky"))}</span><strong>${escapeHtml(reservation.offerNumber)}</strong></div>` : ""}
           </div>
 
+          ${deadlineNote ? `<p class="reservation-expiration-note">${deadlineNote}</p>` : ""}
+          ${normalizedStatus === RESERVATION_STATUS_EXPIRED ? `<p class="reservation-expiration-note">${escapeHtml(reservationsTranslate(
+            reservation.expiryReason === "owner_no_response"
+              ? "reservations.expiration.ownerExpired" : "reservations.expiration.paymentExpired",
+            reservation.expiryReason === "owner_no_response"
+              ? "Majitel nepotvrdil žádost včas." : "Rezervace nebyla zaplacena včas."
+          ))}</p>` : ""}
           ${renderReservationStateBox(reservation, status)}
 
           ${renderPaymentBox(reservation, status)}
@@ -1354,7 +1394,7 @@ return (
       const totalPrice = getSafeReservationTotalPrice(reservation);
       const reservationId = reservation.id || reservation.reservationId;
       const offerId = getSafeReservationOfferId(reservation);
-      const isPaymentRequired = normalizedStatus === RESERVATION_STATUS_APPROVED;
+      const isPaymentRequired = canRenterPayReservation(reservation);
       const isPriority = (
         isPaymentRequired ||
         normalizedStatus === RESERVATION_STATUS_PAID ||
@@ -1393,6 +1433,7 @@ return (
       <div class="simple-reservation-info">
         <strong>${escapeHtml(toolName)}</strong>
         <span>${escapeHtml(city)}${reservation.reservationNumber ? ` · ${escapeHtml(reservationsTranslate("reference.reservation", "Číslo rezervace"))}: ${escapeHtml(reservation.reservationNumber)}` : ""}</span>
+        ${renderReservationDeadline(reservation, normalizedStatus)}
       </div>
     </div>
 

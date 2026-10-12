@@ -538,6 +538,10 @@
         endDate: row.end_date || row.date_to || "",
         pickupTime: row.pickup_time || "",
         cancellationCutoffAt: row.cancellation_cutoff_at || "",
+        expiresAt: row.expires_at || "",
+        approvedAt: row.approved_at || "",
+        expiredAt: row.expired_at || "",
+        expiryReason: row.expiry_reason || "",
         days: Number(row.total_days || row.days || 0),
         totalPrice: Number(row.total_price || 0),
 
@@ -1594,6 +1598,10 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
         return `<p class="request-note">${offersTranslate("offers.note.rejected", "Žádost byla odmítnuta. Nabídka už touto žádostí není blokovaná.")}</p>`;
       }
 
+      if (normalizeReservationStatus(status) === RESERVATION_STATUS_EXPIRED) {
+        return `<p class="request-note">${offersTranslate("reservations.expiration.expiredNote", "Lhůta vypršela a termín je znovu volný.")}</p>`;
+      }
+
       if (normalizeReservationStatus(status) === RESERVATION_STATUS_CANCELLED) {
         return `<p class="request-note">${offersTranslate("offers.note.cancelled", "Rezervace byla zrušena. Nabídka už touto žádostí není blokovaná.")}</p>`;
       }
@@ -1837,6 +1845,26 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
       `;
     }
 
+    function renderOwnerRequestDeadline(reservation) {
+      if (!reservation.expiresAt || ![RESERVATION_STATUS_PENDING, RESERVATION_STATUS_APPROVED]
+        .includes(normalizeReservationStatus(reservation.status))) return "";
+      const date = new Date(reservation.expiresAt);
+      if (Number.isNaN(date.getTime())) return "";
+      const lang = typeof window.getRentuloLanguage === "function"
+        ? window.getRentuloLanguage() : "cs";
+      const locales = { cs: "cs-CZ", sk: "sk-SK", en: "en-GB", de: "de-DE", pl: "pl-PL" };
+      const formatted = new Intl.DateTimeFormat(locales[lang] || "cs-CZ", {
+        dateStyle: "short", timeStyle: "short", timeZone: "Europe/Prague"
+      }).format(date);
+      const pending = normalizeReservationStatus(reservation.status) === RESERVATION_STATUS_PENDING;
+      const expired = date.getTime() <= Date.now();
+      const key = expired ? "reservations.expiration.review"
+        : pending ? "reservations.expiration.ownerDeadline" : "offers.expiration.customerPaymentDeadline";
+      const label = expired ? "Lhůta uplynula – ověřujeme stav"
+        : pending ? "Schválit do" : "Zákazník má zaplatit do";
+      return `<small class="reservation-expiration-note">${escapeHtml(offersTranslate(key, label))}: ${escapeHtml(formatted)} (Praha)</small>`;
+    }
+
     function renderRequest(reservation) {
       const status = reservation.status;
       const statusText = getStatusText(status);
@@ -1860,6 +1888,7 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
               <span class="request-name">${escapeHtml(renterName)}</span>
               <span class="request-email">${escapeHtml(renterEmail)}</span>
               ${reservation.reservationNumber ? `<span class="request-email">${escapeHtml(offersTranslate("reference.reservation", "Číslo rezervace"))}: ${escapeHtml(reservation.reservationNumber)}</span>` : ""}
+              ${renderOwnerRequestDeadline(reservation)}
             </div>
 
             <div class="request-date">

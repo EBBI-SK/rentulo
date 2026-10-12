@@ -6,6 +6,7 @@ const RESERVATION_STATUS_RETURNED = "returned";
 const RESERVATION_STATUS_REJECTED = "rejected";
 const RESERVATION_STATUS_CANCELLED = "cancelled";
 const RESERVATION_STATUS_COMPLETED = "completed";
+const RESERVATION_STATUS_EXPIRED = "expired";
 const LEGACY_RESERVATION_STATUS_PENDING = "Čeká na potvrzení";
 const LEGACY_RESERVATION_STATUS_APPROVED = "Čeká na platbu";
 const LEGACY_RESERVATION_STATUS_PAID = "Zaplaceno";
@@ -30,6 +31,7 @@ const CLOSED_RESERVATION_STATUSES = [
   RESERVATION_STATUS_REJECTED,
   RESERVATION_STATUS_CANCELLED,
   RESERVATION_STATUS_COMPLETED,
+  RESERVATION_STATUS_EXPIRED,
   LEGACY_RESERVATION_STATUS_RETURNED,
   LEGACY_RESERVATION_STATUS_REJECTED,
   LEGACY_RESERVATION_STATUS_CANCELLED,
@@ -96,6 +98,10 @@ function getReservationStatusText(status) {
 
   if (normalizedStatus === RESERVATION_STATUS_COMPLETED) {
     return reservationStatusTranslate("reservation.status.completed", "Dokončeno");
+  }
+
+  if (normalizedStatus === RESERVATION_STATUS_EXPIRED) {
+    return reservationStatusTranslate("reservation.status.expired", "Vypršela lhůta");
   }
 
   return status || reservationStatusTranslate("reservation.status.pending", "Čeká na potvrzení");

@@ -15,7 +15,9 @@ const runtime = (globalThis as typeof globalThis & { Deno: RentuloDenoRuntime })
 type Channel = "email" | "sms";
 type EventType =
   | "new_request" | "approved" | "rejected" | "cancelled"
-  | "paid" | "picked_up" | "returned" | "paid_cancelled";
+  | "paid" | "picked_up" | "returned" | "paid_cancelled"
+  | "expiry_reminder_pending" | "expiry_reminder_approved"
+  | "expired_pending" | "expired_approved";
 type Status = "sent" | "retry" | "simulated" | "skipped" | "dead";
 type Claim = {
   delivery_id: string;

@@ -93,8 +93,16 @@ function getReservationContactVisible(status) {
   );
 }
 
+function isReservationDeadlineOpen(reservation) {
+  const deadline = reservation && (reservation.expiresAt || reservation.expires_at);
+  if (!deadline) return true; // existing TEST reservations remain grandfathered
+  const ms = new Date(deadline).getTime();
+  return Number.isFinite(ms) && ms > Date.now();
+}
+
 function canOwnerApproveReservation(reservation) {
-  return getReservationStatus(reservation) === RESERVATION_STATUS_PENDING;
+  return getReservationStatus(reservation) === RESERVATION_STATUS_PENDING &&
+    isReservationDeadlineOpen(reservation);
 }
 
 function canOwnerRejectReservation(reservation) {
@@ -102,7 +110,8 @@ function canOwnerRejectReservation(reservation) {
 }
 
 function canRenterPayReservation(reservation) {
-  return getReservationStatus(reservation) === RESERVATION_STATUS_APPROVED;
+  return getReservationStatus(reservation) === RESERVATION_STATUS_APPROVED &&
+    isReservationDeadlineOpen(reservation);
 }
 
 function canRenterCancelReservation(reservation) {

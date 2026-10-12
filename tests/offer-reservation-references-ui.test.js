@@ -34,6 +34,7 @@ function extractFunction(source, name, next) {
     RESERVATION_STATUS_APPROVED: "approved",
     RESERVATION_STATUS_PAID: "paid",
     RESERVATION_STATUS_PICKED_UP: "picked_up",
+    RESERVATION_STATUS_EXPIRED: "expired",
     getSafeReservationStatus: (row) => row.status || "pending",
     normalizeReservationStatus: (value) => value,
     getSafeReservationContactVisible: () => false,
@@ -48,6 +49,7 @@ function extractFunction(source, name, next) {
     formatReservationsDate: (value) => value,
     getReservationScheduleCopy: () => ({ pickup: "Převzetí", return: "Vrácení" }),
     formatReservationScheduleValue: (date) => date,
+    renderReservationDeadline: () => "",
     renderReservationStateBox: () => "",
     renderPaymentBox: () => "",
     renderContactBox: () => "",
@@ -136,7 +138,7 @@ test("public offer detail displays only existing public offer reference", () => 
 });
 
 test("all reservation notification emails include both safely escaped references", () => {
-  assert.match(email, /\.select\("id, offer_id, owner_id, renter_id, offer_name, start_date, end_date, status, reservation_number"\)/);
+  assert.match(email, /\.select\("id, offer_id, owner_id, renter_id, offer_name, start_date, end_date, status, reservation_number, expires_at"\)/);
   assert.match(email, /\.from\("offers"\)\s*\.select\("offer_number"\)\s*\.eq\("id", reservation\.offer_id\)\s*\.single\(\)/);
   assert.match(email, /Offer reference lookup failed/);
   assert.match(email, /escapeHtml\(referenceLabels\[language\]\.reservation\)/);

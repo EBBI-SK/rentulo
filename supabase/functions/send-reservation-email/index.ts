@@ -41,7 +41,11 @@ type EmailEvent =
   | "paid"
   | "picked_up"
   | "returned"
-  | "paid_cancelled";
+  | "paid_cancelled"
+  | "expiry_reminder_pending"
+  | "expiry_reminder_approved"
+  | "expired_pending"
+  | "expired_approved";
 
 type StandardEmailEvent = Exclude<EmailEvent, "paid_cancelled">;
 
@@ -76,6 +80,10 @@ const eventStatus: Record<EmailEvent, string> = {
   picked_up: "picked_up",
   returned: "returned",
   paid_cancelled: "cancelled",
+  expiry_reminder_pending: "pending",
+  expiry_reminder_approved: "approved",
+  expired_pending: "expired",
+  expired_approved: "expired",
 };
 
 const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [string, string]>> = {
@@ -87,6 +95,10 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
     paid: ["Rezervace byla zaplacena", "Platba byla potvrzena. Kontaktní údaje jsou nyní dostupné účastníkům rezervace."],
     picked_up: ["Věc byla vyzvednuta", "Majitel označil věc jako vyzvednutou."],
     returned: ["Věc byla vrácena", "Půjčení bylo označeno jako dokončené."],
+    expiry_reminder_pending: ["Žádost brzy vyprší", "Na vaši reakci zbývají nejvýše 4 hodiny. Rozhodněte o žádosti, jinak se termín automaticky uvolní."],
+    expiry_reminder_approved: ["Čas na zaplacení končí", "Na zaplacení zbývají nejvýše 4 hodiny. Pokud nezaplatíte včas, rezervace vyprší."],
+    expired_pending: ["Žádost vypršela", "Majitel žádost nepotvrdil ve stanovené lhůtě. Rezervace vypršela a termín je znovu volný."],
+    expired_approved: ["Nezaplacená rezervace vypršela", "Platba nebyla dokončena ve stanovené lhůtě. Rezervace vypršela a termín je znovu volný."],
   },
   sk: {
     new_request: ["Nová žiadosť o požičanie", "Pri vašej ponuke čaká nová žiadosť o požičanie."],
@@ -96,6 +108,10 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
     paid: ["Rezervácia bola zaplatená", "Platba bola potvrdená. Kontaktné údaje sú teraz dostupné účastníkom rezervácie."],
     picked_up: ["Vec bola vyzdvihnutá", "Majiteľ označil vec ako vyzdvihnutú."],
     returned: ["Vec bola vrátená", "Požičanie bolo označené ako dokončené."],
+    expiry_reminder_pending: ["Žiadosť čoskoro vyprší", "Na vašu reakciu zostávajú najviac 4 hodiny. Rozhodnite o žiadosti, inak sa termín automaticky uvoľní."],
+    expiry_reminder_approved: ["Čas na zaplatenie sa končí", "Na zaplatenie zostávajú najviac 4 hodiny. Ak nezaplatíte včas, rezervácia vyprší."],
+    expired_pending: ["Žiadosť vypršala", "Majiteľ žiadosť nepotvrdil v stanovenej lehote. Rezervácia vypršala a termín je opäť voľný."],
+    expired_approved: ["Nezaplatená rezervácia vypršala", "Platba nebola dokončená v stanovenej lehote. Rezervácia vypršala a termín je opäť voľný."],
   },
   en: {
     new_request: ["New rental request", "A new rental request is waiting for your listing."],
@@ -105,6 +121,10 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
     paid: ["Reservation paid", "Payment was confirmed. Contact details are now available to the reservation participants."],
     picked_up: ["Item picked up", "The owner marked the item as picked up."],
     returned: ["Item returned", "The rental was marked as completed."],
+    expiry_reminder_pending: ["Rental request expires soon", "You have up to 4 hours left to respond. Approve or reject the request before its deadline."],
+    expiry_reminder_approved: ["Payment deadline approaching", "You have up to 4 hours left to pay. The reservation will expire if payment is not completed."],
+    expired_pending: ["Rental request expired", "The owner did not approve the request before the deadline. The rental dates are available again."],
+    expired_approved: ["Unpaid reservation expired", "Payment was not completed by the deadline. The reservation has expired and the dates are available again."],
   },
   de: {
     new_request: ["Neue Mietanfrage", "Für Ihr Angebot wartet eine neue Mietanfrage."],
@@ -114,6 +134,10 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
     paid: ["Reservierung bezahlt", "Die Zahlung wurde bestätigt. Die Kontaktdaten sind jetzt für die Beteiligten sichtbar."],
     picked_up: ["Gegenstand abgeholt", "Der Eigentümer hat den Gegenstand als abgeholt markiert."],
     returned: ["Gegenstand zurückgegeben", "Die Vermietung wurde als abgeschlossen markiert."],
+    expiry_reminder_pending: ["Mietanfrage läuft bald ab", "Sie haben höchstens 4 Stunden, um zu reagieren. Entscheiden Sie vor Ablauf der Frist über die Anfrage."],
+    expiry_reminder_approved: ["Zahlungsfrist endet bald", "Sie haben höchstens 4 Stunden für die Zahlung. Andernfalls läuft die Reservierung ab."],
+    expired_pending: ["Mietanfrage abgelaufen", "Der Eigentümer hat die Anfrage nicht rechtzeitig bestätigt. Der Zeitraum ist wieder frei."],
+    expired_approved: ["Unbezahlte Reservierung abgelaufen", "Die Zahlung wurde nicht rechtzeitig abgeschlossen. Die Reservierung ist abgelaufen und der Zeitraum wieder frei."],
   },
   pl: {
     new_request: ["Nowa prośba o wypożyczenie", "Nowa prośba o wypożyczenie oczekuje przy Twojej ofercie."],
@@ -123,6 +147,10 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
     paid: ["Rezerwacja została opłacona", "Płatność została potwierdzona. Dane kontaktowe są teraz dostępne dla uczestników rezerwacji."],
     picked_up: ["Rzecz została odebrana", "Właściciel oznaczył rzecz jako odebraną."],
     returned: ["Rzecz została zwrócona", "Wypożyczenie zostało oznaczone jako zakończone."],
+    expiry_reminder_pending: ["Prośba wkrótce wygaśnie", "Pozostały maksymalnie 4 godziny na decyzję. Odpowiedz na prośbę przed upływem terminu."],
+    expiry_reminder_approved: ["Termin płatności wkrótce minie", "Pozostały maksymalnie 4 godziny na płatność. W przeciwnym razie rezerwacja wygaśnie."],
+    expired_pending: ["Prośba wygasła", "Właściciel nie zatwierdził prośby w terminie. Daty są ponownie dostępne."],
+    expired_approved: ["Nieopłacona rezerwacja wygasła", "Płatność nie została zrealizowana w terminie. Rezerwacja wygasła, a daty są ponownie dostępne."],
   },
 };
 
@@ -516,7 +544,7 @@ denoRuntime.serve(async (req) => {
 
   const { data: reservation, error: reservationError } = await admin
     .from("reservations")
-    .select("id, offer_id, owner_id, renter_id, offer_name, start_date, end_date, status, reservation_number")
+    .select("id, offer_id, owner_id, renter_id, offer_name, start_date, end_date, status, reservation_number, expires_at")
     .eq("id", reservationId)
     .single();
 
@@ -527,6 +555,17 @@ denoRuntime.serve(async (req) => {
   // Queued events are proof of the status *at the transaction time*.
   // A later transition must not silently drop an already queued email.
   // Normal browser calls still require the current status.
+  const isExpiryEvent = event.startsWith("expiry_") || event.startsWith("expired_");
+  if (!isServiceRoleCall && isExpiryEvent) {
+    return response({ error: "Expiration mail requires a claimed delivery" }, 403);
+  }
+  if (isWorkerDelivery && event.startsWith("expiry_reminder_") &&
+      (reservation.status !== eventStatus[event] || !reservation.expires_at ||
+       new Date(reservation.expires_at).getTime() <= Date.now())) {
+    return response({ ok: true, results: [
+      { recipient_id: payload.recipient_id, status: "skipped" }
+    ] });
+  }
   if (!isWorkerDelivery && reservation.status !== eventStatus[event]) {
     return response({ error: "Reservation status does not match the email event" }, 409);
   }
@@ -638,9 +677,9 @@ denoRuntime.serve(async (req) => {
       return response({ error: "Recipient is not in the reservation" }, 403);
     }
     recipientIds = [payload.recipient_id as string];
-  } else if (event === "new_request" || event === "paid") {
+  } else if (event === "new_request" || event === "paid" || event === "expiry_reminder_pending") {
     recipientIds = [reservation.owner_id];
-  } else if (event === "paid_cancelled") {
+  } else if (event === "paid_cancelled" || event === "expired_pending" || event === "expired_approved") {
     recipientIds = Array.from(new Set([reservation.renter_id, reservation.owner_id]));
   } else if (event === "cancelled") {
     recipientIds = [actorIsOwner ? reservation.renter_id : reservation.owner_id];
@@ -660,7 +699,10 @@ denoRuntime.serve(async (req) => {
   const results = [];
 
   for (const profile of profiles || []) {
-    if (!profile.email || profile.email_notifications === false) {
+    // Expiration notices and reminders are essential transaction messages:
+    // they explain the release of dates regardless of optional email settings.
+    const isEssentialExpiryNotice = event.startsWith("expiry_reminder_") || event.startsWith("expired_");
+    if (!profile.email || (profile.email_notifications === false && !isEssentialExpiryNotice)) {
       results.push({ recipient_id: profile.id, status: "skipped" });
       continue;
     }
@@ -691,6 +733,16 @@ denoRuntime.serve(async (req) => {
       extraHtml = paidMessage.financialHtml;
     } else {
       [subject, intro] = templates[language][event as StandardEmailEvent];
+      if (event.startsWith("expiry_reminder_") && reservation.expires_at) {
+        const deadline = new Intl.DateTimeFormat(dateLocales[language], {
+          dateStyle: "short", timeStyle: "short", timeZone: "Europe/Prague",
+        }).format(new Date(reservation.expires_at));
+        const label = {
+          cs: "Nejpozději do", sk: "Najneskôr do", en: "Deadline",
+          de: "Frist", pl: "Termin",
+        }[language];
+        extraHtml = `<p><strong>${escapeHtml(label)}:</strong> ${escapeHtml(deadline)} (Praha)</p>`;
+      }
     }
 
     const { data: insertedLogRow, error: logError } = await admin

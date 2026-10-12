@@ -37,7 +37,7 @@ const queueMigration = fs.readFileSync(
 test("paid cancellation emails are queued for both parties only after refund success", () => {
   assert.match(migrationSource, /reservation_email_deliveries_event_type_check/i);
   assert.match(migrationSource, /'paid_cancelled'/i);
-  assert.match(emailSource, /\| "paid_cancelled";/);
+  assert.match(emailSource, /\| "paid_cancelled"/);
   assert.match(queueMigration, /queue_finalized_paid_cancellation_notifications/);
   assert.match(queueMigration, /p\.refund_status = 'succeeded'/);
   assert.match(queueMigration, /c\.financials_finalized_at is not null/);

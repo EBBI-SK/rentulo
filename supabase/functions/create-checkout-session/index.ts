@@ -253,6 +253,34 @@ denoRuntime.serve(async (req) => {
     return jsonResponse({ error: "Payment is not in a payable state" }, 409);
   }
 
+  // The database guards the expiry race before ANY Stripe request. Persist an
+  // ambiguous checkout-creation attempt so Cron never releases its dates when
+  // Stripe may have created a session that has not yet been saved locally.
+  const checkoutClaim = await admin.rpc("mark_reservation_checkout_started", {
+    p_payment_id: payment.id,
+    p_renter_id: actor.id,
+  });
+  if (checkoutClaim.error) {
+    console.error("create-checkout-session: cannot claim safe checkout", checkoutClaim.error.message);
+    return jsonResponse({ error: "Unable to authorize payment" }, 503);
+  }
+  if (checkoutClaim.data !== true) {
+    return jsonResponse({ error: "Reservation payment deadline has expired" }, 409);
+  }
+
+  async function finishCheckoutAttempt(sessionId: string): Promise<boolean> {
+    const result = await admin.rpc("finish_reservation_checkout_attempt", {
+      p_payment_id: payment.id,
+      p_renter_id: actor.id,
+      p_session_id: sessionId,
+    });
+    if (result.error || result.data !== true) {
+      console.error("create-checkout-session: could not finalize checkout attempt", payment.id);
+      return false;
+    }
+    return true;
+  }
+
   // Reuse the existing hosted Checkout session. The fixed idempotency key
   // must not be replayed with new parameters (such as the newly pinned locale),
   // otherwise Stripe correctly rejects it as an idempotency-key mismatch.
@@ -287,6 +315,9 @@ denoRuntime.serve(async (req) => {
     }
 
     if (previous.status === "open" && previous.url && previous.payment_status === "unpaid") {
+      if (!(await finishCheckoutAttempt(previousSessionId))) {
+        return jsonResponse({ error: "Payment session could not be finalized" }, 503);
+      }
       return jsonResponse({ url: previous.url });
     }
     if (previous.status !== "expired") {
@@ -380,5 +411,8 @@ denoRuntime.serve(async (req) => {
     return jsonResponse({ error: "Payment session could not be saved" }, 500);
   }
 
+  if (!(await finishCheckoutAttempt(checkoutSession.id))) {
+    return jsonResponse({ error: "Payment session could not be finalized" }, 503);
+  }
   return jsonResponse({ url: checkoutSession.url });
 });

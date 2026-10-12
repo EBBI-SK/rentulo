@@ -108,6 +108,7 @@ const HISTORY_FINISHED_STATUSES = new Set([
   "returned",
   "completed",
   "cancelled",
+  "expired",
   "canceled",
   "rejected",
   "declined",
@@ -186,6 +187,7 @@ function historyStatusText(status) {
     returned: historyT("history.status.returned", "Vráceno"),
     completed: historyT("history.status.completed", "Dokončeno"),
     cancelled: historyT("history.status.cancelled", "Zrušeno"),
+    expired: historyT("reservation.status.expired", "Vypršela lhůta"),
     canceled: historyT("history.status.cancelled", "Zrušeno"),
     rejected: historyT("history.status.rejected", "Odmítnuto"),
     declined: historyT("history.status.rejected", "Odmítnuto")
