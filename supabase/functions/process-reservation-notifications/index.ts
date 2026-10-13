@@ -38,6 +38,7 @@ type DeliveryResult = {
 const MAX_BATCH_SIZE = 10;
 const MAX_CONCURRENT_DELIVERIES = 5;
 const DB_TIMEOUT_MS = 4000;
+const HEARTBEAT_TIMEOUT_MS = 2000;
 const EMAIL_TIMEOUT_MS = 12000;
 const SMS_PROVIDER_TIMEOUT_MS = 10000;
 
@@ -294,6 +295,26 @@ runtime.serve(async (request: Request) => {
 
   if (summary.acknowledgement_failures > 0) {
     return json({ error: "Queue acknowledgement failed", ...summary }, 500);
+  }
+
+  // A cron.job_run_details row marked "succeeded" only means its SQL ran.
+  // This heartbeat proves the Edge Function finished and acknowledged its
+  // deliveries (including empty batches). A missing pulse is observable by
+  // the independent GitHub Actions watchdog after eight minutes.
+  try {
+    const pulse = await admin.rpc("record_reservation_notification_worker_success", {
+      p_claimed: summary.claimed,
+      p_sent: summary.sent,
+      p_retried: summary.retried,
+      p_dead: summary.dead,
+    }).abortSignal(AbortSignal.timeout(HEARTBEAT_TIMEOUT_MS));
+    if (pulse.error || pulse.data !== true) {
+      console.error("process-reservation-notifications: heartbeat failed");
+      return json({ error: "Notification heartbeat unavailable" }, 500);
+    }
+  } catch {
+    console.error("process-reservation-notifications: heartbeat failed");
+    return json({ error: "Notification heartbeat unavailable" }, 500);
   }
   return json({ ok: true, ...summary });
 });

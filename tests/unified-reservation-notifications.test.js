@@ -158,6 +158,9 @@ async function runWorkerHarness({
             ackCalls.push(args);
             return Promise.resolve({ data: args.p_delivery_id !== ackFailureId, error: null });
           }
+          if (name === "record_reservation_notification_worker_success") {
+            return Promise.resolve({ data: true, error: null });
+          }
           throw Error(`Unexpected RPC ${name}`);
         },
       };
@@ -234,10 +237,11 @@ test("P1-1: timeout budget leaves headroom before Cron's 60-second limit", () =>
   const batch = value("MAX_BATCH_SIZE");
   const concurrent = value("MAX_CONCURRENT_DELIVERIES");
   const db = value("DB_TIMEOUT_MS");
+  const heartbeat = value("HEARTBEAT_TIMEOUT_MS");
   const sms = value("SMS_PROVIDER_TIMEOUT_MS");
   assert.equal(batch, 10);
   assert.equal(concurrent, 5);
-  const worstCaseBudget = 2 * db + Math.ceil(batch / concurrent) * (3 * db + sms);
+  const worstCaseBudget = 2 * db + Math.ceil(batch / concurrent) * (3 * db + sms) + heartbeat;
   assert.ok(worstCaseBudget <= 55000, `Cron could time out: ${worstCaseBudget}ms`);
 });
 
@@ -302,4 +306,17 @@ test("P1-1: SQL safely recovers abandoned fifth attempts and never reclaims disp
   assert.match(reliabilityMigration, /d\.channel = 'sms' and d\.sms_dispatch_started_at is not null/);
   assert.match(reliabilityMigration, /auth\.role\(\) <> 'service_role'/);
   assert.match(reliabilityMigration, /from public, anon, authenticated/);
+});
+
+test("P1-4: successful worker always records a real completion heartbeat, including empty batches", async () => {
+  const empty = await runWorkerHarness();
+  assert.equal(empty.status, 200);
+  assert.ok(empty.steps.includes("record_reservation_notification_worker_success"));
+  const delivered = await runWorkerHarness({ jobs: [testClaim(1)] });
+  assert.equal(delivered.status, 200);
+  assert.ok(delivered.steps.indexOf("finish_reservation_notification_delivery") <
+    delivered.steps.indexOf("record_reservation_notification_worker_success"));
+  const failed = await runWorkerHarness({ jobs: [testClaim(1)], ackFailureId: "notification-1" });
+  assert.equal(failed.status, 500);
+  assert.ok(!failed.steps.includes("record_reservation_notification_worker_success"));
 });

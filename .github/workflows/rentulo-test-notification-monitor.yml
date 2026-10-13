@@ -1,0 +1,49 @@
+name: Rentulo TEST notification monitor
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rentulo-test-notification-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    name: Independent TEST notification watchdog
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    # Fail-closed: schedule remains dormant until the operator explicitly
+    # enables the repository VARIABLE after applying TEST SQL and deploying
+    # both Edge Functions. Manual runs are allowed for controlled QA.
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || vars.RENTULO_TEST_MONITOR_ENABLED == 'true')
+    steps:
+      - name: Verify TEST monitor configuration
+        shell: bash
+        env:
+          MONITOR_SECRET: ${{ secrets.RENTULO_TEST_MONITOR_SECRET }}
+        run: |
+          set -euo pipefail
+          if [[ ${#MONITOR_SECRET} -lt 64 ]]; then
+            echo '::error::Missing/short RENTULO_TEST_MONITOR_SECRET; set in GitHub Secrets and matching Supabase TEST Edge Function secret.'
+            exit 1
+          fi
+
+      - name: Check TEST health and deliver deduplicated alerts
+        shell: bash
+        env:
+          MONITOR_SECRET: ${{ secrets.RENTULO_TEST_MONITOR_SECRET }}
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error \
+            --retry 2 --retry-all-errors --retry-delay 2 \
+            --max-time 55 \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --header "x-rentulo-monitor-secret: ${MONITOR_SECRET}" \
+            --data '{}' \
+            'https://vspposovhdgvbeukoivh.supabase.co/functions/v1/monitor-reservation-notifications'
