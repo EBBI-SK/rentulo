@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { shouldDeliverReservationEmail } from "../_shared/notification-email-policy.mjs";
 
 type RentuloDenoRuntime = {
   serve(handler: (request: Request) => Response | Promise<Response>): void;
@@ -699,10 +700,9 @@ denoRuntime.serve(async (req) => {
   const results = [];
 
   for (const profile of profiles || []) {
-    // Expiration notices and reminders are essential transaction messages:
-    // they explain the release of dates regardless of optional email settings.
-    const isEssentialExpiryNotice = event.startsWith("expiry_reminder_") || event.startsWith("expired_");
-    if (!profile.email || (profile.email_notifications === false && !isEssentialExpiryNotice)) {
+    // Transactional, deadline and financial emails bypass optional notification
+    // preferences; only informational events respect email_notifications=false.
+    if (!shouldDeliverReservationEmail(event, profile.email, profile.email_notifications)) {
       results.push({ recipient_id: profile.id, status: "skipped" });
       continue;
     }
