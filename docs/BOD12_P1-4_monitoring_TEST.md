@@ -1,50 +1,65 @@
 # Rentulo BOD 12 – P1-4: externý monitoring notifikácií (TEST)
 
-**Stav:** zdrojový návrh pripravený na kontrolovanú aktiváciu v **Supabase TEST**. Samotné vloženie ZIP-u ani `git push` monitoring neaktivuje. **PROD nemeniť.**
+**Stav k 13. 10. 2026: aktivované a otestované v Supabase TEST, externé spúšťanie cez `cron-job.org`.** Monitoring podľa rozhodnutia **zostáva zapnutý** aj počas prestávky. Tento dokument opisuje už vykonanú aktiváciu a prevádzku; **nie je** pokynom na opätovné nasadenie SQL, vytvorenie druhého jobu alebo aktiváciu PROD. Stav externého jobu sa musí kontrolovať priamo v jeho dashboarde. Samotná zmena súborov v Gite nemení existujúci job v cron-job.org.
 
-## Cieľ
+## Účel a detekčné hranice
 
-- Zachytiť e-maily a SMS v terminálnom stave `dead` (vrátane nejednoznačných SMS – **manuálne preveriť, neposielať znova automaticky**).
-- Zachytiť nevybavené `queued`/`retry`, ktorým termín `next_attempt_at` uplynul pred >10 minútami.
-- Zachytiť `sending`, ktorému `lease_until` uplynul pred >3 minútami.
-- Zachytiť zastavený alebo nesprávne fungujúci Cron/worker: chýba **úspešný heartbeat** >8 minút. Postgres `cron.job_run_details.status=succeeded` sám o sebe neoveruje HTTP odpoveď Edge Function.
-- Zaslať **jeden e-mail na jeden výskyt incidentu** na `ebbi@ebbi.sk`. Po vyriešení a opätovnom vzniku problému môže prísť nový alert.
-- Pri zlyhaní odoslania alarmu opakovať s odstupom, s rovnakým Resend `Idempotency-Key` pre rovnaký výskyt.
+- `dead`: terminálne neúspešné e-maily a SMS vrátane nejednoznačnej odpovede BulkGate; **takú SMS nikdy bez manuálnej kontroly neposielať znova**.
+- `queued`/`retry`: `next_attempt_at` prešiel pred viac ako 10 minútami.
+- `sending`: lease vypršal pred viac ako 3 minútami.
+- `worker_stale`: bez úspešného `last_success_at` dlhšie než 8 minút. Zelený stav Postgres `cron.job_run_details` **nie je dôkazom úspešnej HTTP/worker odpovede**.
+- Pri aktívnom probléme odoslať na **`ebbi@ebbi.sk`** jeden e-mail na jednu generáciu incidentu; pri vyriešení a novom výskyte vzniká nová generácia. Pri neúspechu e-mailu sa používajú retry a ten istý Resend `Idempotency-Key` pre ten istý výskyt.
 
-## Architektúra
+## Architektúra a odlíšenie plánovačov
 
-1. `process-reservation-notifications` po **úspešnom dokončení vrátane ack** volá serverové RPC `record_reservation_notification_worker_success`. Aj prázdna fronta zaznamená úspešný heartbeat; chyba heartbeatu spôsobí HTTP 500 (bez opakovania už acknutých notifikácií).
-2. Migrácia `20261013100000_monitor_reservation_notifications_TEST.sql` vytvorí `reservation_notification_worker_health`, `reservation_notification_monitor_alerts` a 3 serverové RPC. RLS, `revoke` pre anon/authenticated, `service_role` prístup. Migrácia **nevytvára Cron a neposiela e-maily**.
-3. Nová Edge Function `monitor-reservation-notifications` prijíma len `POST` s vlastným tajomstvom `x-rentulo-monitor-secret` dĺžky aspoň 64 znakov, vyžaduje presnú **TEST Supabase URL** a existujúce `RESEND_API_KEY`/`EMAIL_FROM`. V PROD odmietne pracovať. Alert ide výlučne na `ebbi@ebbi.sk`, bez telefónov a PIN kódov.
-4. Databáza pri monitorovaní atomicky označí pretrvávajúce incidenty, vyriešené uzavrie, prípadné nové výskyty rozpozná pomocou `generation`, a vydá najviac päť súbežne claimnutých alarmov. `claim_token` + 2-minútový lease + idempotentné poslanie cez Resend znižujú riziko duplicitných e-mailov. Neúspešné alarmové e-maily sa opakujú s exp. backoff najviac do 1 hodiny.
-5. GitHub Actions workflow `.github/workflows/rentulo-test-notification-monitor.yml` volá Edge Function mimo Supabase plánovača **každých 5 minút**. Harmonogram je po mergi **neaktívny**, kým nie je GitHub repository variable `RENTULO_TEST_MONITOR_ENABLED=true`. Dočasne sa môže spustiť manuálne `workflow_dispatch`. GitHub secret `RENTULO_TEST_MONITOR_SECRET` musí byť rovnaký ako Supabase Edge secret `RENTULO_MONITOR_SECRET`.
+1. **Supabase `pg_cron` pre bežné notifikácie:** `rentulo-process-reservation-notifications-every-minute` každú minútu volá `process-reservation-notifications`. Po úspešnom spracovaní vrátane ACK worker zavolá `record_reservation_notification_worker_success`; aj prázdna zdravá fronta zaznamená heartbeat v `reservation_notification_worker_health`.
+2. **Supabase SQL:** migrácia `20261013100000_monitor_reservation_notifications_TEST.sql` pridala `reservation_notification_worker_health` a `reservation_notification_monitor_alerts`, tri server-only RPC s obmedzenými právami/RLS. Sama **nevytvára ani nespúšťa externý monitorovací cron**.
+3. **Externý plánovač `cron-job.org`:** nezávisle od databázového workera vykonáva autorizované periodické HTTPS `POST` na funkciu `monitor-reservation-notifications`. Periodicita je konfigurovaná v **cron-job.org** (pôvodný zámer P1-4: približne každých päť minút; aktuálnu hodnotu potvrdzuje dashboard, nie repo). Pri presune plánovania sa **nevytvára nový druhý job**.
+4. **Supabase TEST Edge Function:** prijíma výhradne `POST`, kontroluje exact TEST projekt `vspposovhdgvbeukoivh`, minimálne 64-znakové tajomstvo a dostupnosť `RESEND_API_KEY`/`EMAIL_FROM`. Akceptuje najviac päť alarmov na volanie (súbežne najviac tri), cez `claim_token`/lease/`generation` zabraňuje duplicitám. Adresát je pevne `ebbi@ebbi.sk`; z alarmov sa neposielajú PIN-y, telefóny ani privátne kontakty.
+5. **GitHub Actions iba ručne:** `.github/workflows/rentulo-test-notification-monitor.yml` zostáva ako diagnostická možnosť `workflow_dispatch` na vetve `main`. Po tejto aktualizácii **nemá `schedule`** a nepotrebuje `RENTULO_TEST_MONITOR_ENABLED`. GitHub secret `RENTULO_TEST_MONITOR_SECRET` môže zostať iba pre túto manuálnu diagnostiku; samotný opakovaný monitoring sa nevykonáva v GitHube.
 
-**Prevádzkové obmedzenia:** GitHub Actions `schedule` môže meškať a nie je SLA monitoring. Ak je **celý Supabase projekt alebo Edge Gateway nedostupný**, nezávislý GitHub workflow zlyhá, ale monitor nedokáže v tej chvíli odoslať e-mail cez Supabase – treba sledovať aj **GitHub Actions failure notifications**, prípadne časom pridať nezávislého poskytovateľa na full-outage alert. `sent` znamená akceptáciu poskytovateľom, nie potvrdenie doručenia e-mailu/SMS koncovému príjemcovi. Alert o `dead` neznamená povolenie SMS opakovať.
+**Historická poznámka:** úvodný komentár v `supabase/functions/monitor-reservation-notifications/index.ts` ešte spomína GitHub Actions ako plánovač. Je to zastaraný komentár z pôvodného návrhu, nie aktívne runtime nastavenie; zdroj Edge Function nebol súčasťou schválenej päťsúborovej úpravy.
 
-## Bezpečné poradie aktivácie – len po samostatnom schválení používateľom
+## Nastavenie externého HTTP jobu – referenčná kontrola, nie pokyn na opätovnú aktiváciu
 
-1. Nahrať súbory do lokálneho `main`, skontrolovať presné zmeny, `npm test`, `git diff --check`, commit, push a zelené GitHub CI.
-2. Spustiť migráciu **iba** v Supabase TEST projekte `vspposovhdgvbeukoivh`; overiť 2 tabuľky a 3 serverové RPC, nastavenie RLS a seed heartbeat. Nedotknúť sa PROD.
-3. Nasadiť **najprv aktualizovaný** `process-reservation-notifications` do Supabase TEST. Po 1–2 minútach SQL dotazom potvrdiť, že `last_success_at` sa aktualizuje aj pri prázdnej fronte.
-4. Vygenerovať jeden náhodný **minimálne 64-znakový** token mimo GitHub súborov. Jeho hodnotu nastaviť ako **Supabase TEST Edge Function secret** `RENTULO_MONITOR_SECRET` a **GitHub repository Actions secret** `RENTULO_TEST_MONITOR_SECRET`. Nikdy ho nepísať do Gitu, ZIP-u alebo screenshotu. Na TEST má byť funkčný odosielateľ `EMAIL_FROM` a `RESEND_API_KEY`.
-5. Nasadiť `monitor-reservation-notifications` do Supabase TEST s `--no-verify-jwt` (vlastná kontrola tajomstva, nie verejná funkcia). Bez správneho tajomstva vráti 401; neznáma/PROD URL vráti 403. V tomto stave ešte **žiadne automatické spúšťanie**.
-6. Manuálne spustiť GitHub Actions workflow `Rentulo TEST notification monitor` – pri zdravej fronte musí vrátiť `{ "ok": true, "claimed": 0, ... }` a nesmie posielať e-mail.
-7. Až po potvrdení pripravenosti zapnúť repository **variable** `RENTULO_TEST_MONITOR_ENABLED=true`. Prechod `false` na `true` je produkčné zapnutie len na TEST. Potom overiť aspoň dve automatické spustenia a doručenie jedného kontrolovaného testovacieho alarmu podľa osobitného, schváleného testovacieho scenára (bez skutočnej SMS a bez úprav reálnych rezervácií).
+| Pole | Hodnota/požiadavka |
+| --- | --- |
+| Poskytovateľ | `cron-job.org` (existujúci TEST job; ponechať zapnutý) |
+| URL | `https://vspposovhdgvbeukoivh.supabase.co/functions/v1/monitor-reservation-notifications` |
+| Metóda a telo | `POST`, JSON `{}` |
+| HTTP hlavička | `Content-Type: application/json` |
+| Autentifikácia | `x-rentulo-monitor-secret` – skutočný token iba v chránenom nastavení jobu; rovnaká hodnota ako Supabase TEST `RENTULO_MONITOR_SECRET` |
+| Interval | overiť priamo v cron-job.org (pôvodný návrh 5 minút; v Gite sa neoveruje) |
+| Úspešný beh | HTTP 2xx z Edge Function; neprítomnosť alertu ešte nevylučuje nefunkčný externý plánovač |
 
-### Čítacie SQL na overenie (Supabase TEST)
+**Bezpečnosť:** nikdy neuvádzať hodnotu tokenu do chatu, screenshotov, logov, URL, súborov alebo ZIP-u. Funkcia bez správneho tajomstva vráti `401`, na neznámom/PROD Supabase projekte `403`, iná metóda `405`. V PROD sa tento TEST monitor **nesmie aktivovať**. Upozornenie cez e-mail môže zlyhať práve pri úplnom výpadku Supabase, preto nezávisle sledovať aj výsledky HTTP kontrol vo vlastnom dashboarde cron-job.org.
+
+## Zaznamenané overenie 13. 10. 2026
+
+- GitHub zdrojový snapshot **`main` `19c3a2e`**, **CI #402 úspešné, 423/423 testov**. Pôvodný GitHub monitorovací workflow má zdokumentované úspešné **manuálne** behy #4 a #5; nemýliť si ich s cron-job.org behmi.
+- Supabase SQL doložilo funkčný heartbeat `reservation_notification_worker_health.last_success_at = 2026-10-13 13:48:58.084919+00`.
+- Kontrolovaný testovací alert `qa-p1-4-alarm-20261013-01` mal `active=true`, `attempt_count=1`, `sent_at=2026-10-13 14:10:18.774813+00`, `last_error=null`. To dokazuje zápis o úspešnom odoslaní alarmu cez Resend; **nezaručuje fyzické doručenie** do schránky.
+- Podľa projektovej histórie bol nastavený externý job cron-job.org a ponechaný zapnutý počas prestávky. **Aktuálny interval, počet behov a posledný výsledok nemožno z tejto Git histórie samostatne potvrdiť.**
+
+## Čítacie SQL – iba Supabase TEST
 
 ```sql
--- Posledný úspešný heartbeat (mal by pribúdať približne každú minútu):
+-- Úspešný heartbeat frontového workera (bežne sa obnovuje každý ~1 min):
 select last_success_at, last_claimed, last_sent, last_retried, last_dead
 from public.reservation_notification_worker_health;
 
--- Všetky incidenty/alarmy, bez osobných údajov:
+-- Aktuálne / historické incidenty, bez osobných údajov:
 select alert_key, issue_kind, reservation_number, active,
        generation, attempt_count, sent_at, next_attempt_at, last_error
 from public.reservation_notification_monitor_alerts
 order by last_seen_at desc limit 30;
 ```
 
-### Vypnutie bez zmeny databázy
+## Prevádzková kontrola, bezpečné vypnutie a obnovenie
 
-Nastaviť GitHub repository variable `RENTULO_TEST_MONITOR_ENABLED=false`. Plánované spustenia prestanú volať monitor; samotná rezervačná fronta/worker naďalej fungujú. Nespúšťať samostatný monitor bez vlastného HTTP tajomstva. Pre nasadenia PROD treba nový návrh bezpečnej integrácie, oddelené tajomstvá, príjemcu, limity, a osobitný súhlas.
+1. **Bežná kontrola:** v cron-job.org overiť existujúci TEST job, jeho `enabled` stav, periodu a posledné HTTP odpovede. V Supabase TEST overiť heartbeat a alarmy uvedeným **čítacím** SQL. Nevytvárať kvôli kontrole ďalší incident ani neodosielať skúšobnú SMS, ak to nie je osobitne schválené.
+2. **Ak príde alarm:** zistiť stav konkrétnej udalosti vo fronte; `dead` pri nejednoznačnom BulkGate výsledku vždy riešiť manuálne. Pri výpadku celého Supabase sledovať v prvom rade zlyhania HTTP volaní v cron-job.org – Edge Function nemusí vedieť alarm sama poslať.
+3. **Núdzové vypnutie len po výslovnom rozhodnutí:** zastaviť príslušný job v **cron-job.org** (nie v GitHub repository variable). **Nevypínať** `rentulo-process-reservation-notifications-every-minute` ani ostatné dátové crony; samotné rezervácie a ich spracovanie by tým neboli bezpečne monitorované.
+4. **Obnovenie:** po odstránení príčiny opäť povoliť ten istý externý job a overiť jeho úspešný HTTP beh + zdravý heartbeat. Nezakladať druhý job. Po schválenom nasadení päťsúborového ZIP-u GitHub slúži iba na manuálny test, nie ako ďalší plánovač.
+
+**Žiadne zmeny PROD:** `production`, Vercel `rentulo-prod`, Supabase PROD, Stripe live, DNS a `rentulo.com` týmto BODOM nie sú dotknuté. Budúci monitoring PROD vyžaduje nové oddelené riešenie a súhlas.

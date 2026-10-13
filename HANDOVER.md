@@ -1,20 +1,21 @@
 # Rentulo – HANDOVER
 
-**Servisná a odovzdávacia dokumentácia.** Pôvodný dokument vznikol 18. 8. 2026; priebežné aktualizácie zachytávajú doménový audit z 10. 10. 2026 a **aktuálny stav zdrojov k 12. 10. 2026** (referenčný `main` `fc69cc0`, BOD 13). Historické bezpečnostné výsledky a kontroly dashboardov sú výslovne označené dátumom. **Implementácia v Gite, úspešný TEST/CI a pripravenosť živého PROD sú tri odlišné veci.**
+**Servisná a odovzdávacia dokumentácia.** Pôvodný dokument vznikol 18. 8. 2026; priebežné aktualizácie zachytávajú doménový audit z 10. 10. 2026 a **aktuálny stav zdrojov k 13. 10. 2026** (referenčný `main` pred touto aktualizáciou `19c3a2e`, BOD 12 – P1-4). Historické bezpečnostné výsledky a kontroly dashboardov sú výslovne označené dátumom. **Implementácia v Gite, úspešný TEST/CI a pripravenosť živého PROD sú tri odlišné veci.**
 
 Tento dokument **nie je pokynom na spustenie produkcie**. Bez nového schválenia sa nemení vetva `production`, Vercel/Supabase PROD, Stripe live, domény, DNS ani indexovanie. [README.md](README.md) obsahuje stručný úvod; tu je technický stav, prevádzkové pravidlá a kontrolný zoznam pred spustením.
 
-## 1. Aktuálny stav (snapshot k 12. 10. 2026)
+## 1. Aktuálny stav (snapshot k 13. 10. 2026)
 
 Rentulo V1 je platforma na požičiavanie vecí **medzi súkromnými osobami v ČR**. Používateľské rozhranie má päť jazykov (CZ/SK/EN/DE/PL), predvolená je čeština. Prevádzkovateľ: **EBBI s. r. o.** Projekt zatiaľ funguje v TEST prostredí; verejné spustenie na `rentulo.com` nebolo odsúhlasené.
 
-- GitHub: [`EBBI-SK/rentulo`](https://github.com/EBBI-SK/rentulo), `main` **`fc69cc0a3d693c612da61d140fd05aedf9f15e7c`** (12. 10. 2026; zjednotenie rezervačných e-mailov a SMS). Pôvodné dokumenty z projektového ZIP-u boli zhodné s obsahom GitHubu; táto aktualizácia je pripravená ako samostatná dokumentačná zmena.
-- GitHub Actions: posledné úspešné projektové overenie **Rentulo CI #393**, `npm test` **375/375, fail 0**, TEST build a ďalšie CI kontroly. Tento údaj sa vzťahuje na `fc69cc0`; aktualizácia dokumentácie bude mať vlastný nový CI beh až po pushi.
+- GitHub: [`EBBI-SK/rentulo`](https://github.com/EBBI-SK/rentulo), `main` pred touto aktualizáciou **`19c3a2e5359c65b454184f419945859c2d79e762`** (13. 10. 2026; korekcia TEST monitorovacieho workflow P1-4). Projektový ZIP z 13. 10. bol overený proti tomuto commitu.
+- GitHub Actions: posledné úspešné projektové overenie pred touto zmenou **Rentulo CI #402**, `npm test` **423/423, fail 0**, TEST build a Deno typecheck. Tento údaj sa vzťahuje na `19c3a2e`; po tejto dokumentačnej zmene treba overiť nový CI beh.
 - TEST: Vercel `rentulo`, vetva `main`, doména `https://rentulo.eu`, Supabase projekt `vspposovhdgvbeukoivh`, Stripe **test/sandbox**.
 - PROD: Vercel `rentulo-prod`, vetva `production` (posledný zdokumentovaný a v projektovom ZIP-e prítomný commit `a79d3bb`), Supabase projekt `tfvgxrdjrpicgtvovehl`, plánovaná doména `https://rentulo.com`. **PROD neaktivovať a nemeniť.**
 - Pri audite 10. 10. bola na Vercel PROD potvrdená ochrana **Authentication → All Deployments**. Ide o dátumovo obmedzené overenie; ochranu pred štartom skontrolovať znova, nikdy ju predčasne nevypnúť.
 - TEST a prelaunch hosty majú `noindex`; podľa aktuálneho `vercel.json` je `X-Robots-Tag: noindex` aj pre `.com`, pokiaľ nebude osobitne schválená aktivácia indexovania.
 - **BOD 13 – TEST:** reálne doručené 4/4 typy SMS cez BulkGate; príslušné e-maily `sent`, bez chýb. Po teste bol `SMS_SEND_MODE` manuálne vrátený na `dry_run`. **PROD SMS nie sú aktivované.**
+- **BOD 12 – P1-4 TEST:** oddelený monitor notifikácií bol aktivovaný cez **cron-job.org** a podľa rozhodnutia zostáva zapnutý. GitHub Actions sa ponechá len na manuálnu diagnostiku, bez plánovaného spúšťania; podrobnosti v kapitole 22. Posledné skutočné behy cron-job.org sa overujú v jeho dashboarde, nie podľa Gitu.
 
 **Rozsah tohto overenia:** GitHub commit, zdrojové súbory a CI logy. Úspešné CI samo osebe neoveruje živé Supabase PROD, Stripe live, DNS, všetky dashboard secrets ani pripravenosť schránok. Plán spustenia a rollback je v **kapitole 12**.
 
@@ -35,6 +36,11 @@ Vercel (statický HTML/CSS/vanilla JS build v dist/)
                             +--> Resend (rezervačné e-maily)
                             +--> BulkGate (voliteľné SMS, len TEST live)
 
+externý cron-job.org (TEST; pravidelné HTTPS POST)
+    +--> Edge Function monitor-reservation-notifications
+         +--> monitorovacie RPC + heartbeat workera
+         +--> Resend (deduplikovaný alarm na ebbi@ebbi.sk)
+
 mapa: OpenStreetMap; adresy: Nominatim + Photon
 ```
 
@@ -43,7 +49,8 @@ Frontend nemá bundler ani JS framework, **má však riadený Node.js build** `s
 ## 3. Dôležité priečinky
 
 ```text
-.github/workflows/ci.yml    GitHub Actions
+.github/workflows/ci.yml    GitHub Actions CI
+.github/workflows/rentulo-test-notification-monitor.yml   iba manuálna TEST diagnostika
 api/                        Vercel SEO API pre ponuky a sitemap
 assets/                     logo a ostatné verejné statické súbory
 css/                        spoločné a stránkové CSS
@@ -70,7 +77,7 @@ Publishable key je určená na použitie v prehliadači; ochranu dát musia vynu
 
 ## 5. Supabase Edge Functions
 
-V `main` je **18 Edge Functions**. Zoznam je úplný pre referenčný commit; pred ďalším vývojom opäť preveriť priečinok `supabase/functions/`.
+V `main` je **20 Edge Functions**. Zoznam je úplný pre referenčný commit; pred ďalším vývojom opäť preveriť priečinok `supabase/functions/`.
 
 | Funkcia | Účel |
 | --- | --- |
@@ -90,10 +97,12 @@ V `main` je **18 Edge Functions**. Zoznam je úplný pre referenčný commit; pr
 | `cancel-paid-reservation` | storno zaplatenej rezervácie a refund |
 | `create-owner-debt-checkout` | úhrada dlhu prenajímateľa cez Stripe |
 | `send-reservation-email` | jazykový transport rezervačných e-mailov cez Resend, interné claimy/idempotencia |
-| `process-reservation-notifications` | chránený worker spoločnej fronty e-mailov a BulkGate SMS, retry a evidencia |
+| `process-reservation-notifications` | chránený worker spoločnej fronty e-mailov a BulkGate SMS, retry a evidencia; úspešný heartbeat P1-4 |
+| `monitor-reservation-notifications` | TEST-only monitor chýb notifikačnej fronty, deduplikované e-mailové alarmy na `ebbi@ebbi.sk`; externé spúšťanie cez cron-job.org |
+| `expire-reservations` | bezpečná 24-hodinová expirácia nezaplatených rezervácií (s kontrolou Stripe Checkout) |
 | `send-overdue-owner-debt-reminders` | upozornenia na dlhy po splatnosti |
 
-Používané **názvy** serverových premenných (nie ich hodnoty): `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `PICKUP_PIN_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`, `SITE_URL`, `BULKGATE_APPLICATION_ID`, `BULKGATE_APPLICATION_TOKEN`, `SMS_SEND_MODE`, `SMS_ALLOWED_NUMBERS`. Každá funkcia používa len relevantnú podmnožinu; skutočné povinné premenné overiť pri konkrétnom nasadení v jej kóde. Cron pracovníci majú navyše samostatné tajomstvá v Supabase Vault.
+Používané **názvy** serverových premenných (nie ich hodnoty): `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `PICKUP_PIN_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`, `SITE_URL`, `BULKGATE_APPLICATION_ID`, `BULKGATE_APPLICATION_TOKEN`, `SMS_SEND_MODE`, `SMS_ALLOWED_NUMBERS`. Každá funkcia používa len relevantnú podmnožinu; skutočné povinné premenné overiť pri konkrétnom nasadení v jej kóde. Cron pracovníci majú navyše samostatné tajomstvá v Supabase Vault. Externý TEST monitor vyžaduje vlastné tajomstvo `RENTULO_MONITOR_SECRET` v Supabase a nezverejnenú hodnotu `x-rentulo-monitor-secret` v cron-job.org; **hodnoty nikdy nedokumentovať ani neposielať do Gitu/ZIP-u**.
 
 `send-reservation-email` a `send-overdue-owner-debt-reminders` odvodzujú bezpečný kanonický pôvod z identifikátora Supabase projektu (TEST `.eu`, PROD `.com`); pri nesúhlase explicitného `SITE_URL` odmietnu odoslanie. Stripe funkcie tiež vyžadujú správnu konfiguráciu návratových URL – **pred produkciou overiť konkrétne secrets a URLs samostatne**. Rezervačné e-maily majú transportnú evidenciu v `reservation_email_deliveries`; spoločný asynchrónny stav e-mailov a SMS je v `reservation_notification_deliveries` (kapitola 21).
 
@@ -103,7 +112,7 @@ Autoritatívnou históriou SQL je `supabase/migrations/`; pred pridaním alebo a
 
 - Tabuľky a pravidlá zahŕňajú ponuky, profily, rezervácie, platby, notifikácie, hodnotenia, doručenie e-mailov, Stripe webhook audit, refundy a dlhy prenajímateľov. Prístup chráni RLS a účelové RPC. BOD 13 pridáva `profiles.sms_notifications` (predvolene `false`) a server-only frontu `reservation_notification_deliveries` s idempotentnými kľúčmi `(reservation_id, event_type, recipient_id, channel)`.
 - Nemenné identifikačné čísla: ponuky `N-000001...`, rezervácie `R-000001...` (migrácia `20261009130000_add_offer_and_reservation_numbers.sql`). Ide o verejné referenčné čísla, nie náhradu interného UUID.
-- Stavy: `pending` → `approved` → `paid` → `picked_up` → `returned`; existuje aj `rejected` a `cancelled`. Prechod na `paid` je viazaný na dôveryhodné potvrdenie Stripe; na `picked_up` na bezpečné potvrdenie PIN. Bežný používateľ nemôže tieto stavy ľubovoľne prepísať.
+- Stavy: `pending` → `approved` → `paid` → `picked_up` → `returned`; existuje aj `rejected`, `cancelled` a `expired` (nezaplatená rezervácia po bezpečnej kontrole 24-hodinovej lehoty/Stripe). Prechod na `paid` je viazaný na dôveryhodné potvrdenie Stripe; na `picked_up` na bezpečné potvrdenie PIN. Bežný používateľ nemôže tieto stavy ľubovoľne prepísať.
 - Presné kontakty/miesto vyzdvihnutia sa sprístupnia príslušným stranám po zaplatení. Rezervácia ukladá snapshot vyzdvihnutia, aby neskoršia zmena profilu neupravila už uzavreté údaje.
 - **Bežné storno** (nezaplatené `pending`/`approved` podľa roly) má hranicu **6 hodín pred** dohodnutým `start_date + pickup_time` v `Europe/Prague`. **Zaplatené storno** prechádza samostatným autorizovaným Stripe/refund procesom; nájomca má túto časovú hranicu tiež. Potvrdenie odovzdania PIN je od 11. 10. viazané na *kalendárny deň* prevzatia, nie na hodinu `pickup_time`.
 - V1 používa minimum **100 CZK/deň** pre ponuku a platformový poplatok **max(10 % z ceny rezervácie, 50 CZK)**.
@@ -117,8 +126,12 @@ Najnovšie rozhodujúce migrácie:
 - **`20261011170000_limit_pickup_pin_to_pickup_day.sql` – posledné platné pravidlo PIN:** `start_date` musí byť **dnešný deň podľa `Europe/Prague`**. Nahrádza predchádzajúcu kontrolu presnej hodiny; ostatné storno pravidlá nemení.
 - `20261012100000_unify_reservation_notification_outbox.sql` – transakčná rezervačná fronta pre e-mail/SMS, opt-in a bezpečné claim/ack/retry.
 - `20261012101000_schedule_notification_worker.sql` – Vault tajomstvo a databázový cron spoločného notifikačného workera.
+- `20261012150000_harden_reservation_notification_worker.sql` – bezpečné spracovanie fronty pri zlyhaniach a timeoute.
+- `20261012170000_add_expired_reservation_status.sql` až `20261012172000_schedule_reservation_expiration.sql` – status `expired`, bezpečné 24-hodinové expiračné pravidlá a samostatný cron.
+- `20261013090000_reset_sms_opt_in_on_phone_change.sql` – nové telefónne číslo automaticky nezachová SMS opt-in.
+- `20261013100000_monitor_reservation_notifications_TEST.sql` – dve server-only monitorovacie tabuľky a tri RPC; **bez vlastného databázového cron jobu**.
 
-Tri databázové cron joby definované migráciami: `rentulo-retry-owner-transfers-every-5-minutes` (`*/5 * * * *`), `rentulo-send-overdue-owner-debt-reminders-hourly` (`0 * * * *`) a `rentulo-process-reservation-notifications-every-minute` (`* * * * *`). Po nasadení do daného prostredia treba overiť ich skutočný stav, Vault a výsledky behov. **Žiadnu migráciu teraz automaticky nespúšťať na PROD.**
+**Štyri** databázové cron joby definované migráciami: `rentulo-retry-owner-transfers-every-5-minutes` (`*/5 * * * *`), `rentulo-send-overdue-owner-debt-reminders-hourly` (`0 * * * *`), `rentulo-process-reservation-notifications-every-minute` (`* * * * *`) a `rentulo-expire-unpaid-reservations-every-5-minutes` (`*/5 * * * *`). **Odlišný plánovač:** nezávislý TEST monitor P1-4 sa spúšťa z **cron-job.org**, nie z databázového cronu ani plánovaného GitHub Actions. Po nasadení do daného prostredia treba overiť skutočný stav jobov, Vault a výsledky behov. **Žiadnu migráciu teraz automaticky nespúšťať na PROD.**
 
 ## 7. TEST PAYMENT – aktuálny bezpečnostný stav
 
@@ -148,7 +161,7 @@ Na TEST sa používajú **Stripe test/sandbox platby**, nie stará klientská fa
 
 ## 9. Rezervačné e-maily, SMS a Supabase Auth šablóny
 
-- **Resend** posiela rezerváciami vyvolané e-maily a oznámenia o refundoch; `send-reservation-email` používa preferovaný jazyk, transportný log v `reservation_email_deliveries` a ochranu proti duplicitám. **BOD 13** priniesol spoločný databázový outbox pre e-mail a voliteľné SMS a cron worker. E-mailové odkazy musia rešpektovať oddelenie TEST `.eu` / PROD `.com`.
+- **Resend** posiela rezerváciami vyvolané e-maily a oznámenia o refundoch; `send-reservation-email` používa preferovaný jazyk, transportný log v `reservation_email_deliveries` a ochranu proti duplicitám. **BOD 13** priniesol spoločný databázový outbox pre e-mail a voliteľné SMS a cron worker. **BOD 12 – P1-4** navyše pridal oddelený externý TEST monitoring cez cron-job.org s alarmami cez Resend; nejde o plánovač bežnej notifikačnej fronty. E-mailové odkazy musia rešpektovať oddelenie TEST `.eu` / PROD `.com`.
 - V `supabase/auth-email-templates/` sú päťjazyčné Auth šablóny **Confirm sign up, Reset password, Change email address**. Šablóny **nie sú automaticky synchronizované** len commitom: aktivujú sa v príslušnom Supabase Auth dashboarde. Na TEST boli v októbri upravované a overované; PROD potrebuje samostatnú kontrolu a nasadenie.
 - Pri bezpečnej zmene e-mailu môže Supabase poslať **dve potvrdenia** – na pôvodnú aj novú adresu. UI na TEST vysvetľuje, že je potrebné potvrdiť oba odkazy. Neoznačovať tento bezpečnostný proces za chybnú duplicitnú notifikáciu.
 - **SMS už sú implementované a reálne otestované v TEST** pre `new_request`, `approved`, `paid`, `cancelled`; BulkGate doručenie potvrdili používateľské mobilné testy 12. 10. 2026 (4/4). SMS zostávajú voliteľné a nezávislé od e-mailov. `live` je v zdrojovom kóde povolené iba pre TEST projekt a čísla v `SMS_ALLOWED_NUMBERS`; aktuálny administrátorský režim po testoch má byť `dry_run`. Detaily sú v kapitole 21.
@@ -292,26 +305,26 @@ Schválený postup pre **TEST vetvu `main`**:
 5. Skontrolovať diff; vykonať `git add` iba dohodnutých súborov, `git commit`, `git push origin main`.
 6. Overiť nový GitHub Actions run a **TEST** Vercel deployment na `rentulo.eu`. Pri funkčnom zásahu tiež smoke test v prehliadači, konzole a podľa potreby mobile.
 
-Pre dokumentačnú aktualizáciu **BODU 13** sú lokálne PowerShell príkazy (až po vložení dodaného ZIP-u, iba na vetve `main`):
+Pre aktualizáciu **BODU 12 – P1-4 (prechod dokumentácie na cron-job.org a odstránenie GitHub harmonogramu)** sú lokálne PowerShell príkazy (až po vložení schváleného päťsúborového ZIP-u, iba na vetve `main`):
 
 ```powershell
 cd C:\Users\ebbi\Desktop\pujc-naradi
 git status
 git branch --show-current
-git diff -- README.md HANDOVER.md
+git diff -- README.md HANDOVER.md docs/BOD12_P1-4_monitoring_TEST.md .github/workflows/rentulo-test-notification-monitor.yml tests/monitor-reservation-notifications.test.js
 npm test
 npm run build
 git diff --check
-git add README.md HANDOVER.md
+git add README.md HANDOVER.md docs/BOD12_P1-4_monitoring_TEST.md .github/workflows/rentulo-test-notification-monitor.yml tests/monitor-reservation-notifications.test.js
 git diff --cached --check
 git diff --cached --stat
-git commit -m "docs: record BOD13 SMS notification tests in TEST"
+git commit -m "docs: switch TEST notification monitor schedule to cron-job.org"
 git push origin main
 ```
 
 > Príkazy na commit/push použiť **iba keď testy a diff prejdú** a iba na správnej vetve `main`. Pred ich použitím musí byť `git status` bez nesúvisiacich zmien. Commit ani push do `production` sem nepatrí.
 
-GitHub workflow `.github/workflows/ci.yml` sleduje push a pull requesty na `main` aj `production`; používa **Node 22** a **Deno 2**. Kontroluje: `npm ci`, JS syntax (`node --check`), JSON, konfliktné značky, zakázané sledované tajné/záložné súbory, `npm audit --audit-level=high`, `npm test`, **TEST build** a `deno check` všetkých Edge Functions. Posledný doložený projektový beh **#393** k `fc69cc0` mal **375/375 testov**; nový dokumentačný commit potrebuje vlastné CI. CI úspech nenahrádza živý end-to-end audit Supabase, Stripe ani PROD.
+GitHub workflow `.github/workflows/ci.yml` sleduje push a pull requesty na `main` aj `production`; používa **Node 22** a **Deno 2**. Kontroluje: `npm ci`, JS syntax (`node --check`), JSON, konfliktné značky, zakázané sledované tajné/záložné súbory, `npm audit --audit-level=high`, `npm test`, **TEST build** a `deno check` všetkých Edge Functions. Posledný doložený projektový beh **#402** k `19c3a2e` mal **423/423 testov**; nový dokumentačný commit potrebuje vlastné CI. CI úspech nenahrádza živý end-to-end audit Supabase, Stripe ani PROD.
 
 PROD deploy má samostatnú vetvu `production` a vlastné prostredie; neriadiť ho automaticky vývojovým workflow. Postup aktivácie je **výlučne kapitola 12** a potrebuje nový súhlas.
 
@@ -341,10 +354,10 @@ Dokončené alebo pripravené na TEST podľa projektovej histórie a GitHub comm
 - **BOD 9** – päť jazykov, jazykové/UI opravy a Supabase Auth e-mailové šablóny v TEST.
 - **BOD 10** – bezpečnostné a platobné release spevnenie, vrátane odstránenia fake-payment RPC, kontroly dátumu prevzatia, PIN a posledných opráv. Referencia: `8ef44e2`, 367/367, CI #391 úspešné.
 - **BOD 11** – aktualizácia `README.md` a `HANDOVER.md` dokončená na TEST v skoršom kroku; pôvodný snapshot `8ef44e2` je historický.
-- **BOD 12** – záverečný audit a príprava ostrého štartu sa riešia samostatne; výsledky TEST nie sú povolením spustiť PROD.
-- **BOD 13** – spoločný systém rezervačných e-mailov a voliteľných SMS implementovaný, nasadený a **4/4 reálnych SMS udalostí overených v TEST** (`fc69cc0`; projektové testy 375/375, CI #393). Po testoch administratívne obnovené `dry_run`; dokumentačný commit a jeho CI ešte treba overiť.
+- **BOD 12** – priebežný záverečný audit; **P1-4 (monitoring notifikácií)** aktivovaný a overený v TEST 13. 10. 2026, plánovanie cez **cron-job.org**. Ďalšie časti auditu sa riešia osobitne; TEST neznamená povolenie spustiť PROD.
+- **BOD 13** – spoločný systém rezervačných e-mailov a voliteľných SMS implementovaný, nasadený a **4/4 reálnych SMS udalostí overených v TEST** (`fc69cc0` bol pôvodný implementačný commit; po ďalších opravách aktuálny snapshot `19c3a2e`, CI #402, 423/423). Po testoch administratívne obnovené `dry_run`; nejde o povolenie PROD.
 
-Nasledujúce práce sa navrhujú a schvaľujú **samostatne**; predovšetkým dokončenie auditu **BODU 12**, príprava produkčnej konfigurácie notifikácií a predprodukčný checklist podľa kapitoly 19. **No-show** zostáva odložené. Nezavádzať ďalšiu funkciu len preto, že je spomenutá v dokumentácii.
+Nasledujúce práce sa navrhujú a schvaľujú **samostatne**; najbližšie je kontrola **24-hodinovej expirácie rezervácií** v BODE 12 bez opakovania hotových testov, potom predprodukčný checklist podľa kapitoly 19. **No-show** zostáva odložené. Nezavádzať ďalšiu funkciu len preto, že je spomenutá v dokumentácii.
 
 ## 19. Otvorené kontroly pred verejným spustením
 
@@ -354,7 +367,7 @@ Toto je **checklist budúceho release, nie pokyn na okamžité vykonanie**. Post
 2. **Supabase PROD:** čistá databáza, kontrola/aplikovanie potrebných migrácií, RLS/RPC, oddelené Auth a Storage, Edge Functions, cron joby/Vault, logy. **Žiadne kopírovanie TEST používateľov/rezervácií bez samostatného rozhodnutia.**
 3. **Produkčné platby:** Stripe **live** účty a kľúče, podpis webhooku, Connect onboarding, rozdelenie poplatkov, potvrdenie PIN, transfer/payout, retry, refundy, dlhy prenajímateľa a idempotencia; overenie odstránenia fake-payment cesty v cieľovom PROD.
 4. **E-maily a Auth:** produkčné `SITE_URL`, návratové URL, bezpečné recovery/change-email toky, päť jazykov v Auth šablónach, Resend odosielateľ, DNS SPF/DKIM/DMARC a reálne doručenie správ.
-5. **SMS/BulkGate PROD:** osobitne schválený režim, integrácia s produkčným Supabase, nezávislé secrets a API limity, bezpečný opt-in a overenie vlastníctva čísla, ochrana osobných údajov, cena/rozpočet, manuálne riešenie nejasných provider odpovedí, monitoring a reálne end-to-end doručenie; momentálne má kód `live` blokované mimo TEST.
+5. **SMS/BulkGate PROD:** osobitne schválený režim, integrácia s produkčným Supabase, nezávislé secrets a API limity, bezpečný opt-in a overenie vlastníctva čísla, ochrana osobných údajov, cena/rozpočet, manuálne riešenie nejasných provider odpovedí, monitoring a reálne end-to-end doručenie; momentálne má kód `live` blokované mimo TEST. **TEST-only cron-job.org monitoring sa nepresúva do PROD** bez novej architektúry a súhlasu.
 6. **Právo a kontakty:** potvrdená platnosť/účinnosť V1 podmienok a GDPR, fungujúce `rentulo@rentulo.com` a `policy@rentulo.com`, právna a daňová kontrola vrátane používania Stripe v ČR cez EBBI s. r. o.
 7. **Web/doména:** `rentulo.com`/`www`, TLS, Vercel PROD ochrana až do schválenia, správna CSP, SEO canonical a indexovanie PROD iba po osobitnom rozhodnutí. TEST `rentulo.eu` nepresmerovávať.
 8. **Bezpečnosť a funkčné smoke testy:** aktuálne CodeQL/secret scanning/Dependabot, mobil a desktop, Console/Network, 4xx/5xx, Auth, ponuky, rezervácie, platby/refundy, PIN v správny aj nesprávny deň, mapa a e-maily.
@@ -412,3 +425,40 @@ ORDER BY d.created_at;
 ```
 
 **Ostáva pred PROD:** samostatne schválená architektúra produkčných SMS, zmena zámernej TEST-only zábrany po bezpečnostnom audite, oddelený BulkGate účet/kľúče a rozpočet/limity, overenie vlastníctva telefónov a súhlasov, GDPR a retenčné pravidlá, monitoring `queued/retry/dead`, doručiteľnosť, sender, podmienky nákladov a end-to-end skúšky. **Žiadny zásah do `production`, Supabase PROD, Stripe live, DNS ani `rentulo.com` nie je týmto dokumentom povolený.**
+
+
+## 22. BOD 12 – P1-4: nezávislý monitoring notifikácií (TEST)
+
+**Stav 13. 10. 2026:** monitoring bol podľa projektového prevádzkového testu aktivovaný cez **cron-job.org** a na základe rozhodnutia ostáva zapnutý aj počas prestávky. Ide o nezávislú periodickú kontrolu notifikačného systému **Supabase TEST** (`vspposovhdgvbeukoivh`), **nie** o alternatívny worker na posielanie rezervácií. GitHub plánovaný monitorovací workflow sa v tejto úprave mení na **manuálnu diagnostiku**. Žiadne nastavenie externého cron-job.org, Supabase ani PROD sa samotným ZIP-om nemení.
+
+### 22.1 Tri oddelené procesy
+
+1. **Rezervačný worker:** Supabase `pg_cron` každú minútu volá `process-reservation-notifications`. Spracuje e-maily/SMS a po úspešnom dokončení vrátane ACK zapisuje serverový heartbeat do `reservation_notification_worker_health`. Aj zdravý prázdny beh obnovuje `last_success_at`.
+2. **Nezávislá kontrola:** externý **cron-job.org** odošle cez HTTPS `POST` do `https://vspposovhdgvbeukoivh.supabase.co/functions/v1/monitor-reservation-notifications` s JSON telom `{}`, `Content-Type: application/json` a tajnou hlavičkou `x-rentulo-monitor-secret`. Tajomstvo (minimálne 64 znakov) musí zodpovedať serverovému `RENTULO_MONITOR_SECRET`; **nikdy ho neuvádzať do dokumentov/ZIP-u/Gitu**. Periodicita a úspešnosť sa spravujú v cron-job.org (pôvodný návrh P1-4 počítal s kontrolou približne každých päť minút; skutočné nastavenie treba overiť tam).
+3. **Alarmy:** monitor použije iba serverové RPC, tabuľku `reservation_notification_monitor_alerts` a Resend. Alerty sú smerované na **`ebbi@ebbi.sk`**. `generation`, `claim_token`, lease a stabilný Resend idempotency key bránia duplicitám; pri neúspechu sa používa retry. `sent_at` v databáze znamená akceptované odoslanie, nie potvrdenie doručenia do schránky.
+
+Edge Function je výslovne **TEST-only**: nesprávna URL projektu je odmietnutá (`403`), chýbajúci/nesprávny token (`401`), nesprávna metóda (`405`). Neuchovávať token v URL, query stringu, public workflow ani logoch. GitHub workflow `.github/workflows/rentulo-test-notification-monitor.yml` **nemá `schedule`**, používa len `workflow_dispatch` na `main` s GitHub secretom `RENTULO_TEST_MONITOR_SECRET` pre ručnú diagnostiku. Premenná `RENTULO_TEST_MONITOR_ENABLED` sa po tejto aktualizácii na spúšťanie nepoužíva.
+
+### 22.2 Čo monitor hlási
+
+- notifikácie so stavom `dead` (neúspešné SMS s nejasnou odpoveďou providera **neposielať automaticky znova**);
+- `queued`/`retry` po termíne `next_attempt_at` o viac ako 10 minút;
+- `sending` po skončení lease o viac ako 3 minúty;
+- **worker stale:** chýba úspešný heartbeat dlhšie ako 8 minút.
+
+Alarm rieši jednu generáciu incidentu jedným mailom; po vyriešení a novom výskyte sa môže vytvoriť nové upozornenie. Úplná nedostupnosť Supabase/Edge Gateway môže súčasne zablokovať samotný Resend alarm z Edge Function – preto sledovať **HTTP históriu/poruchy cron-job.org**, nie iba doručenú poštu. Prípadné upozornenia poskytovateľa externého cron služby sú samostatné od interných alarmov Rentula.
+
+### 22.3 Výsledok doterajšej TEST kontroly
+
+- GitHub `main` pred touto aktualizáciou `19c3a2e`, **CI #402, 423/423 testov**; posledné GitHub monitorovacie behy #4 a #5 boli **manuálne úspešné**, nejde o dôkaz priebežného behu cron-job.org.
+- Supabase TEST `reservation_notification_worker_health.last_success_at` sa pri prevádzkovom overení aktualizoval (naposledy v doloženom SQL výstupe **2026-10-13 13:48:58 UTC**).
+- Kontrolovaný alarm `qa-p1-4-alarm-20261013-01` mal SQL `sent_at=2026-10-13 14:10:18.774813+00`, `attempt_count=1` a `last_error=null`. To potvrdzuje záznam o odoslaní, **nie nezávisle overené doručenie** do e-mailovej schránky. V čase schválenia dokumentácie nebol predložený novší dôkaz z dashboardu cron-job.org.
+
+### 22.4 Kontroly, bezpečné vypnutie a hranice zásahov
+
+- **Bežná kontrola:** v cron-job.org overiť, že TEST job je `enabled` a volania dostávajú úspešnú HTTP odpoveď; v Supabase TEST čítať `last_success_at`, `reservation_notification_monitor_alerts.active`, `sent_at`, `last_error` a `next_attempt_at`. Nevyžadovať nové vytváranie alarmov, ak existujú dôkazy.
+- **Neplánované spúšťanie GitHub Actions:** len ručne na `main` pri diagnostike; automatický GitHub harmonogram sa odstránil, takže nemajú bežať **dva nezávislé plánovače** toho istého monitoru.
+- **Zastavenie iba monitora v prípade výslovného rozhodnutia:** vypnúť konkrétny job v **cron-job.org**; nevypínať databázový `rentulo-process-reservation-notifications-every-minute` ani iné pracovné crony. Aktuálne rozhodnutie je **ponechať monitor zapnutý**.
+- **PROD:** tento monitor je pevne viazaný na TEST, má samostatné serverové tajomstvo a príjemcu. Pre PROD je potrebný nový návrh, oddelené secrets/účty, bezpečnostná revízia a výslovné schválenie. Nič neprenášať automaticky.
+
+Podrobný operátorský postup a čítacie SQL: [docs/BOD12_P1-4_monitoring_TEST.md](docs/BOD12_P1-4_monitoring_TEST.md).

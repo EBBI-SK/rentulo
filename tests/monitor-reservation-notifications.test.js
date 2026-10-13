@@ -11,6 +11,7 @@ const migration = read('supabase/migrations/20261013100000_monitor_reservation_n
 const monitor = read('supabase/functions/monitor-reservation-notifications/index.ts');
 const worker = read('supabase/functions/process-reservation-notifications/index.ts');
 const workflow = read('.github/workflows/rentulo-test-notification-monitor.yml');
+const runbook = read('docs/BOD12_P1-4_monitoring_TEST.md');
 
 const expectedTestUrl = 'https://vspposovhdgvbeukoivh.supabase.co';
 const secret = 'a'.repeat(80);
@@ -114,13 +115,16 @@ test('P1-4: heartbeat cannot pass before successful queue acknowledgements', () 
   assert.match(worker, /return json\(\{ error: "Notification heartbeat unavailable" \}, 500\)/);
 });
 
-test('P1-4: GitHub watchdog is external, manually gated, TEST-only and every five minutes', () => {
-  assert.match(workflow, /cron: '2-59\/5 \* \* \* \*'/);
-  assert.match(workflow, /vars\.RENTULO_TEST_MONITOR_ENABLED == 'true'/);
+test('P1-4: cron-job.org is the documented scheduler; GitHub is manual, main-only and TEST-only', () => {
+  assert.match(workflow, /^on:\s*\n\s+workflow_dispatch:/m);
+  assert.doesNotMatch(workflow, /^\s*schedule:|^\s*- cron:/m);
+  assert.doesNotMatch(workflow, /RENTULO_TEST_MONITOR_ENABLED/);
   assert.match(workflow, /github\.ref == 'refs\/heads\/main'/);
   assert.match(workflow, /secrets\.RENTULO_TEST_MONITOR_SECRET/);
   assert.match(workflow, /vspposovhdgvbeukoivh\.supabase\.co/);
   assert.doesNotMatch(workflow, /tfvgxrdjrpicgtvovehl|rentulo-prod|rentulo\.com\/functions/);
+  assert.match(runbook, /cron-job\.org/);
+  assert.match(runbook, /x-rentulo-monitor-secret/);
 });
 
 test('P1-4: monitor blocks PROD and incorrect secrets before any database or email work', async () => {

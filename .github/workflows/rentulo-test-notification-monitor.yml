@@ -1,8 +1,6 @@
 name: Rentulo TEST notification monitor
 
 on:
-  schedule:
-    - cron: '2-59/5 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -14,13 +12,12 @@ concurrency:
 
 jobs:
   monitor:
-    name: Independent TEST notification watchdog
+    name: Manual TEST notification monitor diagnostic
     runs-on: ubuntu-latest
     timeout-minutes: 3
-    # Fail-closed: schedule remains dormant until the operator explicitly
-    # enables the repository VARIABLE after applying TEST SQL and deploying
-    # both Edge Functions. Manual runs are allowed for controlled QA.
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || vars.RENTULO_TEST_MONITOR_ENABLED == 'true')
+    # Manual diagnostics only on main. The scheduled TEST monitor runs
+    # independently via cron-job.org; this workflow has no scheduled trigger.
+    if: github.ref == 'refs/heads/main'
     steps:
       - name: Verify TEST monitor configuration
         shell: bash

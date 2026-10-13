@@ -2,7 +2,7 @@
 
 Rentulo je webová platforma na požičiavanie vecí medzi súkromnými osobami v **Českej republike**. Prvá verzia (V1) nie je určená podnikateľom. Prevádzkovateľom je **EBBI s. r. o.**
 
-> **Stav dokumentácie: 12. 10. 2026.** Referenčný GitHub `main`: `fc69cc0` (BOD 13); podľa poslednej projektovej CI kontroly **#393 úspešné, 375/375 testov**. Je to dátumový snapshot, nie trvalá garancia; po tejto dokumentačnej zmene treba nové CI overenie. Aplikácia sa vyvíja a testuje na `rentulo.eu`; verejná produkcia `rentulo.com` **nebola spustená**.
+> **Stav dokumentácie: 13. 10. 2026.** Referenčný GitHub `main` pred touto úpravou: `19c3a2e` (BOD 12 – P1-4); overené **Rentulo CI #402, 423/423 testov**. Ide o historický snapshot: po vložení tohto ZIP-u, commite a pushi treba skontrolovať **nový** CI beh. Vývoj a testovanie prebiehajú na `rentulo.eu`; verejná produkcia `rentulo.com` **nebola spustená**.
 
 ## Technológie a architektúra
 
@@ -12,6 +12,7 @@ Rentulo je webová platforma na požičiavanie vecí medzi súkromnými osobami 
 - **Stripe**: Checkout, Connect, serverový webhook, refundy a transfery prenajímateľom; aktuálne sa používajú **testovacie Stripe platby**.
 - **Vercel**: hosting, build a serverless API pre SEO detail ponuky a dynamickú sitemap.
 - **Resend** a **BulkGate**: rezervačné e-maily a voliteľné SMS cez spoločnú databázovú frontu a bezpečný worker; Supabase Auth má vlastné jazykové e-mailové šablóny.
+- **cron-job.org**: nezávislý externý plánovač bezpečnostného monitoringu notifikácií iba pre TEST; samotné spracovanie fronty naďalej používa databázový Supabase `pg_cron`. GitHub Actions má len manuálny diagnostický workflow.
 - **OpenStreetMap**, **Nominatim** a **Photon**: mapa, geokódovanie a návrhy adries.
 
 ## Štruktúra repozitára
@@ -19,6 +20,7 @@ Rentulo je webová platforma na požičiavanie vecí medzi súkromnými osobami 
 ```text
 /
 ├── .github/workflows/ci.yml     # GitHub Actions kontroly
+├── .github/workflows/rentulo-test-notification-monitor.yml # iba manuálna TEST diagnostika
 ├── api/                          # SEO detail ponuky a sitemap (Vercel)
 ├── assets/                       # logo a statické súbory
 ├── css/                          # štýly
@@ -26,7 +28,7 @@ Rentulo je webová platforma na požičiavanie vecí medzi súkromnými osobami 
 ├── scripts/                      # build a SEO katalóg
 ├── supabase/
 │   ├── auth-email-templates/     # zdrojové šablóny Auth e-mailov
-│   ├── functions/                # Supabase Edge Functions (18)
+│   ├── functions/                # Supabase Edge Functions (20)
 │   ├── migrations/               # aktuálne SQL migrácie
 │   ├── migrations-archive/       # historický archív; nespúšťať znovu
 │   └── snippets/                # pomocné SQL
@@ -50,7 +52,7 @@ npm run build
 ```
 
 - `npm ci` nainštaluje závislosti podľa `package-lock.json`; používame Supabase CLI ako vývojovú závislosť.
-- `npm test` spustí Node.js testy v `tests/`. K referenčnému commitu `fc69cc0` bolo v projektovom CI potvrdených **375/375** testov (beh #393); ďalší commit vyžaduje nový beh.
+- `npm test` spustí Node.js testy v `tests/`. K referenčnému commitu `19c3a2e` bolo v projektovom CI potvrdených **423/423** testov (beh #402); po tejto aktualizácii vyžaduje nový commit vlastné CI.
 - `npm run build` predvolene vytvorí **TEST** web v `dist/`. Výstup je možné lokálne prehliadať cez HTTP server (napríklad VS Code Live Server).
 - Build **neaplikuje databázové migrácie, nenasadzuje Supabase Edge Functions ani neprepína PROD**.
 
@@ -61,7 +63,7 @@ npm run build
 - Registrácia a prihlásenie cez Supabase Auth; nastavenia profilu a účtu.
 - Ponuky vecí, vyhľadávanie, cenové a geografické filtre, približná verejná mapa.
 - Automatické nemenné čísla ponúk `N-000001...` a rezervácií `R-000001...`.
-- Rezervačný tok `pending` → `approved` → `paid` → `picked_up` → `returned`; samostatné zamietnutie a zrušenie podľa pravidiel.
+- Rezervačný tok `pending` → `approved` → `paid` → `picked_up` → `returned`; samostatné zamietnutie, zrušenie a kontrolovaná **24-hodinová expirácia nezaplatených rezervácií** (stav `expired`). Bezpečné uvoľnenie termínu musí zohľadniť rozpracovanú platbu Stripe; výsledok živého časového testu je samostatná kontrola.
 - Stripe Checkout a Connect: minimálna cena ponuky **100 CZK/deň**, platformový poplatok **10 % zo sumy rezervácie, minimálne 50 CZK**.
 - Po zaplatení odomknutie chránených kontaktných údajov a prístup k šesťmiestnemu PIN na odovzdanie. **PIN možno použiť na prevzatie iba v dohodnutý kalendárny deň podľa `Europe/Prague`**; po uplynutí dňa sa už nezobrazí. Po úspešnom potvrdení sa zneplatní. Tri nesprávne pokusy znamenajú 15-minútový zámok.
 - Po potvrdení prevzatia sa iniciuje Stripe transfer prenajímateľovi; pri dočasnej chybe existuje automatický retry. To neznamená okamžité pripísanie na bankový účet.
@@ -73,7 +75,7 @@ npm run build
 
 ## BOD 13 – rezervačné e-maily a SMS (TEST)
 
-Zjednotený systém používa tabuľku `reservation_notification_deliveries` a serverový worker `process-reservation-notifications`; udalosti vznikajú databázovo a spracúvajú sa asynchrónne (cron každú minútu). **E-maily fungujú nezávisle od zapnutia SMS.** SMS sú voliteľné, vyžadujú platné telefónne číslo a súhlas v nastaveniach profilu. Podporované základné SMS udalosti: **nová žiadosť, schválenie, zaplatenie, zrušenie**; špeciálne zaplatené storno sa vyhodnocuje až po potvrdenom refunde/finančnom uzavretí.
+Zjednotený systém používa tabuľku `reservation_notification_deliveries` a serverový worker `process-reservation-notifications`; udalosti vznikajú databázovo a spracúvajú sa asynchrónne (**Supabase databázový cron každú minútu**, nie externý monitorovací cron). **E-maily fungujú nezávisle od zapnutia SMS.** SMS sú voliteľné, vyžadujú platné telefónne číslo a súhlas v nastaveniach profilu. Podporované základné SMS udalosti: **nová žiadosť, schválenie, zaplatenie, zrušenie**; špeciálne zaplatené storno sa vyhodnocuje až po potvrdenom refunde/finančnom uzavretí.
 
 **Reálny TEST 12. 10. 2026:** pri rezervácii `R-000019` prišli SMS za novú žiadosť, schválenie a zaplatenie; pri `R-000020` prišla SMS za zrušenie. **4/4 SMS prevzaté na testovacom mobile**, všetky mali v databáze `status=sent`, BulkGate ID a `attempt_count=1`, bez chyby; e-mailové udalosti boli `sent`. Nová žiadosť `R-000020` bola v `dry_run` iba `simulated`. BulkGate TEST aplikácia mala v okamihu kontroly využitie **4/5 SMS denne**.
 
@@ -81,6 +83,14 @@ Zjednotený systém používa tabuľku `reservation_notification_deliveries` a s
 - **PROD (`rentulo.com`):** SMS neaktivované. Aktuálny kód dokonca blokuje `live` mimo TEST projektu. Produkčné nasadenie vyžaduje osobitné schválenie, bezpečnostnú kontrolu, nezávislé nastavenia a overenie vlastníctva telefónneho čísla. Žiadny TEST výsledok neznamená pripravenosť PROD.
 
 Podrobnosti o migráciách, crone, bezpečnosti, diagnostike a ďalších obmedzeniach sú v [HANDOVER.md – BOD 13](HANDOVER.md#21-bod-13--zjednotené-rezervačné-notifikácie-test).
+
+## BOD 12 – P1-4: nezávislý monitoring notifikácií (TEST)
+
+**Aktivovaný v TEST podľa prevádzkového testu 13. 10. 2026; ponechať zapnutý.** Opakovanú kontrolu notifikácií vykonáva **cron-job.org**, ktorý cez chránený HTTP `POST` volá Supabase Edge Function `monitor-reservation-notifications`. Sleduje zlyhané, oneskorené a zaseknuté notifikácie i chýbajúci úspešný heartbeat workera. Alerty sa cez Resend posielajú na `ebbi@ebbi.sk`, s ochranou proti opakovanému odoslaniu toho istého incidentu.
+
+**Nezamieňať dva plánovače:** bežné rezervácie a notifikácie spracúva Supabase `pg_cron`; **cron-job.org iba monitoruje**. `.github/workflows/rentulo-test-notification-monitor.yml` zostáva po tejto zmene výlučne **manuálnym diagnostickým nástrojom** (`workflow_dispatch`, len `main`), bez GitHub `schedule` a bez závislosti od `RENTULO_TEST_MONITOR_ENABLED`. Frekvenciu, úspešnosť volaní a prípadné nedostupnosti kontrolovať v cron-job.org; samotný commit jeho nastavenia nemení. Pri úplnom výpadku Supabase nemusí monitor poslať e-mail, preto je dôležité sledovať aj stav HTTP behov externého plánovača.
+
+Pri skúške P1-4 databáza evidovala testovací alarm `qa-p1-4-alarm-20261013-01` so `sent_at` **13. 10. 2026 14:10:18 UTC**, `attempt_count=1`, bez chyby. **Zápis `sent_at` nie je potvrdením doručenia do schránky.** Kompletný prevádzkový postup a bezpečnostné upozornenia: [docs/BOD12_P1-4_monitoring_TEST.md](docs/BOD12_P1-4_monitoring_TEST.md) a [HANDOVER.md – kapitola 22](HANDOVER.md#22-bod-12--p1-4-nezávislý-monitoring-notifikácií-test).
 
 ## TEST a PROD – striktne oddelené
 
