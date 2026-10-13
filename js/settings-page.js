@@ -147,6 +147,7 @@
   }
 
   let savedProfileValues = null;
+  let savedSmsEnabled = false;
 
   function profileValuesEqual(left, right) {
     if (!left || !right) {
@@ -268,8 +269,9 @@
     }
 
     setProfileFields(profile, user);
+    savedSmsEnabled = profile?.sms_notifications === true;
     const smsCheck = document.getElementById("settingsSmsEnabled");
-    if (smsCheck) smsCheck.checked = profile?.sms_notifications === true;
+    if (smsCheck) smsCheck.checked = savedSmsEnabled;
 
     const pendingEmail = normalizeEmail(user && user.new_email);
     if (pendingEmail && pendingEmail !== authEmail) {
@@ -315,6 +317,7 @@
       city: city,
       postalCode: postalCode
     };
+    const phoneChanged = savedProfileValues && savedProfileValues.phone !== phone;
 
     if (button && button.disabled) {
       return user;
@@ -447,17 +450,29 @@
         };
 
       savedProfileValues = { ...profileValues };
+      // The DB trigger atomically removes SMS opt-in when the stored phone changes.
+      // Reflect that in the form only after the profile write succeeds.
+      if (phoneChanged) {
+        savedSmsEnabled = false;
+        const smsCheck = document.getElementById("settingsSmsEnabled");
+        if (smsCheck) smsCheck.checked = false;
+      }
 
-      setTranslatedMessage(
-        message,
-        emailConfirmationRequired
+      const savedKey = phoneChanged
+        ? emailConfirmationRequired
+          ? "settings.profileSavedEmailConfirmationSmsReset"
+          : "settings.profileSavedSmsReset"
+        : emailConfirmationRequired
           ? "settings.profileSavedEmailConfirmation"
-          : "settings.profileSaved",
-        emailConfirmationRequired
+          : "settings.profileSaved";
+      const savedFallback = phoneChanged
+        ? emailConfirmationRequired
+          ? "Osobní údaje byly uloženy. Pro změnu e-mailu potvrďte oba odkazy. SMS upozornění byla kvůli změně telefonu vypnuta."
+          : "Osobní údaje byly uloženy. Kvůli změně telefonu byla SMS upozornění vypnuta. Můžete je znovu zapnout v nastavení SMS."
+        : emailConfirmationRequired
           ? "Osobní údaje byly uloženy. Pro změnu e-mailu potvrďte odkazy ve zprávách zaslaných na původní i novou adresu."
-          : "Osobní údaje byly uloženy.",
-        "success"
-      );
+          : "Osobní údaje byly uloženy.";
+      setTranslatedMessage(message, savedKey, savedFallback, "success");
       return updatedUser;
     } catch (error) {
       console.error(error);
@@ -485,22 +500,48 @@
     const message = document.getElementById("settingsSmsMessage");
     if (!checkbox || (button && button.disabled)) return;
     const smsEnabled = checkbox.checked;
-    if (smsEnabled && !phoneEligibleForSms(phoneInput && phoneInput.value)) {
+    const phone = normalizeText(phoneInput && phoneInput.value);
+    if (smsEnabled && !phoneEligibleForSms(phone)) {
+      checkbox.checked = savedSmsEnabled;
       setTranslatedMessage(message, "settings.smsInvalidPhone",
         "Pro SMS uložte platné telefonní číslo v osobních údajích.", "error");
+      return;
+    }
+    if (smsEnabled && (!savedProfileValues || savedProfileValues.phone !== phone)) {
+      checkbox.checked = savedSmsEnabled;
+      setTranslatedMessage(message, "settings.smsUnsavedPhone",
+        "Nejprve uložte změněné telefonní číslo v osobních údajích.", "error");
       return;
     }
 
     setButtonLoading(button, true);
     setMessage(message, "", "");
     try {
-      const { error } = await client.from("profiles")
+      // Conditional UPDATE protects against a stale profile or concurrent phone edit.
+      // Deactivating SMS is always allowed, even with unsaved form changes.
+      let query = client.from("profiles")
         .update({ sms_notifications: smsEnabled, updated_at: new Date().toISOString() })
         .eq("id", user.id);
+      if (smsEnabled) query = query.eq("phone", phone);
+      const { data, error } = await query.select("id").maybeSingle();
       if (error) throw error;
+      if (!data) {
+        // A stale phone can mean another session already changed it and reset
+        // SMS opt-in. Do not keep showing an outdated enabled checkbox.
+        if (smsEnabled) savedSmsEnabled = false;
+        checkbox.checked = savedSmsEnabled;
+        setTranslatedMessage(message,
+          smsEnabled ? "settings.smsUnsavedPhone" : "settings.smsSaveError",
+          smsEnabled
+            ? "Telefonní číslo v profilu se změnilo. Obnovte nastavení a uložte číslo před zapnutím SMS."
+            : "SMS nastavení se nepodařilo uložit.", "error");
+        return;
+      }
+      savedSmsEnabled = smsEnabled;
       setTranslatedMessage(message, "settings.smsSaved", "SMS nastavení bylo uloženo.", "success");
     } catch (error) {
       console.error(error);
+      checkbox.checked = savedSmsEnabled;
       setTranslatedMessage(message, "settings.smsSaveError",
         "SMS nastavení se nepodařilo uložit.", "error");
     } finally {
