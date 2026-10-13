@@ -115,7 +115,7 @@ test('P1-4: heartbeat cannot pass before successful queue acknowledgements', () 
 });
 
 test('P1-4: GitHub watchdog is external, manually gated, TEST-only and every five minutes', () => {
-  assert.match(workflow, /cron: '\*\/5 \* \* \* \*'/);
+  assert.match(workflow, /cron: '2-59\/5 \* \* \* \*'/);
   assert.match(workflow, /vars\.RENTULO_TEST_MONITOR_ENABLED == 'true'/);
   assert.match(workflow, /github\.ref == 'refs\/heads\/main'/);
   assert.match(workflow, /secrets\.RENTULO_TEST_MONITOR_SECRET/);
