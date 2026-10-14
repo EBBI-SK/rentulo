@@ -145,3 +145,45 @@ test("cron stays inert until a valid environment-specific Supabase project URL i
   assert.match(cronMigration, /length\(cfg\.cron_secret\) >= 64/i);
 });
 
+// Regression for PostgreSQL 42702: RETURNS TABLE creates a PL/pgSQL output
+// variable named debt_id, which conflicts with ON CONFLICT (debt_id).
+// Keep the original function unchanged except for unambiguous constraint naming.
+const claimFixMigration = fs.readFileSync(
+  path.join(ROOT, "supabase/migrations/20261014100000_fix_owner_debt_reminder_claim_ambiguity.sql"),
+  "utf8",
+);
+
+function claimFunctionDefinition(sql) {
+  const match = sql.match(
+    /create or replace function public\.claim_overdue_owner_debt_reminders\([\s\S]*?\$function\$;/i,
+  );
+  assert.ok(match, "Claim function definition must be present");
+  return match[0];
+}
+
+test("overdue reminder claim migration fixes ambiguous debt_id without changing function logic", () => {
+  const original = claimFunctionDefinition(migration);
+  const repaired = claimFunctionDefinition(claimFixMigration);
+  const ambiguousConflict = /on conflict \(debt_id\) do update/gi;
+  const exactConstraint = "on conflict on constraint owner_cancellation_debt_reminder_deliveries_debt_id_key do update";
+
+  assert.equal((original.match(ambiguousConflict) || []).length, 1);
+  assert.equal(repaired, original.replace(ambiguousConflict, exactConstraint));
+  assert.doesNotMatch(repaired, /on conflict\s*\(\s*debt_id\s*\)/i);
+  assert.match(repaired, /for update of d skip locked/i);
+  assert.match(repaired, /auth\.role\(\) <> 'service_role'/i);
+});
+
+test("overdue reminder claim repair remains transactional and service-role only", () => {
+  assert.match(claimFixMigration, /\bbegin;[\s\S]*\bcommit;\s*$/i);
+  assert.match(
+    claimFixMigration,
+    /revoke all on function public\.claim_overdue_owner_debt_reminders\(integer\)\s+from public, anon, authenticated;/i,
+  );
+  assert.match(
+    claimFixMigration,
+    /grant execute on function public\.claim_overdue_owner_debt_reminders\(integer\)\s+to service_role;/i,
+  );
+  assert.doesNotMatch(claimFixMigration, /\b(?:create|alter|drop)\s+(?:table|trigger|policy|extension)\b/i);
+  assert.doesNotMatch(claimFixMigration, /\bcron\.schedule\s*\(/i);
+});
