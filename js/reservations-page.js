@@ -1064,7 +1064,10 @@ return (
         "create-checkout-session",
         {
           body: {
-            reservation_id: reservationId
+            reservation_id: reservationId,
+            locale: typeof window.getRentuloLanguage === "function"
+              ? window.getRentuloLanguage()
+              : "cs"
           }
         }
       );

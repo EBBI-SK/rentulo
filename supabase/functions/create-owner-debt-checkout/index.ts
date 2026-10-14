@@ -1,4 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  LEGACY_OWNER_DEBT_PRODUCT_NAME,
+  normalizeStripeCheckoutLocale,
+  ownerDebtCheckoutProductName,
+} from "../_shared/stripe-checkout-language.mjs";
 
 type RentuloDenoRuntime = {
   serve(handler: (request: Request) => Response | Promise<Response>): void;
@@ -11,6 +16,13 @@ type CheckoutSessionResponse = {
   id?: string;
   url?: string | null;
   payment_intent?: string | { id?: string } | null;
+  status?: "open" | "complete" | "expired";
+  payment_status?: string;
+  mode?: string;
+  currency?: string;
+  amount_total?: number;
+  client_reference_id?: string;
+  metadata?: { payment_kind?: string; owner_cancellation_debt_id?: string; owner_id?: string };
   error?: {
     message?: string;
     type?: string;
@@ -112,7 +124,7 @@ denoRuntime.serve(async (req) => {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
 
-  let payload: { debt_id?: string };
+  let payload: { debt_id?: string; locale?: unknown };
   try {
     payload = await req.json();
   } catch {
@@ -128,7 +140,7 @@ denoRuntime.serve(async (req) => {
   const { data: debt, error: debtError } = await admin
     .from("owner_cancellation_debts")
     .select(
-      "id, owner_id, amount_minor, currency, status, stripe_checkout_session_id, stripe_payment_intent_id",
+      "id, owner_id, amount_minor, currency, status, stripe_checkout_session_id, stripe_payment_intent_id, stripe_checkout_locale",
     )
     .eq("id", debtId)
     .single();
@@ -152,15 +164,86 @@ denoRuntime.serve(async (req) => {
     return jsonResponse({ error: "Owner cancellation debt data is invalid" }, 409);
   }
 
+  // Pin the language before any Stripe call. Only service_role can update the
+  // debt; the IS NULL condition makes simultaneous first requests converge.
+  const requestedLocale = normalizeStripeCheckoutLocale(payload.locale);
+  const localePin = await admin
+    .from("owner_cancellation_debts")
+    .update({ stripe_checkout_locale: requestedLocale })
+    .eq("id", debt.id)
+    .eq("owner_id", actor.id)
+    .eq("status", "open")
+    .is("stripe_checkout_locale", null)
+    .select("stripe_checkout_locale")
+    .maybeSingle();
+  if (localePin.error) {
+    console.error("create-owner-debt-checkout: locale pin failed", localePin.error.message);
+    return jsonResponse({ error: "Unable to prepare debt payment language" }, 503);
+  }
+
+  let checkoutLocale = localePin.data?.stripe_checkout_locale;
+  if (!checkoutLocale) {
+    const existingLocale = await admin
+      .from("owner_cancellation_debts")
+      .select("stripe_checkout_locale, status")
+      .eq("id", debt.id)
+      .eq("owner_id", actor.id)
+      .single();
+    if (existingLocale.error || existingLocale.data?.status !== "open" ||
+        !existingLocale.data?.stripe_checkout_locale) {
+      return jsonResponse({ error: "Debt payment language could not be verified" }, 503);
+    }
+    checkoutLocale = existingLocale.data.stripe_checkout_locale;
+  }
+
+  // Reuse a verified existing open session rather than creating another charge
+  // merely because the owner revisited the payment page or changed language.
+  // Once the prior session is expired, use a stable replacement key.
+  let checkoutIdempotencyKey = `rentulo-owner-debt-checkout-${debt.id}`;
+  const previousSessionId = String(debt.stripe_checkout_session_id || "").trim();
+  if (previousSessionId) {
+    if (!/^cs_(test_|live_)[A-Za-z0-9]+$/.test(previousSessionId)) {
+      return jsonResponse({ error: "Stored debt payment session is invalid" }, 409);
+    }
+    const previousResponse = await fetch(
+      `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(previousSessionId)}`,
+      { headers: { Authorization: `Bearer ${stripeSecretKey}` } },
+    );
+    const previous = (await previousResponse.json().catch(() => ({}))) as CheckoutSessionResponse;
+    if (!previousResponse.ok) {
+      return jsonResponse({ error: "Existing debt payment session could not be verified" }, 502);
+    }
+    if (previous.id !== previousSessionId || previous.mode !== "payment" ||
+        previous.currency !== "czk" || previous.amount_total !== amountMinor ||
+        previous.client_reference_id !== debt.id ||
+        previous.metadata?.payment_kind !== "owner_cancellation_debt" ||
+        previous.metadata?.owner_cancellation_debt_id !== debt.id ||
+        previous.metadata?.owner_id !== actor.id) {
+      return jsonResponse({ error: "Existing debt payment session does not match debt" }, 409);
+    }
+    if (previous.status === "open" && previous.url && previous.payment_status === "unpaid") {
+      return jsonResponse({ url: previous.url });
+    }
+    if (previous.status !== "expired") {
+      return jsonResponse({ error: "Debt payment already processing or cannot be restarted" }, 409);
+    }
+    checkoutIdempotencyKey = `rentulo-owner-debt-checkout-${debt.id}-after-${previousSessionId}`;
+  }
+
   const checkoutParams = new URLSearchParams();
   checkoutParams.set("mode", "payment");
+  if (checkoutLocale !== "legacy") {
+    checkoutParams.set("locale", checkoutLocale);
+  }
   checkoutParams.set("success_url", `${siteUrl}/moje-nabidky.html?debt_payment=success`);
   checkoutParams.set("cancel_url", `${siteUrl}/moje-nabidky.html?debt_payment=cancelled`);
   checkoutParams.set("client_reference_id", debt.id);
   checkoutParams.set("line_items[0][price_data][currency]", "czk");
   checkoutParams.set(
     "line_items[0][price_data][product_data][name]",
-    "Rentulo - uhrada nakladu storna",
+    checkoutLocale === "legacy"
+      ? LEGACY_OWNER_DEBT_PRODUCT_NAME
+      : ownerDebtCheckoutProductName(checkoutLocale),
   );
   checkoutParams.set("line_items[0][price_data][unit_amount]", String(amountMinor));
   checkoutParams.set("line_items[0][quantity]", "1");
@@ -186,7 +269,7 @@ denoRuntime.serve(async (req) => {
     headers: {
       Authorization: `Bearer ${stripeSecretKey}`,
       "Content-Type": "application/x-www-form-urlencoded",
-      "Idempotency-Key": `rentulo-owner-debt-checkout-${debt.id}`,
+      "Idempotency-Key": checkoutIdempotencyKey,
     },
     body: checkoutParams,
   });

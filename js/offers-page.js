@@ -722,7 +722,10 @@ function getOfferStatus(offer) {
         "create-owner-debt-checkout",
         {
           body: {
-            debt_id: debtId
+            debt_id: debtId,
+            locale: typeof window.getRentuloLanguage === "function"
+              ? window.getRentuloLanguage()
+              : "cs"
           }
         }
       );

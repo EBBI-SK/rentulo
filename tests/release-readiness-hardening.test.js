@@ -149,8 +149,8 @@ test("offers without photos show a compact translated label and a recognizable i
   assert.equal((i18n.match(/"offer\.noPhoto":/g) || []).length, 5);
 });
 
-test("Stripe Checkout explicitly uses Czech instead of browser-inferred Slovak", () => {
-  assert.match(checkout, /checkoutParams\.set\("mode", "payment"\);\s*checkoutParams\.set\("locale", "cs"\);/);
+test("Stripe Checkout uses the locale pinned by the server, not browser-inferred language", () => {
+  assert.match(checkout, /checkoutParams\.set\("mode", "payment"\);\s*checkoutParams\.set\("locale", checkoutLocale\);/);
   assert.match(checkout, /"line_items\[0\]\[price_data\]\[currency\]", "czk"/);
 });
 

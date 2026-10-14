@@ -28,7 +28,7 @@ test("Stripe Checkout authenticates the renter and only accepts approved reserva
   assert.match(SOURCE, /getUser\(accessToken\)/);
   assert.match(SOURCE, /actor\.id !== reservation\.renter_id/);
   assert.match(SOURCE, /reservation\.status !== "approved"/);
-  assert.match(SOURCE, /let payload: \{ reservation_id\?: string \}/);
+  assert.match(SOURCE, /let payload: \{ reservation_id\?: string; locale\?: unknown \}/);
   assert.doesNotMatch(
     SOURCE,
     /payload\.(?:amount|amount_total|total_price|platform_fee_amount|owner_payout|currency)/i

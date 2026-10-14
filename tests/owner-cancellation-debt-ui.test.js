@@ -76,7 +76,7 @@ test("only open owner debts render the Stripe payment button", () => {
 test("owner debt payment starts the dedicated Checkout with debt id only", () => {
   assert.match(
     pageSource,
-    /functions\.invoke\(\s*"create-owner-debt-checkout"[\s\S]*?body:\s*\{\s*debt_id:\s*debtId\s*\}/
+    /functions\.invoke\(\s*"create-owner-debt-checkout"[\s\S]*?body:\s*\{\s*debt_id:\s*debtId\s*,\s*locale:/
   );
   assert.doesNotMatch(
     pageSource,
