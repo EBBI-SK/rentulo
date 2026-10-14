@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { validateExistingCancellationRefundList } from "../_shared/paid-cancellation-refund-recovery.mjs";
 
 type RentuloDenoRuntime = {
   serve(handler: (request: Request) => Response | Promise<Response>): void;
@@ -454,6 +455,44 @@ denoRuntime.serve(async (req) => {
       );
       return jsonResponse({ error: "Existing Stripe refund could not be loaded" }, 502);
     }
+  } else if (context.cancellation_id) {
+    // Recovery after an earlier Stripe refund succeeded but its DB finalization failed.
+    // Never POST another refund for an already-started cancellation with no saved refund id:
+    // Stripe's idempotency-key retention is not guaranteed after 24 hours.
+    const existingRefundsResponse = await fetch(
+      `https://api.stripe.com/v1/refunds?charge=${encodeURIComponent(context.stripe_charge_id)}&limit=100`,
+      { headers: { Authorization: `Bearer ${stripeSecretKey}` } },
+    );
+    const existingRefunds = await existingRefundsResponse.json().catch(() => ({}));
+
+    if (!existingRefundsResponse.ok) {
+      console.error(
+        "cancel-paid-reservation: refund recovery lookup failed",
+        existingRefundsResponse.status,
+      );
+      return jsonResponse({ error: "Existing Stripe refund could not be checked" }, 502);
+    }
+
+    const recovery = validateExistingCancellationRefundList(existingRefunds, {
+      cancellationId,
+      paymentId: context.payment_id,
+      reservationId: context.reservation_id,
+      actorRole: context.actor_role,
+      paymentIntentId: context.stripe_payment_intent_id,
+      chargeId: context.stripe_charge_id,
+      amountMinor: quote.refundAmountMinor,
+    });
+
+    if (!recovery.refund) {
+      console.error(
+        "cancel-paid-reservation: refund recovery blocked",
+        recovery.error || "unrecognized_refund",
+      );
+      return jsonResponse({ error: "Existing refund requires manual reconciliation" }, 409);
+    }
+
+    refund = recovery.refund as StripeRefundResponse;
+    refundResponseStatus = existingRefundsResponse.status;
   } else {
     const refundParams = new URLSearchParams();
     refundParams.set("charge", context.stripe_charge_id);
