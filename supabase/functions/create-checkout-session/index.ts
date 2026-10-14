@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { normalizeStripeCheckoutLocale } from "../_shared/stripe-checkout-language.mjs";
 
 type RentuloDenoRuntime = {
   serve(handler: (request: Request) => Response | Promise<Response>): void;
@@ -119,7 +120,7 @@ denoRuntime.serve(async (req) => {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
 
-  let payload: { reservation_id?: string };
+  let payload: { reservation_id?: string; locale?: unknown };
   try {
     payload = await req.json();
   } catch {
@@ -253,6 +254,39 @@ denoRuntime.serve(async (req) => {
     return jsonResponse({ error: "Payment is not in a payable state" }, 409);
   }
 
+  // Atomic compare-and-set on a service-role-only payment row pins the locale
+  // for every Stripe POST sharing this payment's idempotency key. A later browser
+  // language change must never change an already selected Checkout locale.
+  const requestedLocale = normalizeStripeCheckoutLocale(payload.locale);
+  const localePin = await admin
+    .from("payments")
+    .update({ stripe_checkout_locale: requestedLocale })
+    .eq("id", payment.id)
+    .eq("payer_id", actor.id)
+    .eq("status", "pending")
+    .is("stripe_checkout_locale", null)
+    .select("stripe_checkout_locale")
+    .maybeSingle();
+  if (localePin.error) {
+    console.error("create-checkout-session: locale pin failed", localePin.error.message);
+    return jsonResponse({ error: "Unable to prepare payment language" }, 503);
+  }
+
+  let checkoutLocale = localePin.data?.stripe_checkout_locale;
+  if (!checkoutLocale) {
+    const existingLocale = await admin
+      .from("payments")
+      .select("stripe_checkout_locale, status")
+      .eq("id", payment.id)
+      .eq("payer_id", actor.id)
+      .single();
+    if (existingLocale.error || existingLocale.data?.status !== "pending" ||
+        !existingLocale.data?.stripe_checkout_locale) {
+      return jsonResponse({ error: "Payment language could not be verified" }, 503);
+    }
+    checkoutLocale = existingLocale.data.stripe_checkout_locale;
+  }
+
   // The database guards the expiry race before ANY Stripe request. Persist an
   // ambiguous checkout-creation attempt so Cron never releases its dates when
   // Stripe may have created a session that has not yet been saved locally.
@@ -268,7 +302,7 @@ denoRuntime.serve(async (req) => {
     return jsonResponse({ error: "Reservation payment deadline has expired" }, 409);
   }
 
-    const checkoutPaymentId = payment.id;
+  const checkoutPaymentId = payment.id;
   const checkoutRenterId = actor.id;
 
   async function finishCheckoutAttempt(sessionId: string): Promise<boolean> {
@@ -337,7 +371,7 @@ denoRuntime.serve(async (req) => {
 
   const checkoutParams = new URLSearchParams();
   checkoutParams.set("mode", "payment");
-  checkoutParams.set("locale", "cs");
+  checkoutParams.set("locale", checkoutLocale);
   checkoutParams.set("success_url", `${siteUrl}/moje-rezervace.html?payment=success`);
   checkoutParams.set("cancel_url", `${siteUrl}/moje-rezervace.html?payment=cancelled`);
   checkoutParams.set("client_reference_id", reservation.id);
