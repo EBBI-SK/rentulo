@@ -1450,7 +1450,7 @@ return (
         : "";
 
       return `
-  <article class="simple-reservation-row ${isPriority ? "priority" : ""}" data-pickup-date="${escapeHtml(startDate)}" data-pickup-end-date="${escapeHtml(endDate)}">
+  <article class="simple-reservation-row ${isPriority ? "priority" : ""}" data-pickup-date="${escapeHtml(startDate)}" data-pickup-end-date="${escapeHtml(endDate)}" data-pickup-time="${escapeHtml(reservation.pickupTime || '')}">
     <div class="simple-reservation-main">
       ${renderToolThumb(reservation)}
 

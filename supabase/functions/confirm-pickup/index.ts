@@ -237,7 +237,7 @@ denoRuntime.serve(async (req) => {
     const message = pickupResult.error.message || "";
     if (message.includes("PICKUP_WRONG_DAY")) {
       return jsonResponse({
-        error: "The PIN can only be used during the reserved rental period",
+        error: "The PIN can only be used between the scheduled pickup and return times",
         code: "pickup_wrong_day",
       }, 409);
     }

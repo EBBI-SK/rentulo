@@ -39,9 +39,9 @@ test("no-show terms give the same rule in five languages without hiding the rent
     }
     assert.match(t("terms.section7.item3", lang), /Europe\/Prague/);
     assert.match(t("terms.section8.item4", lang), /Europe\/Prague/);
-    assert.match(t("terms.section8.item4", lang), /23:59/);
+    assert.doesNotMatch(t("terms.section8.item4", lang), /23:59|midnight|půlnoci|polnoci/i);
     assert.ok(t("terms.section8.item4", lang).length > 270);
-    assert.match(t("terms.section8.item4", lang), /23:59/);
+    assert.doesNotMatch(t("terms.section8.item4", lang), /23:59|midnight|půlnoci|polnoci/i);
     assert.match(t("terms.section8.item6", lang), /rentulo@rentulo\.com/);
     assert.ok(t("terms.section8.item7", lang).length > 80);
     assert.ok(t("terms.section8.item5", lang).length > 100);
@@ -80,7 +80,8 @@ test("renter is informed about no-show before opening Stripe Checkout", () => {
     const link = t("reservations.paymentModal.noShowTermsLink", lang);
     assert.notEqual(warning, "reservations.paymentModal.noShowWarning");
     assert.ok(warning.length > 140, `${lang} payment warning missing detail`);
-    assert.ok(warning.includes("23:59"));
+    assert.doesNotMatch(warning, /23:59|midnight|půlnoci|polnoci/i);
+    assert.match(warning, /Europe\/Prague/);
     assert.ok(warning.length > 300, `${lang} needs to describe full rental period and single-use PIN`);
     assert.ok(link.length > 30, `${lang} terms link too short`);
   }

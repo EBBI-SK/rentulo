@@ -46,7 +46,7 @@ values (true, (now() at time zone 'Europe/Prague')::date + 1)
 on conflict (singleton) do nothing;
 
 create index if not exists reservations_paid_no_show_due_idx
-  on public.reservations (end_date, id) where status = 'paid';
+  on public.reservations (end_date, pickup_time, id) where status = 'paid';
 
 -- Explicitly preserve all existing trusted transitions (Stripe, PIN, refunds).
 create or replace function public.protect_reservation_status_transition()
@@ -92,27 +92,30 @@ begin
     and old.status = 'paid'
     and new.status = 'picked_up'
   then
-    -- Allow PIN handover from start_date through end_date, both inclusive,
-    -- using the Prague calendar date (not UTC or the browser clock).
-    -- Do not permit transfer by PIN before/after the paid rental period.
-    -- pickup_time remains informational; ordinary cancellation is unchanged.
-    if (now() at time zone 'Europe/Prague')::date
-       not between old.start_date and old.end_date then
-      raise exception using
-        errcode = 'P0001',
-        message = 'PICKUP_WRONG_DAY';
+    -- Return is due at end_date + pickup_time, in Prague local time.
+    -- PIN handover is allowed only inside [start, return); at the exact return
+    -- instant the PIN is expired and cannot initiate an owner transfer.
+    -- Use clock_timestamp(), not transaction-start now(): a confirmation that
+    -- waits on a row lock must never succeed after the actual deadline.
+    if old.pickup_time is null
+       or clock_timestamp() >= ((old.end_date + old.pickup_time) at time zone 'Europe/Prague') then
+      raise exception using errcode = 'P0001', message = 'PICKUP_WRONG_DAY';
+    end if;
+    if clock_timestamp() < ((old.start_date + old.pickup_time) at time zone 'Europe/Prague') then
+      raise exception using errcode = 'P0001', message = 'PICKUP_NOT_STARTED';
     end if;
 
     return new;
   end if;
 
-  -- KROK 79: trusted postgres Cron can settle a paid booking ONLY AFTER
-  -- the LAST reserved calendar day in Prague. Never equate no-show with pickup.
+  -- KROK 79: trusted postgres Cron may settle paid bookings only at/after
+  -- the exact agreed Prague-local return instant; not at midnight.
   if session_user = 'postgres'
      and current_setting('app.no_show_authorized', true) = 'on'
      and old.status = 'paid'
      and new.status = 'no_show'
-     and old.end_date < (now() at time zone 'Europe/Prague')::date then
+     and old.pickup_time is not null
+     and clock_timestamp() >= ((old.end_date + old.pickup_time) at time zone 'Europe/Prague') then
     return new;
   end if;
 
@@ -983,7 +986,14 @@ begin
     where r.status = 'paid'
       and r.start_date >= a.first_pickup_date
       and r.created_at >= a.first_reservation_created_at
-      and r.end_date < (now() at time zone 'Europe/Prague')::date
+      -- Also load old/malformed rows with missing pickup_time after their last
+      -- calendar day, so they are flagged for review rather than paid out.
+      and (
+        (r.pickup_time is not null
+          and clock_timestamp() >= ((r.end_date + r.pickup_time) at time zone 'Europe/Prague'))
+        or (r.pickup_time is null
+          and r.end_date < (now() at time zone 'Europe/Prague')::date)
+      )
       and (i.last_checked_at is null
         or i.last_checked_at <= now() - interval '15 minutes')
     order by r.end_date, r.id
@@ -1000,7 +1010,8 @@ begin
       from public.payments p
       where p.reservation_id = v_reservation.id
       for update;
-      if v_payment.provider <> 'stripe' or v_payment.status <> 'paid'
+      if v_reservation.pickup_time is null
+         or v_payment.provider <> 'stripe' or v_payment.status <> 'paid'
          or v_payment.currency <> 'czk'
          or v_payment.stripe_payment_intent_status <> 'succeeded'
          or nullif(btrim(coalesce(v_payment.stripe_payment_intent_id, '')), '') is null
@@ -1042,7 +1053,8 @@ begin
         from public.reservation_no_show_activation a
         where a.singleton = true
       )
-      and r.end_date < (now() at time zone 'Europe/Prague')::date;
+      and r.pickup_time is not null
+      and clock_timestamp() >= ((r.end_date + r.pickup_time) at time zone 'Europe/Prague');
     get diagnostics v_rows = row_count;
     perform set_config('app.no_show_authorized', 'off', true);
     if v_rows = 1 then
@@ -1057,7 +1069,8 @@ $function$;
 revoke all on function public.process_due_reservation_no_shows(integer)
   from public, anon, authenticated, service_role;
 
--- Cron runs each minute, including Prague midnight regardless of DST.
+-- Cron runs each minute and settles at the first run ON/AFTER the scheduled
+-- Prague-local return timestamp, including DST changes (not at midnight).
 -- Only when NEW no-shows are settled, immediately ask the already-secured
 -- transfer retry worker to attempt Stripe transfers. Its regular 5-minute
 -- schedule remains in place for retry/recovery. Missing Vault config makes

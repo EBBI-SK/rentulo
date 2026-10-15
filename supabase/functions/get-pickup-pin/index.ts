@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { rentalEndReached } from "../_shared/prague-rental-window.mjs";
 
 type RentuloDenoRuntime = {
   serve(handler: (request: Request) => Response | Promise<Response>): void;
@@ -25,17 +26,6 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-}
-
-function getPragueCalendarDate(now = new Date()): string {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Europe/Prague", year: "numeric", month: "2-digit", day: "2-digit",
-  }).formatToParts(now);
-  const values: Record<string, string> = {};
-  for (const part of parts) {
-    if (["year", "month", "day"].includes(part.type)) values[part.type] = part.value;
-  }
-  return `${values.year}-${values.month}-${values.day}`;
 }
 
 async function createPickupPin(secret: string, reservationId: string, paymentId: string): Promise<string> {
@@ -115,7 +105,7 @@ denoRuntime.serve(async (req) => {
 
   const { data: reservation, error: reservationError } = await admin
     .from("reservations")
-    .select("id, renter_id, owner_id, status, start_date, end_date")
+    .select("id, renter_id, owner_id, status, start_date, end_date, pickup_time")
     .eq("id", reservationId)
     .single();
 
@@ -131,9 +121,9 @@ denoRuntime.serve(async (req) => {
     return jsonResponse({ error: "Pickup PIN is not available", code: "pin_unavailable" }, 409);
   }
 
-  // The PIN is visible after payment and usable throughout the reserved period.
-  // After the LAST rental calendar day in Prague it must never be revealed.
-  if (reservation.end_date < getPragueCalendarDate()) {
+  // The PIN can be viewed before pickup, but never at/after the exact
+  // scheduled return timestamp (end_date + pickup_time, Europe/Prague).
+  if (rentalEndReached(reservation.end_date, reservation.pickup_time)) {
     return jsonResponse({
       error: "The paid rental period has ended",
       code: "pickup_day_expired",
@@ -176,5 +166,8 @@ denoRuntime.serve(async (req) => {
   }
 
   const pin = await createPickupPin(pickupPinSecret, reservation.id, payment.id);
+  if (rentalEndReached(reservation.end_date, reservation.pickup_time)) {
+    return jsonResponse({ error: "The paid rental period has ended", code: "pickup_day_expired" }, 409);
+  }
   return jsonResponse({ reservation_id: reservation.id, pin });
 });

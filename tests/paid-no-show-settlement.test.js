@@ -65,21 +65,19 @@ test("policy does not retroactively pay overdue TEST bookings from before deploy
   assert.match(db, /and r\.created_at >= \([\s\S]*?a\.first_reservation_created_at/);
 });
 
-test("Prague-local last rental day is authoritative, even over DST transitions", () => {
-  assert.match(db, /r\.end_date < \(now\(\) at time zone 'Europe\/Prague'\)::date/);
-  function localDay(ts) {
-    const fmt = new Intl.DateTimeFormat("en-GB", {
-      day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Prague"
-    });
-    const o = Object.fromEntries(fmt.formatToParts(new Date(ts)).map(p => [p.type, p.value]));
-    return `${o.year}-${o.month}-${o.day}`;
+test("Prague-local exact scheduled return time gates no-show even during DST changes", async () => {
+  const { rentalEndReached } = await import("../supabase/functions/_shared/prague-rental-window.mjs");
+  assert.match(db, /clock_timestamp\(\) >= \(\(old\.end_date \+ old\.pickup_time\) at time zone 'Europe\/Prague'\)/);
+  assert.match(db, /clock_timestamp\(\) >= \(\(r\.end_date \+ r\.pickup_time\) at time zone 'Europe\/Prague'\)/);
+  const cases = [
+    ["2026-11-13", "10:00:00", "2026-11-13T08:59:59Z", "2026-11-13T09:00:00Z"],
+    ["2026-03-29", "10:00:00", "2026-03-29T07:59:59Z", "2026-03-29T08:00:00Z"],
+    ["2026-10-25", "10:00:00", "2026-10-25T08:59:59Z", "2026-10-25T09:00:00Z"],
+  ];
+  for (const [day, time, before, at] of cases) {
+    assert.equal(rentalEndReached(day, time, new Date(before)), false);
+    assert.equal(rentalEndReached(day, time, new Date(at)), true);
   }
-  // Spring change: the subsequent Prague midnight is 22:00 UTC.
-  assert.equal(localDay("2026-03-29T21:59:59Z"), "2026-03-29");
-  assert.equal(localDay("2026-03-29T22:00:00Z"), "2026-03-30");
-  // Autumn change: the subsequent Prague midnight is 23:00 UTC.
-  assert.equal(localDay("2026-10-25T22:59:59Z"), "2026-10-25");
-  assert.equal(localDay("2026-10-25T23:00:00Z"), "2026-10-26");
 });
 
 test("cron is minute-based, TEST-only for immediate transfer dispatch, with existing retry fallback", () => {
