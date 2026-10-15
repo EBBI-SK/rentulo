@@ -6,6 +6,10 @@
       "history.offersTabShort": "Moje nabídky",
       "history.detail.show": "Zobrazit detail",
       "history.detail.hide": "Skrýt detail",
+      "history.detail.expiryReason": "Důvod vypršení",
+      "history.expiry.ownerNoResponse": "Majitel žádost nepotvrdil ve stanovené lhůtě.",
+      "history.expiry.paymentTimeout": "Platba nebyla dokončena ve stanovené lhůtě.",
+      "history.expiry.unknown": "Důvod vypršení není k dispozici.",
       "history.review.commentOptional": "Komentář (nepovinný)"
     },
     sk: {
@@ -14,6 +18,10 @@
       "history.offersTabShort": "Moje ponuky",
       "history.detail.show": "Zobraziť detail",
       "history.detail.hide": "Skryť detail",
+      "history.detail.expiryReason": "Dôvod vypršania",
+      "history.expiry.ownerNoResponse": "Majiteľ žiadosť nepotvrdil v stanovenej lehote.",
+      "history.expiry.paymentTimeout": "Platba nebola dokončená v stanovenej lehote.",
+      "history.expiry.unknown": "Dôvod vypršania nie je k dispozícii.",
       "history.review.commentOptional": "Komentár (nepovinný)"
     },
     en: {
@@ -22,6 +30,10 @@
       "history.offersTabShort": "My offers",
       "history.detail.show": "Show details",
       "history.detail.hide": "Hide details",
+      "history.detail.expiryReason": "Reason for expiration",
+      "history.expiry.ownerNoResponse": "The owner did not approve the request within the deadline.",
+      "history.expiry.paymentTimeout": "Payment was not completed within the deadline.",
+      "history.expiry.unknown": "The reason for expiration is unavailable.",
       "history.review.commentOptional": "Comment (optional)"
     },
     de: {
@@ -30,6 +42,10 @@
       "history.offersTabShort": "Meine Angebote",
       "history.detail.show": "Details anzeigen",
       "history.detail.hide": "Details ausblenden",
+      "history.detail.expiryReason": "Grund für den Fristablauf",
+      "history.expiry.ownerNoResponse": "Der Eigentümer hat die Anfrage nicht innerhalb der Frist bestätigt.",
+      "history.expiry.paymentTimeout": "Die Zahlung wurde nicht innerhalb der Frist abgeschlossen.",
+      "history.expiry.unknown": "Der Grund für den Fristablauf ist nicht verfügbar.",
       "history.review.commentOptional": "Kommentar (optional)"
     },
     pl: {
@@ -38,6 +54,10 @@
       "history.offersTabShort": "Moje oferty",
       "history.detail.show": "Pokaż szczegóły",
       "history.detail.hide": "Ukryj szczegóły",
+      "history.detail.expiryReason": "Powód wygaśnięcia",
+      "history.expiry.ownerNoResponse": "Właściciel nie zatwierdził prośby w wyznaczonym terminie.",
+      "history.expiry.paymentTimeout": "Płatność nie została zakończona w wyznaczonym terminie.",
+      "history.expiry.unknown": "Powód wygaśnięcia jest niedostępny.",
       "history.review.commentOptional": "Komentarz (opcjonalnie)"
     }
   };

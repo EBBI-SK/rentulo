@@ -197,6 +197,20 @@ function historyStatusText(status) {
     (typeof getReservationStatusText === "function" ? getReservationStatusText(normalizedStatus) : String(status || ""));
 }
 
+function historyExpirationReasonText(reservation) {
+  if (historyNormalizeStatus(reservation.status) !== "expired") return "";
+
+  const reason = String(reservation.expiry_reason || reservation.expiryReason || "").trim();
+  if (reason === "owner_no_response") {
+    return historyT("history.expiry.ownerNoResponse", "Majitel žádost nepotvrdil ve stanovené lhůtě.");
+  }
+  if (reason === "payment_timeout") {
+    return historyT("history.expiry.paymentTimeout", "Platba nebyla dokončena ve stanovené lhůtě.");
+  }
+
+  return historyT("history.expiry.unknown", "Důvod vypršení není k dispozici.");
+}
+
 function historyRenderSavedReview(review, title) {
   if (!review) return "";
 
@@ -318,6 +332,7 @@ function historyRenderDetail(reservation, role) {
   const endDate = reservation.date_to || reservation.end_date || reservation.endDate || "";
   const price = Number(reservation.total_price || reservation.totalPrice || 0);
   const counterpart = historyGetCounterpart(reservation, role);
+  const expiryReason = historyExpirationReasonText(reservation);
 
   return `
     <div class="history-detail" id="history-detail-${escapeHtml(reservationId)}-${escapeHtml(role)}">
@@ -327,6 +342,7 @@ function historyRenderDetail(reservation, role) {
         <div><span>${escapeHtml(counterpart.label)}</span><strong>${escapeHtml(counterpart.name)}</strong></div>
         ${reservation.reservation_number ? `<div><span>${escapeHtml(historyT("reference.reservation", "Číslo rezervace"))}</span><strong>${escapeHtml(reservation.reservation_number)}</strong></div>` : ""}
         ${reservation.offer_number ? `<div><span>${escapeHtml(historyT("reference.offer", "Číslo nabídky"))}</span><strong>${escapeHtml(reservation.offer_number)}</strong></div>` : ""}
+        ${expiryReason ? `<div><span>${escapeHtml(historyT("history.detail.expiryReason", "Důvod vypršení"))}</span><strong>${escapeHtml(expiryReason)}</strong></div>` : ""}
       </div>
       <div class="history-review-grid">
         ${historyRenderReviewForm(reservation, role)}
