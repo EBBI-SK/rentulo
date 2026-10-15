@@ -494,6 +494,34 @@
         width: 100%;
       }
     }
+    /* Important payment consequence: visible before redirecting to Stripe. */
+    #reservationPaymentModal { overflow-y: auto; }
+    #reservationPaymentModal .reservation-confirm-dialog {
+      max-height: calc(100vh - 40px);
+      overflow-y: auto;
+    }
+    #reservationPaymentModal .reservation-payment-no-show-warning {
+      margin-top: 12px;
+      padding: 11px 13px;
+      background: #fff8ed;
+      border-left: 4px solid #a64719;
+      border-radius: 7px;
+      color: #4c2919;
+      font-size: 13px;
+      line-height: 1.55;
+      font-weight: 650;
+      text-align: left;
+    }
+    #reservationPaymentModal .reservation-payment-no-show-terms {
+      margin-top: 9px;
+      text-align: left;
+      font-size: 13px;
+    }
+    #reservationPaymentModal .reservation-payment-no-show-terms a {
+      color: #175e47;
+      font-weight: 700;
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body data-navigation-page="moje-rezervace">
@@ -579,11 +607,17 @@
         role="dialog"
         aria-modal="true"
         aria-labelledby="reservationPaymentModalTitle"
-        aria-describedby="reservationPaymentModalDescription"
+        aria-describedby="reservationPaymentModalDescription reservationPaymentModalNoShowWarning"
       >
         <h2 id="reservationPaymentModalTitle">Potvrdit testovací platbu?</h2>
         <p id="reservationPaymentModalDescription">
-          Jde o testovací platbu. Po potvrzení bude rezervace označena jako zaplacená.
+          Po potvrzení budete přesměrováni na zabezpečenou platební stránku Stripe. Rezervace se označí jako zaplacená až po úspěšném potvrzení platby.
+        </p>
+        <p id="reservationPaymentModalNoShowWarning" class="reservation-payment-no-show-warning" data-i18n="reservations.paymentModal.noShowWarning">
+          Důležité: Jednorázový PIN lze použít k převzetí od prvního do posledního dne zaplaceného období (včetně, český čas). Po potvrzení předání již PIN nelze použít znovu a sjednaný termín vrácení se neposouvá. Pokud věc nevyzvednete do 23:59 posledního dne nájmu, rezervace se po půlnoci automaticky uzavře a Stripe obdrží pokyn k výplatě majiteli. Platba se automaticky nevrací; oprávněný problém s předáním můžete reklamovat.
+        </p>
+        <p class="reservation-payment-no-show-terms">
+          <a id="reservationPaymentModalTermsLink" href="obchodni-podminky.html#nevyzvednuti" target="_blank" rel="noopener noreferrer" data-i18n="reservations.paymentModal.noShowTermsLink">Podrobnosti: nevyzvednutí věci v obchodních podmínkách</a>
         </p>
         <div class="reservation-confirm-actions">
           <button

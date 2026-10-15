@@ -11,6 +11,7 @@ type ReservationRow = {
   owner_id: string;
   status: string;
   start_date: string;
+  end_date: string;
 };
 
 type PaymentRow = {
@@ -181,7 +182,7 @@ denoRuntime.serve(async (req) => {
 
   const { data: reservations, error: reservationsError } = await admin
     .from("reservations")
-    .select("id, renter_id, owner_id, status, start_date")
+    .select("id, renter_id, owner_id, status, start_date, end_date")
     .eq("owner_id", actor.id)
     .eq("status", "paid");
 
@@ -212,16 +213,16 @@ denoRuntime.serve(async (req) => {
 
   const matches: string[] = [];
   const pickupDay = pickupDateInPrague(new Date());
-  let matchedOutsidePickupDay = false;
+  let matchedOutsideRentalPeriod = false;
   for (const reservation of ownerReservations) {
     const payment = paymentByReservation.get(reservation.id);
     if (!payment || !isEligiblePayment(payment, reservation)) continue;
     const expectedPin = await createPickupPin(pickupPinSecret, reservation.id, payment.id);
     if (!timingSafeTextEqual(pin, expectedPin)) continue;
-    if (reservation.start_date === pickupDay) {
+    if (reservation.start_date <= pickupDay && pickupDay <= reservation.end_date) {
       matches.push(reservation.id);
     } else {
-      matchedOutsidePickupDay = true;
+      matchedOutsideRentalPeriod = true;
     }
   }
 
@@ -267,9 +268,9 @@ denoRuntime.serve(async (req) => {
     return jsonResponse({ error: "PIN is ambiguous", code: "ambiguous_pin" }, 409);
   }
 
-  if (matchedOutsidePickupDay) {
+  if (matchedOutsideRentalPeriod) {
     return jsonResponse({
-      error: "The PIN can only be used on the scheduled pickup date",
+      error: "The PIN can only be used during the reserved rental period",
       code: "pickup_wrong_day",
     }, 409);
   }

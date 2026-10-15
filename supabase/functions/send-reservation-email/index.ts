@@ -46,7 +46,8 @@ type EmailEvent =
   | "expiry_reminder_pending"
   | "expiry_reminder_approved"
   | "expired_pending"
-  | "expired_approved";
+  | "expired_approved"
+  | "no_show";
 
 type StandardEmailEvent = Exclude<EmailEvent, "paid_cancelled">;
 
@@ -85,6 +86,7 @@ const eventStatus: Record<EmailEvent, string> = {
   expiry_reminder_approved: "approved",
   expired_pending: "expired",
   expired_approved: "expired",
+  no_show: "no_show",
 };
 
 const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [string, string]>> = {
@@ -100,6 +102,7 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
     expiry_reminder_approved: ["Čas na zaplacení končí", "Na zaplacení zbývají nejvýše 4 hodiny. Pokud nezaplatíte včas, rezervace vyprší."],
     expired_pending: ["Žádost vypršela", "Majitel žádost nepotvrdil ve stanovené lhůtě. Rezervace vypršela a termín je znovu volný."],
     expired_approved: ["Nezaplacená rezervace vypršela", "Platbu jste nedokončili ve stanovené lhůtě. Rezervace vypršela a termín je znovu volný."],
+    no_show: ["Věc nebyla vyzvednuta", "Věc jste si nevyzvedli do konce celého zaplaceného období. Rezervace byla automaticky ukončena, termín je opět dostupný a platba se automaticky nevrací. Pokud majitel věc nepřipravil, můžete případ reklamovat."],
   },
   sk: {
     new_request: ["Nová žiadosť o požičanie", "Pri vašej ponuke čaká nová žiadosť o požičanie."],
@@ -113,6 +116,7 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
     expiry_reminder_approved: ["Čas na zaplatenie sa končí", "Na zaplatenie zostávajú najviac 4 hodiny. Ak nezaplatíte včas, rezervácia vyprší."],
     expired_pending: ["Žiadosť vypršala", "Majiteľ žiadosť nepotvrdil v stanovenej lehote. Rezervácia vypršala a termín je opäť voľný."],
     expired_approved: ["Nezaplatená rezervácia vypršala", "Platbu ste nedokončili v stanovenej lehote. Rezervácia vypršala a termín je opäť voľný."],
+    no_show: ["Vec nebola vyzdvihnutá", "Vec ste si nevyzdvihli do konca celého zaplateného obdobia. Rezervácia sa automaticky ukončila, termín je opäť dostupný a platba sa automaticky nevracia. Ak majiteľ vec nepripravil, môžete prípad reklamovať."],
   },
   en: {
     new_request: ["New rental request", "A new rental request is waiting for your listing."],
@@ -126,6 +130,7 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
     expiry_reminder_approved: ["Payment deadline approaching", "You have up to 4 hours left to pay. The reservation will expire if payment is not completed."],
     expired_pending: ["Rental request expired", "The owner did not approve the request within the deadline. The rental dates are available again."],
     expired_approved: ["Unpaid reservation expired", "You did not complete the payment before the deadline. The reservation has expired and the dates are available again."],
+    no_show: ["Item not collected", "You did not collect the item by the end of the entire paid rental period. The reservation has closed automatically, the dates are available again and the payment is not automatically refunded. You may dispute a failure by the owner to provide the item."],
   },
   de: {
     new_request: ["Neue Mietanfrage", "Für Ihr Angebot wartet eine neue Mietanfrage."],
@@ -139,6 +144,7 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
     expiry_reminder_approved: ["Zahlungsfrist endet bald", "Sie haben höchstens 4 Stunden für die Zahlung. Andernfalls läuft die Reservierung ab."],
     expired_pending: ["Mietanfrage abgelaufen", "Der Eigentümer hat die Anfrage nicht innerhalb der Frist bestätigt. Der Zeitraum ist wieder frei."],
     expired_approved: ["Unbezahlte Reservierung abgelaufen", "Sie haben die Zahlung nicht fristgerecht abgeschlossen. Die Reservierung ist abgelaufen und der Zeitraum wieder frei."],
+    no_show: ["Gegenstand nicht abgeholt", "Sie haben den Gegenstand bis zum Ende des gesamten bezahlten Mietzeitraums nicht abgeholt. Die Buchung wurde automatisch beendet, der Zeitraum ist wieder frei und die Zahlung wird nicht automatisch erstattet. War der Gegenstand nicht verfügbar, können Sie dies reklamieren."],
   },
   pl: {
     new_request: ["Nowa prośba o wypożyczenie", "Nowa prośba o wypożyczenie oczekuje przy Twojej ofercie."],
@@ -152,6 +158,7 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
     expiry_reminder_approved: ["Termin płatności wkrótce minie", "Pozostały maksymalnie 4 godziny na płatność. W przeciwnym razie rezerwacja wygaśnie."],
     expired_pending: ["Prośba wygasła", "Właściciel nie zatwierdził prośby w wyznaczonym terminie. Daty są ponownie dostępne."],
     expired_approved: ["Nieopłacona rezerwacja wygasła", "Nie udało Ci się dokończyć płatności w wyznaczonym terminie. Rezerwacja wygasła, a daty są ponownie dostępne."],
+    no_show: ["Rzecz nie została odebrana", "Nie odebrano rzeczy do końca całego opłaconego okresu najmu. Rezerwacja została automatycznie zakończona, termin jest ponownie dostępny, a płatność nie jest automatycznie zwracana. Jeśli właściciel nie udostępnił rzeczy, można zgłosić reklamację."],
   },
 };
 
@@ -177,6 +184,14 @@ const expiredOwnerIntros: Record<SupportedLanguage, Record<"expired_pending" | "
     expired_pending: "Nie udało Ci się zatwierdzić prośby w wyznaczonym terminie. Rezerwacja wygasła, a daty są ponownie dostępne.",
     expired_approved: "Najemca nie dokończył płatności w wyznaczonym terminie. Rezerwacja wygasła, a daty są ponownie dostępne.",
   },
+};
+
+const noShowOwnerIntros: Record<SupportedLanguage, string> = {
+  cs: "Zájemce si věc nevyzvedl během celého zaplaceného období. Rezervace byla ukončena, termín je uvolněn a Rentulo automaticky zpracovává vaši výplatu.",
+  sk: "Záujemca si vec nevyzdvihol počas celého zaplateného obdobia. Rezervácia sa ukončila, termín sa uvoľnil a Rentulo automaticky spracúva vašu výplatu.",
+  en: "The renter did not collect the item during the entire paid rental period. The reservation is closed, the dates are available again, and Rentulo is processing your payout automatically.",
+  de: "Der Mieter hat den Gegenstand während des gesamten bezahlten Mietzeitraums nicht abgeholt. Die Buchung ist beendet, der Zeitraum ist wieder frei und Rentulo bearbeitet Ihre Auszahlung automatisch.",
+  pl: "Najemca nie odebrał rzeczy przez cały opłacony okres najmu. Rezerwacja została zakończona, termin jest ponownie dostępny, a Rentulo automatycznie przetwarza wypłatę.",
 };
 
 const referenceLabels: Record<SupportedLanguage, { offer: string; reservation: string }> = {
@@ -580,7 +595,7 @@ denoRuntime.serve(async (req) => {
   // Queued events are proof of the status *at the transaction time*.
   // A later transition must not silently drop an already queued email.
   // Normal browser calls still require the current status.
-  const isExpiryEvent = event.startsWith("expiry_") || event.startsWith("expired_");
+  const isExpiryEvent = event.startsWith("expiry_") || event.startsWith("expired_") || event === "no_show";
   if (!isServiceRoleCall && isExpiryEvent) {
     return response({ error: "Expiration mail requires a claimed delivery" }, 403);
   }
@@ -593,6 +608,9 @@ denoRuntime.serve(async (req) => {
   }
   if (!isWorkerDelivery && reservation.status !== eventStatus[event]) {
     return response({ error: "Reservation status does not match the email event" }, 409);
+  }
+  if (isWorkerDelivery && event === "no_show" && reservation.status !== "no_show") {
+    return response({ error: "No-show reservation state is inconsistent" }, 409);
   }
   if (isWorkerDelivery && event === "paid_cancelled" && reservation.status !== "cancelled") {
     return response({ error: "Paid cancellation status is inconsistent" }, 409);
@@ -704,7 +722,7 @@ denoRuntime.serve(async (req) => {
     recipientIds = [payload.recipient_id as string];
   } else if (event === "new_request" || event === "paid" || event === "expiry_reminder_pending") {
     recipientIds = [reservation.owner_id];
-  } else if (event === "paid_cancelled" || event === "expired_pending" || event === "expired_approved") {
+  } else if (event === "paid_cancelled" || event === "expired_pending" || event === "expired_approved" || event === "no_show") {
     recipientIds = Array.from(new Set([reservation.renter_id, reservation.owner_id]));
   } else if (event === "cancelled") {
     recipientIds = [actorIsOwner ? reservation.renter_id : reservation.owner_id];
@@ -733,7 +751,7 @@ denoRuntime.serve(async (req) => {
 
     const language = normalizeLanguage(profile.preferred_language);
     const recipientIsOwner = profile.id === reservation.owner_id;
-    const isExpirationNotice = event === "expired_pending" || event === "expired_approved";
+    const isExpirationNotice = event === "expired_pending" || event === "expired_approved" || event === "no_show";
     const detailUrl = `${siteUrl}/${isExpirationNotice ? "historie.html" : recipientIsOwner ? "moje-nabidky.html" : "moje-rezervace.html"}`;
     const offerName = reservation.offer_name || "Rentulo";
     const dateText = `${formatReservationDate(reservation.start_date, language)} \u2013 ${formatReservationDate(reservation.end_date, language)}`;
@@ -760,6 +778,9 @@ denoRuntime.serve(async (req) => {
       [subject, intro] = templates[language][event as StandardEmailEvent];
       if (recipientIsOwner && (event === "expired_pending" || event === "expired_approved")) {
         intro = expiredOwnerIntros[language][event];
+      }
+      if (recipientIsOwner && event === "no_show") {
+        intro = noShowOwnerIntros[language];
       }
       if (event.startsWith("expiry_reminder_") && reservation.expires_at) {
         const deadline = new Intl.DateTimeFormat(dateLocales[language], {

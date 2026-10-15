@@ -65,13 +65,13 @@ npm run build
 - Automatické nemenné čísla ponúk `N-000001...` a rezervácií `R-000001...`.
 - Rezervačný tok `pending` → `approved` → `paid` → `picked_up` → `returned`; samostatné zamietnutie, zrušenie a kontrolovaná **24-hodinová expirácia nezaplatených rezervácií** (stav `expired`). Bezpečné uvoľnenie termínu musí zohľadniť rozpracovanú platbu Stripe; výsledok živého časového testu je samostatná kontrola.
 - Stripe Checkout a Connect: minimálna cena ponuky **100 CZK/deň**, platformový poplatok **10 % zo sumy rezervácie, minimálne 50 CZK**.
-- Po zaplatení odomknutie chránených kontaktných údajov a prístup k šesťmiestnemu PIN na odovzdanie. **PIN možno použiť na prevzatie iba v dohodnutý kalendárny deň podľa `Europe/Prague`**; po uplynutí dňa sa už nezobrazí. Po úspešnom potvrdení sa zneplatní. Tri nesprávne pokusy znamenajú 15-minútový zámok.
+- Po zaplatení odomknutie chránených kontaktných údajov a prístup k šesťmiestnemu PIN na odovzdanie. **Pripravovaný KROK 79 v TEST:** PIN bude použiteľný na odovzdanie počas celého zaplateného obdobia `start_date` až `end_date` podľa `Europe/Prague`, najviac jedenkrát. Po potvrdení prevzatia sa okamžite zneplatní a spustí sa Stripe transfer; bez prevzatia nastane no-show až po poslednom dni. Tento kód ešte nie je nasadený v databáze. Tri nesprávne pokusy znamenajú 15-minútový zámok.
 - Po potvrdení prevzatia sa iniciuje Stripe transfer prenajímateľovi; pri dočasnej chybe existuje automatický retry. To neznamená okamžité pripísanie na bankový účet.
 - Storno a refund zaplatenej rezervácie; náklady pri storne nájomcu, plný refund nájomcovi pri storne prenajímateľa a prípadný dlh prenajímateľa voči platforme.
 - Päť jazykov: **CZ (`cs`), SK (`sk`), EN, DE, PL**. Predvolený jazyk je čeština.
 - Rezervačné e-maily a voliteľné SMS cez jednotnú serverovú frontu; užívateľské SMS upozornenia sa aktivujú opt-in v `nastaveni.html`. SMS bez PIN-u a kontaktných údajov.
 
-Čas `pickup_time` naďalej určuje **šesťhodinovú hranicu storna**; samotné potvrdenie prevzatia PIN-om je viazané na *deň*, nie na konkrétnu hodinu. Detailné pravidlá sú v [HANDOVER.md](HANDOVER.md).
+Čas `pickup_time` naďalej určuje **šesťhodinovú hranicu storna**; pripravované potvrdenie prevzatia PIN-om bude možné v ktorýkoľvek zaplatený deň od prvého po posledný (vrátane), nie iba v prvý deň. Detailné pravidlá sú v [HANDOVER.md](HANDOVER.md).
 
 ## BOD 13 – rezervačné e-maily a SMS (TEST)
 

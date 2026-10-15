@@ -743,6 +743,8 @@ return (
         overlay: document.getElementById("reservationPaymentModal"),
         title: document.getElementById("reservationPaymentModalTitle"),
         description: document.getElementById("reservationPaymentModalDescription"),
+        noShowWarning: document.getElementById("reservationPaymentModalNoShowWarning"),
+        noShowTermsLink: document.getElementById("reservationPaymentModalTermsLink"),
         cancelButton: document.querySelector('[data-reservations-payment-modal-action="cancel"]'),
         confirmButton: document.querySelector('[data-reservations-payment-modal-action="confirm"]')
       };
@@ -762,6 +764,20 @@ return (
         elements.description.textContent = reservationsTranslate(
           "reservations.paymentModal.description",
           "Jde o testovac\u00ed platbu. Po potvrzen\u00ed bude rezervace ozna\u010dena jako zaplacen\u00e1."
+        );
+      }
+
+      if (elements.noShowWarning) {
+        elements.noShowWarning.textContent = reservationsTranslate(
+          "reservations.paymentModal.noShowWarning",
+          "Důležité: Pokud nebude předání potvrzeno do 23:59 v den vyzvednutí (český čas), zaplacená rezervace po půlnoci automaticky skončí. Výplata bude odeslána majiteli; platba se automaticky nevrací ani za zbývající dny. Při problému s předáním zůstává možnost reklamace."
+        );
+      }
+
+      if (elements.noShowTermsLink) {
+        elements.noShowTermsLink.textContent = reservationsTranslate(
+          "reservations.paymentModal.noShowTermsLink",
+          "Podrobnosti: nevyzvednutí věci v obchodních podmínkách"
         );
       }
 
@@ -1434,7 +1450,7 @@ return (
         : "";
 
       return `
-  <article class="simple-reservation-row ${isPriority ? "priority" : ""}" data-pickup-date="${escapeHtml(startDate)}">
+  <article class="simple-reservation-row ${isPriority ? "priority" : ""}" data-pickup-date="${escapeHtml(startDate)}" data-pickup-end-date="${escapeHtml(endDate)}">
     <div class="simple-reservation-main">
       ${renderToolThumb(reservation)}
 

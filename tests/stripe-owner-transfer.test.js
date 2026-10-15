@@ -45,7 +45,7 @@ test("owner transfer validates paid pickup state, Connect readiness and refund s
   const source = readFunction();
 
   assert.match(source, /payment\.status !== "paid"/);
-  assert.match(source, /\["picked_up", "returned"\]\.includes\(reservation\.status\)/);
+  assert.match(source, /\["picked_up", "returned", "no_show"\]\.includes\(reservation\.status\)/);
   assert.match(source, /stripe_connect_status !== "ready"/);
   assert.match(source, /stripe_connect_transfers_enabled !== true/);
   assert.match(source, /account\.capabilities\?\.transfers !== "active"/);
