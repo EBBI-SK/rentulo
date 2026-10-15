@@ -45,43 +45,25 @@ test("database authorizes PIN pickup only on the scheduled Europe/Prague date", 
   assert.equal(afterPickup(pickupDayMigration), afterPickup(migration));
 });
 
-test("Prague calendar-day boundaries work across midnight, winter and DST changes", () => {
-  const start = lookup.indexOf("function pickupDateInPrague(");
-  const end = lookup.indexOf("function firstRow", start);
-  assert.ok(start >= 0 && end > start);
-  const js = lookup.slice(start, end).trim()
-    .replace("at: Date", "at")
-    .replace("): string", ")");
-  const toDate = vm.runInNewContext(`(${js})`, { Intl });
-  for (const [utc, expectedDay] of [
-    ["2026-10-19T21:59:59.999Z", "2026-10-19"],
-    ["2026-10-19T22:00:00.000Z", "2026-10-20"],
-    ["2026-10-20T21:59:59.999Z", "2026-10-20"],
-    ["2026-10-20T22:00:00.000Z", "2026-10-21"],
-    ["2026-12-31T22:59:59.999Z", "2026-12-31"],
-    ["2026-12-31T23:00:00.000Z", "2027-01-01"],
-    ["2026-03-28T23:00:00.000Z", "2026-03-29"],
-    ["2026-03-29T21:59:59.999Z", "2026-03-29"],
-    ["2026-03-29T22:00:00.000Z", "2026-03-30"],
-    ["2026-10-24T22:00:00.000Z", "2026-10-25"],
-    ["2026-10-25T22:59:59.999Z", "2026-10-25"],
-    ["2026-10-25T23:00:00.000Z", "2026-10-26"],
+test("Prague end-time boundaries agree with the SQL window even across DST", async () => {
+  const { rentalHandoverOpen, pragueRentalInstant } = await import("../supabase/functions/_shared/prague-rental-window.mjs");
+  for (const [date, time, utc] of [
+    ["2026-11-13", "10:00:00", "2026-11-13T09:00:00.000Z"],
+    ["2026-03-29", "10:00:00", "2026-03-29T08:00:00.000Z"],
+    ["2026-10-25", "10:00:00", "2026-10-25T09:00:00.000Z"],
   ]) {
-    assert.equal(toDate(new Date(utc)), expectedDay, utc);
+    assert.equal(new Date(pragueRentalInstant(date, time)).toISOString(), utc);
+    assert.equal(rentalHandoverOpen("2026-10-17", date, time, new Date(utc)), false);
   }
 });
 
-test("owner lookup verifies only paid reservations during their entire rental date range", () => {
+test("owner lookup verifies paid reservations only inside the exact scheduled rental window", () => {
   assert.match(lookup, /\.eq\("owner_id", actor\.id\)/);
   assert.match(lookup, /\.eq\("status", "paid"\)/);
-  assert.match(lookup, /\.select\("id, renter_id, owner_id, status, start_date, end_date"\)/);
-  assert.match(lookup, /const pickupDay = pickupDateInPrague\(new Date\(\)\)/);
-  assert.match(lookup, /reservation\.start_date <= pickupDay && pickupDay <= reservation\.end_date/);
+  assert.match(lookup, /\.select\("id, renter_id, owner_id, status, start_date, end_date, pickup_time"\)/);
+  assert.match(lookup, /rentalHandoverOpen\(reservation\.start_date, reservation\.end_date, reservation\.pickup_time\)/);
   assert.match(lookup, /if \(matchedOutsideRentalPeriod\) \{[\s\S]*?code: "pickup_wrong_day"/);
-  assert.ok(
-    lookup.indexOf("if (matchedOutsideRentalPeriod)") < lookup.indexOf('admin.rpc("register_failed_owner_pickup_pin"'),
-    "A correct PIN entered outside the rental period must not consume invalid attempts"
-  );
+  assert.ok(lookup.indexOf("if (matchedOutsideRentalPeriod)") < lookup.indexOf('admin.rpc("register_failed_owner_pickup_pin"'));
   assert.match(lookup, /reservation_id: matches\[0\], status: "verified"/);
 });
 

@@ -29,34 +29,40 @@ function testCalendar() {
   return context;
 }
 
-test("pickup PIN expiry follows Prague's date at midnight rather than UTC or browser locale", () => {
-  const { getPragueCalendarDate, isExpiredRentalPeriod } = testCalendar();
-  assert.equal(getPragueCalendarDate(new Date("2026-10-11T21:59:59.000Z")), "2026-10-11");
-  assert.equal(getPragueCalendarDate(new Date("2026-10-11T22:00:00.000Z")), "2026-10-12");
-  assert.equal(isExpiredRentalPeriod("2026-10-11", new Date("2026-10-11T21:59:59.000Z")), false);
-  assert.equal(isExpiredRentalPeriod("2026-10-11", new Date("2026-10-11T22:00:00.000Z")), true);
-  assert.equal(isExpiredRentalPeriod("2026-10-12", new Date("2026-10-11T22:00:00.000Z")), false);
-  assert.equal(isExpiredRentalPeriod("2026-10-20", new Date("2026-10-11T22:00:00.000Z")), false);
-  assert.equal(isExpiredRentalPeriod("", new Date("2026-10-11T22:00:00.000Z")), false);
+test("renter PIN expires at 10:00 Prague time on return day, not at midnight", () => {
+  const { isExpiredRentalPeriod } = testCalendar();
+  assert.equal(isExpiredRentalPeriod("2026-11-13", "10:00:00", new Date("2026-11-13T08:59:59.000Z")), false);
+  assert.equal(isExpiredRentalPeriod("2026-11-13", "10:00:00", new Date("2026-11-13T09:00:00.000Z")), true);
+  assert.equal(isExpiredRentalPeriod("2026-11-13", "00:00:00", new Date("2026-11-12T23:00:00.000Z")), true);
+  assert.equal(isExpiredRentalPeriod("", "10:00:00", new Date()), false);
+  assert.equal(isExpiredRentalPeriod("2026-11-13", "", new Date()), false);
 });
 
-test("PIN expiry handles Prague daylight-saving changes", () => {
-  const { getPragueCalendarDate, isExpiredRentalPeriod } = testCalendar();
-  assert.equal(getPragueCalendarDate(new Date("2026-03-28T22:59:59.000Z")), "2026-03-28");
-  assert.equal(getPragueCalendarDate(new Date("2026-03-28T23:00:00.000Z")), "2026-03-29");
-  assert.equal(getPragueCalendarDate(new Date("2026-10-25T22:59:59.000Z")), "2026-10-25");
-  assert.equal(getPragueCalendarDate(new Date("2026-10-25T23:00:00.000Z")), "2026-10-26");
-  assert.equal(isExpiredRentalPeriod("2026-10-25", new Date("2026-10-25T22:59:59.000Z")), false);
-  assert.equal(isExpiredRentalPeriod("2026-10-25", new Date("2026-10-25T23:00:00.000Z")), true);
+test("renter PIN expiry honors Prague daylight-saving changes and repeated hours", () => {
+  const { isExpiredRentalPeriod } = testCalendar();
+  for (const [date, cutoff] of [
+    ["2026-03-29", "2026-03-29T08:00:00Z"],
+    ["2026-10-25", "2026-10-25T09:00:00Z"]
+  ]) {
+    const ms = new Date(cutoff).getTime();
+    assert.equal(isExpiredRentalPeriod(date, "10:00:00", new Date(ms - 1)), false);
+    assert.equal(isExpiredRentalPeriod(date, "10:00:00", new Date(ms)), true);
+  }
+  // The repeated autumn 02:30 uses the later (winter-time) occurrence.
+  assert.equal(isExpiredRentalPeriod("2026-10-25", "02:30:00", new Date("2026-10-25T00:45:00Z")), false);
+  assert.equal(isExpiredRentalPeriod("2026-10-25", "02:30:00", new Date("2026-10-25T01:30:00Z")), true);
+  // A missing spring 02:30 resolves to 03:30 local time.
+  assert.equal(isExpiredRentalPeriod("2026-03-29", "02:30:00", new Date("2026-03-29T01:29:59Z")), false);
+  assert.equal(isExpiredRentalPeriod("2026-03-29", "02:30:00", new Date("2026-03-29T01:30:00Z")), true);
 });
 
-function fakeRenterPage(pickupDate, now, pickupEndDate = pickupDate) {
+function fakeRenterPage(pickupDate, now, pickupEndDate = pickupDate, pickupTime = "18:00:00") {
   let clock = now;
   let requestCount = 0;
   let response = { ok: true, data: { pin: "123456" } };
   let shownBlock = null;
   const row = {
-    dataset: { pickupDate, pickupEndDate },
+    dataset: { pickupDate, pickupEndDate, pickupTime },
     isConnected: true,
     querySelector(selector) {
       if (selector === ".simple-reservation-status.status-paid") return {};
@@ -134,22 +140,22 @@ test("paid multi-day booking keeps the PIN visible after its first night", async
   page.advance("2026-10-11T22:00:00.000Z"); // 12 Oct in Prague
   page.refresh();
   assert.match(page.block().innerHTML, /123456/);
-  page.advance("2026-10-13T21:59:59.000Z"); // 13 Oct in Prague
+  page.advance("2026-10-13T15:59:59.000Z"); // 17:59:59 in Prague on last day
   page.refresh();
   assert.match(page.block().innerHTML, /123456/);
-  page.advance("2026-10-13T22:00:00.000Z"); // 14 Oct in Prague
+  page.advance("2026-10-13T16:00:00.000Z"); // 18:00 in Prague on last day
   page.refresh();
   assert.match(page.block().innerHTML, /PICKUP EXPIRED/);
   assert.doesNotMatch(page.block().innerHTML, /123456/);
   assert.equal(page.requests(), 1);
 });
 
-test("an open paid-reservation page hides its PIN after midnight following the last rental day", async () => {
-  const page = fakeRenterPage("2026-10-11", "2026-10-11T21:50:00.000Z");
+test("an open paid-reservation page hides its PIN exactly at return time", async () => {
+  const page = fakeRenterPage("2026-10-11", "2026-10-11T15:59:00.000Z");
   page.render();
   await new Promise(resolve => setImmediate(resolve));
   assert.match(page.block().innerHTML, /123456/);
-  page.advance("2026-10-11T22:00:00.000Z");
+  page.advance("2026-10-11T16:00:00.000Z");
   page.refresh();
   assert.match(page.block().innerHTML, /PICKUP EXPIRED/);
   assert.doesNotMatch(page.block().innerHTML, /123456/);
@@ -165,21 +171,22 @@ test("server expiry responses get a dedicated message, not the generic PIN error
   assert.doesNotMatch(page.block().innerHTML, /Unavailable|123456/);
 });
 
-test("paid reservation markup carries both paid period dates", () => {
+test("paid reservation markup includes the return clock time", () => {
   assert.match(reservations, /data-pickup-date="\$\{escapeHtml\(startDate\)\}"/);
   assert.match(reservations, /data-pickup-end-date="\$\{escapeHtml\(endDate\)\}"/);
+  assert.match(reservations, /data-pickup-time="\$\{escapeHtml\(reservation\.pickupTime/);
   assert.match(reservations, /const startDate = getSafeReservationDateFrom\(reservation\)/);
 });
 
-test("server refuses PIN requests only after the final rental day and after authentication", () => {
-  assert.match(edge, /\.select\("id, renter_id, owner_id, status, start_date, end_date"\)/);
+test("server refuses PIN requests at exact return deadline and after authentication", () => {
+  assert.match(edge, /\.select\("id, renter_id, owner_id, status, start_date, end_date, pickup_time"\)/);
   assert.match(edge, /reservation\.renter_id !== actor\.id/);
   assert.match(edge, /reservation\.status !== "paid"/);
-  assert.match(edge, /if \(reservation\.end_date < getPragueCalendarDate\(\)\)/);
+  assert.match(edge, /if \(rentalEndReached\(reservation\.end_date, reservation\.pickup_time\)\)/);
   assert.match(edge, /code: "pickup_day_expired"/);
   assert.match(edge, /}, 409\)/);
   assert.ok(edge.indexOf('code: "pickup_day_expired"') < edge.lastIndexOf("const pin = await createPickupPin("));
-  assert.match(edge, /timeZone: "Europe\/Prague"/);
+  assert.match(edge, /from "\.\.\/_shared\/prague-rental-window\.mjs"/);
 });
 
 test("expired PIN message is localized and styled without changing paid reservation status", () => {

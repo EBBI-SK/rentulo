@@ -123,7 +123,7 @@ Najnovšie rozhodujúce migrácie:
 - `20261008100000_guard_account_deactivation_financials.sql` – strážne pravidlá deaktivácie účtu.
 - `20261009130000_add_offer_and_reservation_numbers.sql` – referenčné čísla.
 - `20261011103000_guard_pickup_and_remove_test_payment.sql` – odstránenie starej fake-payment RPC a spevnenie prevzatia.
-- **`20261011170000_limit_pickup_pin_to_pickup_day.sql` – aktuálne nasadené pravidlo PIN pred KROKOM 79:** `start_date` musí byť dnešný deň podľa `Europe/Prague`. Pripravovaná (EŠTE NENASADENÁ) migrácia `20261015161000_paid_no_show_settlement_TEST.sql` zmení autorizované prevzatie na celé zaplatené obdobie `start_date`–`end_date` vrátane. Doterajšiu migračnú históriu nemažte.
+- **`20261011170000_limit_pickup_pin_to_pickup_day.sql` – aktuálne nasadené pravidlo PIN pred KROKOM 79:** `start_date` musí byť dnešný deň podľa `Europe/Prague`. Pripravovaná (EŠTE NENASADENÁ) migrácia `20261015161000_paid_no_show_settlement_TEST.sql` zmení autorizované prevzatie na presný časový interval `start_date + pickup_time` až `end_date + pickup_time` (koniec exkluzívny). Doterajšiu migračnú históriu nemažte.
 - `20261012100000_unify_reservation_notification_outbox.sql` – transakčná rezervačná fronta pre e-mail/SMS, opt-in a bezpečné claim/ack/retry.
 - `20261012101000_schedule_notification_worker.sql` – Vault tajomstvo a databázový cron spoločného notifikačného workera.
 - `20261012150000_harden_reservation_notification_worker.sql` – bezpečné spracovanie fronty pri zlyhaniach a timeoute.
@@ -157,7 +157,7 @@ Na TEST sa používajú **Stripe test/sandbox platby**, nie stará klientská fa
 - Ak zruší prenajímateľ, nájomcovi sa vracia plná suma a príslušný externý náklad môže vzniknúť ako **dlh prenajímateľa** voči Rentulu so splatnosťou **7 dní**. Existuje Stripe Checkout na úhradu tohto dlhu, hodinový reminder a blokovanie schvaľovania nových rezervácií po splatnosti.
 - Vykonanie/refund prechádza bezpečným backendom a Stripe potvrdením; neprisudzovať refund iba podľa vizuálnej zmeny v UI.
 
-**No-show** (nedostavenie sa na prevzatie) je **rozpracovaný KROK 79, zatiaľ nie hotová/nasadená funkcia**. Pravidlo: pri nepotvrdení PIN počas celého zaplateného obdobia do 23:59 posledného dňa (Europe/Prague) automaticky ukončiť na `no_show`, uvoľniť termín a bezpečne iniciovať Stripe transfer prenajímateľovi. Pri potvrdení počas obdobia sa PIN jednorazovo spotrebuje a payout sa spustí hneď. Presné produkčné účtovné, daňové, Stripe live a payout nastavenie treba pred štartom otestovať a právne/finančne preveriť.
+**No-show** (nedostavenie sa na prevzatie) je **rozpracovaný KROK 79, zatiaľ nie hotová/nasadená funkcia**. Pravidlo: pri nepotvrdení PIN do presného plánovaného času vrátenia (`end_date + pickup_time` podľa Europe/Prague) automaticky ukončiť na `no_show`, uvoľniť termín a bezpečne iniciovať Stripe transfer prenajímateľovi. Pri potvrdení počas obdobia sa PIN jednorazovo spotrebuje a payout sa spustí hneď. Presné produkčné účtovné, daňové, Stripe live a payout nastavenie treba pred štartom otestovať a právne/finančne preveriť.
 
 ## 9. Rezervačné e-maily, SMS a Supabase Auth šablóny
 

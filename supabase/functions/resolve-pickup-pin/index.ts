@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { rentalHandoverOpen } from "../_shared/prague-rental-window.mjs";
 
 type RentuloDenoRuntime = {
   serve(handler: (request: Request) => Response | Promise<Response>): void;
@@ -12,6 +13,7 @@ type ReservationRow = {
   status: string;
   start_date: string;
   end_date: string;
+  pickup_time: string | null;
 };
 
 type PaymentRow = {
@@ -86,17 +88,6 @@ async function createPickupPin(secret: string, reservationId: string, paymentId:
   ) >>> 0;
 
   return String(value % 1_000_000).padStart(6, "0");
-}
-
-function pickupDateInPrague(at: Date): string {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Europe/Prague",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(at);
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${values.year}-${values.month}-${values.day}`;
 }
 
 function firstRow<T>(value: T[] | T | null): T | null {
@@ -182,7 +173,7 @@ denoRuntime.serve(async (req) => {
 
   const { data: reservations, error: reservationsError } = await admin
     .from("reservations")
-    .select("id, renter_id, owner_id, status, start_date, end_date")
+    .select("id, renter_id, owner_id, status, start_date, end_date, pickup_time")
     .eq("owner_id", actor.id)
     .eq("status", "paid");
 
@@ -212,14 +203,13 @@ denoRuntime.serve(async (req) => {
   for (const payment of payments) paymentByReservation.set(payment.reservation_id, payment);
 
   const matches: string[] = [];
-  const pickupDay = pickupDateInPrague(new Date());
   let matchedOutsideRentalPeriod = false;
   for (const reservation of ownerReservations) {
     const payment = paymentByReservation.get(reservation.id);
     if (!payment || !isEligiblePayment(payment, reservation)) continue;
     const expectedPin = await createPickupPin(pickupPinSecret, reservation.id, payment.id);
     if (!timingSafeTextEqual(pin, expectedPin)) continue;
-    if (reservation.start_date <= pickupDay && pickupDay <= reservation.end_date) {
+    if (rentalHandoverOpen(reservation.start_date, reservation.end_date, reservation.pickup_time)) {
       matches.push(reservation.id);
     } else {
       matchedOutsideRentalPeriod = true;
@@ -260,6 +250,15 @@ denoRuntime.serve(async (req) => {
       return jsonResponse({ error: "PIN could not be verified" }, 500);
     }
 
+    // The PIN may expire while this request awaits the security reset.
+    // Never return a verified match after its exact Prague-local deadline.
+    const matched = ownerReservations.find((reservation) => reservation.id === matches[0]);
+    if (!matched || !rentalHandoverOpen(matched.start_date, matched.end_date, matched.pickup_time)) {
+      return jsonResponse({
+        error: "The PIN can only be used between the scheduled pickup and return times",
+        code: "pickup_wrong_day",
+      }, 409);
+    }
     return jsonResponse({ reservation_id: matches[0], status: "verified" });
   }
 
@@ -270,7 +269,7 @@ denoRuntime.serve(async (req) => {
 
   if (matchedOutsideRentalPeriod) {
     return jsonResponse({
-      error: "The PIN can only be used during the reserved rental period",
+      error: "The PIN can only be used between the scheduled pickup and return times",
       code: "pickup_wrong_day",
     }, 409);
   }

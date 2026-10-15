@@ -25,8 +25,8 @@
       confirmAction: "Předat věc",
       confirming: "Předávám věc…",
       success: "Předáno. Rezervace pokračuje až do vrácení věci.",
-      wrongDay: "PIN lze použít pouze během zaplaceného období od prvního do posledního dne (včetně, český čas).",
-      tooEarly: "Předání lze potvrdit nejdříve v první den zaplaceného období.",
+      wrongDay: "PIN lze použít pouze od sjednaného času převzetí do sjednaného času vrácení (český čas).",
+      tooEarly: "Předání lze potvrdit nejdříve v sjednaný čas převzetí.",
       genericError: "Předání se nepodařilo potvrdit. Zkuste to prosím znovu."
     },
     sk: {
@@ -52,8 +52,8 @@
       confirmAction: "Odovzdať vec",
       confirming: "Odovzdávam vec…",
       success: "Odovzdané. Rezervácia pokračuje až do vrátenia veci.",
-      wrongDay: "PIN možno použiť iba počas zaplateného obdobia od prvého do posledného dňa (vrátane, český čas).",
-      tooEarly: "Odovzdanie možno potvrdiť najskôr v prvý deň zaplateného obdobia.",
+      wrongDay: "PIN možno použiť iba od dohodnutého času prevzatia do dohodnutého času vrátenia (český čas).",
+      tooEarly: "Odovzdanie možno potvrdiť najskôr v dohodnutý čas prevzatia.",
       genericError: "Odovzdanie sa nepodarilo potvrdiť. Skúste to prosím znova."
     },
     en: {
@@ -79,8 +79,8 @@
       confirmAction: "Hand over item",
       confirming: "Handing over item…",
       success: "Handed over. The reservation now continues until the item is returned.",
-      wrongDay: "The PIN can be used only during the paid rental period, from its first through its final day (inclusive, Czech time).",
-      tooEarly: "Handover can be confirmed only from the first day of the paid rental period.",
+      wrongDay: "The PIN can be used only between the scheduled pickup and return times (Czech time).",
+      tooEarly: "Handover cannot be confirmed before the scheduled pickup time.",
       genericError: "Handover could not be confirmed. Please try again."
     },
     de: {
@@ -106,8 +106,8 @@
       confirmAction: "Gegenstand übergeben",
       confirming: "Gegenstand wird übergeben…",
       success: "Übergeben. Die Reservierung läuft nun bis zur Rückgabe weiter.",
-      wrongDay: "Die PIN kann nur während des bezahlten Mietzeitraums vom ersten bis einschließlich zum letzten Tag verwendet werden (tschechische Zeit).",
-      tooEarly: "Die Übergabe kann frühestens am ersten Tag des bezahlten Mietzeitraums bestätigt werden.",
+      wrongDay: "Die PIN kann nur zwischen der vereinbarten Abholzeit und der Rückgabezeit verwendet werden (tschechische Zeit).",
+      tooEarly: "Die Übergabe kann frühestens zur vereinbarten Abholzeit bestätigt werden.",
       genericError: "Die Übergabe konnte nicht bestätigt werden. Bitte versuchen Sie es erneut."
     },
     pl: {
@@ -133,8 +133,8 @@
       confirmAction: "Przekaż przedmiot",
       confirming: "Przekazuję przedmiot…",
       success: "Przekazano. Rezerwacja trwa teraz do momentu zwrotu przedmiotu.",
-      wrongDay: "PIN może być użyty tylko w opłaconym okresie najmu, od pierwszego do ostatniego dnia (włącznie, czas czeski).",
-      tooEarly: "Przekazanie można potwierdzić najwcześniej pierwszego dnia opłaconego okresu najmu.",
+      wrongDay: "PIN można wykorzystać tylko od uzgodnionej godziny odbioru do uzgodnionej godziny zwrotu (czas czeski).",
+      tooEarly: "Przekazanie można potwierdzić najwcześniej o uzgodnionej godzinie odbioru.",
       genericError: "Nie udało się potwierdzić przekazania. Spróbuj ponownie."
     }
   };
@@ -217,9 +217,55 @@
     return values.year + "-" + values.month + "-" + values.day;
   }
 
-  function isExpiredRentalPeriod(value, now = new Date()) {
-    const pickupDate = String(value || "");
-    return /^\d{4}-\d{2}-\d{2}$/.test(pickupDate) && pickupDate < getPragueCalendarDate(now);
+  // The UI hides the PIN at the *instant* of the agreed return time, not at
+  // midnight. Keep DST overlap/gap resolution aligned with the Edge helper and
+  // PostgreSQL AT TIME ZONE 'Europe/Prague'. SQL is the final authority.
+  function pragueReturnDeadline(endDate, pickupTime) {
+    const date = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(endDate || ""));
+    const time = /^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d)(?:\.(\d{1,6}))?)?$/.exec(String(pickupTime || ""));
+    if (!date || !time) return null;
+    const year = Number(date[1]), month = Number(date[2]), day = Number(date[3]);
+    const hour = Number(time[1]), minute = Number(time[2]), second = Number(time[3] || 0);
+    const millis = Number((time[4] || "").padEnd(3, "0").slice(0, 3));
+    const naive = Date.UTC(year, month - 1, day, hour, minute, second, millis);
+    const checked = new Date(naive);
+    if (checked.getUTCFullYear() !== year || checked.getUTCMonth() + 1 !== month || checked.getUTCDate() !== day) return null;
+    const formatter = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Prague", hourCycle: "h23", year: "numeric", month: "2-digit",
+      day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit"
+    });
+    function fields(ms) {
+      const values = Object.fromEntries(formatter.formatToParts(new Date(ms)).map(function (part) { return [part.type, part.value]; }));
+      return {
+        year: Number(values.year), month: Number(values.month), day: Number(values.day),
+        hour: Number(values.hour), minute: Number(values.minute), second: Number(values.second)
+      };
+    }
+    function timestampKey(v) {
+      return [v.year, v.month, v.day, v.hour, v.minute, v.second]
+        .map(function (value, index) { return String(value).padStart(index === 0 ? 4 : 2, "0"); }).join("");
+    }
+    function offset(ms) {
+      const v = fields(ms);
+      return Date.UTC(v.year, v.month - 1, v.day, v.hour, v.minute, v.second) - Math.floor(ms / 1000) * 1000;
+    }
+    const requested = timestampKey({ year: year, month: month, day: day, hour: hour, minute: minute, second: second });
+    const offsets = Array.from(new Set([offset(naive - 86400000), offset(naive), offset(naive + 86400000)]));
+    const candidates = offsets.map(function (utcOffset) {
+      const instant = naive - utcOffset;
+      return { instant: instant, local: timestampKey(fields(instant)) };
+    });
+    const exact = candidates.filter(function (candidate) { return candidate.local === requested; });
+    if (exact.length) return Math.max.apply(null, exact.map(function (candidate) { return candidate.instant; }));
+    const afterGap = candidates.filter(function (candidate) { return candidate.local > requested; });
+    return afterGap.length ? Math.min.apply(null, afterGap.map(function (candidate) { return candidate.instant; })) : null;
+  }
+
+  function isExpiredRentalPeriod(endDate, pickupTime, now = new Date()) {
+    const deadline = pragueReturnDeadline(endDate, pickupTime);
+    // An invalid legacy time is not proof of expiry; the Edge endpoint then
+    // rejects PIN access. Never guess midnight for money-sensitive state.
+    return deadline !== null && now.getTime() >= deadline;
   }
 
   function setOwnerMessage(message, tone) {
@@ -521,8 +567,8 @@
   }
 
   async function loadRenterPin(row, reservationId, block) {
-    // Avoid a request after the last paid rental day; the Edge Function enforces this too.
-    if (isExpiredRentalPeriod(row.dataset.pickupEndDate)) {
+    // Avoid a PIN request at/after the exact Prague-local return time.
+    if (isExpiredRentalPeriod(row.dataset.pickupEndDate, row.dataset.pickupTime)) {
       showExpiredRenterPin(block);
       return;
     }
@@ -530,8 +576,8 @@
     const result = await invoke("get-pickup-pin", { reservation_id: reservationId });
     if (!row.isConnected || !block.isConnected) return;
 
-    // Also protect the UI if the request finishes after the last Prague midnight.
-    if (isExpiredRentalPeriod(row.dataset.pickupEndDate) || result.data?.code === "pickup_day_expired") {
+    // Also protect the UI if an in-flight request finishes after return time.
+    if (isExpiredRentalPeriod(row.dataset.pickupEndDate, row.dataset.pickupTime) || result.data?.code === "pickup_day_expired") {
       showExpiredRenterPin(block);
       return;
     }
@@ -552,7 +598,7 @@
 
   function refreshExpiredRenterPins() {
     document.querySelectorAll(".simple-reservation-row[data-pickup-date]").forEach(function (row) {
-      if (!isExpiredRentalPeriod(row.dataset.pickupEndDate)) return;
+      if (!isExpiredRentalPeriod(row.dataset.pickupEndDate, row.dataset.pickupTime)) return;
       const block = row.querySelector(".pickup-pin-card");
       if (block && !block.classList.contains("expired")) showExpiredRenterPin(block);
     });
@@ -571,7 +617,7 @@
       const block = document.createElement("section");
       block.className = "pickup-pin-card";
       block.setAttribute("aria-live", "polite");
-      const expired = isExpiredRentalPeriod(row.dataset.pickupEndDate);
+      const expired = isExpiredRentalPeriod(row.dataset.pickupEndDate, row.dataset.pickupTime);
       if (expired) showExpiredRenterPin(block);
       else block.innerHTML = `<strong>${escapeHtml(text("pinTitle"))}</strong><span>${escapeHtml(text("pinLoading"))}</span>`;
 
