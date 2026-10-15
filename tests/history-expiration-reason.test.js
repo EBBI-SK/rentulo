@@ -63,39 +63,55 @@ const sample = {
   expiry_reason: "owner_no_response"
 };
 
+// Exact role-by-role copy, including five language variants and unknown reasons.
 const expected = {
-  cs: ["Důvod vypršení", "Majitel žádost nepotvrdil ve stanovené lhůtě.", "Platba nebyla dokončena ve stanovené lhůtě.", "Důvod vypršení není k dispozici."],
-  sk: ["Dôvod vypršania", "Majiteľ žiadosť nepotvrdil v stanovenej lehote.", "Platba nebola dokončená v stanovenej lehote.", "Dôvod vypršania nie je k dispozícii."],
-  en: ["Reason for expiration", "The owner did not approve the request within the deadline.", "Payment was not completed within the deadline.", "The reason for expiration is unavailable."],
-  de: ["Grund für den Fristablauf", "Der Eigentümer hat die Anfrage nicht innerhalb der Frist bestätigt.", "Die Zahlung wurde nicht innerhalb der Frist abgeschlossen.", "Der Grund für den Fristablauf ist nicht verfügbar."],
-  pl: ["Powód wygaśnięcia", "Właściciel nie zatwierdził prośby w wyznaczonym terminie.", "Płatność nie została zakończona w wyznaczonym terminie.", "Powód wygaśnięcia jest niedostępny."]
+  cs: { label: "Důvod vypršení", renterPending: "Majitel žádost nepotvrdil ve stanovené lhůtě.", ownerPending: "Žádost jste nepotvrdili ve stanovené lhůtě.", renterPayment: "Platbu jste nedokončili ve stanovené lhůtě.", ownerPayment: "Zájemce nedokončil platbu ve stanovené lhůtě.", unknown: "Důvod vypršení není k dispozici." },
+  sk: { label: "Dôvod vypršania", renterPending: "Majiteľ žiadosť nepotvrdil v stanovenej lehote.", ownerPending: "Žiadosť ste nepotvrdili v stanovenej lehote.", renterPayment: "Platbu ste nedokončili v stanovenej lehote.", ownerPayment: "Záujemca nedokončil platbu v stanovenej lehote.", unknown: "Dôvod vypršania nie je k dispozícii." },
+  en: { label: "Reason for expiration", renterPending: "The owner did not approve the request within the deadline.", ownerPending: "You did not approve the request before the deadline.", renterPayment: "You did not complete the payment before the deadline.", ownerPayment: "The renter did not complete the payment before the deadline.", unknown: "The reason for expiration is unavailable." },
+  de: { label: "Grund für den Fristablauf", renterPending: "Der Eigentümer hat die Anfrage nicht innerhalb der Frist bestätigt.", ownerPending: "Sie haben die Anfrage nicht fristgerecht bestätigt.", renterPayment: "Sie haben die Zahlung nicht fristgerecht abgeschlossen.", ownerPayment: "Der Mieter hat die Zahlung nicht fristgerecht abgeschlossen.", unknown: "Der Grund für den Fristablauf ist nicht verfügbar." },
+  pl: { label: "Powód wygaśnięcia", renterPending: "Właściciel nie zatwierdził prośby w wyznaczonym terminie.", ownerPending: "Nie udało Ci się zatwierdzić prośby w wyznaczonym terminie.", renterPayment: "Nie udało Ci się dokończyć płatności w wyznaczonym terminie.", ownerPayment: "Najemca nie dokończył płatności w wyznaczonym terminie.", unknown: "Powód wygaśnięcia jest niedostępny." }
 };
 
-for (const [language, [label, ownerCopy, paymentCopy, unavailableCopy]] of Object.entries(expected)) {
-  test(`history ${language} shows both expiration reasons and honest unavailable fallback`, () => {
+for (const [language, copy] of Object.entries(expected)) {
+  test(`history ${language} renders the correct perspective for both expiration reasons`, () => {
     const history = setupHistory(language);
     for (const role of ["renter", "owner"]) {
-      const ownerHtml = history.detail(sample, role);
-      assert.ok(ownerHtml.includes(`<span>${label}</span><strong>${ownerCopy}</strong>`), `${language} ${role} owner`);
-      const paymentHtml = history.detail({ ...sample, expiry_reason: "payment_timeout" }, role);
-      assert.ok(paymentHtml.includes(`<span>${label}</span><strong>${paymentCopy}</strong>`), `${language} ${role} payment`);
-      const unavailableHtml = history.detail({ ...sample, expiry_reason: null }, role);
-      assert.ok(unavailableHtml.includes(`<span>${label}</span><strong>${unavailableCopy}</strong>`), `${language} ${role} unavailable`);
-      assert.ok(!unavailableHtml.includes(paymentCopy), `${language} ${role} must not guess payment reason`);
-      assert.ok(!history.detail({ ...sample, status: "cancelled" }, role).includes(`<span>${label}</span>`), `${language} ${role} cancelled`);
-      assert.ok(!history.detail({ ...sample, status: "returned" }, role).includes(`<span>${label}</span>`), `${language} ${role} returned`);
+      const pendingText = role === "owner" ? copy.ownerPending : copy.renterPending;
+      const paymentText = role === "owner" ? copy.ownerPayment : copy.renterPayment;
+      const otherPendingText = role === "owner" ? copy.renterPending : copy.ownerPending;
+      const otherPaymentText = role === "owner" ? copy.renterPayment : copy.ownerPayment;
+
+      for (const [reason, expectedText, otherText] of [
+        ["owner_no_response", pendingText, otherPendingText],
+        ["payment_timeout", paymentText, otherPaymentText]
+      ]) {
+        const html = history.detail({ ...sample, expiry_reason: reason }, role);
+        assert.ok(html.includes(`<span>${copy.label}</span><strong>${expectedText}</strong>`), `${language}/${role}/${reason}`);
+        assert.ok(!html.includes(`<strong>${otherText}</strong>`), `${language}/${role}/${reason} must not show the other side's message`);
+      }
+
+      for (const reason of [null, "unexpected_reason"]) {
+        const unavailable = history.detail({ ...sample, expiry_reason: reason }, role);
+        assert.ok(unavailable.includes(`<span>${copy.label}</span><strong>${copy.unknown}</strong>`), `${language}/${role} unknown`);
+        assert.ok(!unavailable.includes(`<strong>${copy.renterPayment}</strong>`));
+      }
+      for (const status of ["cancelled", "returned", "rejected"]) {
+        assert.ok(!history.detail({ ...sample, status }, role).includes(`<span>${copy.label}</span>`), `${language}/${role}/${status}`);
+      }
     }
   });
 }
 
-test("R-000027 history row displays the owner timeout reason in both account tabs", () => {
+test("R-000027 displays recipient-specific expiration reasons in the two history tabs", () => {
   const history = setupHistory();
   history.showFor(sample, "renter-id");
   assert.match(history.rentalList.innerHTML, /R-000027/);
   assert.match(history.rentalList.innerHTML, /Majitel žádost nepotvrdil ve stanovené lhůtě\./);
+  assert.doesNotMatch(history.rentalList.innerHTML, /Žádost jste nepotvrdili/);
   history.showFor(sample, "owner-id");
   assert.match(history.offerList.innerHTML, /R-000027/);
-  assert.match(history.offerList.innerHTML, /Majitel žádost nepotvrdil ve stanovené lhůtě\./);
+  assert.match(history.offerList.innerHTML, /Žádost jste nepotvrdili ve stanovené lhůtě\./);
+  assert.doesNotMatch(history.offerList.innerHTML, /Majitel žádost nepotvrdil/);
 });
 
 test("History reads expiry_reason from the existing safe reservation RPC without a schema change", async () => {
