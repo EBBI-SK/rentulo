@@ -7,7 +7,7 @@
       pinHint: "Tento 6místný PIN sdělte majiteli až při osobním předání věci.",
       pinLoading: "Načítám PIN…",
       pinUnavailable: "PIN teď není dostupný. Obnovte stránku a zkuste to znovu.",
-      pinExpired: "Termín pro převzetí již uplynul.",
+      pinExpired: "Celé zaplacené období již skončilo. PIN není platný.",
       handoffTitle: "Předáváte věc nájemci?",
       handoffText: "Zadejte 6místný PIN od nájemce. Rentulo najde správnou rezervaci za vás.",
       handoffOpen: "Zadat PIN",
@@ -25,8 +25,8 @@
       confirmAction: "Předat věc",
       confirming: "Předávám věc…",
       success: "Předáno. Rezervace pokračuje až do vrácení věci.",
-      wrongDay: "PIN lze použít pouze v den plánovaného převzetí (od 00:00 do konce dne).",
-      tooEarly: "Předání zatím nelze potvrdit. Počkejte na sjednané datum a čas převzetí.",
+      wrongDay: "PIN lze použít pouze během zaplaceného období od prvního do posledního dne (včetně, český čas).",
+      tooEarly: "Předání lze potvrdit nejdříve v první den zaplaceného období.",
       genericError: "Předání se nepodařilo potvrdit. Zkuste to prosím znovu."
     },
     sk: {
@@ -34,7 +34,7 @@
       pinHint: "Tento 6-miestny PIN povedzte majiteľovi až pri osobnom odovzdaní veci.",
       pinLoading: "Načítavam PIN…",
       pinUnavailable: "PIN teraz nie je dostupný. Obnovte stránku a skúste to znova.",
-      pinExpired: "Termín prevzatia už uplynul.",
+      pinExpired: "Celé zaplatené obdobie sa už skončilo. PIN nie je platný.",
       handoffTitle: "Odovzdávate vec nájomcovi?",
       handoffText: "Zadajte 6-miestny PIN od nájomcu. Rentulo nájde správnu rezerváciu za vás.",
       handoffOpen: "Zadať PIN",
@@ -52,8 +52,8 @@
       confirmAction: "Odovzdať vec",
       confirming: "Odovzdávam vec…",
       success: "Odovzdané. Rezervácia pokračuje až do vrátenia veci.",
-      wrongDay: "PIN možno použiť iba v deň plánovaného prevzatia (od 00:00 do konca dňa).",
-      tooEarly: "Odovzdanie zatiaľ nemožno potvrdiť. Počkajte na dohodnutý dátum a čas prevzatia.",
+      wrongDay: "PIN možno použiť iba počas zaplateného obdobia od prvého do posledného dňa (vrátane, český čas).",
+      tooEarly: "Odovzdanie možno potvrdiť najskôr v prvý deň zaplateného obdobia.",
       genericError: "Odovzdanie sa nepodarilo potvrdiť. Skúste to prosím znova."
     },
     en: {
@@ -61,7 +61,7 @@
       pinHint: "Give this 6-digit PIN to the owner only when the item is physically handed over.",
       pinLoading: "Loading PIN…",
       pinUnavailable: "The PIN is not available right now. Refresh the page and try again.",
-      pinExpired: "The scheduled pickup date has passed.",
+      pinExpired: "The entire paid rental period has ended. The PIN is no longer valid.",
       handoffTitle: "Handing an item to the renter?",
       handoffText: "Enter the renter's 6-digit PIN. Rentulo will find the correct reservation for you.",
       handoffOpen: "Enter PIN",
@@ -79,8 +79,8 @@
       confirmAction: "Hand over item",
       confirming: "Handing over item…",
       success: "Handed over. The reservation now continues until the item is returned.",
-      wrongDay: "The PIN can only be used on the scheduled pickup date (from midnight to the end of that day).",
-      tooEarly: "Handover cannot be confirmed yet. Wait until the scheduled pickup date and time.",
+      wrongDay: "The PIN can be used only during the paid rental period, from its first through its final day (inclusive, Czech time).",
+      tooEarly: "Handover can be confirmed only from the first day of the paid rental period.",
       genericError: "Handover could not be confirmed. Please try again."
     },
     de: {
@@ -88,7 +88,7 @@
       pinHint: "Geben Sie diesen 6-stelligen PIN dem Eigentümer erst bei der persönlichen Übergabe des Gegenstands.",
       pinLoading: "PIN wird geladen…",
       pinUnavailable: "Der PIN ist derzeit nicht verfügbar. Laden Sie die Seite neu und versuchen Sie es erneut.",
-      pinExpired: "Der vereinbarte Abholtag ist bereits vorbei.",
+      pinExpired: "Der gesamte bezahlte Mietzeitraum ist beendet. Die PIN ist nicht mehr gültig.",
       handoffTitle: "Übergeben Sie einen Gegenstand?",
       handoffText: "Geben Sie den 6-stelligen PIN des Mieters ein. Rentulo findet die richtige Reservierung.",
       handoffOpen: "PIN eingeben",
@@ -106,8 +106,8 @@
       confirmAction: "Gegenstand übergeben",
       confirming: "Gegenstand wird übergeben…",
       success: "Übergeben. Die Reservierung läuft nun bis zur Rückgabe weiter.",
-      wrongDay: "Der PIN kann nur am vereinbarten Abholtag (von 00:00 Uhr bis zum Tagesende) verwendet werden.",
-      tooEarly: "Die Übergabe kann erst zum vereinbarten Abholdatum und zur vereinbarten Uhrzeit bestätigt werden.",
+      wrongDay: "Die PIN kann nur während des bezahlten Mietzeitraums vom ersten bis einschließlich zum letzten Tag verwendet werden (tschechische Zeit).",
+      tooEarly: "Die Übergabe kann frühestens am ersten Tag des bezahlten Mietzeitraums bestätigt werden.",
       genericError: "Die Übergabe konnte nicht bestätigt werden. Bitte versuchen Sie es erneut."
     },
     pl: {
@@ -115,7 +115,7 @@
       pinHint: "Podaj ten 6-cyfrowy PIN właścicielowi dopiero podczas osobistego przekazania przedmiotu.",
       pinLoading: "Ładowanie PIN-u…",
       pinUnavailable: "PIN nie jest teraz dostępny. Odśwież stronę i spróbuj ponownie.",
-      pinExpired: "Termin odbioru już minął.",
+      pinExpired: "Cały opłacony okres najmu już minął. PIN jest nieważny.",
       handoffTitle: "Przekazujesz przedmiot najemcy?",
       handoffText: "Wpisz 6-cyfrowy PIN najemcy. Rentulo znajdzie właściwą rezerwację.",
       handoffOpen: "Wpisz PIN",
@@ -133,8 +133,8 @@
       confirmAction: "Przekaż przedmiot",
       confirming: "Przekazuję przedmiot…",
       success: "Przekazano. Rezerwacja trwa teraz do momentu zwrotu przedmiotu.",
-      wrongDay: "PIN można wykorzystać tylko w dniu zaplanowanego odbioru (od 00:00 do końca dnia).",
-      tooEarly: "Nie można jeszcze potwierdzić przekazania. Poczekaj do ustalonej daty i godziny odbioru.",
+      wrongDay: "PIN może być użyty tylko w opłaconym okresie najmu, od pierwszego do ostatniego dnia (włącznie, czas czeski).",
+      tooEarly: "Przekazanie można potwierdzić najwcześniej pierwszego dnia opłaconego okresu najmu.",
       genericError: "Nie udało się potwierdzić przekazania. Spróbuj ponownie."
     }
   };
@@ -217,7 +217,7 @@
     return values.year + "-" + values.month + "-" + values.day;
   }
 
-  function isExpiredPickupDate(value, now = new Date()) {
+  function isExpiredRentalPeriod(value, now = new Date()) {
     const pickupDate = String(value || "");
     return /^\d{4}-\d{2}-\d{2}$/.test(pickupDate) && pickupDate < getPragueCalendarDate(now);
   }
@@ -521,8 +521,8 @@
   }
 
   async function loadRenterPin(row, reservationId, block) {
-    // Avoid a request after the pickup date; the Edge Function enforces this too.
-    if (isExpiredPickupDate(row.dataset.pickupDate)) {
+    // Avoid a request after the last paid rental day; the Edge Function enforces this too.
+    if (isExpiredRentalPeriod(row.dataset.pickupEndDate)) {
       showExpiredRenterPin(block);
       return;
     }
@@ -530,8 +530,8 @@
     const result = await invoke("get-pickup-pin", { reservation_id: reservationId });
     if (!row.isConnected || !block.isConnected) return;
 
-    // Also protect the UI if the request finishes after Prague midnight.
-    if (isExpiredPickupDate(row.dataset.pickupDate) || result.data?.code === "pickup_day_expired") {
+    // Also protect the UI if the request finishes after the last Prague midnight.
+    if (isExpiredRentalPeriod(row.dataset.pickupEndDate) || result.data?.code === "pickup_day_expired") {
       showExpiredRenterPin(block);
       return;
     }
@@ -552,7 +552,7 @@
 
   function refreshExpiredRenterPins() {
     document.querySelectorAll(".simple-reservation-row[data-pickup-date]").forEach(function (row) {
-      if (!isExpiredPickupDate(row.dataset.pickupDate)) return;
+      if (!isExpiredRentalPeriod(row.dataset.pickupEndDate)) return;
       const block = row.querySelector(".pickup-pin-card");
       if (block && !block.classList.contains("expired")) showExpiredRenterPin(block);
     });
@@ -571,7 +571,7 @@
       const block = document.createElement("section");
       block.className = "pickup-pin-card";
       block.setAttribute("aria-live", "polite");
-      const expired = isExpiredPickupDate(row.dataset.pickupDate);
+      const expired = isExpiredRentalPeriod(row.dataset.pickupEndDate);
       if (expired) showExpiredRenterPin(block);
       else block.innerHTML = `<strong>${escapeHtml(text("pinTitle"))}</strong><span>${escapeHtml(text("pinLoading"))}</span>`;
 
@@ -631,7 +631,7 @@
       const observer = new MutationObserver(function () { enhanceRenterRows(); });
       observer.observe(reservationsList, { childList: true, subtree: true });
       enhanceRenterRows();
-      // A tab can stay open overnight. Remove a now-expired PIN without reloading.
+      // A tab can stay open past the final rental day. Hide an expired PIN.
       window.setInterval(refreshExpiredRenterPins, 30000);
       document.addEventListener("visibilitychange", function () {
         if (!document.hidden) refreshExpiredRenterPins();

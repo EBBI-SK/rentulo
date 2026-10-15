@@ -109,6 +109,7 @@ const HISTORY_FINISHED_STATUSES = new Set([
   "completed",
   "cancelled",
   "expired",
+  "no_show",
   "canceled",
   "rejected",
   "declined",
@@ -188,6 +189,7 @@ function historyStatusText(status) {
     completed: historyT("history.status.completed", "Dokončeno"),
     cancelled: historyT("history.status.cancelled", "Zrušeno"),
     expired: historyT("reservation.status.expired", "Vypršela lhůta"),
+    no_show: historyT("reservation.status.noShow", "Nevyzvednuto"),
     canceled: historyT("history.status.cancelled", "Zrušeno"),
     rejected: historyT("history.status.rejected", "Odmítnuto"),
     declined: historyT("history.status.rejected", "Odmítnuto")
@@ -214,6 +216,13 @@ function historyExpirationReasonText(reservation, role) {
   }
 
   return historyT("history.expiry.unknown", "Důvod vypršení není k dispozici.");
+}
+
+function historyNoShowReasonText(reservation, role) {
+  if (historyNormalizeStatus(reservation.status) !== "no_show") return "";
+  return role === "owner"
+    ? historyT("history.noShow.owner", "Zájemce si věc do konce dne převzetí nevyzvedl. Rezervace byla ukončena a výplata se zpracovává.")
+    : historyT("history.noShow.renter", "Věc jste si do konce dne převzetí nevyzvedli. Rezervace skončila, termín je uvolněn a platba se nevrací.");
 }
 
 function historyRenderSavedReview(review, title) {
@@ -338,6 +347,7 @@ function historyRenderDetail(reservation, role) {
   const price = Number(reservation.total_price || reservation.totalPrice || 0);
   const counterpart = historyGetCounterpart(reservation, role);
   const expiryReason = historyExpirationReasonText(reservation, role);
+  const noShowReason = historyNoShowReasonText(reservation, role);
 
   return `
     <div class="history-detail" id="history-detail-${escapeHtml(reservationId)}-${escapeHtml(role)}">
@@ -348,6 +358,7 @@ function historyRenderDetail(reservation, role) {
         ${reservation.reservation_number ? `<div><span>${escapeHtml(historyT("reference.reservation", "Číslo rezervace"))}</span><strong>${escapeHtml(reservation.reservation_number)}</strong></div>` : ""}
         ${reservation.offer_number ? `<div><span>${escapeHtml(historyT("reference.offer", "Číslo nabídky"))}</span><strong>${escapeHtml(reservation.offer_number)}</strong></div>` : ""}
         ${expiryReason ? `<div><span>${escapeHtml(historyT("history.detail.expiryReason", "Důvod vypršení"))}</span><strong>${escapeHtml(expiryReason)}</strong></div>` : ""}
+        ${noShowReason ? `<div><span>${escapeHtml(historyT("history.detail.noShowReason", "Důvod ukončení"))}</span><strong>${escapeHtml(noShowReason)}</strong></div>` : ""}
       </div>
       <div class="history-review-grid">
         ${historyRenderReviewForm(reservation, role)}

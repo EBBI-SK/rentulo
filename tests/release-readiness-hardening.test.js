@@ -71,16 +71,16 @@ test("Prague calendar-day boundaries work across midnight, winter and DST change
   }
 });
 
-test("owner lookup verifies only paid reservations scheduled for the current Prague day", () => {
+test("owner lookup verifies only paid reservations during their entire rental date range", () => {
   assert.match(lookup, /\.eq\("owner_id", actor\.id\)/);
   assert.match(lookup, /\.eq\("status", "paid"\)/);
-  assert.match(lookup, /\.select\("id, renter_id, owner_id, status, start_date"\)/);
+  assert.match(lookup, /\.select\("id, renter_id, owner_id, status, start_date, end_date"\)/);
   assert.match(lookup, /const pickupDay = pickupDateInPrague\(new Date\(\)\)/);
-  assert.match(lookup, /reservation\.start_date === pickupDay/);
-  assert.match(lookup, /if \(matchedOutsidePickupDay\) \{[\s\S]*?code: "pickup_wrong_day"/);
+  assert.match(lookup, /reservation\.start_date <= pickupDay && pickupDay <= reservation\.end_date/);
+  assert.match(lookup, /if \(matchedOutsideRentalPeriod\) \{[\s\S]*?code: "pickup_wrong_day"/);
   assert.ok(
-    lookup.indexOf("if (matchedOutsidePickupDay)") < lookup.indexOf('admin.rpc("register_failed_owner_pickup_pin"'),
-    "A correct PIN entered on the wrong day must not consume invalid PIN attempts"
+    lookup.indexOf("if (matchedOutsideRentalPeriod)") < lookup.indexOf('admin.rpc("register_failed_owner_pickup_pin"'),
+    "A correct PIN entered outside the rental period must not consume invalid attempts"
   );
   assert.match(lookup, /reservation_id: matches\[0\], status: "verified"/);
 });

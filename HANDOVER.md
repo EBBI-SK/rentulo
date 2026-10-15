@@ -114,7 +114,7 @@ Autoritatívnou históriou SQL je `supabase/migrations/`; pred pridaním alebo a
 - Nemenné identifikačné čísla: ponuky `N-000001...`, rezervácie `R-000001...` (migrácia `20261009130000_add_offer_and_reservation_numbers.sql`). Ide o verejné referenčné čísla, nie náhradu interného UUID.
 - Stavy: `pending` → `approved` → `paid` → `picked_up` → `returned`; existuje aj `rejected`, `cancelled` a `expired` (nezaplatená rezervácia po bezpečnej kontrole 24-hodinovej lehoty/Stripe). Prechod na `paid` je viazaný na dôveryhodné potvrdenie Stripe; na `picked_up` na bezpečné potvrdenie PIN. Bežný používateľ nemôže tieto stavy ľubovoľne prepísať.
 - Presné kontakty/miesto vyzdvihnutia sa sprístupnia príslušným stranám po zaplatení. Rezervácia ukladá snapshot vyzdvihnutia, aby neskoršia zmena profilu neupravila už uzavreté údaje.
-- **Bežné storno** (nezaplatené `pending`/`approved` podľa roly) má hranicu **6 hodín pred** dohodnutým `start_date + pickup_time` v `Europe/Prague`. **Zaplatené storno** prechádza samostatným autorizovaným Stripe/refund procesom; nájomca má túto časovú hranicu tiež. Potvrdenie odovzdania PIN je od 11. 10. viazané na *kalendárny deň* prevzatia, nie na hodinu `pickup_time`.
+- **Bežné storno** (nezaplatené `pending`/`approved` podľa roly) má hranicu **6 hodín pred** dohodnutým `start_date + pickup_time` v `Europe/Prague`. **Zaplatené storno** prechádza samostatným autorizovaným Stripe/refund procesom; nájomca má túto časovú hranicu tiež. Doterajšie nasadené pravidlo (od 11. 10.) viaže PIN na *kalendárny deň* prevzatia; KROK 79 ho **pripravuje** na celé zaplatené obdobie od `start_date` do `end_date` vrátane, bez zmeny hranice storna.
 - V1 používa minimum **100 CZK/deň** pre ponuku a platformový poplatok **max(10 % z ceny rezervácie, 50 CZK)**.
 
 Najnovšie rozhodujúce migrácie:
@@ -123,7 +123,7 @@ Najnovšie rozhodujúce migrácie:
 - `20261008100000_guard_account_deactivation_financials.sql` – strážne pravidlá deaktivácie účtu.
 - `20261009130000_add_offer_and_reservation_numbers.sql` – referenčné čísla.
 - `20261011103000_guard_pickup_and_remove_test_payment.sql` – odstránenie starej fake-payment RPC a spevnenie prevzatia.
-- **`20261011170000_limit_pickup_pin_to_pickup_day.sql` – posledné platné pravidlo PIN:** `start_date` musí byť **dnešný deň podľa `Europe/Prague`**. Nahrádza predchádzajúcu kontrolu presnej hodiny; ostatné storno pravidlá nemení.
+- **`20261011170000_limit_pickup_pin_to_pickup_day.sql` – aktuálne nasadené pravidlo PIN pred KROKOM 79:** `start_date` musí byť dnešný deň podľa `Europe/Prague`. Pripravovaná (EŠTE NENASADENÁ) migrácia `20261015161000_paid_no_show_settlement_TEST.sql` zmení autorizované prevzatie na celé zaplatené obdobie `start_date`–`end_date` vrátane. Doterajšiu migračnú históriu nemažte.
 - `20261012100000_unify_reservation_notification_outbox.sql` – transakčná rezervačná fronta pre e-mail/SMS, opt-in a bezpečné claim/ack/retry.
 - `20261012101000_schedule_notification_worker.sql` – Vault tajomstvo a databázový cron spoločného notifikačného workera.
 - `20261012150000_harden_reservation_notification_worker.sql` – bezpečné spracovanie fronty pri zlyhaniach a timeoute.
@@ -147,7 +147,7 @@ Na TEST sa používajú **Stripe test/sandbox platby**, nie stará klientská fa
 
 **Stripe už je integrovaný v zdrojovom kóde a testovaný v TEST režime.** Neznamená to pripravenosť na ostré platby. Architektúra: serverové vytvorenie Checkout → dôveryhodný Stripe webhook + audit v `stripe_webhook_events` → zaplatená rezervácia → PIN odovzdanie → pokus o Stripe Connect transfer. Webhook spracovanie a retry majú kontrolu opakovania/idempotencie.
 
-**Bezpečnosť PIN:** šesťmiestny PIN sa odvodzuje na serveri a neukladá v plaintextovom stĺpci. Sprístupňuje sa oprávnenému nájomcovi pri zaplatenej rezervácii, aj vopred pred termínom; **prenajímateľ ho môže použiť na potvrdenie prevzatia len v deň `start_date` podľa Prahy**. Po uplynutí dňa sa už nezobrazuje; po úspešnom odovzdaní zaniká. Tri nesprávne pokusy uzamknú overovanie na 15 minút. Overenie PIN ešte samo neodovzdá vec: nasleduje explicitné **„Předat věc“**. Databáza odmieta prevzatie v nesprávny deň aj pri priamom RPC volaní. Po potvrdení sa rezervácia mení na `picked_up`.
+**Bezpečnosť PIN:** šesťmiestny PIN sa odvodzuje na serveri a neukladá v plaintextovom stĺpci. Sprístupňuje sa oprávnenému nájomcovi pri zaplatenej rezervácii, aj vopred pred termínom; **v doterajšom nasadení ho prenajímateľ mohol použiť iba v deň `start_date`; pripravovaný KROK 79 (nie live) povoľuje použitie od `start_date` po `end_date` vrátane, podľa Prahy**. Po uplynutí celého obdobia sa nezobrazuje; po úspešnom odovzdaní okamžite zaniká a nedá sa použiť znova. Tri nesprávne pokusy uzamknú overovanie na 15 minút. Overenie PIN ešte samo neodovzdá vec: nasleduje explicitné **„Předat věc“**. Databáza odmieta prevzatie v nesprávny deň aj pri priamom RPC volaní. Po potvrdení sa rezervácia mení na `picked_up`.
 
 **Peníze prenajímateľovi:** po úspešnom PIN potvrdení sa iniciuje Stripe transfer; pri dočasnom zlyhaní sa používa worker a cron každých päť minút. Prenos cez Stripe nie je totožný s časom pripísania peňazí na bankový účet.
 
@@ -157,7 +157,7 @@ Na TEST sa používajú **Stripe test/sandbox platby**, nie stará klientská fa
 - Ak zruší prenajímateľ, nájomcovi sa vracia plná suma a príslušný externý náklad môže vzniknúť ako **dlh prenajímateľa** voči Rentulu so splatnosťou **7 dní**. Existuje Stripe Checkout na úhradu tohto dlhu, hodinový reminder a blokovanie schvaľovania nových rezervácií po splatnosti.
 - Vykonanie/refund prechádza bezpečným backendom a Stripe potvrdením; neprisudzovať refund iba podľa vizuálnej zmeny v UI.
 
-**No-show** (nedostavenie sa na prevzatie) zostáva **odloženou témou**, nejde o hotovú funkciu. Presné produkčné účtovné, daňové, Stripe live a payout nastavenie treba pred štartom otestovať a právne/finančne preveriť.
+**No-show** (nedostavenie sa na prevzatie) je **rozpracovaný KROK 79, zatiaľ nie hotová/nasadená funkcia**. Pravidlo: pri nepotvrdení PIN počas celého zaplateného obdobia do 23:59 posledného dňa (Europe/Prague) automaticky ukončiť na `no_show`, uvoľniť termín a bezpečne iniciovať Stripe transfer prenajímateľovi. Pri potvrdení počas obdobia sa PIN jednorazovo spotrebuje a payout sa spustí hneď. Presné produkčné účtovné, daňové, Stripe live a payout nastavenie treba pred štartom otestovať a právne/finančne preveriť.
 
 ## 9. Rezervačné e-maily, SMS a Supabase Auth šablóny
 

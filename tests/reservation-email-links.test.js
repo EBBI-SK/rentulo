@@ -29,6 +29,6 @@ test("reservation email link is not hard-coded to renter reservations", () => {
 });
 
 test("expired email links go to History, not an active reservations page", () => {
-  assert.match(source, /const isExpirationNotice = event === "expired_pending" \|\| event === "expired_approved";/);
+  assert.match(source, /const isExpirationNotice = event === "expired_pending" \|\| event === "expired_approved" \|\| event === "no_show";/);
   assert.match(source, /isExpirationNotice \? "historie\.html"/);
 });

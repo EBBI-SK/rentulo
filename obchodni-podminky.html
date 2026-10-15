@@ -123,7 +123,7 @@
           Platby a refundy zpracovává Stripe. Rentulo samo neposkytuje platební služby a neukládá úplné údaje platebních karet. Pro příjem výplat může majitel potřebovat nastavení Stripe Connect a ověření totožnosti či bankovního účtu přímo u Stripe.
         </p>
         <p data-i18n="terms.section6.item3">
-          Po potvrzení skutečného předání věci jednorázovým PINem zadá Rentulo bez zbytečného odkladu Stripe pokyn k uvolnění výplaty majiteli. Rentulo výplatu záměrně neodkládá do vrácení věci.
+          Po potvrzení skutečného předání věci jednorázovým PINem zadá Rentulo bez zbytečného odkladu Stripe pokyn k uvolnění výplaty majiteli. Stejný pokyn zadá i při automatickém ukončení zaplacené rezervace z důvodu nevyzvednutí podle článku 8. Rentulo výplatu záměrně neodkládá do vrácení věci.
         </p>
         <p data-i18n="terms.section6.item4">Převod a připsání na bankovní účet následně zajišťují Stripe a banky. Zejména první výplata může trvat několik dní; okamžité připsání nelze zaručit.</p>
         <p data-i18n="terms.section6.item5">Při dočasném technickém selhání převodu se Rentulo pokouší výplatu bezpečně zpracovat opakovaně.</p>
@@ -137,18 +137,33 @@
         <p data-i18n="terms.section7.item2">
           Kontaktní údaje smějí účastníci použít jen pro vyřízení dané rezervace, nikoli je bez oprávnění zveřejňovat nebo využívat jinak.
         </p>
-        <p data-i18n="terms.section7.item3">Po zaplacení se nájemci zobrazí jednorázový šestimístný PIN. Majiteli jej sdělí až při skutečném předání věci.</p>
+        <p data-i18n="terms.section7.item3">
+          Po zaplacení se nájemci zobrazí jednorázový šestimístný PIN. K potvrzení předání jej lze použít od prvního do posledního dne zaplaceného období (včetně, podle času Europe/Prague). Nájemce jej sdělí majiteli až při skutečném předání věci. Po potvrzení předání se PIN okamžitě zneplatní a už jej nelze použít znovu.
+        </p>
       </section>
 
       <section class="terms-section">
         <h2 data-i18n="terms.section8.title">8. Předání, používání a vrácení věci</h2>
         <p data-i18n="terms.section8.item1">
-          Majitel při osobním předání zadá PIN od nájemce, zkontroluje správnou rezervaci a potvrdí „Předat věc“. Potvrzení změní stav rezervace a spustí uvolnění výplaty podle článku 6. Obě strany by měly zkontrolovat a případně zdokumentovat stav věci.
+          Majitel při osobním předání zadá PIN od nájemce, zkontroluje správnou rezervaci a potvrdí „Předat věc“. Úspěšné potvrzení okamžitě zneplatní použitý PIN, změní stav rezervace a spustí uvolnění výplaty podle článku 6. Stejný PIN již nelze znovu použít. Obě strany by měly zkontrolovat a případně zdokumentovat stav věci.
         </p>
         <p data-i18n="terms.section8.item2">
           Nájemce věc používá řádně a bezpečně, respektuje pokyny majitele a vrátí ji včas ve stavu odpovídajícím převzetí s přihlédnutím k běžnému opotřebení.
         </p>
         <p data-i18n="terms.section8.item3">Po vrácení majitel potvrdí vrácení v Rentulu. Dokončená rezervace se zobrazí v Historii.</p>
+        <h3 id="nevyzvednuti" data-i18n="terms.section8.noShowTitle">Nevyzvednutí věci (no-show)</h3>
+        <p data-i18n="terms.section8.item4">
+          Zaplacená rezervace zůstává pro převzetí platná od prvního do posledního kalendářního dne sjednaného období (včetně, v časovém pásmu Europe/Prague). Pokud nájemce věc nepřevezme první den, může převzetí dosud nepoužitým PINem potvrdit i v následujících zaplacených dnech; původní termín vrácení se tím neprodlužuje. Není-li předání potvrzeno do 23:59 posledního dne pronájmu, systém po půlnoci při nejbližším automatickém zpracování označí rezervaci jako „Nevyzvednuto“, ukončí ji, uvolní termín a odešle oznámení oběma stranám.
+        </p>
+        <p data-i18n="terms.section8.item5">
+          Po uplynutí celého sjednaného a zaplaceného období bez potvrzeného předání zadá Rentulo Stripe pokyn k převodu nájemného majiteli po odečtení poplatku platformy. Nájemci se platba automaticky nevrací. Tím však není vyloučen případný oprávněný nárok na vrácení celé platby nebo její části, zejména pokud majitel věc řádně neposkytl.
+        </p>
+        <p data-i18n="terms.section8.item6">
+          Majitel musí věc skutečně připravit k předání v dohodnutém místě a čase a poskytnout potřebnou součinnost. Samotná absence potvrzení PINem neprokazuje, že majitel své povinnosti splnil nebo že nevyzvednutí zavinil nájemce. Pokud věc nebyla dostupná nebo vznikl jiný oprávněný problém s předáním, může nájemce spor oznámit na rentulo@rentulo.com; případné finanční vypořádání se posoudí podle okolností, smlouvy a příslušných právních předpisů.
+        </p>
+        <p data-i18n="terms.section8.item7">
+          Toto pravidlo se uplatní jen na rezervace vytvořené po jeho aktivaci a zpřístupnění uživatelům. Dříve vytvořené rezervace se řídí podmínkami platnými při jejich vytvoření. Zákonná práva žádné ze stran tím nejsou dotčena.
+        </p>
       </section>
 
       <section class="terms-section">

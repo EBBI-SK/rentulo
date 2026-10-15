@@ -13,6 +13,7 @@ const ESSENTIAL_EVENTS = new Set([
   "expiry_reminder_approved",
   "expired_pending",          // Booking expired / dates released.
   "expired_approved",
+  "no_show",               // Paid booking closed, dates released, no refund and automatic payout.
 ]);
 
 // Informational status updates, not deadlines or financial receipts.

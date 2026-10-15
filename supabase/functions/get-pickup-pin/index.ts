@@ -115,7 +115,7 @@ denoRuntime.serve(async (req) => {
 
   const { data: reservation, error: reservationError } = await admin
     .from("reservations")
-    .select("id, renter_id, owner_id, status, start_date")
+    .select("id, renter_id, owner_id, status, start_date, end_date")
     .eq("id", reservationId)
     .single();
 
@@ -131,11 +131,11 @@ denoRuntime.serve(async (req) => {
     return jsonResponse({ error: "Pickup PIN is not available", code: "pin_unavailable" }, 409);
   }
 
-  // Future reservations retain their PIN; past pickup dates must not reveal one.
-  // Use Prague's calendar date, never the server's UTC date or the client's clock.
-  if (reservation.start_date < getPragueCalendarDate()) {
+  // The PIN is visible after payment and usable throughout the reserved period.
+  // After the LAST rental calendar day in Prague it must never be revealed.
+  if (reservation.end_date < getPragueCalendarDate()) {
     return jsonResponse({
-      error: "The scheduled pickup date has passed",
+      error: "The paid rental period has ended",
       code: "pickup_day_expired",
     }, 409);
   }

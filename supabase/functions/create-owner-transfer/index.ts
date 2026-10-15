@@ -235,7 +235,7 @@ denoRuntime.serve(async (req) => {
     payment.stripe_payment_intent_status !== "succeeded" ||
     !payment.stripe_payment_intent_id ||
     !payment.stripe_charge_id ||
-    !["picked_up", "returned"].includes(reservation.status)
+    !["picked_up", "returned", "no_show"].includes(reservation.status)
   ) {
     return jsonResponse({ error: "Transfer is not allowed for this reservation" }, 409);
   }
