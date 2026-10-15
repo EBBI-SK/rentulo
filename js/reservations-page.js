@@ -109,6 +109,16 @@ function formatReservationScheduleValue(dateValue, timeValue) {
   return dateText + " " + getReservationScheduleCopy().at + " " + timeText;
 }
 
+function reservationsExpirationText(reason) {
+  if (reason === "owner_no_response") {
+    return reservationsTranslate("reservations.expiration.ownerExpired", "Majitel žádost nepotvrdil včas.");
+  }
+  if (reason === "payment_timeout") {
+    return reservationsTranslate("reservations.expiration.paymentExpired", "Platbu jste nedokončili včas.");
+  }
+  return reservationsTranslate("reservations.expiration.unknown", "Lhůta vypršela. Důvod není k dispozici.");
+}
+
   const PLATFORM_FEE_PERCENT = 10;
     let supabaseReservations = [];
     let reservationsLoadState = "idle";
@@ -1369,12 +1379,7 @@ return (
           </div>
 
           ${deadlineNote ? `<p class="reservation-expiration-note">${deadlineNote}</p>` : ""}
-          ${normalizedStatus === RESERVATION_STATUS_EXPIRED ? `<p class="reservation-expiration-note">${escapeHtml(reservationsTranslate(
-            reservation.expiryReason === "owner_no_response"
-              ? "reservations.expiration.ownerExpired" : "reservations.expiration.paymentExpired",
-            reservation.expiryReason === "owner_no_response"
-              ? "Majitel nepotvrdil žádost včas." : "Rezervace nebyla zaplacena včas."
-          ))}</p>` : ""}
+          ${normalizedStatus === RESERVATION_STATUS_EXPIRED ? `<p class="reservation-expiration-note">${escapeHtml(reservationsExpirationText(reservation.expiryReason))}</p>` : ""}
           ${renderReservationStateBox(reservation, status)}
 
           ${renderPaymentBox(reservation, status)}

@@ -197,15 +197,20 @@ function historyStatusText(status) {
     (typeof getReservationStatusText === "function" ? getReservationStatusText(normalizedStatus) : String(status || ""));
 }
 
-function historyExpirationReasonText(reservation) {
+function historyExpirationReasonText(reservation, role) {
   if (historyNormalizeStatus(reservation.status) !== "expired") return "";
 
   const reason = String(reservation.expiry_reason || reservation.expiryReason || "").trim();
+  const isOwner = role === "owner";
   if (reason === "owner_no_response") {
-    return historyT("history.expiry.ownerNoResponse", "Majitel žádost nepotvrdil ve stanovené lhůtě.");
+    return isOwner
+      ? historyT("history.expiry.ownerNoResponse.owner", "Žádost jste nepotvrdili ve stanovené lhůtě.")
+      : historyT("history.expiry.ownerNoResponse.renter", "Majitel žádost nepotvrdil ve stanovené lhůtě.");
   }
   if (reason === "payment_timeout") {
-    return historyT("history.expiry.paymentTimeout", "Platba nebyla dokončena ve stanovené lhůtě.");
+    return isOwner
+      ? historyT("history.expiry.paymentTimeout.owner", "Zájemce nedokončil platbu ve stanovené lhůtě.")
+      : historyT("history.expiry.paymentTimeout.renter", "Platbu jste nedokončili ve stanovené lhůtě.");
   }
 
   return historyT("history.expiry.unknown", "Důvod vypršení není k dispozici.");
@@ -332,7 +337,7 @@ function historyRenderDetail(reservation, role) {
   const endDate = reservation.date_to || reservation.end_date || reservation.endDate || "";
   const price = Number(reservation.total_price || reservation.totalPrice || 0);
   const counterpart = historyGetCounterpart(reservation, role);
-  const expiryReason = historyExpirationReasonText(reservation);
+  const expiryReason = historyExpirationReasonText(reservation, role);
 
   return `
     <div class="history-detail" id="history-detail-${escapeHtml(reservationId)}-${escapeHtml(role)}">

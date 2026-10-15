@@ -99,7 +99,7 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
     expiry_reminder_pending: ["Žádost brzy vyprší", "Na vaši reakci zbývají nejvýše 4 hodiny. Rozhodněte o žádosti, jinak se termín automaticky uvolní."],
     expiry_reminder_approved: ["Čas na zaplacení končí", "Na zaplacení zbývají nejvýše 4 hodiny. Pokud nezaplatíte včas, rezervace vyprší."],
     expired_pending: ["Žádost vypršela", "Majitel žádost nepotvrdil ve stanovené lhůtě. Rezervace vypršela a termín je znovu volný."],
-    expired_approved: ["Nezaplacená rezervace vypršela", "Platba nebyla dokončena ve stanovené lhůtě. Rezervace vypršela a termín je znovu volný."],
+    expired_approved: ["Nezaplacená rezervace vypršela", "Platbu jste nedokončili ve stanovené lhůtě. Rezervace vypršela a termín je znovu volný."],
   },
   sk: {
     new_request: ["Nová žiadosť o požičanie", "Pri vašej ponuke čaká nová žiadosť o požičanie."],
@@ -112,7 +112,7 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
     expiry_reminder_pending: ["Žiadosť čoskoro vyprší", "Na vašu reakciu zostávajú najviac 4 hodiny. Rozhodnite o žiadosti, inak sa termín automaticky uvoľní."],
     expiry_reminder_approved: ["Čas na zaplatenie sa končí", "Na zaplatenie zostávajú najviac 4 hodiny. Ak nezaplatíte včas, rezervácia vyprší."],
     expired_pending: ["Žiadosť vypršala", "Majiteľ žiadosť nepotvrdil v stanovenej lehote. Rezervácia vypršala a termín je opäť voľný."],
-    expired_approved: ["Nezaplatená rezervácia vypršala", "Platba nebola dokončená v stanovenej lehote. Rezervácia vypršala a termín je opäť voľný."],
+    expired_approved: ["Nezaplatená rezervácia vypršala", "Platbu ste nedokončili v stanovenej lehote. Rezervácia vypršala a termín je opäť voľný."],
   },
   en: {
     new_request: ["New rental request", "A new rental request is waiting for your listing."],
@@ -124,8 +124,8 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
     returned: ["Item returned", "The rental was marked as completed."],
     expiry_reminder_pending: ["Rental request expires soon", "You have up to 4 hours left to respond. Approve or reject the request before its deadline."],
     expiry_reminder_approved: ["Payment deadline approaching", "You have up to 4 hours left to pay. The reservation will expire if payment is not completed."],
-    expired_pending: ["Rental request expired", "The owner did not approve the request before the deadline. The rental dates are available again."],
-    expired_approved: ["Unpaid reservation expired", "Payment was not completed by the deadline. The reservation has expired and the dates are available again."],
+    expired_pending: ["Rental request expired", "The owner did not approve the request within the deadline. The rental dates are available again."],
+    expired_approved: ["Unpaid reservation expired", "You did not complete the payment before the deadline. The reservation has expired and the dates are available again."],
   },
   de: {
     new_request: ["Neue Mietanfrage", "Für Ihr Angebot wartet eine neue Mietanfrage."],
@@ -137,8 +137,8 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
     returned: ["Gegenstand zurückgegeben", "Die Vermietung wurde als abgeschlossen markiert."],
     expiry_reminder_pending: ["Mietanfrage läuft bald ab", "Sie haben höchstens 4 Stunden, um zu reagieren. Entscheiden Sie vor Ablauf der Frist über die Anfrage."],
     expiry_reminder_approved: ["Zahlungsfrist endet bald", "Sie haben höchstens 4 Stunden für die Zahlung. Andernfalls läuft die Reservierung ab."],
-    expired_pending: ["Mietanfrage abgelaufen", "Der Eigentümer hat die Anfrage nicht rechtzeitig bestätigt. Der Zeitraum ist wieder frei."],
-    expired_approved: ["Unbezahlte Reservierung abgelaufen", "Die Zahlung wurde nicht rechtzeitig abgeschlossen. Die Reservierung ist abgelaufen und der Zeitraum wieder frei."],
+    expired_pending: ["Mietanfrage abgelaufen", "Der Eigentümer hat die Anfrage nicht innerhalb der Frist bestätigt. Der Zeitraum ist wieder frei."],
+    expired_approved: ["Unbezahlte Reservierung abgelaufen", "Sie haben die Zahlung nicht fristgerecht abgeschlossen. Die Reservierung ist abgelaufen und der Zeitraum wieder frei."],
   },
   pl: {
     new_request: ["Nowa prośba o wypożyczenie", "Nowa prośba o wypożyczenie oczekuje przy Twojej ofercie."],
@@ -150,8 +150,32 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
     returned: ["Rzecz została zwrócona", "Wypożyczenie zostało oznaczone jako zakończone."],
     expiry_reminder_pending: ["Prośba wkrótce wygaśnie", "Pozostały maksymalnie 4 godziny na decyzję. Odpowiedz na prośbę przed upływem terminu."],
     expiry_reminder_approved: ["Termin płatności wkrótce minie", "Pozostały maksymalnie 4 godziny na płatność. W przeciwnym razie rezerwacja wygaśnie."],
-    expired_pending: ["Prośba wygasła", "Właściciel nie zatwierdził prośby w terminie. Daty są ponownie dostępne."],
-    expired_approved: ["Nieopłacona rezerwacja wygasła", "Płatność nie została zrealizowana w terminie. Rezerwacja wygasła, a daty są ponownie dostępne."],
+    expired_pending: ["Prośba wygasła", "Właściciel nie zatwierdził prośby w wyznaczonym terminie. Daty są ponownie dostępne."],
+    expired_approved: ["Nieopłacona rezerwacja wygasła", "Nie udało Ci się dokończyć płatności w wyznaczonym terminie. Rezerwacja wygasła, a daty są ponownie dostępne."],
+  },
+};
+
+// Expiration is delivered to both parties: use the recipient perspective, not one shared sentence.
+const expiredOwnerIntros: Record<SupportedLanguage, Record<"expired_pending" | "expired_approved", string>> = {
+  cs: {
+    expired_pending: "Žádost jste nepotvrdili ve stanovené lhůtě. Rezervace vypršela a termín je znovu volný.",
+    expired_approved: "Zájemce nedokončil platbu ve stanovené lhůtě. Rezervace vypršela a termín je znovu volný.",
+  },
+  sk: {
+    expired_pending: "Žiadosť ste nepotvrdili v stanovenej lehote. Rezervácia vypršala a termín je opäť voľný.",
+    expired_approved: "Záujemca nedokončil platbu v stanovenej lehote. Rezervácia vypršala a termín je opäť voľný.",
+  },
+  en: {
+    expired_pending: "You did not approve the request before the deadline. The reservation has expired and the dates are available again.",
+    expired_approved: "The renter did not complete the payment before the deadline. The reservation has expired and the dates are available again.",
+  },
+  de: {
+    expired_pending: "Sie haben die Anfrage nicht fristgerecht bestätigt. Die Reservierung ist abgelaufen und der Zeitraum wieder frei.",
+    expired_approved: "Der Mieter hat die Zahlung nicht fristgerecht abgeschlossen. Die Reservierung ist abgelaufen und der Zeitraum wieder frei.",
+  },
+  pl: {
+    expired_pending: "Nie udało Ci się zatwierdzić prośby w wyznaczonym terminie. Rezerwacja wygasła, a daty są ponownie dostępne.",
+    expired_approved: "Najemca nie dokończył płatności w wyznaczonym terminie. Rezerwacja wygasła, a daty są ponownie dostępne.",
   },
 };
 
@@ -709,7 +733,8 @@ denoRuntime.serve(async (req) => {
 
     const language = normalizeLanguage(profile.preferred_language);
     const recipientIsOwner = profile.id === reservation.owner_id;
-    const detailUrl = `${siteUrl}/${recipientIsOwner ? "moje-nabidky.html" : "moje-rezervace.html"}`;
+    const isExpirationNotice = event === "expired_pending" || event === "expired_approved";
+    const detailUrl = `${siteUrl}/${isExpirationNotice ? "historie.html" : recipientIsOwner ? "moje-nabidky.html" : "moje-rezervace.html"}`;
     const offerName = reservation.offer_name || "Rentulo";
     const dateText = `${formatReservationDate(reservation.start_date, language)} \u2013 ${formatReservationDate(reservation.end_date, language)}`;
 
@@ -733,6 +758,9 @@ denoRuntime.serve(async (req) => {
       extraHtml = paidMessage.financialHtml;
     } else {
       [subject, intro] = templates[language][event as StandardEmailEvent];
+      if (recipientIsOwner && (event === "expired_pending" || event === "expired_approved")) {
+        intro = expiredOwnerIntros[language][event];
+      }
       if (event.startsWith("expiry_reminder_") && reservation.expires_at) {
         const deadline = new Intl.DateTimeFormat(dateLocales[language], {
           dateStyle: "short", timeStyle: "short", timeZone: "Europe/Prague",
