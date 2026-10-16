@@ -136,13 +136,13 @@ test("renter cutoff explanation stays grouped directly below the disabled cancel
   );
 });
 
-test("locked renter cancellation keeps both detail actions together beside the cutoff block", () => {
+test("locked renter cancellation keeps reservation detail action beside the cutoff block", () => {
   const page = read(RENTER_PAGE_PATH);
   const renterHtml = read(RENTER_HTML_PATH);
 
   assert.match(
     page,
-    /class="reservation-detail-action-group"[\s\S]*\$\{detailAction\}[\s\S]*\$\{offerDetailAction\}/
+    /class="reservation-detail-action-group"[\s\S]*\$\{detailAction\}/
   );
   assert.match(
     renterHtml,
@@ -154,7 +154,7 @@ test("locked renter cancellation keeps both detail actions together beside the c
   );
   assert.match(
     renterHtml,
-    /@media \(max-width: 560px\)[\s\S]*\.simple-reservation-actions \.reservation-detail-action-group \{[\s\S]*grid-column: 1 \/ -1;[\s\S]*grid-template-columns: 1fr 1fr;/
+    /@media \(max-width: 560px\)[\s\S]*\.simple-reservation-actions \.reservation-detail-action-group \{[\s\S]*grid-column: 1 \/ -1;[\s\S]*grid-template-columns: 1fr;/
   );
 });
 

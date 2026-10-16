@@ -1417,7 +1417,6 @@ return (
       const endDate = getSafeReservationDateTo(reservation);
       const totalPrice = getSafeReservationTotalPrice(reservation);
       const reservationId = reservation.id || reservation.reservationId;
-      const offerId = getSafeReservationOfferId(reservation);
       const isPaymentRequired = canRenterPayReservation(reservation);
       const isPriority = (
         isPaymentRequired ||
@@ -1440,14 +1439,6 @@ return (
           ${escapeHtml(reservationsTranslate("home.mapOpenDetail", "Zobrazit detail"))}
         </button>
       `;
-
-      const offerDetailAction = offerId
-        ? `
-          <a class="reservation-primary-action offer-detail-link" href="detail.html?id=${encodeURIComponent(offerId)}">
-            ${escapeHtml(reservationsTranslate("reservations.offerDetail", "Detail nabídky"))}
-          </a>
-        `
-        : "";
 
       return `
   <article class="simple-reservation-row ${isPriority ? "priority" : ""}" data-pickup-date="${escapeHtml(startDate)}" data-pickup-end-date="${escapeHtml(endDate)}" data-pickup-time="${escapeHtml(reservation.pickupTime || '')}">
@@ -1478,7 +1469,6 @@ return (
       ${cancellationAction}
       <div class="reservation-detail-action-group">
         ${detailAction}
-        ${offerDetailAction}
       </div>
     </div>
 

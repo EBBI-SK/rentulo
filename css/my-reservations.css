@@ -539,13 +539,6 @@ body.reservation-modal-open {
   color: #ffffff;
 }
 
-.reservation-primary-action.offer-detail-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  text-decoration: none;
-}
-
 .detail-row .reservation-detail-panel {
   padding: 16px 18px 18px;
 }
