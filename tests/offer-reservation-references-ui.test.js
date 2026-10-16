@@ -111,7 +111,6 @@ test("renter list and detail show immutable labels while actions still use UUID"
   assert.equal(row.offerNumber, "N-000002");
   assert.match(reservations, /simple-reservation-info[\s\S]*?reservation\.reservationNumber/);
   assert.match(reservations, /data-reservations-action="toggle-detail" data-reservation-id="\$\{escapeHtml\(reservationId\)\}"/);
-  assert.match(reservations, /detail\.html\?id=\$\{encodeURIComponent\(offerId\)\}/);
 
   const render = extractFunction(reservations, "renderReservationDetailPanel", "function renderReservationCard");
   const html = render({ status: "pending", totalPrice: 250, startDate: "2026-10-15", endDate: "2026-10-16",
@@ -119,6 +118,21 @@ test("renter list and detail show immutable labels while actions still use UUID"
   assert.match(html, /Číslo rezervace<\/span><strong>R-000011&lt;script&gt;<\/strong>/);
   assert.match(html, /Číslo nabídky<\/span><strong>N-000002&amp;<\/strong>/);
   assert.doesNotMatch(html, /<script>/);
+});
+
+test("renter reservation rows show only reservation details, without offer detail link", () => {
+  const start = reservations.indexOf("function renderReservationCard(reservation)");
+  const end = reservations.indexOf("function renderReservationList(reservations)", start);
+  assert.ok(start >= 0 && end > start, "renter reservation card renderer exists");
+  const card = reservations.slice(start, end);
+  assert.match(card, /data-reservations-action="toggle-detail"/);
+  assert.match(card, /\$\{detailAction\}/);
+  assert.doesNotMatch(card, /offer-detail-link|offerDetailAction|detail\.html\?id=/);
+
+  const page = read("moje-rezervace.html");
+  assert.doesNotMatch(page, /\.offer-detail-link/);
+  assert.doesNotMatch(read("css/my-reservations.css"), /\.offer-detail-link/);
+  assert.match(page, /@media \(max-width: 560px\)[\s\S]*?\.simple-reservation-actions \.reservation-detail-action-group \{[\s\S]*?grid-template-columns: 1fr;/);
 });
 
 test("history shows reference on each row and both references in detail", () => {

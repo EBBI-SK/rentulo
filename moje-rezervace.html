@@ -183,22 +183,13 @@
       box-shadow: none !important;
     }
 
-    /* Reservation detail is an informational action, so it uses the same quiet mint style as offer detail. */
+    /* Reservation detail is an informational action with a quiet mint style. */
     .simple-reservation-actions [data-reservations-action="toggle-detail"] {
       background: #edf5f1 !important;
       color: #173f35 !important;
     }
 
     .simple-reservation-actions [data-reservations-action="toggle-detail"]:hover {
-      background: #e2f0e9 !important;
-    }
-
-    .simple-reservation-actions .offer-detail-link {
-      background: #edf5f1 !important;
-      color: #173f35 !important;
-    }
-
-    .simple-reservation-actions .offer-detail-link:hover {
       background: #e2f0e9 !important;
     }
 
@@ -459,8 +450,7 @@
         width: 100%;
       }
 
-      .simple-reservation-actions .reservation-primary-action,
-      .simple-reservation-actions .offer-detail-link {
+      .simple-reservation-actions .reservation-primary-action {
         width: 100%;
       }
 
@@ -477,7 +467,7 @@
       .simple-reservation-actions .reservation-detail-action-group {
         display: grid;
         grid-column: 1 / -1;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
         gap: 10px;
         width: 100%;
       }
