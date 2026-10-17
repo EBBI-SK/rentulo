@@ -176,6 +176,12 @@ function isReservationCancellationWindowOpen(reservation, nowValue) {
     return false;
   }
 
+  // An unapproved request can be withdrawn before any rental is confirmed.
+  // This is not ordinary cancellation of an approved/paid rental.
+  if (getReservationStatus(reservation) === RESERVATION_STATUS_PENDING) {
+    return true;
+  }
+
   const cutoff = getReservationCancellationCutoffAt(reservation);
 
   if (!cutoff) {
@@ -405,6 +411,10 @@ function installReservationCancellationCutoffUi() {
 
     window.renderReservationDetailActions = function (reservation, status) {
       if (!canRenterCancelReservation(reservation)) {
+        return originalRenderReservationDetailActions(reservation, status);
+      }
+
+      if (getReservationStatus(reservation) === RESERVATION_STATUS_PENDING) {
         return originalRenderReservationDetailActions(reservation, status);
       }
 
