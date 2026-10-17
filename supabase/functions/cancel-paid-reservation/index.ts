@@ -340,7 +340,7 @@ denoRuntime.serve(async (req) => {
   const actor = userData.user;
   if (userError || !actor) return jsonResponse({ error: "Unauthorized" }, 401);
 
-  let payload: { reservation_id?: string; action?: CancellationAction };
+  let payload: { reservation_id?: string; action?: CancellationAction; exceptional_reason?: string };
   try {
     payload = await req.json();
   } catch {
@@ -367,6 +367,26 @@ denoRuntime.serve(async (req) => {
   }
 
   const context = contextResult.data[0] as CancellationContext;
+
+  // Only a genuine owner may attest that the booked item cannot be handed
+  // over after the applicable (per-reservation) ordinary-cancellation cutoff.
+  // The refund still uses the existing full-renter-refund Stripe path.
+  // Retries of an already begun cancellation reuse its saved financial state.
+  if (!context.cancellation_id) {
+    const cutoffMs = Date.parse(context.cancellation_cutoff_at || "");
+    if (!Number.isFinite(cutoffMs)) {
+      return jsonResponse({ error: "Reservation cancellation deadline is unavailable" }, 409);
+    }
+    const afterCutoff = Date.now() >= cutoffMs;
+    if (afterCutoff && (
+      context.actor_role !== "owner" || payload.exceptional_reason !== "owner_unavailable"
+    )) {
+      return jsonResponse({ error: "Ordinary cancellation deadline has passed" }, 409);
+    }
+    if (!afterCutoff && payload.exceptional_reason) {
+      return jsonResponse({ error: "An exceptional cancellation reason is not needed yet" }, 400);
+    }
+  }
 
   if (action === "preview" && context.cancellation_id) {
     return jsonResponse({ error: "Reservation cancellation is already in progress" }, 409);
