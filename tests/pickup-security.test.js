@@ -99,14 +99,12 @@ test("browser can no longer directly change paid to picked_up", () => {
   assert.match(sql, /current_setting\('app\.pickup_pin_authorized', true\) = 'on'/i);
 });
 
-test("successful pickup triggers internal owner transfer without rolling pickup back on transfer failure", () => {
+test("successful pickup consumes PIN but never initiates a Stripe transfer", () => {
   const source = read(CONFIRM);
-  const pickupIndex = source.indexOf('admin.rpc("confirm_reservation_pickup"');
-  const transferIndex = source.indexOf("/functions/v1/create-owner-transfer");
-  assert.ok(pickupIndex >= 0);
-  assert.ok(transferIndex > pickupIndex);
-  assert.match(source, /transfer_status: transferStatus/);
-  assert.match(source, /will require retry/);
+  assert.match(source, /admin\.rpc\("confirm_reservation_pickup"/);
+  assert.doesNotMatch(source, /\/functions\/v1\/create-owner-transfer/);
+  assert.match(source, /transfer_status: "not_created"/);
+  assert.match(source, /status: "picked_up"/);
 });
 
 test("owner handoff starts from one clear PIN entry above the offers without a cancel action", () => {

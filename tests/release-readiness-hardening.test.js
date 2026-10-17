@@ -67,14 +67,15 @@ test("owner lookup verifies paid reservations only inside the exact scheduled re
   assert.match(lookup, /reservation_id: matches\[0\], status: "verified"/);
 });
 
-test("wrong-day pickup cannot initiate a Stripe transfer, even through a direct RPC call", () => {
+test("wrong-day pickup is rejected and a successful pickup also never initiates Stripe transfer", () => {
   const guard = edge.indexOf('admin.rpc("confirm_reservation_pickup"');
-  const payout = edge.indexOf('/functions/v1/create-owner-transfer');
-  assert.ok(guard >= 0 && payout > guard);
-  assert.match(edge.slice(guard, payout), /pickupResult\.error/);
-  assert.match(edge.slice(guard, payout), /message\.includes\("PICKUP_WRONG_DAY"\)/);
-  assert.match(edge.slice(guard, payout), /code: "pickup_wrong_day"/);
-  assert.match(edge.slice(guard, payout), /return jsonResponse\(/);
+  assert.ok(guard >= 0);
+  assert.match(edge.slice(guard), /pickupResult\.error/);
+  assert.match(edge.slice(guard), /message\.includes\("PICKUP_WRONG_DAY"\)/);
+  assert.match(edge.slice(guard), /code: "pickup_wrong_day"/);
+  assert.match(edge.slice(guard), /return jsonResponse\(/);
+  assert.doesNotMatch(edge, /\/functions\/v1\/create-owner-transfer/);
+  assert.match(edge, /transfer_status: "not_created"/);
   assert.match(pickupDayMigration, /app\.pickup_pin_authorized/);
 });
 

@@ -111,14 +111,18 @@ test("no-show settlement fails closed before altering any financial state", () =
   assert.match(db, /revoke all on function public\.process_due_reservation_no_shows\(integer\)[\s\S]*?from public, anon, authenticated, service_role/);
 });
 
-test("owner Stripe transfer is admitted only through existing idempotent claim and record", () => {
-  assert.match(edge, /\["picked_up", "returned", "no_show"\]\.includes\(reservation\.status\)/);
-  assert.match(db, /v_reservation_status not in \('picked_up', 'returned', 'no_show'\)/);
-  assert.match(db, /v_reservation\.status not in \('picked_up', 'returned', 'no_show'\)/);
-  assert.match(db, /r\.status in \('picked_up', 'returned', 'no_show'\)/);
+test("paid no-show remains payout-eligible while pickup alone never triggers a transfer", () => {
+  const delayed = read("supabase/migrations/20261018001000_transfer_only_after_return_TEST.sql");
+  assert.match(edge, /\["returned", "no_show"\]\.includes\(reservation\.status\)/);
+  assert.match(delayed, /v_reservation_status not in \('returned', 'no_show'\)/);
+  assert.match(delayed, /v_reservation\.status not in \('returned', 'no_show'\)/);
+  assert.match(delayed, /r\.status in \('returned', 'no_show'\)/);
+  assert.doesNotMatch(delayed, /r\.status in \('picked_up', 'returned', 'no_show'\)/);
   assert.match(edge, /Idempotency-Key.*rentulo-owner-transfer-\$\{payment\.id\}/s);
   assert.match(edge, /payment\.refund_status !== "not_requested"/);
-  assert.match(db, /p\.transfer_attempt_count = p_attempt_count/);
+  assert.match(delayed, /p\.transfer_attempt_count = p_attempt_count/);
+  // Historical no-show settlement itself is unchanged.
+  assert.match(db, /create or replace function public\.process_due_reservation_no_shows/);
 });
 
 test("unpaid Stripe transfer on no-show blocks owner account deactivation", () => {
