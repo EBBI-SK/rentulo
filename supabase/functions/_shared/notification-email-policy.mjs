@@ -14,6 +14,9 @@ const ESSENTIAL_EVENTS = new Set([
   "expired_pending",          // Booking expired / dates released.
   "expired_approved",
   "no_show",               // Paid booking closed, dates released, no refund and automatic payout.
+  "return_reminder_30m",   // Owner must confirm an actual return, not an assumed delay.
+  "return_reminder_2h",    // Owner should confirm return or report a real problem.
+  "return_not_received",  // Renter is notified only after owner explicitly reports non-return.
 ]);
 
 // Informational status updates, not deadlines or financial receipts.

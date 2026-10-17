@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { shouldDeliverReservationEmail } from "../_shared/notification-email-policy.mjs";
+import { pragueRentalInstant } from "../_shared/prague-rental-window.mjs";
 
 type RentuloDenoRuntime = {
   serve(handler: (request: Request) => Response | Promise<Response>): void;
@@ -47,7 +48,10 @@ type EmailEvent =
   | "expiry_reminder_approved"
   | "expired_pending"
   | "expired_approved"
-  | "no_show";
+  | "no_show"
+  | "return_reminder_30m"
+  | "return_reminder_2h"
+  | "return_not_received";
 
 type StandardEmailEvent = Exclude<EmailEvent, "paid_cancelled">;
 
@@ -87,6 +91,9 @@ const eventStatus: Record<EmailEvent, string> = {
   expired_pending: "expired",
   expired_approved: "expired",
   no_show: "no_show",
+  return_reminder_30m: "picked_up",
+  return_reminder_2h: "picked_up",
+  return_not_received: "picked_up",
 };
 
 const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [string, string]>> = {
@@ -103,6 +110,9 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
     expired_pending: ["Žádost vypršela", "Majitel žádost nepotvrdil ve stanovené lhůtě. Rezervace vypršela a termín je znovu volný."],
     expired_approved: ["Nezaplacená rezervace vypršela", "Platbu jste nedokončili ve stanovené lhůtě. Rezervace vypršela a termín je znovu volný."],
     no_show: ["Věc nebyla vyzvednuta", "Věc jste si nevyzvedli do konce celého zaplaceného období. Rezervace byla automaticky ukončena, termín je opět dostupný a platba se automaticky nevrací. Pokud majitel věc nepřipravil, můžete případ reklamovat."],
+    return_reminder_30m: ['Připomeňte potvrzení vrácení věci', 'Od sjednaného času vrácení uplynulo 30 minut. Pokud už máte věc zpět, potvrďte vrácení v Moje nabídky. Neznamená to, že nájemce věc nevrátil.'],
+    return_reminder_2h: ['Vrácení stále není potvrzené', 'Od sjednaného času vrácení uplynuly 2 hodiny. Pokud máte věc zpět, potvrďte vrácení. Jen pokud se věc skutečně nevrátila, můžete v Moje nabídky nahlásit problém.'],
+    return_not_received: ['Majitel nahlásil nevrácení věci', 'Majitel uvedl, že věc nebyla vrácena ve sjednaném termínu. Spojte se s majitelem a situaci vyřešte. Nahlášení automaticky neznamená pokutu ani změnu platby.'],
   },
   sk: {
     new_request: ["Nová žiadosť o požičanie", "Pri vašej ponuke čaká nová žiadosť o požičanie."],
@@ -117,6 +127,9 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
     expired_pending: ["Žiadosť vypršala", "Majiteľ žiadosť nepotvrdil v stanovenej lehote. Rezervácia vypršala a termín je opäť voľný."],
     expired_approved: ["Nezaplatená rezervácia vypršala", "Platbu ste nedokončili v stanovenej lehote. Rezervácia vypršala a termín je opäť voľný."],
     no_show: ["Vec nebola vyzdvihnutá", "Vec ste si nevyzdvihli do konca celého zaplateného obdobia. Rezervácia sa automaticky ukončila, termín je opäť dostupný a platba sa automaticky nevracia. Ak majiteľ vec nepripravil, môžete prípad reklamovať."],
+    return_reminder_30m: ['Pripomeňte si potvrdenie vrátenia veci', 'Od dohodnutého času vrátenia uplynulo 30 minút. Ak už máte vec späť, potvrďte vrátenie v Moje ponuky. Neznamená to, že nájomca vec nevrátil.'],
+    return_reminder_2h: ['Vrátenie stále nie je potvrdené', 'Od dohodnutého času vrátenia uplynuli 2 hodiny. Ak máte vec späť, potvrďte vrátenie. Iba ak vec skutočne nebola vrátená, môžete v Moje ponuky nahlásiť problém.'],
+    return_not_received: ['Majiteľ nahlásil nevrátenie veci', 'Majiteľ uviedol, že vec nebola vrátená v dohodnutom čase. Spojte sa s majiteľom a situáciu vyriešte. Nahlásenie automaticky neznamená pokutu ani zmenu platby.'],
   },
   en: {
     new_request: ["New rental request", "A new rental request is waiting for your listing."],
@@ -131,6 +144,9 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
     expired_pending: ["Rental request expired", "The owner did not approve the request within the deadline. The rental dates are available again."],
     expired_approved: ["Unpaid reservation expired", "You did not complete the payment before the deadline. The reservation has expired and the dates are available again."],
     no_show: ["Item not collected", "You did not collect the item by the end of the entire paid rental period. The reservation has closed automatically, the dates are available again and the payment is not automatically refunded. You may dispute a failure by the owner to provide the item."],
+    return_reminder_30m: ['Please confirm the return if completed', '30 minutes have passed since the agreed return time. If you already have your item back, confirm its return in My listings. This does not mean the renter failed to return it.'],
+    return_reminder_2h: ['The return is still unconfirmed', 'Two hours have passed since the agreed return time. If the item was returned, confirm it. Only if the item was not actually returned should you report a problem in My listings.'],
+    return_not_received: ['Owner reported an item not returned', 'The owner reported that the item was not returned at the agreed time. Please contact the owner to resolve the matter. This report does not automatically impose a penalty or change any payment.'],
   },
   de: {
     new_request: ["Neue Mietanfrage", "Für Ihr Angebot wartet eine neue Mietanfrage."],
@@ -145,6 +161,9 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
     expired_pending: ["Mietanfrage abgelaufen", "Der Eigentümer hat die Anfrage nicht innerhalb der Frist bestätigt. Der Zeitraum ist wieder frei."],
     expired_approved: ["Unbezahlte Reservierung abgelaufen", "Sie haben die Zahlung nicht fristgerecht abgeschlossen. Die Reservierung ist abgelaufen und der Zeitraum wieder frei."],
     no_show: ["Gegenstand nicht abgeholt", "Sie haben den Gegenstand bis zum Ende des gesamten bezahlten Mietzeitraums nicht abgeholt. Die Buchung wurde automatisch beendet, der Zeitraum ist wieder frei und die Zahlung wird nicht automatisch erstattet. War der Gegenstand nicht verfügbar, können Sie dies reklamieren."],
+    return_reminder_30m: ['Bitte bestätigen Sie die Rückgabe', 'Seit der vereinbarten Rückgabe sind 30 Minuten vergangen. Wenn Sie den Gegenstand bereits zurückerhalten haben, bestätigen Sie dies unter Meine Angebote. Dies ist keine Feststellung einer verspäteten Rückgabe.'],
+    return_reminder_2h: ['Rückgabe weiterhin nicht bestätigt', 'Seit der vereinbarten Rückgabe sind zwei Stunden vergangen. Bestätigen Sie die Rückgabe, wenn Sie den Gegenstand zurückhaben. Melden Sie nur dann ein Problem, wenn er tatsächlich nicht zurückgegeben wurde.'],
+    return_not_received: ['Eigentümer meldet ausstehende Rückgabe', 'Der Eigentümer hat gemeldet, dass der Gegenstand nicht rechtzeitig zurückgegeben wurde. Bitte klären Sie die Situation direkt mit dem Eigentümer. Durch die Meldung entstehen keine automatischen Strafen oder Zahlungsänderungen.'],
   },
   pl: {
     new_request: ["Nowa prośba o wypożyczenie", "Nowa prośba o wypożyczenie oczekuje przy Twojej ofercie."],
@@ -159,6 +178,9 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
     expired_pending: ["Prośba wygasła", "Właściciel nie zatwierdził prośby w wyznaczonym terminie. Daty są ponownie dostępne."],
     expired_approved: ["Nieopłacona rezerwacja wygasła", "Nie udało Ci się dokończyć płatności w wyznaczonym terminie. Rezerwacja wygasła, a daty są ponownie dostępne."],
     no_show: ["Rzecz nie została odebrana", "Nie odebrano rzeczy do końca całego opłaconego okresu najmu. Rezerwacja została automatycznie zakończona, termin jest ponownie dostępny, a płatność nie jest automatycznie zwracana. Jeśli właściciel nie udostępnił rzeczy, można zgłosić reklamację."],
+    return_reminder_30m: ['Potwierdź zwrot rzeczy, jeśli już nastąpił', 'Minęło 30 minut od uzgodnionej godziny zwrotu. Jeśli rzecz została zwrócona, potwierdź to w Moich ofertach. Nie oznacza to, że najemca nie oddał rzeczy.'],
+    return_reminder_2h: ['Zwrot nadal nie jest potwierdzony', 'Minęły 2 godziny od umówionego zwrotu. Jeśli rzecz wróciła, potwierdź zwrot. Zgłoś problem w Moich ofertach tylko wtedy, gdy rzecz rzeczywiście nie została oddana.'],
+    return_not_received: ['Właściciel zgłosił brak zwrotu', 'Właściciel zgłosił, że rzecz nie została zwrócona w ustalonym terminie. Skontaktuj się z właścicielem i wyjaśnij sytuację. Zgłoszenie nie oznacza automatycznej kary ani zmiany płatności.'],
   },
 };
 
@@ -584,7 +606,7 @@ denoRuntime.serve(async (req) => {
 
   const { data: reservation, error: reservationError } = await admin
     .from("reservations")
-    .select("id, offer_id, owner_id, renter_id, offer_name, start_date, end_date, status, reservation_number, expires_at")
+    .select("id, offer_id, owner_id, renter_id, offer_name, start_date, end_date, pickup_time, status, reservation_number, expires_at")
     .eq("id", reservationId)
     .single();
 
@@ -596,6 +618,43 @@ denoRuntime.serve(async (req) => {
   // A later transition must not silently drop an already queued email.
   // Normal browser calls still require the current status.
   const isExpiryEvent = event.startsWith("expiry_") || event.startsWith("expired_") || event === "no_show";
+  const isReturnReminder = event === "return_reminder_30m" || event === "return_reminder_2h";
+  const isReturnEvent = isReturnReminder || event === "return_not_received";
+  if (!isServiceRoleCall && isReturnEvent) {
+    return response({ error: "Return follow-up requires a claimed server delivery" }, 403);
+  }
+  if (isWorkerDelivery && isReturnEvent) {
+    // No reminder after a confirmed return or an owner report, and no renter
+    // alert after that report was resolved. Fail closed on lookup errors.
+    const isExpectedRecipient = isReturnReminder
+      ? payload.recipient_id === reservation.owner_id
+      : payload.recipient_id === reservation.renter_id;
+    if (!isExpectedRecipient) {
+      return response({ error: "Invalid return follow-up recipient" }, 403);
+    }
+    const { data: issue, error: issueError } = await admin
+      .from("reservation_return_incidents")
+      .select("reported_at, resolved_at")
+      .eq("reservation_id", reservation.id)
+      .maybeSingle();
+    if (issueError) {
+      return response({ error: "Return follow-up state unavailable" }, 409);
+    }
+    const due = pragueRentalInstant(reservation.end_date, reservation.pickup_time);
+    const elapsed = due === null ? -1 : Date.now() - due;
+    const shouldSkip = reservation.status !== "picked_up" ||
+      (isReturnReminder && (
+        issue !== null ||
+        (event === "return_reminder_30m" && (elapsed < 30 * 60000 || elapsed >= 120 * 60000)) ||
+        (event === "return_reminder_2h" && elapsed < 120 * 60000)
+      )) ||
+      (event === "return_not_received" && (!issue || issue.resolved_at));
+    if (shouldSkip) {
+      return response({ ok: true, results: [
+        { recipient_id: payload.recipient_id, status: "skipped" }
+      ] });
+    }
+  }
   if (!isServiceRoleCall && isExpiryEvent) {
     return response({ error: "Expiration mail requires a claimed delivery" }, 403);
   }
@@ -791,6 +850,19 @@ denoRuntime.serve(async (req) => {
           de: "Frist", pl: "Termin",
         }[language];
         extraHtml = `<p><strong>${escapeHtml(label)}:</strong> ${escapeHtml(deadline)} (Praha)</p>`;
+      }
+      if (isReturnEvent && reservation.pickup_time) {
+        const returnInstant = pragueRentalInstant(reservation.end_date, reservation.pickup_time);
+        if (returnInstant !== null) {
+          const dueLabel = {
+            cs: "Sjednané vrácení", sk: "Dohodnuté vrátenie", en: "Agreed return",
+            de: "Vereinbarte Rückgabe", pl: "Uzgodniony zwrot"
+          }[language];
+          const dueText = new Intl.DateTimeFormat(dateLocales[language], {
+            dateStyle: "short", timeStyle: "short", timeZone: "Europe/Prague",
+          }).format(new Date(returnInstant));
+          extraHtml += `<p><strong>${escapeHtml(dueLabel)}:</strong> ${escapeHtml(dueText)} (Praha)</p>`;
+        }
       }
     }
 
