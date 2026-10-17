@@ -167,7 +167,7 @@ test("exactly two no-show emails are enqueued, delivered as essential and link t
   assert.match(db, /queue_reservation_notification\(new\.id, 'no_show', new\.owner_id, false\)/);
   assert.match(db, /queue_reservation_notification\(new\.id, 'no_show', new\.renter_id, false\)/);
   assert.match(read("supabase/migrations/20261012100000_unify_reservation_notification_outbox.sql"), /unique \(reservation_id, event_type, recipient_id, channel\)/);
-  assert.match(eventSource, /\| "no_show";/);
+  assert.match(eventSource, /\| "no_show"/);
   assert.match(policy, /"no_show"/);
   assert.match(email, /const isExpirationNotice = event === "expired_pending" \|\| event === "expired_approved" \|\| event === "no_show"/);
   assert.match(email, /event === "no_show" && reservation\.status !== "no_show"/);

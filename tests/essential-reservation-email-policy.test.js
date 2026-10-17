@@ -17,12 +17,13 @@ const essential = [
   "new_request", "approved", "rejected", "cancelled", "paid", "paid_cancelled",
   "expiry_reminder_pending", "expiry_reminder_approved",
   "expired_pending", "expired_approved", "no_show",
+  "return_reminder_30m", "return_reminder_2h", "return_not_received",
 ];
 const optional = ["picked_up", "returned"];
 
 test("all reservation email events have an explicit, reviewed essential/optional classification", async () => {
   const sourceEvents = emailSource.match(/type EmailEvent =([\s\S]*?);/)?.[1] || "";
-  const knownEvents = [...sourceEvents.matchAll(/"([a-z_]+)"/g)].map(m => m[1]);
+  const knownEvents = [...sourceEvents.matchAll(/"([a-z_0-9]+)"/g)].map(m => m[1]);
   assert.deepEqual(knownEvents.sort(), [...essential, ...optional].sort());
 
   const { shouldDeliverReservationEmail } = await policy;

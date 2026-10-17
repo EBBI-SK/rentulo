@@ -152,7 +152,7 @@ test("public offer detail displays only existing public offer reference", () => 
 });
 
 test("all reservation notification emails include both safely escaped references", () => {
-  assert.match(email, /\.select\("id, offer_id, owner_id, renter_id, offer_name, start_date, end_date, status, reservation_number, expires_at"\)/);
+  assert.match(email, /\.select\("id, offer_id, owner_id, renter_id, offer_name, start_date, end_date, pickup_time, status, reservation_number, expires_at"\)/);
   assert.match(email, /\.from\("offers"\)\s*\.select\("offer_number"\)\s*\.eq\("id", reservation\.offer_id\)\s*\.single\(\)/);
   assert.match(email, /Offer reference lookup failed/);
   assert.match(email, /escapeHtml\(referenceLabels\[language\]\.reservation\)/);

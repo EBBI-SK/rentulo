@@ -193,6 +193,8 @@
     let ownerOffers = [];
     let ownerReservations = [];
     let ownerCancellationDebts = [];
+    // The backend decides eligibility using the Prague return instant.
+    let ownerReturnFollowupOverview = new Map();
     let ownerCurrentUser = null;
     let ownerOffersLoadState = "idle";
     let ownerDebtsLoadState = "idle";
@@ -637,6 +639,26 @@
 
       ownerReservations = ownerReservationRows.map(normalizeReservation);
 
+      // Fail closed if the TEST migration is not installed or the query fails.
+      // Reporting an unreturned item is never enabled by the browser clock.
+      ownerReturnFollowupOverview = new Map();
+      if (ownerReservations.some(function (reservation) {
+        return normalizeReservationStatus(reservation.status) === RESERVATION_STATUS_PICKED_UP;
+      })) {
+        const returnOverviewResult = await supabaseClient.rpc("get_my_return_followup_overview");
+        if (returnOverviewResult.error) {
+          console.error("Return follow-up overview unavailable:", returnOverviewResult.error);
+        } else if (Array.isArray(returnOverviewResult.data)) {
+          returnOverviewResult.data.forEach(function (row) {
+            ownerReturnFollowupOverview.set(String(row.reservation_id), {
+              canReport: row.can_report === true,
+              reportedAt: row.reported_at || "",
+              resolvedAt: row.resolved_at || ""
+            });
+          });
+        }
+      }
+
       ownerOffersLoadState = "ready";
       return true;
     }
@@ -996,6 +1018,158 @@ const data = Array.isArray(updatedReservations)
   RESERVATION_STATUS_PICKED_UP
 );
       await reloadAndReopen(reservationId, "open");
+    }
+
+
+    // This is NOT an automatic no-show or an ordinary cancellation.
+    // Only the owner may explicitly report that a collected item was not returned.
+    let returnIssueModalResolve = null;
+    let returnIssueModalReturnFocus = null;
+
+    function getReturnIssueModalElements() {
+      return {
+        overlay: document.getElementById("returnIssueModal"),
+        title: document.getElementById("returnIssueModalTitle"),
+        description: document.getElementById("returnIssueModalDescription"),
+        label: document.getElementById("returnIssueModalLabel"),
+        input: document.getElementById("returnIssueModalInput"),
+        feedback: document.getElementById("returnIssueModalFeedback"),
+        cancel: document.querySelector('[data-return-issue-modal="cancel"]'),
+        confirm: document.querySelector('[data-return-issue-modal="confirm"]')
+      };
+    }
+
+    function refreshReturnIssueModalText() {
+      const el = getReturnIssueModalElements();
+      if (!el.overlay) return;
+      el.title.textContent = offersTranslate("offers.returnIssue.title", "Nahlásit nevrácení věci?");
+      el.description.textContent = offersTranslate("offers.returnIssue.description", "Nahlaste pouze skutečný problém. Pokud už máte věc zpět, použijte Potvrdit vrácení. Nahlášení automaticky nespouští pokutu ani změnu platby.");
+      el.label.textContent = offersTranslate("offers.returnIssue.label", "Co se stalo? (15–500 znaků)");
+      el.cancel.textContent = offersTranslate("offers.returnIssue.cancel", "Zpět");
+      el.confirm.textContent = offersTranslate("offers.returnIssue.confirm", "Odeslat hlášení");
+    }
+
+    function closeReturnIssueModal(description) {
+      const el = getReturnIssueModalElements();
+      if (!el.overlay || el.overlay.hidden) return;
+      el.overlay.hidden = true;
+      el.overlay.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("offers-modal-open");
+      const resolve = returnIssueModalResolve;
+      const focusTarget = returnIssueModalReturnFocus;
+      returnIssueModalResolve = null;
+      returnIssueModalReturnFocus = null;
+      if (resolve) resolve(description);
+      if (!description && focusTarget && focusTarget.isConnected) {
+        requestAnimationFrame(function () { focusTarget.focus(); });
+      }
+    }
+
+    function initializeReturnIssueModal() {
+      if (document.getElementById("returnIssueModal")) return;
+      const overlay = document.createElement("div");
+      overlay.className = "offers-confirm-modal";
+      overlay.id = "returnIssueModal";
+      overlay.hidden = true;
+      overlay.setAttribute("aria-hidden", "true");
+      overlay.innerHTML = [
+        '<div class="offers-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="returnIssueModalTitle" aria-describedby="returnIssueModalDescription">',
+        '<h2 id="returnIssueModalTitle"></h2>',
+        '<p id="returnIssueModalDescription"></p>',
+        '<label class="return-issue-modal-label" id="returnIssueModalLabel" for="returnIssueModalInput"></label>',
+        '<textarea class="return-issue-modal-input" id="returnIssueModalInput" rows="4" minlength="15" maxlength="500" required></textarea>',
+        '<p class="return-issue-modal-feedback" id="returnIssueModalFeedback" role="alert" aria-live="polite"></p>',
+        '<div class="offers-confirm-actions">',
+        '<button class="offers-modal-button offers-modal-keep" type="button" data-return-issue-modal="cancel"></button>',
+        '<button class="offers-modal-button offers-modal-delete" type="button" data-return-issue-modal="confirm"></button>',
+        '</div></div>'
+      ].join("");
+      document.body.appendChild(overlay);
+      refreshReturnIssueModalText();
+      overlay.addEventListener("click", function (event) {
+        const button = event.target.closest("[data-return-issue-modal]");
+        if (button && button.dataset.returnIssueModal === "cancel") {
+          closeReturnIssueModal(null);
+        } else if (button && button.dataset.returnIssueModal === "confirm") {
+          const el = getReturnIssueModalElements();
+          const value = el.input.value.trim();
+          if (value.length < 15 || value.length > 500) {
+            el.feedback.textContent = offersTranslate("offers.returnIssue.validation", "Popište skutečnou událost alespoň 15 a nejvýše 500 znaky.");
+            el.input.focus();
+            return;
+          }
+          closeReturnIssueModal(value);
+        } else if (event.target === overlay) {
+          closeReturnIssueModal(null);
+        }
+      });
+      document.addEventListener("keydown", function (event) {
+        if (overlay.hidden) return;
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeReturnIssueModal(null);
+        } else if (event.key === "Tab") {
+          const el = getReturnIssueModalElements();
+          const focusable = [el.input, el.cancel, el.confirm];
+          if (event.shiftKey && document.activeElement === focusable[0]) {
+            event.preventDefault();
+            focusable[2].focus();
+          } else if (!event.shiftKey && document.activeElement === focusable[2]) {
+            event.preventDefault();
+            focusable[0].focus();
+          }
+        }
+      });
+    }
+
+    function openReturnIssueModal() {
+      initializeReturnIssueModal();
+      const el = getReturnIssueModalElements();
+      el.input.value = "";
+      el.feedback.textContent = "";
+      refreshReturnIssueModalText();
+      returnIssueModalReturnFocus = document.activeElement;
+      el.overlay.hidden = false;
+      el.overlay.setAttribute("aria-hidden", "false");
+      document.body.classList.add("offers-modal-open");
+      return new Promise(function (resolve) {
+        returnIssueModalResolve = resolve;
+        requestAnimationFrame(function () { el.input.focus(); });
+      });
+    }
+
+    async function reportReservationNotReturned(reservationId) {
+      const reservation = ownerReservations.find(function (row) {
+        return String(row.id) === String(reservationId);
+      });
+      const overview = ownerReturnFollowupOverview.get(String(reservationId));
+      if (!reservation || normalizeReservationStatus(reservation.status) !== RESERVATION_STATUS_PICKED_UP ||
+          !overview || !overview.canReport || overview.reportedAt) {
+        setAccountErrorMessage("offers.returnIssue.unavailable", "Nahlášení zatím není dostupné. Obnovte stránku a ověřte vrácení.");
+        return;
+      }
+      const description = await openReturnIssueModal();
+      if (!description) return;
+      const supabaseClient = getSupabaseClient();
+      if (!supabaseClient) {
+        setAccountErrorMessage("offers.returnIssue.error", "Hlášení se nepodařilo odeslat. Zkuste to znovu.");
+        return;
+      }
+      const result = await supabaseClient.rpc("report_my_reservation_not_returned", {
+        p_reservation_id: reservationId,
+        p_description: description
+      });
+      if (result.error) {
+        console.error("Return incident reporting failed:", result.error);
+        setAccountErrorMessage("offers.returnIssue.error", "Hlášení se nepodařilo odeslat. Zkuste to znovu.");
+        await reloadAndReopen(reservationId, "open");
+        return;
+      }
+      await reloadAndReopen(reservationId, "open");
+      setAccountMessage(
+        "offers.returnIssue.successTitle", "Nevrácení bylo nahlášeno",
+        "offers.returnIssue.successText", "Hlášení bylo uloženo a nájemce obdrží e-mail. Po skutečném vrácení potvrďte vrácení věci."
+      );
     }
 
     async function markReservationReturned(reservationId) {
@@ -1783,6 +1957,16 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
             ${offersTranslate("offers.action.returned", "Potvrdit vrácení")}
           </button>
         `);
+        const followup = ownerReturnFollowupOverview.get(String(reservationId));
+        if (followup && followup.reportedAt && !followup.resolvedAt) {
+          actions.push(`<span class="return-issue-reported">${escapeHtml(offersTranslate("offers.returnIssue.reported", "Nevrácení nahlášeno"))}</span>`);
+        } else if (followup && followup.canReport) {
+          actions.push(`
+            <button class="small-button light" type="button" data-offers-action="report-return-missing" data-reservation-id="${escapeHtml(reservationId)}">
+              ${escapeHtml(offersTranslate("offers.returnIssue.action", "Nahlásit nevrácení"))}
+            </button>
+          `);
+        }
       }
 
       return actions.join("");
@@ -1844,6 +2028,12 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
           ${renderReservationContactBlock(reservation)}
 
           ${renderRequestNote(status)}
+          ${(() => {
+            const followup = ownerReturnFollowupOverview.get(String(reservation.id));
+            return followup && followup.reportedAt && !followup.resolvedAt
+              ? `<p class="request-note">${escapeHtml(offersTranslate("offers.returnIssue.reportedNote", "Nevrácení je evidováno. Po skutečném vrácení věci použijte Potvrdit vrácení; tím se hlášení uzavře."))}</p>`
+              : "";
+          })()}
         </div>
       `;
     }
@@ -2216,6 +2406,7 @@ return [
         "cancel-reservation",
         "mark-picked-up",
         "mark-returned",
+        "report-return-missing",
         "publish-offer",
         "activate-offer",
         "deactivate-offer",
@@ -2249,6 +2440,9 @@ return [
             break;
           case "mark-returned":
             await markReservationReturned(reservationId);
+            break;
+          case "report-return-missing":
+            await reportReservationNotReturned(reservationId);
             break;
           case "toggle-request-detail":
             toggleRequestDetail(reservationId, actionButton);
@@ -2312,12 +2506,14 @@ return [
     document.addEventListener("DOMContentLoaded", function () {
       initializeOfferDeleteModal();
       initializeOwnerReservationCancelModal();
+      initializeReturnIssueModal();
       initializeOwnerOffersPage();
     });
 
     document.addEventListener("rentuloLanguageChanged", function () {
       refreshOfferDeleteModalText();
       refreshOwnerReservationCancelModalText();
+      refreshReturnIssueModalText();
 
       if (ownerOffersLoadState === "loading") {
         renderLoadingState();

@@ -736,3 +736,43 @@ body.offers-modal-open {
 .nav-account-link:hover .nav-notification-badge {
   background: #E85F00 !important;
 }
+
+/* Return issue: deliberately separate from ordinary cancellation or no-show. */
+.return-issue-modal-label {
+  display: block;
+  margin: 16px 0 7px;
+  color: #173f35;
+  font-size: 14px;
+  font-weight: 700;
+}
+.return-issue-modal-input {
+  width: 100%;
+  min-height: 94px;
+  padding: 10px 12px;
+  border: 1px solid #bdd9cc;
+  border-radius: 10px;
+  resize: vertical;
+  font: inherit;
+  color: #173f35;
+  background: #fff;
+}
+.return-issue-modal-input:focus-visible {
+  outline: 2px solid #4b9e6f;
+  outline-offset: 1px;
+}
+.return-issue-modal-feedback {
+  min-height: 17px;
+  margin-top: 6px !important;
+  color: #9a3f2d !important;
+  font-size: 13px !important;
+}
+.return-issue-reported {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 10px;
+  border-radius: 9px;
+  background: #fff3e8;
+  color: #884819;
+  font-size: 13px;
+  font-weight: 700;
+}
