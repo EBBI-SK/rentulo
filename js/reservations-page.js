@@ -554,7 +554,9 @@ return (
       );
 
       if (elements.title) {
-        elements.title.textContent = isPaidCancellation
+        elements.title.textContent = normalizedStatus === RESERVATION_STATUS_PENDING
+          ? reservationsTranslate("reservations.pendingWithdraw.title", "Vzít žádost zpět?")
+          : isPaidCancellation
           ? reservationsTranslate(
               "reservations.cancelPaid.title",
               "Zrušit zaplacenou rezervaci?"
@@ -566,7 +568,9 @@ return (
       }
 
       if (elements.description) {
-        elements.description.textContent = isPaidCancellation
+        elements.description.textContent = normalizedStatus === RESERVATION_STATUS_PENDING
+          ? reservationsTranslate("reservations.pendingWithdraw.description", "Žádost dosud nebyla schválena ani zaplacena. Po jejím stažení se termín znovu uvolní.")
+          : isPaidCancellation
           ? reservationsTranslate(
               "reservations.cancelPaid.renterDescription",
               "Zaplaceno: {paymentAmount}. Skutečné náklady Stripe: {externalCost}. Vrátíme vám: {refundAmount} na původní platební metodu. Rentulo si za storno neúčtuje vlastní poplatek; odečte se pouze skutečný externí náklad Stripe.",
@@ -597,7 +601,9 @@ return (
       }
 
       if (elements.confirmButton) {
-        elements.confirmButton.textContent = isPaidCancellation
+        elements.confirmButton.textContent = normalizedStatus === RESERVATION_STATUS_PENDING
+          ? reservationsTranslate("reservations.pendingWithdraw.action", "Vzít žádost zpět")
+          : isPaidCancellation
           ? reservationsTranslate(
               "reservations.cancelPaid.confirm",
               "Zrušit a vrátit platbu"
@@ -1274,8 +1280,11 @@ return (
       }
 
       const reservationId = reservation.id || reservation.reservationId;
-      const label = reservationsTranslate("reservations.cancel", "Zrušit rezervaci");
-      const cutoff = getReservationCancellationCutoffAt(reservation);
+      const isPending = normalizeReservationStatus(getSafeReservationStatus(reservation)) === RESERVATION_STATUS_PENDING;
+      const label = isPending
+        ? reservationsTranslate("reservations.pendingWithdraw.action", "Vzít žádost zpět")
+        : reservationsTranslate("reservations.cancel", "Zrušit rezervaci");
+      const cutoff = isPending ? null : getReservationCancellationCutoffAt(reservation);
       const explanation = getReservationCancellationCutoffText();
 
       if (cutoff && !isReservationCancellationWindowOpen(reservation)) {

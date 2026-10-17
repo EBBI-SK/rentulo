@@ -857,13 +857,7 @@ const data = Array.isArray(updatedReservations)
         return;
       }
 
-      const normalizedStatus = normalizeReservationStatus(reservation.status);
-      const ordinaryWindowOpen = isReservationCancellationWindowOpen(reservation);
-      const exceptionalReason = !ordinaryWindowOpen
-        ? "owner_unavailable"
-        : null;
-
-      if (!ordinaryWindowOpen && !exceptionalReason) {
+      if (!isReservationCancellationWindowOpen(reservation)) {
         setAccountErrorMessage(
           "reservations.error.cannotCancel",
           getReservationCancellationCutoffText()
@@ -871,6 +865,8 @@ const data = Array.isArray(updatedReservations)
         renderOffers({ autoOpenFromUrl: false });
         return;
       }
+
+      const normalizedStatus = normalizeReservationStatus(reservation.status);
 
       if (normalizedStatus === RESERVATION_STATUS_PAID) {
         const supabaseClient = getSupabaseClient();
@@ -886,8 +882,7 @@ const data = Array.isArray(updatedReservations)
         const previewResult = await requestPaidReservationCancellation(
           supabaseClient,
           reservationId,
-          "preview",
-          exceptionalReason
+          "preview"
         );
 
         if (previewResult.error || !previewResult.data) {
@@ -901,17 +896,14 @@ const data = Array.isArray(updatedReservations)
 
         const confirmed = await openOwnerReservationCancelModal(
           reservation,
-          previewResult.data,
-          Boolean(exceptionalReason)
+          previewResult.data
         );
 
         if (!confirmed) {
           return;
         }
 
-        // If a standard confirmation modal stayed open past the cutoff, the
-        // owner must reopen it to explicitly attest item nonavailability.
-        if (!exceptionalReason && !isReservationCancellationWindowOpen(reservation)) {
+        if (!isReservationCancellationWindowOpen(reservation)) {
           setAccountErrorMessage(
             "reservations.error.cannotCancel",
             getReservationCancellationCutoffText()
@@ -923,8 +915,7 @@ const data = Array.isArray(updatedReservations)
         const confirmResult = await requestPaidReservationCancellation(
           supabaseClient,
           reservationId,
-          "confirm",
-          exceptionalReason
+          "confirm"
         );
 
         if (confirmResult.error || !confirmResult.data) {
@@ -960,35 +951,6 @@ const data = Array.isArray(updatedReservations)
           }
         );
 
-        await reloadAndReopen(reservationId, "history");
-        return;
-      }
-
-      if (exceptionalReason && normalizedStatus === RESERVATION_STATUS_APPROVED) {
-        const confirmed = await openOwnerReservationCancelModal(reservation, null, true);
-        if (!confirmed) return;
-        const supabaseClient = getSupabaseClient();
-        if (!supabaseClient) {
-          setAccountErrorMessage("offers.error.supabaseMissing", "Služba je dočasně nedostupná.");
-          return;
-        }
-        const result = await supabaseClient.rpc(
-          "cancel_approved_reservation_item_unavailable",
-          { p_reservation_id: reservationId }
-        );
-        if (result.error || result.data !== true) {
-          setAccountErrorMessage(
-            "reservations.cancelException.unpaidError",
-            "Rezervaci nelze bezpečně zrušit. Zkontrolujte případně rozpracovanou platbu Stripe a kontaktujte podporu."
-          );
-          return;
-        }
-        setAccountMessage(
-          "reservations.state.cancelledTitle",
-          "Rezervace byla zrušena",
-          "reservations.success.cancelled",
-          "Rezervace byla zrušena a přesunuta do Historie."
-        );
         await reloadAndReopen(reservationId, "history");
         return;
       }
@@ -1287,7 +1249,6 @@ const data = Array.isArray(updatedReservations)
     let ownerReservationCancelModalResolve = null;
     let ownerReservationCancelModalReservation = null;
     let ownerReservationCancelModalQuote = null;
-    let ownerReservationCancelModalExceptional = false;
     let ownerReservationCancelModalReturnFocus = null;
 
     function ensureOwnerReservationCancelModal() {
@@ -1335,25 +1296,19 @@ const data = Array.isArray(updatedReservations)
       const isPaidCancellation =
         normalizedStatus === RESERVATION_STATUS_PAID &&
         ownerReservationCancelModalQuote;
-      const exceptional = ownerReservationCancelModalExceptional;
       const startDate = formatOffersDate(ownerReservationCancelModalReservation.startDate);
       const endDate = formatOffersDate(ownerReservationCancelModalReservation.endDate);
 
       if (elements.title) {
-        elements.title.textContent = exceptional
+        elements.title.textContent = isPaidCancellation
           ? offersTranslate(
-              "reservations.cancelException.title",
-              "Nemůžete věc předat?"
+              "reservations.cancelPaid.title",
+              "Zrušit zaplacenou rezervaci?"
             )
-          : isPaidCancellation
-            ? offersTranslate(
-                "reservations.cancelPaid.title",
-                "Zrušit zaplacenou rezervaci?"
-              )
-            : offersTranslate(
-                "reservations.cancelModal.title",
-                "Zrušit rezervaci?"
-              );
+          : offersTranslate(
+              "reservations.cancelModal.title",
+              "Zrušit rezervaci?"
+            );
       }
 
       if (elements.description) {
@@ -1380,17 +1335,6 @@ const data = Array.isArray(updatedReservations)
               )
             }
           );
-          if (exceptional) {
-            elements.description.textContent += " " + offersTranslate(
-              "reservations.cancelException.attestation",
-              "Potvrzením prohlašujete, že sjednanou věc nemůžete nájemci předat. Důvod bude zaznamenán. Nájemce obdrží plnou refundaci."
-            );
-          }
-        } else if (exceptional) {
-          elements.description.textContent = offersTranslate(
-            "reservations.cancelException.unpaidAttestation",
-            "Potvrzujete, že sjednanou věc nemůžete nájemci předat. Rezervace zatím nebyla zaplacena, takže se nic nevrací. Důvod bude zaznamenán."
-          );
         } else {
           elements.description.textContent = offersTranslate(
             "reservations.cancelModal.description",
@@ -1408,22 +1352,15 @@ const data = Array.isArray(updatedReservations)
       }
 
       if (elements.confirmButton) {
-        elements.confirmButton.textContent = exceptional
+        elements.confirmButton.textContent = isPaidCancellation
           ? offersTranslate(
-              isPaidCancellation
-                ? "reservations.cancelException.confirm"
-                : "reservations.cancelException.confirmUnpaid",
-              "Potvrdit nedostupnost věci"
+              "reservations.cancelPaid.confirm",
+              "Zrušit a vrátit platbu"
             )
-          : isPaidCancellation
-            ? offersTranslate(
-                "reservations.cancelPaid.confirm",
-                "Zrušit a vrátit platbu"
-              )
-            : offersTranslate(
-                "reservations.cancel",
-                "Zrušit rezervaci"
-              );
+          : offersTranslate(
+              "reservations.cancel",
+              "Zrušit rezervaci"
+            );
       }
     }
 
@@ -1452,7 +1389,6 @@ const data = Array.isArray(updatedReservations)
       ownerReservationCancelModalResolve = null;
       ownerReservationCancelModalReservation = null;
       ownerReservationCancelModalQuote = null;
-      ownerReservationCancelModalExceptional = false;
       ownerReservationCancelModalReturnFocus = null;
 
       if (resolve) {
@@ -1468,7 +1404,7 @@ const data = Array.isArray(updatedReservations)
       }
     }
 
-    function openOwnerReservationCancelModal(reservation, quote, exceptional = false) {
+    function openOwnerReservationCancelModal(reservation, quote) {
       ensureOwnerReservationCancelModal();
       const elements = getOwnerReservationCancelModalElements();
 
@@ -1479,7 +1415,6 @@ const data = Array.isArray(updatedReservations)
 
       ownerReservationCancelModalReservation = reservation;
       ownerReservationCancelModalQuote = quote || null;
-      ownerReservationCancelModalExceptional = Boolean(exceptional);
       ownerReservationCancelModalReturnFocus = document.activeElement;
       refreshOwnerReservationCancelModalText();
 
@@ -1703,13 +1638,6 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
       if (!button || button.disabled) {
         return;
       }
-      if (button.dataset.ownerExceptionAvailable === "true") {
-        button.textContent = offersTranslate(
-          "reservations.cancelException.button", "Věc nelze předat"
-        );
-        button.removeAttribute("data-cancel-cutoff");
-        return;
-      }
 
       const explanation = getReservationCancellationCutoffText();
       button.disabled = true;
@@ -1780,14 +1708,24 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
       }
 
       const reservationId = reservation.id;
-      const paid = normalizeReservationStatus(reservation.status) === RESERVATION_STATUS_PAID;
+      const label = offersTranslate("reservations.cancel", "Zrušit rezervaci");
       const cutoff = getReservationCancellationCutoffAt(reservation);
-      const extraordinary = cutoff && !isReservationCancellationWindowOpen(reservation);
-      const label = extraordinary
-        ? offersTranslate("reservations.cancelException.button", "Věc nelze předat")
-        : offersTranslate("reservations.cancel", "Zrušit rezervaci");
+      const explanation = getReservationCancellationCutoffText();
 
-      const cutoffAttribute = cutoff && !paid && !extraordinary
+      if (cutoff && !isReservationCancellationWindowOpen(reservation)) {
+        return [
+          '<button class="small-button light reservation-cancel-action reservation-cancel-locked" type="button" disabled aria-disabled="true" title="',
+          escapeHtml(explanation),
+          '">',
+          escapeHtml(label),
+          '</button>',
+          '<div class="reservation-cancel-cutoff-note">',
+          escapeHtml(explanation),
+          '</div>'
+        ].join("");
+      }
+
+      const cutoffAttribute = cutoff
         ? ' data-cancel-cutoff="' + cutoff.getTime() + '"'
         : "";
 
@@ -1796,7 +1734,7 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
         escapeHtml(reservationId),
         '"',
         cutoffAttribute,
-        ' data-owner-exception-available="true">',
+        '>',
         escapeHtml(label),
         '</button>'
       ].join("");

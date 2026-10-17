@@ -92,14 +92,13 @@ test("paid exceptional reason must be explicitly attested by the owner at the AP
   assert.match(edge, /begin_paid_reservation_cancellation/);
 });
 
-test("owner interface includes paid and unpaid exception flows, renter cutoff remains locked", () => {
-  assert.match(shared, /exceptional_reason: exceptionalReason/);
-  assert.match(owner, /requestPaidReservationCancellation\([\s\S]*exceptionalReason/);
-  assert.match(owner, /cancel_approved_reservation_item_unavailable/);
-  assert.match(owner, /ownerReservationCancelModalExceptional/);
-  assert.match(owner, /reservations\.cancelException\.attestation/);
-  assert.match(owner, /reservations\.cancelException\.unpaidAttestation/);
-  assert.match(owner, /data-owner-exception-available/);
+test("owner's ordinary cancellation is locked at cutoff, without automatic exception", () => {
+  assert.doesNotMatch(owner, /ownerExceptionAvailable/);
+  assert.doesNotMatch(owner, /extraordinary\s*=\s*cutoff/);
+  assert.doesNotMatch(owner, /exceptionalReason\s*=\s*!ordinaryWindowOpen/);
+  assert.match(owner, /renderOwnerReservationCancellationAction/);
+  assert.match(owner, /reservation-cancel-locked/);
+  assert.match(owner, /isReservationCancellationWindowOpen/);
   assert.match(renter, /renderRenterReservationCancellationAction/);
   assert.match(renter, /isReservationCancellationWindowOpen/);
 });
