@@ -48,10 +48,10 @@ test("My offers simple flow supports all five languages and mobile layout", () =
 
   assert.match(source, /Spravovat nabídku/);
   assert.match(source, /Žádosti a rezervace/);
-  assert.match(offersPage, /Výplata byla uvolněna\. Rentulo předalo Stripe pokyn/);
-  assert.match(i18n, /Your payout has been released\. Rentulo has instructed Stripe/);
-  assert.match(i18n, /Die Auszahlung wurde freigegeben\. Rentulo hat Stripe angewiesen/);
-  assert.match(i18n, /Wypłata została zwolniona\. Rentulo przekazało Stripe/);
+  assert.match(offersPage, /Po skutečném vrácení potvrďte vrácení v Rentulu/);
+  assert.match(i18n, /After the item is actually returned, confirm its return in Rentulo/);
+  assert.match(i18n, /Bestätigen Sie nach der tatsächlichen Rückgabe die Rückgabe bei Rentulo/);
+  assert.match(i18n, /Po faktycznym zwrocie potwierdź zwrot w Rentulo/);
   assert.doesNotMatch(i18n, /Věc byla předána zájemci\. Až ji dostanete zpět/);
   assert.match(css, /\.owner-offer-row/);
   assert.match(css, /\.owner-reservation-card/);
