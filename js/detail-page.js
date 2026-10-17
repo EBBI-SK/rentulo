@@ -9,7 +9,7 @@
         pickupTime: "Čas převzetí",
         pickupHour: "Hodina",
         pickupMinute: "Minuty",
-        pickupTimeHelp: "Vrácení bude v poslední den rezervace ve stejný čas.",
+        pickupTimeHelp: "Vrácení bude v poslední den rezervace ve stejný čas. Mezi dvěma pronájmy musí být alespoň 2 hodiny.",
         selectTime: "Vyberte čas převzetí.",
         invalidTime: "Vyberte platný čas převzetí."
       },
@@ -17,7 +17,7 @@
         pickupTime: "Čas prevzatia",
         pickupHour: "Hodina",
         pickupMinute: "Minúty",
-        pickupTimeHelp: "Vrátenie bude v posledný deň rezervácie v rovnakom čase.",
+        pickupTimeHelp: "Vrátenie bude v posledný deň rezervácie v rovnakom čase. Medzi dvoma prenájmami musia byť aspoň 2 hodiny.",
         selectTime: "Vyberte čas prevzatia.",
         invalidTime: "Vyberte platný čas prevzatia."
       },
@@ -25,7 +25,7 @@
         pickupTime: "Pickup time",
         pickupHour: "Hour",
         pickupMinute: "Minutes",
-        pickupTimeHelp: "Return is due at the same time on the last day of the reservation.",
+        pickupTimeHelp: "Return is due at the same time on the last day. A minimum two-hour gap is required between rentals.",
         selectTime: "Choose a pickup time.",
         invalidTime: "Choose a valid pickup time."
       },
@@ -33,7 +33,7 @@
         pickupTime: "Abholzeit",
         pickupHour: "Stunde",
         pickupMinute: "Minuten",
-        pickupTimeHelp: "Die Rückgabe erfolgt am letzten Reservierungstag zur gleichen Uhrzeit.",
+        pickupTimeHelp: "Die Rückgabe erfolgt am letzten Reservierungstag zur gleichen Uhrzeit. Zwischen Vermietungen sind mindestens zwei Stunden Abstand erforderlich.",
         selectTime: "Wählen Sie eine Abholzeit.",
         invalidTime: "Wählen Sie eine gültige Abholzeit."
       },
@@ -41,7 +41,7 @@
         pickupTime: "Godzina odbioru",
         pickupHour: "Godzina",
         pickupMinute: "Minuty",
-        pickupTimeHelp: "Zwrot następuje o tej samej godzinie w ostatnim dniu rezerwacji.",
+        pickupTimeHelp: "Zwrot następuje o tej samej godzinie w ostatnim dniu rezerwacji. Między wynajmami wymagany jest odstęp co najmniej 2 godzin.",
         selectTime: "Wybierz godzinę odbioru.",
         invalidTime: "Wybierz prawidłową godzinę odbioru."
       }
@@ -702,33 +702,30 @@ function renderDetailImage(offer) {
       `;
     }
 
-    async function hasReservationDateConflict(offerId, startDate, endDate) {
+    async function hasReservationDateConflict(offerId, startDate, endDate, pickupTime) {
       const supabaseClient = getSupabaseClient();
 
-      if (!supabaseClient || !offerId || !startDate || !endDate) {
-        return false;
+      // Invalid values must never render a slot as available.
+      if (!supabaseClient || !offerId || !startDate || !endDate || !isValidPickupTime(pickupTime)) {
+        throw new Error("Availability request is incomplete");
       }
 
-      const { data: blockingReservations, error } = await supabaseClient
-  .rpc("get_blocking_reservations", {
-    p_offer_id: offerId
-  });
-
-const data = Array.isArray(blockingReservations)
-  ? blockingReservations.filter(function (reservation) {
-      return (
-        reservation.start_date < endDate &&
-        reservation.end_date > startDate
+      const { data: hasConflict, error } = await supabaseClient.rpc(
+        "has_offer_reservation_time_conflict",
+        {
+          p_offer_id: offerId,
+          p_start_date: startDate,
+          p_end_date: endDate,
+          p_pickup_time: pickupTime
+        }
       );
-    }).slice(0, 1)
-  : [];
 
-      if (error) {
+      if (error || typeof hasConflict !== "boolean") {
         console.warn("Dostupnost termínu se nepodařilo ověřit.", error);
-        throw error;
+        throw error || new Error("Availability check returned an invalid result");
       }
 
-      return Array.isArray(data) && data.length > 0;
+      return hasConflict;
     }
 
     async function renderDetail(offer) {
@@ -1148,7 +1145,8 @@ const hasGps = offerHasGpsLocation(offer);
           const hasConflict = await hasReservationDateConflict(
             offer.id,
             activeStartDate,
-            activeEndDate
+            activeEndDate,
+            pickupTime
           );
 
           if (checkVersion !== availabilityCheckVersion) {
@@ -1236,7 +1234,7 @@ const hasGps = offerHasGpsLocation(offer);
         rentButton.textContent = detailTranslate("detail.checkingDates");
 
         try {
-          const hasConflict = await hasReservationDateConflict(offer.id, startDate, endDate);
+          const hasConflict = await hasReservationDateConflict(offer.id, startDate, endDate, pickupTime);
 
           if (hasConflict) {
             await updateCalculation();

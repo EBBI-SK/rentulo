@@ -74,35 +74,33 @@ test("latest get_my_reservations contract hides sensitive contact and pickup dat
   );
 });
 
-test("latest reservation insert contract serializes and rejects overlapping blocking dates", () => {
+test("latest reservation insert keeps per-offer serialization and the exact two-hour server guard", () => {
   const { sql: rawSql } = latestMigrationMatching(
     /create\s+(?:or\s+replace\s+)?function\s+public\.prepare_reservation_insert\s*\(\s*\)/i,
     "public.prepare_reservation_insert()"
   );
   const sql = compactSql(rawSql);
 
-  assert.match(
-    sql,
-    /pg_advisory_xact_lock\s*\(\s*hashtext\s*\(\s*new\.offer_id::text\s*\)\s*\)/i,
-    "reservation creation must serialize per offer"
-  );
-  assert.match(
-    sql,
-    /existing\.status::text\s+in\s*\(\s*'pending'\s*,\s*'approved'\s*,\s*'paid'\s*,\s*'picked_up'\s*\)/i,
-    "all blocking statuses must participate in overlap protection"
-  );
-  assert.match(
-    sql,
-    /new\.start_date\s*<\s*existing\.end_date\s+and\s+new\.end_date\s*>\s*existing\.start_date/i,
-    "reservation overlap must use the same half-open interval rule as the frontend"
-  );
-  assert.match(
-    sql,
-    /new\.status\s*:=\s*'pending'::public\.reservation_status/i,
-    "new reservations must always start as pending"
-  );
+  assert.match(sql, /pg_advisory_xact_lock\s*\(\s*hashtext\s*\(\s*new\.offer_id::text\s*\)\s*\)/i,
+    "reservation creation must serialize per offer");
+  assert.match(sql,
+    /public\.has_offer_reservation_time_conflict\s*\(\s*new\.offer_id\s*,\s*new\.start_date\s*,\s*new\.end_date\s*,\s*new\.pickup_time\s*\)/i,
+    "insert must call the same time-based availability rule as the UI");
+  assert.match(sql, /new\.status\s*:=\s*'pending'::public\.reservation_status/i);
   assert.match(sql, /new\.contact_visible\s*:=\s*false/i);
   assert.match(sql, /new\.contact_visible_after_payment\s*:=\s*false/i);
+
+  const helper = latestMigrationMatching(
+    /create\s+(?:or\s+replace\s+)?function\s+public\.has_offer_reservation_time_conflict\s*\(/i,
+    "public.has_offer_reservation_time_conflict()"
+  );
+  const availability = compactSql(helper.sql);
+  assert.match(availability, /r\.status::text\s+in\s*\(\s*'pending'\s*,\s*'approved'\s*,\s*'paid'\s*,\s*'picked_up'\s*,\s*'returned'\s*\)/i);
+  assert.match(availability, /r\.pickup_time\s+is\s+not\s+null/i);
+  assert.match(availability, /at time zone 'Europe\/Prague'/i);
+  assert.match(availability, /interval '2 hours'/i);
+  assert.match(availability, /returns boolean/i);
+  assert.doesNotMatch(availability, /returns table/i);
 });
 
 test("public availability RPC exposes only dates for blocking reservations", () => {
