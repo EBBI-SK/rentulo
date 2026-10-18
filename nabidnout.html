@@ -912,6 +912,14 @@
             </div>
           </section>
 
+          <div class="form-group full" style="margin-top: 14px;">
+            <p id="transportPolicyNote" data-i18n="offer.transportRule">Rentulo V1 nepovoluje pronájem dopravních prostředků (auta, motocykly, jízdní kola, koloběžky, lodě, kajaky, přívěsy apod.). Tyto nabídky lze zvážit až ve V2.</p>
+            <label class="pickup-checkbox" for="offerTransportConfirmation">
+              <input type="checkbox" id="offerTransportConfirmation" aria-describedby="transportPolicyNote" required />
+              <span data-i18n="offer.transportConfirmation">Potvrzuji, že nenabízím dopravní prostředek ani věc zakázanou podmínkami Rentula V1.</span>
+            </label>
+          </div>
+
           <p class="offer-action-note" data-i18n="offer.helpDescription">Po zveřejnění se nabídka zobrazí ve výsledcích vyhledávání. Žádosti vyřídíte v Moje nabídky. Rentulo si z úspěšné platby ponechá 10 % z půjčovného, minimálně 50 Kč za rezervaci.</p>
 
           <div class="form-actions">
@@ -933,6 +941,7 @@
 <script src="js/i18n.js"></script>
 <script src="js/navigation.js"></script>
 <script src="js/auth-guard.js"></script>
+<script src="js/offer-policy.js"></script>
 <script src="js/offer-form-page.js"></script>
 </body>
 </html>

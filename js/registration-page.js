@@ -597,6 +597,9 @@ async function createUserAccount(event) {
           terms_privacy_accepted: true,
           private_individual_confirmed: true,
           private_individual_confirmed_at: now,
+          terms_version: "1.1-test-2026-10-18",
+          privacy_notice_version: "1.1-test-2026-10-18",
+          terms_language: preferredLanguage,
           terms_accepted_at: now
         }
       }

@@ -4,6 +4,9 @@ Rentulo je webová platforma na požičiavanie vecí medzi súkromnými osobami 
 
 > **Stav dokumentácie: 13. 10. 2026.** Referenčný GitHub `main` pred touto úpravou: `19c3a2e` (BOD 12 – P1-4); overené **Rentulo CI #402, 423/423 testov**. Ide o historický snapshot: po vložení tohto ZIP-u, commite a pushi treba skontrolovať **nový** CI beh. Vývoj a testovanie prebiehajú na `rentulo.eu`; verejná produkcia `rentulo.com` **nebola spustená**.
 
+
+> **BOD 02 (18. 10. 2026, návrh pripravený pre TEST):** Rentulo V1 nebude povoľovať prenájom dopravných prostriedkov; podľa rozhodnutia sa môžu posúdiť až vo V2. Pripravuje sa úprava právnych textov v 5 jazykoch, formulárov a serverovej TEST kontroly. **SQL migrácia ešte nebola nasadená, právne/daňové/Stripe potvrdenia chýbajú a PROD sa nesmie meniť.** Aktuálny stav a testovací plán: [BOD02_PRAVNY_DANOVY_AUDIT_TEST.md](docs/BOD02_PRAVNY_DANOVY_AUDIT_TEST.md).
+
 ## Technológie a architektúra
 
 - HTML, CSS a vanilla JavaScript; bez frontendového frameworku a bundlera.

@@ -831,6 +831,9 @@ const hasGps = offerHasGpsLocation(offer);
                 </section>
               ` : ""}
 
+              <p class="gps-note" style="margin: 12px 0;">${escapeHtml(detailTranslate("detail.privateListingNote"))}</p>
+              <p style="margin: 8px 0 16px;"><a href="mailto:rentulo@rentulo.com?subject=${encodeURIComponent("Rentulo - ohlášení nabídky " + (offer.offerNumber || offer.id || ""))}">${escapeHtml(detailTranslate("detail.reportOffer"))}</a></p>
+
               <div class="info-grid">
                 <div class="section">
                   <h2>${detailTranslate("detail.termsTitle")}</h2>
