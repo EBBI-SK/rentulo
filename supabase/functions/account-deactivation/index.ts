@@ -34,6 +34,67 @@ type FinalizeResult = {
   deactivated_at: string | null;
 };
 
+// BOD02_PHOTO_CLEANUP_START
+// Only objects inside this authenticated owner's Storage prefix may be removed.
+// List/delete in bounded batches, including nested prefixes if any. This is
+// deliberately repeatable: partial Storage failures leave the Auth login intact
+// so the deactivated user can retry without recreating the account.
+async function deleteOwnerOfferPhotos(
+  admin: ReturnType<typeof createClient>, ownerId: string,
+): Promise<number> {
+  const bucket = admin.storage.from("offer-photos");
+  const folders = [ownerId];
+  const visited = new Set<string>();
+  let operations = 0;
+  let removed = 0;
+
+  while (folders.length > 0) {
+    const folder = folders.shift()!;
+    if (visited.has(folder)) continue;
+    visited.add(folder);
+
+    let offset = 0;
+    while (true) {
+      // Safe upper bound on work in one Edge invocation. Progress is retained
+      // across retries because successfully removed objects stay removed.
+      if (++operations > 80) throw new Error("Photo cleanup batch limit reached");
+      const { data, error } = await bucket.list(folder, { limit: 100, offset });
+      if (error || !Array.isArray(data)) throw new Error("Photo cleanup list failed");
+      if (data.length === 0) break;
+
+      const files: string[] = [];
+      const subfolders: string[] = [];
+      for (const entry of data) {
+        const name = entry && entry.name;
+        if (!name || name === "." || name === ".." || name.includes("/")) {
+          throw new Error("Unexpected object name in photo folder");
+        }
+        const path = folder + "/" + name;
+        if (entry.id === null) {
+          subfolders.push(path);
+        } else {
+          files.push(path);
+        }
+      }
+
+      if (files.length > 0) {
+        const { error: removeError } = await bucket.remove(files);
+        if (removeError) throw new Error("Photo cleanup remove failed");
+        removed += files.length;
+        // Deleting objects shifts list offsets: start again from zero.
+        offset = 0;
+        continue;
+      }
+
+      folders.push(...subfolders);
+      if (data.length < 100) break;
+      offset += data.length;
+    }
+  }
+  return removed;
+}
+// BOD02_PHOTO_CLEANUP_END
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -207,6 +268,19 @@ denoRuntime.serve(async (req) => {
     if (parsedFinalizeResult) {
       finalizeResult = parsedFinalizeResult;
     }
+  }
+
+  // Finish physical Storage cleanup before removing the Auth login. If Storage
+  // fails, the profile stays deactivated and its offers are already sanitized,
+  // but the user retains the ability to retry this same protected endpoint.
+  try {
+    await deleteOwnerOfferPhotos(admin, actor.id);
+  } catch (_photoError) {
+    console.error("account-deactivation: offer photo cleanup incomplete; retry required");
+    return jsonResponse({
+      error: "Offer photo cleanup is incomplete. Retry account cancellation.",
+      code: "PHOTO_CLEANUP_FAILED",
+    }, 503);
   }
 
   // Soft-delete keeps the Auth row as a non-reversible hashed identity instead
