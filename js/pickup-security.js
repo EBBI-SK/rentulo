@@ -25,8 +25,8 @@
       confirmAction: "Předat věc",
       confirming: "Předávám věc…",
       success: "Předáno. Rezervace pokračuje až do vrácení věci.",
-      wrongDay: "PIN lze použít pouze od sjednaného času převzetí do sjednaného času vrácení (český čas).",
-      tooEarly: "Předání lze potvrdit nejdříve v sjednaný čas převzetí.",
+      wrongDay: "PIN lze použít nejdříve 2 hodiny před sjednaným převzetím a nejpozději do sjednaného času vrácení (český čas).",
+      tooEarly: "Předání lze potvrdit nejdříve 2 hodiny před sjednaným časem převzetí.",
       genericError: "Předání se nepodařilo potvrdit. Zkuste to prosím znovu."
     },
     sk: {
@@ -52,8 +52,8 @@
       confirmAction: "Odovzdať vec",
       confirming: "Odovzdávam vec…",
       success: "Odovzdané. Rezervácia pokračuje až do vrátenia veci.",
-      wrongDay: "PIN možno použiť iba od dohodnutého času prevzatia do dohodnutého času vrátenia (český čas).",
-      tooEarly: "Odovzdanie možno potvrdiť najskôr v dohodnutý čas prevzatia.",
+      wrongDay: "PIN možno použiť najskôr 2 hodiny pred dohodnutým prevzatím a najneskôr do dohodnutého času vrátenia (český čas).",
+      tooEarly: "Odovzdanie možno potvrdiť najskôr 2 hodiny pred dohodnutým časom prevzatia.",
       genericError: "Odovzdanie sa nepodarilo potvrdiť. Skúste to prosím znova."
     },
     en: {
@@ -79,8 +79,8 @@
       confirmAction: "Hand over item",
       confirming: "Handing over item…",
       success: "Handed over. The reservation now continues until the item is returned.",
-      wrongDay: "The PIN can be used only between the scheduled pickup and return times (Czech time).",
-      tooEarly: "Handover cannot be confirmed before the scheduled pickup time.",
+      wrongDay: "The PIN can be used from 2 hours before scheduled pickup until the scheduled return time (Czech time).",
+      tooEarly: "Handover can be confirmed no earlier than 2 hours before scheduled pickup.",
       genericError: "Handover could not be confirmed. Please try again."
     },
     de: {
@@ -106,8 +106,8 @@
       confirmAction: "Gegenstand übergeben",
       confirming: "Gegenstand wird übergeben…",
       success: "Übergeben. Die Reservierung läuft nun bis zur Rückgabe weiter.",
-      wrongDay: "Die PIN kann nur zwischen der vereinbarten Abholzeit und der Rückgabezeit verwendet werden (tschechische Zeit).",
-      tooEarly: "Die Übergabe kann frühestens zur vereinbarten Abholzeit bestätigt werden.",
+      wrongDay: "Die PIN kann ab 2 Stunden vor der vereinbarten Abholzeit bis zur vereinbarten Rückgabezeit verwendet werden (tschechische Zeit).",
+      tooEarly: "Die Übergabe kann frühestens 2 Stunden vor der vereinbarten Abholzeit bestätigt werden.",
       genericError: "Die Übergabe konnte nicht bestätigt werden. Bitte versuchen Sie es erneut."
     },
     pl: {
@@ -133,8 +133,8 @@
       confirmAction: "Przekaż przedmiot",
       confirming: "Przekazuję przedmiot…",
       success: "Przekazano. Rezerwacja trwa teraz do momentu zwrotu przedmiotu.",
-      wrongDay: "PIN można wykorzystać tylko od uzgodnionej godziny odbioru do uzgodnionej godziny zwrotu (czas czeski).",
-      tooEarly: "Przekazanie można potwierdzić najwcześniej o uzgodnionej godzinie odbioru.",
+      wrongDay: "PIN można wykorzystać od 2 godzin przed uzgodnioną godziną odbioru do uzgodnionej godziny zwrotu (czas czeski).",
+      tooEarly: "Przekazanie można potwierdzić najwcześniej 2 godziny przed uzgodnioną godziną odbioru.",
       genericError: "Nie udało się potwierdzić przekazania. Spróbuj ponownie."
     }
   };

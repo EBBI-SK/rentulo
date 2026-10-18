@@ -255,7 +255,7 @@ denoRuntime.serve(async (req) => {
     const matched = ownerReservations.find((reservation) => reservation.id === matches[0]);
     if (!matched || !rentalHandoverOpen(matched.start_date, matched.end_date, matched.pickup_time)) {
       return jsonResponse({
-        error: "The PIN can only be used between the scheduled pickup and return times",
+        error: "The PIN can be used from two hours before scheduled pickup until scheduled return",
         code: "pickup_wrong_day",
       }, 409);
     }
@@ -269,7 +269,7 @@ denoRuntime.serve(async (req) => {
 
   if (matchedOutsideRentalPeriod) {
     return jsonResponse({
-      error: "The PIN can only be used between the scheduled pickup and return times",
+      error: "The PIN can be used from two hours before scheduled pickup until scheduled return",
       code: "pickup_wrong_day",
     }, 409);
   }

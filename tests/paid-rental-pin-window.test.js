@@ -13,21 +13,24 @@ const getPin = read("supabase/functions/get-pickup-pin/index.ts");
 const resolvePin = read("supabase/functions/resolve-pickup-pin/index.ts");
 const confirmPin = read("supabase/functions/confirm-pickup/index.ts");
 const originalConfirm = read("supabase/migrations/20260926120000_add_secure_pickup_pin_flow.sql");
+const earlyPickup = read("supabase/migrations/20261018090000_pickup_pin_two_hours_early_TEST.sql");
 const pinUi = read("js/pickup-security.js");
 const renterPage = read("js/reservations-page.js");
 
-test("PIN handover starts at pickup time and stops at exact return time", async () => {
+test("PIN handover starts 2h before pickup and stops at exact return time", async () => {
   const { rentalHandoverOpen } = await import("../supabase/functions/_shared/prague-rental-window.mjs");
-  const guard = sql.slice(sql.indexOf("-- Trusted pickup PIN confirmation"), sql.indexOf("-- KROK 79: trusted postgres Cron"));
+  const guard = earlyPickup.slice(earlyPickup.indexOf("-- Trusted pickup PIN confirmation"), earlyPickup.indexOf("-- KROK 79: trusted postgres Cron"));
   assert.match(guard, /new\.status = 'picked_up'/);
   assert.match(guard, /clock_timestamp\(\) >= \(\(old\.end_date \+ old\.pickup_time\) at time zone 'Europe\/Prague'\)/);
-  assert.match(guard, /clock_timestamp\(\) < \(\(old\.start_date \+ old\.pickup_time\) at time zone 'Europe\/Prague'\)/);
+  assert.match(guard, /clock_timestamp\(\) < \([\s\S]*old\.start_date \+ old\.pickup_time[\s\S]*- interval '2 hours'/);
   assert.match(resolvePin, /rentalHandoverOpen\(reservation\.start_date, reservation\.end_date, reservation\.pickup_time\)/);
   assert.match(getPin, /rentalEndReached\(reservation\.end_date, reservation\.pickup_time\)/);
   assert.match(getPin, /pickup_time"\)/);
   const start = "2026-11-12", end = "2026-11-13", time = "10:00:00";
   for (const [utc, expected] of [
-    ["2026-11-12T08:59:59.999Z", false],
+    ["2026-11-12T06:59:59.999Z", false],
+    ["2026-11-12T07:00:00.000Z", true],
+    ["2026-11-12T08:59:59.999Z", true],
     ["2026-11-12T09:00:00.000Z", true],
     ["2026-11-13T08:59:59.999Z", true],
     ["2026-11-13T09:00:00.000Z", false],

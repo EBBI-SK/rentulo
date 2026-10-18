@@ -66,5 +66,7 @@ export function rentalEndReached(endDate, pickupTime, now = new Date()) {
 export function rentalHandoverOpen(startDate, endDate, pickupTime, now = new Date()) {
   const begin = pragueRentalInstant(startDate, pickupTime);
   const end = pragueRentalInstant(endDate, pickupTime);
-  return begin !== null && end !== null && now.getTime() >= begin && now.getTime() < end;
+  // Two elapsed hours of optional early pickup. The owner still decides whether
+  // the item is ready. End-of-rental remains an exclusive, unchanged deadline.
+  return begin !== null && end !== null && now.getTime() >= begin - 2 * 60 * 60 * 1000 && now.getTime() < end;
 }
