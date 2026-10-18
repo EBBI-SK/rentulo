@@ -776,7 +776,7 @@ return (
       if (elements.noShowWarning) {
         elements.noShowWarning.textContent = reservationsTranslate(
           "reservations.paymentModal.noShowWarning",
-          "Důležité: Pokud nebude předání potvrzeno do 23:59 v den vyzvednutí (český čas), zaplacená rezervace po půlnoci automaticky skončí. Výplata bude odeslána majiteli; platba se automaticky nevrací ani za zbývající dny. Při problému s předáním zůstává možnost reklamace."
+          "Důležité: PIN lze použít už 2 hodiny před sjednaným převzetím, nejpozději však do sjednaného času vrácení (český čas). Po předání se PIN zneplatní. Nepotvrzené převzetí se po sjednaném čase vrácení uzavře jako nevyzvednuté; platba se automaticky nevrací. Případný oprávněný problém s předáním můžete reklamovat."
         );
       }
 
