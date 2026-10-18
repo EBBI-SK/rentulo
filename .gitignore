@@ -27,3 +27,6 @@ Thumbs.db
 
 # Generated Vercel static build output
 /dist/
+
+# Private local accounting exports (never commit customer or payment data).
+pohoda-export/
