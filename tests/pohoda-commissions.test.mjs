@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   parseCsv, parseRates, prepareCommissions, createPohodaXml,
   createReconciliationCsv, escapeXml,
@@ -89,6 +90,12 @@ test('XML is well formed and has one dataPackItem per distinct commission', () =
   assert.equal((xml.match(/<dat:dataPackItem /g) || []).length, 2);
   assert.equal((xml.match(/<inv:invoiceType>receivable/g) || []).length, 2);
   assert.equal((xml.match(/<inv:invoiceSummary>/g) || []).length, 2);
+});
+
+test('TEST SQL selects only closed returned or no_show reservations despite legacy picked_up transfers', () => {
+  const sql = readFileSync(new URL('../docs/sql/pohoda_provizie_export_TEST.sql', import.meta.url), 'utf8');
+  assert.match(sql, /WHERE\s+p\.provider\s*=\s*'stripe'\s+AND\s+p\.transfer_status\s*=\s*'succeeded'[\s\S]*?AND\s+r\.status::text\s+IN\s*\('returned',\s*'no_show'\)/i);
+  assert.doesNotMatch(sql, /\b(?:INSERT|UPDATE|DELETE|TRUNCATE|DROP)\s/i);
 });
 
 test('normal finished no-show is supported', () => {
