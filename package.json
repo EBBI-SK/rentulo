@@ -1,7 +1,8 @@
 {
   "scripts": {
     "test": "node --test",
-    "build": "node scripts/build-site.mjs"
+    "build": "node scripts/build-site.mjs",
+    "export:pohoda": "node scripts/export-pohoda-commissions.mjs"
   },
   "devDependencies": {
     "supabase": "^2.109.1"
