@@ -4,6 +4,13 @@
 
 Tento dokument **nie je pokynom na spustenie produkcie**. Bez nového schválenia sa nemení vetva `production`, Vercel/Supabase PROD, Stripe live, domény, DNS ani indexovanie. [README.md](README.md) obsahuje stručný úvod; tu je technický stav, prevádzkové pravidlá a kontrolný zoznam pred spustením.
 
+
+## BOD 02 – právna/daňová príprava (návrh k 18. 10. 2026)
+
+**Schválený rozsah V1:** prenájom medzi súkromnými osobami v ČR, bez dopravných prostriedkov; ich pridanie sa môže posúdiť pre V2 podľa dopytu. Nadväzujúci ZIP obsahuje návrh zmien právnych textov CZ/SK/EN/DE/PL, kontrolu formulárov, serverovú SQL migráciu **len pre TEST**, kontaktný postup DSA a regresné testy. Referenčný `main` pre tento ZIP `d8bbfd2` (18. 10. 2026), CI #39104698086 úspešné **pred touto zmenou**. Príprava súborov ≠ merge ≠ nasadenie TEST SQL ≠ právny súhlas.
+
+**Zostáva otvorené:** overenie § 7a/DPH a provízie účtovníkom, potvrdenie Stripe Connect a PSD2, český právny súhlas, retenčná tabuľka GDPR, skutočný proces DSA a ručný TEST databázový/UX audit. **PROD `production` / Supabase PROD / Stripe live nemeniť.** Kompletný plán v [docs/BOD02_PRAVNY_DANOVY_AUDIT_TEST.md](docs/BOD02_PRAVNY_DANOVY_AUDIT_TEST.md). V prípade odlišnej technickej histórie majú prednosť konkrétne dátumy a commity pri starších odstavcoch nižšie.
+
 ## 1. Aktuálny stav (snapshot k 13. 10. 2026)
 
 Rentulo V1 je platforma na požičiavanie vecí **medzi súkromnými osobami v ČR**. Používateľské rozhranie má päť jazykov (CZ/SK/EN/DE/PL), predvolená je čeština. Prevádzkovateľ: **EBBI s. r. o.** Projekt zatiaľ funguje v TEST prostredí; verejné spustenie na `rentulo.com` nebolo odsúhlasené.

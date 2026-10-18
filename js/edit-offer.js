@@ -1226,6 +1226,22 @@ function setupEditOfferSave() {
       }
     }
 
+    const transportAttestation = document.getElementById("editTransportConfirmation");
+    if (!window.rentuloOfferPolicy || typeof window.rentuloOfferPolicy.isTransportOffer !== "function") {
+      editShowTranslatedMessage("offer.transportNotAllowed", "Kontrola pravidel nabídky není dostupná.");
+      return;
+    }
+    if (window.rentuloOfferPolicy.isTransportOffer(nameInput.value, categorySelect.value)) {
+      editMarkError(nameInput);
+      editShowTranslatedMessage("offer.transportNotAllowed", "Dopravní prostředky nelze v Rentulu V1 nabízet.");
+      return;
+    }
+    if (!transportAttestation || !transportAttestation.checked) {
+      editMarkError(transportAttestation);
+      editShowTranslatedMessage("offer.transportMustConfirm", "Potvrďte prosím pravidla Rentula V1.");
+      return;
+    }
+
     if (hasError) {
       editShowTranslatedMessage("editOffer.validation", "Vyplňte prosím všechna povinná pole. Cena musí být alespoň 100 Kč za den.");
       return;
@@ -1313,6 +1329,13 @@ function setupEditOfferSave() {
     } catch (error) {
       if (newlyUploadedPhotoPath) {
         await removeEditedOfferPhotoFromStorage(supabaseClient, newlyUploadedPhotoPath);
+      }
+
+      if (error && String(error.message || "").toLowerCase().includes("rentulo_v1_transport_not_allowed")) {
+        editSaveInProgress = false;
+        setEditSavingState(false);
+        editShowTranslatedMessage("offer.transportNotAllowed", "Dopravní prostředky nelze v Rentulu V1 nabízet.");
+        return;
       }
 
       console.error(error);
