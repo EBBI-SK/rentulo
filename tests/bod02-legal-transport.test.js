@@ -184,3 +184,21 @@ test("registration captures exact displayed TEST legal version and locale", () =
   assert.match(registration, /terms_accepted_at:\s*now/);
   assert.match(registration, /private_individual_confirmed:\s*true/);
 });
+
+
+test("listing price labels show Czech crowns in all five languages", () => {
+  const translate = dictionary();
+  const expected = {
+    cs: "Cena za den (Kč)",
+    sk: "Cena za deň (Kč)",
+    en: "Price per day (CZK)",
+    de: "Preis pro Tag (CZK)",
+    pl: "Cena za dzień (Kč)"
+  };
+  assert.match(createHtml, /<label for="toolPrice" data-i18n="offer\.priceLabel">Cena za den \(Kč\)<\/label>/);
+  assert.match(editHtml, /<label for="edit-price" data-i18n="editOffer\.pricePerDay">Cena za den \(Kč\)<\/label>/);
+  for (const language of languages) {
+    assert.equal(translate("offer.priceLabel", language), expected[language]);
+    assert.equal(translate("editOffer.pricePerDay", language), expected[language]);
+  }
+});
