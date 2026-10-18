@@ -37,4 +37,6 @@ JOIN public.reservations r ON r.id = p.reservation_id
 LEFT JOIN public.profiles pr ON pr.id = r.owner_id
 WHERE p.provider = 'stripe'
   AND p.transfer_status = 'succeeded'
+  -- Exclude historical picked_up reservations even when their Stripe transfer succeeded.
+  AND r.status::text IN ('returned', 'no_show')
 ORDER BY p.transfer_created_at, r.reservation_number;
