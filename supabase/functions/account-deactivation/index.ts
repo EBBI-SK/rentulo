@@ -40,7 +40,7 @@ type FinalizeResult = {
 // deliberately repeatable: partial Storage failures leave the Auth login intact
 // so the deactivated user can retry without recreating the account.
 async function deleteOwnerOfferPhotos(
-  admin: ReturnType<typeof createClient>, ownerId: string,
+  admin: { storage: ReturnType<typeof createClient>["storage"] }, ownerId: string,
 ): Promise<number> {
   const bucket = admin.storage.from("offer-photos");
   const folders = [ownerId];

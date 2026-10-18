@@ -18,6 +18,7 @@ function mockElement(overrides = {}) {
     dataset: {},
     textContent: "",
     className: "",
+    style: {},
     classList: {
       toggle(key, active) { if (active) states.add(key); else states.delete(key); },
       add(key) { states.add(key); },
@@ -44,7 +45,7 @@ function harness() {
   };
   const instrumented = source.replace(
     '  document.addEventListener("DOMContentLoaded", initializeSettingsPage);',
-    '  window.__settingsTest = { checkAccountCancellation, cancelAccount, updateAccountCancellationButtonState };\n' +
+    '  window.__settingsTest = { checkAccountCancellation, cancelAccount, updateAccountCancellationButtonState, loadPageData };\n' +
       '  document.addEventListener("DOMContentLoaded", initializeSettingsPage);'
   );
   assert.notEqual(instrumented, source, "test instrumentation must attach to the real functions");
@@ -192,4 +193,56 @@ test("stale zero financial counts are not presented as proof that nothing is pen
   assert.match(get("accountCancellationMessage").textContent, /nedokončeným finančním operacím/);
   assert.doesNotMatch(get("accountCancellationMessage").textContent, /Neuhrazené storno poplatky: 0/);
   assert.equal(get("checkAccountCancellationButton").hidden, false);
+});
+
+test("deactivated account can retry photo cleanup after settings reload despite profile RLS", async () => {
+  const { get, api } = harness();
+  const unrelatedCard = mockElement({ id: "profileSettingsCard" });
+  const cancelCard = mockElement({ id: "accountCancellationSection" });
+  get("settingsContent").querySelectorAll = () => [unrelatedCard, cancelCard];
+  let profileReads = 0;
+  let statusCalls = 0;
+  const client = {
+    from(name) {
+      assert.equal(name, "profiles");
+      return { select() { return { eq() { return { async maybeSingle() {
+        profileReads++;
+        // Deactivated users cannot read their own profile through RLS.
+        return { data: null, error: null };
+      } }; } }; } };
+    },
+    async rpc(name) {
+      assert.equal(name, "get_my_account_deactivation_status_v2");
+      statusCalls++;
+      return { data: [{ ...financialStatus, account_status: "deactivated", can_deactivate: false }], error: null };
+    }
+  };
+  assert.equal(await api.loadPageData(client, { id: "test-id", email: "test@example.invalid" }), true);
+  assert.equal(profileReads, 1);
+  assert.equal(statusCalls, 2);
+  assert.equal(get("settingsContent").hidden, false);
+  assert.equal(get("settingsLoadState").hidden, true);
+  assert.equal(unrelatedCard.hidden, true);
+  assert.equal(unrelatedCard.style.display, "none");
+  assert.equal(cancelCard.hidden, false);
+  assert.equal(get("checkAccountCancellationButton").hidden, true);
+  assert.equal(get("accountCancellationConfirmation").hidden, false);
+  assert.match(get("accountCancellationMessage").textContent, /deaktivována/);
+});
+
+test("missing active profile without confirmed deactivation keeps settings hidden", async () => {
+  const { get, api } = harness();
+  get("settingsContent").querySelectorAll = () => { throw new Error("Must not show settings"); };
+  const client = {
+    from() { return { select() { return { eq() { return { async maybeSingle() {
+      return { data: null, error: null };
+    } }; } }; } }; },
+    async rpc(name) {
+      assert.equal(name, "get_my_account_deactivation_status_v2");
+      return { data: [{ ...financialStatus, account_status: "active" }], error: null };
+    }
+  };
+  assert.equal(await api.loadPageData(client, { id: "active-id" }), false);
+  assert.equal(get("settingsContent").hidden, true);
+  assert.equal(get("settingsLoadState").hidden, false);
 });
