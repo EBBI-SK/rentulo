@@ -54,7 +54,8 @@ test("create and edit flows both require affirmative statement before upload or 
     [editHtml, edit, "editTransportConfirmation"]
   ]) {
     assert.match(html, new RegExp(`id="${checkbox}"[^>]*required`));
-    assert.match(html, /data-i18n="offer\.transportRule"/);
+    assert.doesNotMatch(html, /id="transportPolicyNote"|data-i18n="offer\.transportRule"/);
+    assert.doesNotMatch(html, /aria-describedby="transportPolicyNote"/);
     assert.match(html, /data-i18n="offer\.transportConfirmation"/);
     assert.ok(html.indexOf('src="js/offer-policy.js"') < html.indexOf('src="js/' + (checkbox === "offerTransportConfirmation" ? "offer-form-page.js" : "edit-offer.js") + '"'));
     assert.match(source, new RegExp(`getElementById\\("${checkbox}"\\)`));
@@ -128,7 +129,7 @@ test("all BOD02 legal disclosures exist in five languages without fallback to ot
   const privacy = read("ochrana-osobnich-udaju.html");
   const other = read("kontakt.html") + read("registrace.html");
   const keys = [
-    "offer.transportRule", "offer.transportConfirmation", "offer.transportNotAllowed", "offer.transportMustConfirm",
+    "offer.transportConfirmation", "offer.transportNotAllowed", "offer.transportMustConfirm",
     "detail.privateListingNote", "detail.reportOffer", "contact.reportTitle", "contact.reportText",
     "terms.section3.item3", "terms.section4.item5", "terms.section4.item6", "terms.section6.item6",
     "terms.section9.item3", "terms.section12.item4", "terms.section12.item5", "terms.section14.item3",
@@ -148,6 +149,23 @@ test("all BOD02 legal disclosures exist in five languages without fallback to ot
   for (const key of ["contact.reportTitle", "contact.reportText", "registration.termsVersionNote"]) {
     assert.ok(other.includes(translate(key, "cs")), key);
   }
+});
+
+test("V1 public legal copy stays clear without mentioning future V2 availability", () => {
+  const translate = dictionary();
+  const terms = read("obchodni-podminky.html");
+  for (const html of [createHtml, editHtml]) {
+    assert.doesNotMatch(html, /transportPolicyNote|offer\.transportRule|\bV2\b/i);
+    assert.match(html, /data-i18n="offer\.transportConfirmation"/);
+  }
+  assert.doesNotMatch(terms, /\bV2\b/i);
+  assert.match(terms, /data-i18n="terms\.section4\.item5"/);
+  for (const language of languages) {
+    const translated = translate("terms.section4.item5", language);
+    assert.doesNotMatch(translated, /\bV2\b/i, language);
+    assert.ok(translated.length > 40, language);
+  }
+  assert.doesNotMatch(read("js/i18n.js"), /"offer\.transportRule":/);
 });
 
 test("listing detail clearly identifies self-declared private seller and offers a report channel", () => {
