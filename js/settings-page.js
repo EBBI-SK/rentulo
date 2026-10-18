@@ -239,6 +239,31 @@
     }
 
     if (error || !data) {
+      // After a Storage failure the backend has already deactivated the profile,
+      // and profile RLS hides it. Keep the existing cancellation UI available so
+      // the user can retry the same protected operation after reloading the page.
+      try {
+        const { data: statusData, error: statusError } = await client.rpc(
+          "get_my_account_deactivation_status_v2"
+        );
+        const status = !statusError ? firstResultRow(statusData) : null;
+        if (status && status.account_status === "deactivated") {
+          const content = document.getElementById("settingsContent");
+          if (content) {
+            content.querySelectorAll(".settings-card").forEach(function (section) {
+              if (section.id !== "accountCancellationSection") {
+                section.hidden = true;
+                section.style.display = "none";
+              }
+            });
+          }
+          setLoadState("ready");
+          await checkAccountCancellation(client);
+          return true;
+        }
+      } catch (retryError) {
+        console.warn("Unable to load account-deactivation retry state", retryError);
+      }
       console.error(error);
       setLoadState("error");
       return false;
