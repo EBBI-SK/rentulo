@@ -124,6 +124,190 @@ function reservationsExpirationText(reason) {
     let reservationsLoadState = "idle";
     let reservationsNoticeTimer = null;
 
+    // Stripe's return URL is not proof of payment. Only the server's reservation
+    // status (updated by the trusted Stripe webhook) can confirm a payment.
+    const STRIPE_CHECKOUT_PENDING_KEY = "rentuloPendingStripeCheckout";
+    const STRIPE_RETURN_POLL_DELAY_MS = 2000;
+    const STRIPE_RETURN_MAX_POLLS = 30;
+    const STRIPE_RETURN_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+    const STRIPE_RETURN_TEXT = {
+      cs: {
+        checking: "Ověřujeme dokončení platby. Prosím, neplaťte znovu.",
+        checkingShort: "Ověřujeme platbu",
+        confirmed: "Platba byla potvrzena. Rezervace je zaplacená.",
+        delayed: "Potvrzení platby trvá déle. Neplaťte znovu. Zkuste později zkontrolovat stav nebo kontaktujte podporu.",
+        unavailable: "Stav platby se nepodařilo potvrdit. Neplaťte znovu a kontaktujte podporu."
+      },
+      sk: {
+        checking: "Overujeme dokončenie platby. Prosím, neplaťte znova.",
+        checkingShort: "Overujeme platbu",
+        confirmed: "Platba bola potvrdená. Rezervácia je zaplatená.",
+        delayed: "Potvrdenie platby trvá dlhšie. Neplaťte znova. Skontrolujte stav neskôr alebo kontaktujte podporu.",
+        unavailable: "Stav platby sa nepodarilo potvrdiť. Neplaťte znova a kontaktujte podporu."
+      },
+      en: {
+        checking: "We are verifying your payment. Please do not pay again.",
+        checkingShort: "Verifying payment",
+        confirmed: "Payment confirmed. Your booking is paid.",
+        delayed: "Payment confirmation is taking longer. Do not pay again. Check later or contact support.",
+        unavailable: "We could not verify the payment status. Do not pay again; contact support."
+      },
+      de: {
+        checking: "Wir prüfen Ihre Zahlung. Bitte zahlen Sie nicht erneut.",
+        checkingShort: "Zahlung wird geprüft",
+        confirmed: "Zahlung bestätigt. Die Buchung ist bezahlt.",
+        delayed: "Die Zahlungsbestätigung dauert länger. Bitte zahlen Sie nicht erneut. Prüfen Sie den Status später oder kontaktieren Sie den Support.",
+        unavailable: "Der Zahlungsstatus konnte nicht bestätigt werden. Bitte zahlen Sie nicht erneut und kontaktieren Sie den Support."
+      },
+      pl: {
+        checking: "Sprawdzamy płatność. Nie płać ponownie.",
+        checkingShort: "Sprawdzamy płatność",
+        confirmed: "Płatność potwierdzona. Rezerwacja jest opłacona.",
+        delayed: "Potwierdzenie płatności trwa dłużej. Nie płać ponownie. Sprawdź stan później lub skontaktuj się z pomocą.",
+        unavailable: "Nie udało się potwierdzić płatności. Nie płać ponownie i skontaktuj się z pomocą."
+      }
+    };
+    let stripeReturnVerification = null;
+
+    function stripeReturnText(key) {
+      const language = typeof window.getRentuloLanguage === "function"
+        ? window.getRentuloLanguage()
+        : "cs";
+      return (STRIPE_RETURN_TEXT[language] || STRIPE_RETURN_TEXT.cs)[key];
+    }
+
+    function clearStripePendingCheckout() {
+      try {
+        window.sessionStorage.removeItem(STRIPE_CHECKOUT_PENDING_KEY);
+      } catch (_) {
+        // Browsers may disable sessionStorage; the confirmation flow still stays safe.
+      }
+    }
+
+    function storeStripePendingCheckout(reservationId, userId) {
+      try {
+        window.sessionStorage.setItem(STRIPE_CHECKOUT_PENDING_KEY, JSON.stringify({
+          reservationId: String(reservationId),
+          userId: String(userId),
+          startedAt: Date.now()
+        }));
+      } catch (_) {
+        // A blocked storage API must never prevent Stripe Checkout.
+      }
+    }
+
+    function readStripeReturnVerification(verifiedUser) {
+      const params = new URLSearchParams(window.location.search);
+      const paymentResult = params.get("payment");
+      if (paymentResult === "cancelled") {
+        clearStripePendingCheckout();
+        return null;
+      }
+      if (paymentResult !== "success") {
+        return null;
+      }
+
+      let reservationId = null;
+      try {
+        const pending = JSON.parse(window.sessionStorage.getItem(STRIPE_CHECKOUT_PENDING_KEY) || "null");
+        const age = Date.now() - Number(pending && pending.startedAt);
+        if (pending && pending.userId === verifiedUser.id &&
+            typeof pending.reservationId === "string" &&
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pending.reservationId) &&
+            age >= 0 && age < STRIPE_RETURN_MAX_AGE_MS) {
+          reservationId = pending.reservationId;
+        }
+      } catch (_) {
+        // Unknown checkout: refresh all reservations, but never claim payment success.
+      }
+      return { reservationId: reservationId, polls: 0 };
+    }
+
+    function stripeReturnBlocksAction(reservationId) {
+      return Boolean(stripeReturnVerification && (
+        !stripeReturnVerification.reservationId ||
+        String(stripeReturnVerification.reservationId) === String(reservationId)
+      ));
+    }
+
+    function showStripeReturnNotice(key, isError = false) {
+      const notice = document.getElementById("reservationsNotice");
+      if (!notice) return;
+      if (reservationsNoticeTimer) {
+        window.clearTimeout(reservationsNoticeTimer);
+        reservationsNoticeTimer = null;
+      }
+      notice.textContent = stripeReturnText(key);
+      notice.classList.toggle("error", isError);
+      notice.setAttribute("role", isError ? "alert" : "status");
+      notice.hidden = false;
+    }
+
+    function removeStripeReturnQuery() {
+      if (!window.history || typeof window.history.replaceState !== "function") return;
+      const url = new URL(window.location.href);
+      url.searchParams.delete("payment");
+      window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+    }
+
+    function getVerifiedStripeReturnStatus() {
+      if (!stripeReturnVerification || !stripeReturnVerification.reservationId) return "unknown";
+      const reservation = supabaseReservations.find(function (item) {
+        return String(item.id || item.reservationId) === stripeReturnVerification.reservationId;
+      });
+      if (!reservation) return "unknown";
+      const status = normalizeReservationStatus(getSafeReservationStatus(reservation));
+      if ([RESERVATION_STATUS_PAID, RESERVATION_STATUS_PICKED_UP,
+           RESERVATION_STATUS_RETURNED, RESERVATION_STATUS_NO_SHOW].includes(status)) return "confirmed";
+      if ([RESERVATION_STATUS_CANCELLED, RESERVATION_STATUS_EXPIRED,
+           RESERVATION_STATUS_REJECTED].includes(status)) return "unavailable";
+      return "pending";
+    }
+
+    function finishStripeReturnVerification(result) {
+      stripeReturnVerification = null;
+      clearStripePendingCheckout();
+      removeStripeReturnQuery();
+      renderReservations();
+      if (result === "confirmed") {
+        showReservationsNotice(stripeReturnText("confirmed"));
+      } else {
+        showStripeReturnNotice("unavailable", true);
+      }
+    }
+
+    function scheduleStripeReturnPoll(verifiedUser) {
+      if (!stripeReturnVerification) return;
+      if (stripeReturnVerification.polls >= STRIPE_RETURN_MAX_POLLS) {
+        // Keep the Pay action blocked: the webhook may still be processing.
+        showStripeReturnNotice("delayed", true);
+        return;
+      }
+      window.setTimeout(function () {
+        void pollStripeReturnVerification(verifiedUser);
+      }, STRIPE_RETURN_POLL_DELAY_MS);
+    }
+
+    async function pollStripeReturnVerification(verifiedUser) {
+      if (!stripeReturnVerification) return;
+      stripeReturnVerification.polls += 1;
+      if (typeof window.invalidateRentuloReservationsData === "function") {
+        window.invalidateRentuloReservationsData();
+      }
+      const refreshed = await loadMyReservationsFromSupabase(verifiedUser);
+      if (!stripeReturnVerification) return;
+      if (reservationsLoadState === "ready") {
+        supabaseReservations = refreshed;
+        const status = getVerifiedStripeReturnStatus();
+        if (status === "confirmed" || status === "unavailable") {
+          finishStripeReturnVerification(status);
+          return;
+        }
+        renderReservations();
+      }
+      scheduleStripeReturnPoll(verifiedUser);
+    }
+
     function showReservationsNotice(message, type = "success") {
       const notice = document.getElementById("reservationsNotice");
 
@@ -1120,6 +1304,7 @@ return (
         return;
       }
 
+      storeStripePendingCheckout(reservationId, supabaseUser.id);
       window.location.href = checkoutUrl;
     }
 
@@ -1275,6 +1460,10 @@ return (
     }
 
     function renderRenterReservationCancellationAction(reservation) {
+      if (stripeReturnBlocksAction(reservation.id || reservation.reservationId) &&
+          normalizeReservationStatus(getSafeReservationStatus(reservation)) === RESERVATION_STATUS_APPROVED) {
+        return "";
+      }
       if (!canRenterCancelReservation(reservation)) {
         return "";
       }
@@ -1417,7 +1606,12 @@ return (
     function renderReservationCard(reservation) {
       const status = getSafeReservationStatus(reservation);
       const normalizedStatus = normalizeReservationStatus(status);
-      const statusText = getSafeReservationStatusText(status);
+      const reservationId = reservation.id || reservation.reservationId;
+      const waitingForStripe = normalizedStatus === RESERVATION_STATUS_APPROVED &&
+        stripeReturnBlocksAction(reservationId);
+      const statusText = waitingForStripe
+        ? stripeReturnText("checkingShort")
+        : getSafeReservationStatusText(status);
 
       const toolName = getSafeReservationToolName(reservation);
       const city = getPickupCity(reservation);
@@ -1425,7 +1619,6 @@ return (
       const startDate = getSafeReservationDateFrom(reservation);
       const endDate = getSafeReservationDateTo(reservation);
       const totalPrice = getSafeReservationTotalPrice(reservation);
-      const reservationId = reservation.id || reservation.reservationId;
       const isPaymentRequired = canRenterPayReservation(reservation);
       const isPriority = (
         isPaymentRequired ||
@@ -1433,7 +1626,7 @@ return (
         normalizedStatus === RESERVATION_STATUS_PICKED_UP
       );
 
-      const paymentAction = isPaymentRequired
+      const paymentAction = isPaymentRequired && !waitingForStripe
         ? `
           <button class="reservation-primary-action orange" type="button" data-reservations-action="pay" data-reservation-id="${escapeHtml(reservationId)}">
             ${escapeHtml(reservationsTranslate("reservations.pay", "Zaplatit"))}
@@ -1543,15 +1736,33 @@ return (
         return;
       }
 
+      stripeReturnVerification = readStripeReturnVerification(verifiedUser);
+      if (stripeReturnVerification) {
+        showStripeReturnNotice("checking");
+        // Shared navigation may have prefetched stale reservations before return.
+        if (typeof window.invalidateRentuloReservationsData === "function") {
+          window.invalidateRentuloReservationsData();
+        }
+      }
       renderLoadingState();
       reservationsLoadState = "loading";
 
       supabaseReservations = await loadMyReservationsFromSupabase(verifiedUser);
 
       if (reservationsLoadState === "ready") {
+        if (stripeReturnVerification) {
+          const status = getVerifiedStripeReturnStatus();
+          if (status === "confirmed" || status === "unavailable") {
+            finishStripeReturnVerification(status);
+            return;
+          }
+        }
         renderReservations();
       } else if (reservationsLoadState === "error") {
         renderLoadErrorState();
+      }
+      if (stripeReturnVerification) {
+        scheduleStripeReturnPoll(verifiedUser);
       }
     }
 
@@ -1642,6 +1853,10 @@ return (
 
       try {
         if (action === "pay") {
+          if (stripeReturnBlocksAction(reservationId)) {
+            showStripeReturnNotice("checking");
+            return;
+          }
           await payReservation(reservationId);
           return;
         }
