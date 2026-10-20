@@ -1,98 +1,124 @@
 # RENTULO V1 – Retenčná politika osobných údajov
 
 **Verzia návrhu:** 1.0  
-**Dátum vypracovania:** 20. 10. 2026  
-**Stav:** NÁVRH NA SCHVÁLENIE – zatiaľ nie je účinná ani právne schválená  
+**Dátum vypracovania a aktualizácie:** 20. 10. 2026  
+**Stav:** NÁVRH NA INTERNÉ SCHVÁLENIE – zatiaľ nie je účinná  
 **Prevádzkovateľ:** EBBI s. r. o.  
-**Kontakt pre GDPR:** policy@rentulo.com  
-**Rozsah:** Rentulo V1 – prenájom vecí medzi súkromnými osobami v ČR  
-**Technické východisko:** GitHub `EBBI-SK/rentulo`, `main` po PR #27, commit `9004d7c`  
-**Prostredia:** TEST `rentulo.eu`; PROD `rentulo.com` – bez zmeny
+**GDPR kontakt:** policy@rentulo.com  
+**Rozsah:** Rentulo V1 – platforma pre prenájom vecí medzi súkromnými osobami v ČR  
+**Východisko:** GitHub `EBBI-SK/rentulo`, `main` po PR #28 (merge `2250ed0`); GDPR ochrana z PR #27 nainštalovaná iba v Supabase TEST  
+**Prostredia:** TEST `rentulo.eu`; PROD `rentulo.com` – bez zásahov
 
-## 1. Načo je tento dokument
+## 1. Účel a zásady
 
-Určuje, **ktoré údaje držíme, prečo, odkedy počítame lehotu a čo sa stane potom**. Po schválení bude interným podkladom pre čistenie databázy a zosúladenie dokumentu „Ochrana osobních údajů“ vo všetkých piatich jazykoch.
+Tento interný dokument určuje, **ktoré osobné údaje uchovávame, prečo, odkedy sa počíta lehota a čo sa po jej uplynutí odstráni**. Jeho schválenie samo osebe **nespustí žiadne mazanie**. Následne sa musia zosúladiť verejné GDPR informácie vo všetkých piatich jazykoch.
 
-Princíp: osobné údaje držať len nevyhnutne dlho (čl. 5 ods. 1 písm. e GDPR). Zákonná povinnosť, otvorený spor či ochrana právneho nároku môže vyžadovať výnimku. Nie všetky údaje v jednej rezervácii musia mať rovnakú lehotu.
+Podľa čl. 5 ods. 1 písm. c) a e) GDPR musí byť rozsah a doba uchovávania primeraná účelu; podľa čl. 5 ods. 2 musí EBBI vedieť tento postup preukázať. Výmaz podľa čl. 17 GDPR má výnimky napríklad pre zákonné povinnosti a preukazovanie, uplatňovanie alebo obhajobu právnych nárokov. **Dĺžka premlčacej doby nie je automatickým povolením uchovávať všetky osobné údaje rovnako dlho.**
 
-**Bezpečnostné pravidlo:** kým táto politika a konkrétne lehoty nie sú schválené, nespúšťame žiadne automatické ani manuálne hromadné mazanie historických záznamov. Existujúca TEST SQL ochrana po PR #27 zostáva vypnutá (`gdpr_reservation_contact_cleanup_gate.is_enabled = false`).
+Rozlišujeme: **(a)** kontakty potrebné iba na realizáciu prenájmu, **(b)** nevyhnutné zmluvné a právne dôkazy, **(c)** zákonné účtovné/daňové doklady a **(d)** technické a bezpečnostné záznamy. Pre každú skupinu sa posudzuje samostatný účel, právny základ a lehota.
 
-## 2. Retenčná tabuľka – konkrétny pracovný návrh
+**Bezpečnostné pravidlo:** Pokiaľ nie je schválená konkrétna lehota a technicky overené jej uplynutie, neaktivujeme hromadné ani automatické čistenie historických údajov. V Supabase TEST je brána `gdpr_reservation_contact_cleanup_gate.is_enabled = false`.
 
-| Údaje / technické tabuľky | Navrhovaná lehota a začiatok počítania | Po uplynutí lehoty | Stav |
+## 2. Retenčná tabuľka – pracovný návrh pre V1
+
+| Údaje / tabuľky | Návrh lehoty a začiatok počítania | Následný postup a obmedzenia | Rozhodnutie |
 |---|---|---|---|
-| Profil, autentifikácia (`profiles`, `auth.users`) | Počas aktívneho účtu; pri oprávnenom zrušení vykonať existujúci proces deaktivácie | Vyčistiť priame kontaktné údaje, vypnúť prihlásenie; potrebné identifikátory a finančné väzby riešiť oddelene | Mechanizmus TEST otestovaný |
-| Aktívna ponuka a fotografie (`offers`, Storage `offer-photos`) | Počas zverejnenia; po stiahnutí len počas otvorených rezervácií, námietok či sporov | Skryť/anonymizovať ponuku; odstrániť fotografie pri zrušení účtu podľa existujúceho procesu | Pri zrušení účtu TEST otestované |
-| Meno, e-mail, telefón nájomcu uložené v uzavretej nezaplatenej rezervácii (`reservations.renter_*`) | **Návrh 90 dní** od spoľahlivo doloženého uzavretia rezervácie bez sporu; až po kontrole všetkých súvisiacich záväzkov | Vyprázdniť len tri kontaktné polia; ponechať číslo rezervácie, stav, termíny a nevyhnutnú históriu | LEHOTA NA SCHVÁLENIE; TEST nástroj pripravený, vypnutý |
-| Kontaktné údaje majiteľa a miesto prevzatia v historickej rezervácii (`reservations.owner_*`, `pickup_*`) | **Návrh 90 dní** od riadneho ukončenia a vysporiadania, ak nie je otvorený nárok | Anonymizovať nepotrebné kontakty a presnú adresu; zachovať nutné dôkazy | LEHOTA A TECHNICKÁ ÚPRAVA NA SCHVÁLENIE |
-| Rezervácie bez kontaktných údajov, hodnoty, dátumy a väzby (`reservations`) | **Pracovný návrh 3 roky** od konečného vysporiadania, ak neplatí zákonná povinnosť či spor | Zmazať/anonymizovať až po kontrole súvisiacich platieb, dôkazov a väzieb | PRÁVNE OVERIŤ |
-| Platby, refundy, prevody, záväzky a náklady (`payments`, `reservation_cancellations`, `reservation_cancellation_cost_items`, `owner_cancellation_debts`) | **Podľa účtovných a daňových predpisov a ochrany nárokov; presnú lehotu zatiaľ neurčujeme** | Ponechať potrebné doklady, potom kontrolované odstránenie | ČAKÁ NA ÚČTOVNÍČKU / PRÁVNIKA |
-| Hodnotenia a komentáre (`reviews`) | Počas odôvodneného zverejnenia a vybavenia námietok | Odstrániť či anonymizovať autora a osobné údaje v texte podľa prípadu | PRAVIDLO NA SCHVÁLENIE |
-| Oznámenia v účte (`notifications`) | **Návrh 90 dní** od doručenia, ak nie sú dôkazom incidentu | Zmazať nepotrebné oznámenia | LEHOTA NA SCHVÁLENIE |
-| Staršie e-mailové doručenky vrátane adresy (`reservation_email_deliveries`) | **Návrh:** e-mail príjemcu preveriť na odstránenie po 90 dňoch; potrebný dôkaz o doručení posudzovať samostatne (pracovne do 12 mesiacov alebo dlhšie pri spore) | Minimalizovať adresu a chyby, nechať len odôvodnený dôkaz; nikdy nestratiť potrebný dôkaz o oznámení | PRÁVNE OVERIŤ; zatiaľ nemazať |
-| Novšie e-mailové/SMS udalosti (`reservation_notification_deliveries`) | **Návrh 12 mesiacov** od doručenia/uzavretia, iba v rozsahu potrebnom na reklamáciu, bezpečnosť a preukázanie odoslania | Odstrániť identifikátory poskytovateľov, texty chýb a nadbytočné prevádzkové záznamy | LEHOTA NA SCHVÁLENIE |
-| PIN – pokusy a blokácie (`reservation_pickup_security`) | **Návrh 30 dní** po ukončení rezervácie pre technické pokusy; dôkaz o prevzatí môže vyžadovať dlhšiu lehotu | Odstrániť bezpečnostný detail, keď už nie je potrebný; dôkaz o prevzatí oddeliť | PRÁVNE A TECHNICKY OVERIŤ |
-| Stripe technické udalosti (`stripe_webhook_events`) | **Návrh 180 dní** od úspešného spracovania; nikdy nemazať pri nevyriešenej platbe/refunde | Odstrániť technické chyby a duplicity; potrebné finančné záznamy uchovať zvlášť | LEHOTA NA SCHVÁLENIE |
-| Incidenty pri nevrátení a riešenie škôd (`reservation_return_incidents`) | **Pracovný návrh 3 roky** po právoplatnom/úplnom uzavretí veci, podľa typu nároku | Vymazať opis a osobné údaje, keď už neexistuje právny dôvod | PRÁVNE OVERIŤ; proces sporov patrí do BODU 03 |
-| Technické chyby, stav workerov a monitoring (`reservation_notification_monitor_alerts`, prevádzkové logy) | **Návrh 90 dní** po vyriešení; údaje bez osobného obsahu možno držať podľa potreby | Zmazať staré incidentné logy a citlivý text chýb | LEHOTA NA SCHVÁLENIE; overiť logy dodávateľov |
-| Záznam akceptácie právnych podmienok (`auth.users` metadáta a prípadná auditná evidencia) | **Pracovný návrh 3 roky** po skončení relevantného zmluvného vzťahu, pokiaľ nie je nárok alebo iná povinnosť | Odstrániť po uplynutí právne odôvodnenej lehoty | PRÁVNE OVERIŤ; súčasné klientské metadáta nie sú nemenný dôkaz |
-| Údaje potrebné pre DAC7 | Len ak sa podľa stanoviska FS povinnosť na Rentulo vzťahuje; lehotu určiť podľa zákona | Uchovať len povinne požadovaný rozsah | ČAKÁ SA NA ODPOVEĎ FS |
-| Testovacie údaje a testovacie účty | **Návrh do 30 dní po skončení konkrétneho testu** | Zmazať nepotrebné skutočné osobné údaje; prednostne používať fiktívne údaje | INTERNÉ PRAVIDLO NA SCHVÁLENIE |
+| Účet a priamy profil (`profiles`, `auth.users`) | Počas účtu; pri oprávnenom zrušení použiť už otestovanú deaktiváciu | Vymazať priame identifikátory, zamedziť prihláseniu; finančné/rezervačné väzby posúdiť osobitne | Mechanizmus TEST otestovaný; rozsah zvyšných väzieb sledovať |
+| Ponuky a fotografie (`offers`, Storage `offer-photos`) | Počas zverejnenia, prípadne potrebného riešenia nadväzujúcich rezervácií/nárokov | Skryť a odstrániť nadbytočný obsah; otestované čistenie pri zrušení účtu ponechať | Existujúci proces ponechať |
+| Meno, e-mail, telefón nájomcu (`reservations.renter_*`) pri **definitívne uzavretej nezaplatenej** rezervácii | **Pracovný návrh: 90 dní od preukázateľného uzavretia** (`cancelled`, `expired`, `rejected`), iba bez platobného záznamu, sporu a ďalšieho dôvodu uchovania | Po lehote vyprázdniť tieto 3 polia, nie rezerváciu; `pending` Stripe platobný záznam **blokuje** zásah. Pred aktiváciou doplniť technické overenie dátumu uzavretia a 90 dní | Návrh EBBI na zdôvodnenie a schválenie; zatiaľ NEMAZAŤ |
+| Kontakty majiteľa a presné údaje prevzatia (`reservations.owner_*`, `pickup_*`) | **Návrh 90 dní** po skutočnom ukončení a vysporiadaní iba tam, kde nejde o dôkaz prenájmu/nároku | Pri uskutočnenej platenej rezervácii najprv oddeliť nevyhnutný dôkaz od čisto prevádzkových kontaktov; nič plošne nemazať | Individuálne posúdiť a technicky pripraviť |
+| Rezervačná a zmluvná história (`reservations`) bez nadbytočných kontaktov | **3 roky iba orientačný návrh** pre bežné prípady od relevantnej splatnosti alebo vzniku možnosti uplatniť nárok; príslušné právo môže stanoviť odlišnú lehotu | Zachovať len nutné údaje pre spor/zmluvný nárok; nemažať kompletné riadky bez kontroly platieb a väzieb | Overiť podľa druhu nároku a rozhodného SK/CZ práva |
+| Platby, refundy, prevody, náklady, dlhy (`payments`, `reservation_cancellations`, `reservation_cancellation_cost_items`, `owner_cancellation_debts`) | Podľa funkcie záznamu, zákonných povinností a nárokov; **konkrétny režim odložený na účtovníčku** | Podľa § 35 zákona č. 431/2002 Z. z. sa určené účtovné doklady spravidla uchovávajú 10 rokov nasledujúcich po roku, ktorého sa týkajú. Nie každý SQL riadok je účtovným dokladom | Do potvrdenia nemažať ani neskracovať |
+| Hodnotenia (`reviews`) | Počas odôvodneného zverejnenia a vybavenia námietok; po skončení účelu preskúmať | Odstrániť alebo odosobniť autora a osobné údaje v texte, ak už nie sú potrebné | Interné pravidlo na schválenie |
+| Oznámenia v účte (`notifications`) | **Návrh 90 dní od vytvorenia/doručenia**, pokiaľ nie sú právnym dôkazom | Odstrániť bežné oznámenia; rozhodnutia, spory a významné výzvy posúdiť osobitne | Interný návrh na schválenie |
+| Staršie e-mailové doručenky (`reservation_email_deliveries`) | **Návrh 90 dní na nadbytočnú e-mailovú adresu** iba ak nie je potrebná na preukázanie príjemcu. Dôkaz o významnej výzve/oznámení môže vyžadovať dlhšie uchovanie podľa nároku | Rozlíšiť technický detail od preukázania doručenia; zachovať nevyhnutné údaje o adresátovi, udalosti a čase v odôvodnenom rozsahu | Zatiaľ nemazať; 6 záznamov čaká na samostatné posúdenie |
+| Novšie e-mailové a SMS udalosti (`reservation_notification_deliveries`) | **Návrh 12 mesiacov** pre bežné doručovacie metadáta od uzavretia udalosti; právne významný dôkaz podľa príslušného nároku | Minimalizovať `last_error`, `provider_message_id` a ďalšie identifikátory podľa účelu; nie automaticky odstrániť všetky dôkazy po 12 mesiacoch | Interný návrh s výnimkami |
+| PIN pokusy a blokácie (`reservation_pickup_security`) | **Návrh 30 dní** od ukončenia rezervácie pre neúspešné pokusy; samotný dôkaz prevzatia podľa potreby dlhšie | Technické pokusy mazať oddelene od dôkazu úspešného prevzatia | Overiť technickú oddeliteľnosť |
+| Stripe technické udalosti (`stripe_webhook_events`) | **Návrh 180 dní** od úspešného a definitívneho spracovania, bez nevyriešeného transferu, refundu, reklamácie alebo retry | Odstrániť iba nadbytočné technické informácie, nie povinné finančné podklady | Overiť prevádzkovú potrebu a Stripe procesy |
+| Nevrátenie, incidenty a škody (`reservation_return_incidents`) | **Nie jednotne 3 roky:** lehota podľa druhu nároku, rozhodného práva, vyriešenia a prípadného konania | Po zániku dôvodu odstrániť osobné opisy a dôkazy; počas konania uplatniť zdokumentované pozastavenie čistenia | Právne posúdiť; riešenie sporov patrí do BODU 03 |
+| Monitoring a chyby (`reservation_notification_monitor_alerts`, prevádzkové logy) | **Návrh 90 dní od vyriešenia incidentu**, iba ak neprebieha vyšetrovanie | Odstrániť staré logy vrátane osobných detailov v chybových hláseniach; preveriť aj lehoty dodávateľov | Interný návrh na schválenie |
+| Evidencia prijatia podmienok (`auth.users` metadáta; budúca serverová evidencia) | Počas relevantného vzťahu a odôvodnenej lehoty na nároky; **3 roky je orientačná, nie univerzálna hranica** | Zachovať preukázateľnú verziu, jazyk a čas prijatia len nevyhnutne dlho; súčasné klientské metadáta nie sú nemenný audit | Právne a technicky spresniť pred spustením |
+| DAC7 | Len ak príslušná povinnosť platí; čas a rozsah určiť podľa stanoviska FS a príslušného zákona | Nevymazávať povinné záznamy | ČAKÁ SA NA ODPOVEĎ FS |
+| Testovacie osobné údaje | **Návrh do 30 dní od ukončenia konkrétneho testu**, ak sa neuplatní iný dôvod | Vymazať skutočné osobné údaje; pri vývoji uprednostniť fiktívne | Interný návrh na schválenie |
 
-**Pozor:** čísla 30/90/180 dní, 12 mesiacov a 3 roky sú pracovné návrhy EBBI pre právne preverenie, **nie univerzálne lehoty stanovené GDPR**. Ani táto tabuľka sama o sebe nezapína technické čistenie.
+**Pozor:** 30/90/180 dní, 12 mesiacov a 3 roky sú **interné pracovné návrhy**, nie automatické lehoty určené GDPR. Každá kategória musí mať odôvodnenie, začiatok lehoty, pravidlo výnimky a bezpečný spôsob odstránenia.
 
-## 3. Čo už bolo preverené na Supabase TEST
+## 3. Právne porovnanie – Slovensko a Česko
 
-- Deaktivované profily: **2**.
-- Historické rezervácie s menom, e-mailom a telefónom zrušených nájomcov: **4**.
-- Z nich: **2 `cancelled` bez platobného záznamu; 2 `expired`, z nich 1 obsahuje Stripe platbu `pending`** (refund `not_requested`, transfer `not_created`). `pending` nie je dôkaz zaplatenia, ale taký záznam automatickú anonymizáciu blokuje.
-- Staršie záznamy doručenia e-mailov s adresou: **6**.
-- Trigger `trg_protect_reservation_immutable_fields` chráni nemenné polia rezervácií.
-- PR #27 vytvoril v TEST-only SQL **uzamknutú, štandardne vypnutú** možnosť vyčistiť tri polia kontaktu nájomcu iba v úzkom bezpečnom režime. Funkcia nie je súčasťou automatického zrušenia účtu a e-mailové doručenky nemení.
+- **GDPR (EÚ 2016/679):** čl. 5 (minimalizácia, obmedzenie uchovávania, zodpovednosť), čl. 6 (právny základ), čl. 13 ods. 2 písm. a) (lehota alebo kritériá), čl. 17 (výmaz a výnimky), čl. 30 a 32 (evidencia a bezpečnosť, ak sa uplatnia).
+- **Slovenský zákon č. 18/2018 Z. z. o ochrane osobných údajov:** dopĺňa vnútroštátny rámec; pri spracúvaní Rentula podliehajúcom GDPR je základným priamo použiteľným predpisom GDPR.
+- **Slovenský Občiansky zákonník č. 40/1964 Zb.:** § 101 – všeobecná premlčacia doba 3 roky; § 106 – pri škode osobitné pravidlá vrátane 2-ročnej subjektívnej a spravidla 3-ročnej objektívnej lehoty (pri úmyselnej škode 10 rokov; zákon má výnimky). To **nie sú všeobecné retenčné lehoty GDPR**.
+- **Slovenský Obchodný zákonník č. 513/1991 Zb.:** § 397 – pri vzťahoch, na ktoré dopadá tento režim, všeobecne 4 roky, ak zákon neurčí inak. **Nepoužívať automaticky na C2C prenájom súkromných osôb.**
+- **Slovenský zákon o účtovníctve č. 431/2002 Z. z.:** § 35 ods. 3 – spravidla 10 rokov pre určené účtovné doklady a knihy, počítaných od nasledujúceho roka. Iné druhy záznamov môžu mať inú lehotu alebo ďalšie povinnosti.
+- **Český občiansky zákonník č. 89/2012 Sb.:** § 629 stanovuje všeobecnú trojročnú subjektívnu premlčaciu lehotu a spravidla desaťročnú najneskoršiu hranicu majetkového práva; existujú výnimky. Pri českých nárokoch preto nemožno mechanicky použiť len slovenské lehoty.
+- **Rím I (ES 593/2008), najmä čl. 6:** pri zmluve Rentulo ↔ český spotrebiteľ môže byť potrebné rešpektovať povinnú ochranu českého spotrebiteľa. Vzťah súkromná osoba ↔ súkromná osoba treba posúdiť osobitne.
 
-**Aktuálne rozhodnutie:** žiadny zo 4 rezervačných kontaktov ani zo 6 historických e-mailov nemažme, kým nie je schválená príslušná lehota a posúdený konkrétny dôkazný/finančný účel.
+**Záver:** Pre každý konkrétny typ nároku najprv určiť rozhodné právo a dátum, odkedy možno nárok uplatniť. Nepredlžovať držanie všetkých kontaktov len preto, že niektoré právne nároky môžu trvať dlhšie.
 
-## 4. Pravidlá pred každým vymazaním
+## 4. Skutočný stav v Supabase TEST k 20. 10. 2026
 
-1. **Overiť účel a právny dôvod.** Najmä platby, refundy, dlhy, sťažnosti, právne nároky a zákonnú archiváciu.
-2. **Overiť začiatok lehoty.** Pre rezervácie použiť dôveryhodný okamih zmeny stavu alebo doloženého vysporiadania. Samotný `end_date` pri zrušenej budúcej rezervácii ani všeobecné `updated_at` nemusia byť správnym začiatkom lehoty.
-3. **Právny hold.** Ak existuje otvorený spor, kontrola, nárok alebo povinnosť podľa zákona, vymazanie sa pozastaví iba v nevyhnutnom rozsahu. Dôvod a termín prehodnotenia sa zaznamenajú.
-4. **Minimalizácia.** Keď stačí zachovať číslo, stav, sumu a dátum, neuchovávať zbytočne meno, telefón, e-mail či presnú adresu.
-5. **Bezpečná realizácia.** Najprv náhľad počtov, následne schválený TEST zásah, regresné testy, kontrola výsledku a až samostatným rozhodnutím PROD rollout.
-6. **Auditná stopa.** Evidovať dátum, rozsah, právny základ/odkaz na schválenie, výsledné počty a zodpovednú osobu; do logu nekopírovať osobné údaje.
-7. **Žiadosti podľa GDPR.** Každú žiadosť o vymazanie vyhodnotiť individuálne; pri oprávnenej výnimke informovať žiadateľa o dôvode a rozsahu ponechaných údajov.
+- **2 deaktivované profily.**
+- **4 historické rezervácie** s ponechaným menom, e-mailom a telefónom zrušeného nájomcu: 2 `cancelled` bez platobného záznamu; 2 `expired`, z ktorých 1 má Stripe platobný záznam `pending` (refund `not_requested`, transfer `not_created`). `pending` nie je potvrdená úspešná platba, ale **existujúci platobný záznam blokuje čistenie**.
+- **6 e-mailových doručeniek** s adresou príjemcu zostáva na samostatné posúdenie.
+- PR #27 je zlúčený; SQL migrácia `20261020120000_bod02_gdpr_reservation_contacts_gate_TEST.sql` je **nainštalovaná v Supabase TEST**. Overené: `funkcia_existuje = true`, `anonymizacia_povolena = false`, `rezervacie_s_kontaktmi = 4`, `emailove_zaznamy = 6`.
+- **Žiadne historické kontaktné údaje sa touto inštaláciou nevymazali.** PROD nebolo zmenené.
 
-## 5. Čo musí EBBI ešte potvrdiť
+**Technická medzera, ktorú treba vyriešiť pred aktiváciou:** aktuálna funkcia `gdpr_review_deactivated_renter_contacts` overuje stav účtu, rezervácie a súvisiacich blokácií, ale **sama zatiaľ neoveruje uplynutie 90 dní od dôveryhodne zaznamenaného uzavretia**. `end_date` ani obyčajné `updated_at` nemusia byť správnym okamihom. Bez doplnenia a otestovania tohto časového pravidla **neschvaľovať zapnutie brány ani `p_apply = true`**.
 
-| Potvrdenie | Kto / výsledok |
+**Terminológia:** odstránenie `renter_name`, `renter_email` a `renter_phone` pri zachovaní rezervácie a identifikátorov je *vyčistenie kontaktov / potenciálna pseudonymizácia*. Nie je to automaticky úplná anonymizácia podľa GDPR, ak možno človeka ďalej identifikovať z iných údajov.
+
+## 5. Pravidlá vykonávania a výnimiek
+
+1. **Konkrétny účel a zákonný základ:** ku každej kategórii zaznamenať účel, príslušný právny základ (napr. plnenie zmluvy, právna povinnosť alebo primerane odôvodnený oprávnený záujem) a pravidlo zániku potreby.
+2. **Preukázateľný začiatok lehoty:** zachytiť dôveryhodný čas zmeny na konečný stav alebo dokončenia vysporiadania. Pre staré rezervácie bez spoľahlivého času nevypočítavať automaticky 90 dní iba z plánovaného termínu prenájmu.
+3. **Pozastavenie čistenia („legal hold“):** len pre otvorený spor, súdne konanie, refund, nárok, kontrolu či inú konkrétnu povinnosť. Zaznamenať dôvod, dotknuté záznamy, zodpovednú osobu a dátum najbližšieho prehodnotenia; nepredlžovať neurčito bez kontroly.
+4. **Minimalizácia:** uchovávať dôkaz v najmenšom potrebnom rozsahu. Rezervačné číslo, suma, stav a čas môžu postačovať tam, kde už meno/telefón/adresa nie sú potrebné.
+5. **Technická kontrola:** pred každým schváleným zásahom náhľad počtov, kontrola platobných a právnych blokácií, vykonanie najprv v TEST, regresné testy a kontrola výsledku. PROD iba po novom výslovnom súhlase.
+6. **Auditný záznam:** evidovať schválené pravidlo, dátum, rozsah, súhrnné počty, operátora a výsledok; nepísať do logu osobné údaje, ktoré práve odstraňujeme.
+7. **Individuálne GDPR žiadosti:** riešiť osobitne a vysvetliť zákonné dôvody ponechania niektorých údajov; mechanické uplynutie interného intervalu nie je jediným spôsobom výmazu.
+8. **Zálohy a dodávatelia:** overiť, kedy sa zmazané údaje odstránia z dostupných záloh a logov a či sa môžu obnoviť; zdokumentovať prístup a zodpovednosť dodávateľov.
+
+## 6. Čo ešte potrebuje rozhodnutie alebo potvrdenie
+
+| Oblasť | Zodpovednosť a požadovaný výsledok |
 |---|---|
-| Lehoty pri rezerváciách, sporoch, recenziách, doručenkách a nemenných zmluvných dôkazoch | Český/slovenský právnik podľa príslušnej otázky; písomné potvrdenie alebo odôvodnený interný právny záver |
-| Účtovné, daňové a platobné doklady | Účtovníčka – **odložené podľa dohody**; dovtedy nevymazávať |
-| DAC7 a prípadné evidenčné lehoty | Čaká sa na odpoveď Finančnej správy |
-| Zmluvy/DPA, roly, poddodávatelia, zálohy a retenčné lehoty služieb Supabase, Vercel, Stripe, Resend, BulkGate | Overiť konkrétne zmluvy a nastavenia účtov EBBI |
-| Mapové služby, CDN, Google Fonts a prípadné prenosy mimo EHP | Overiť reálne dátové toky a záruky |
-| Interný spôsob evidencie žiadostí GDPR, bezpečnostných incidentov a dočasného právneho holdu | EBBI – schváliť prevádzkový postup |
+| Bežné prevádzkové lehoty (90 dní kontakty, 90 dní notifikácie, 30 dní PIN pokusy atď.) | EBBI schváli **konkrétne účely, lehoty a výnimky** a uloží odôvodnenie; neisté nároky posúdi osobitne |
+| Premlčanie, dôkazy pri sporoch, e-mailové doručenky, prijatie podmienok, cezhraničné nároky | Zdokumentovaný právny záver podľa SK/CZ režimu; pri nejasnom prípade odborné potvrdenie |
+| Účtovné a daňové doklady | Účtovníčka – **odložené podľa dohody**; príslušné záznamy zatiaľ nemazať |
+| DAC7 | Čaká sa na oficiálnu odpoveď Finančnej správy; dovtedy nerozhodovať o DAC7 lehotách |
+| Supabase, Vercel, Stripe, Resend, BulkGate | Overiť zmluvy/DPA, postavenie dodávateľa, zálohy, poddodávateľov a jeho vlastnú dobu uchovávania |
+| Mapy, CDN, fonty a prenosy mimo EHP | Overiť skutočné prenosy údajov a potrebné záruky |
+| DSA evidencia moderovania | Posúdiť uplatniteľné povinnosti a výnimky; samotný proces incidentov riešiť v BODE 03 |
+| Prevádzkový postup GDPR | EBBI určí osobu na schválenie čistenia, evidenciu žiadostí, incidentov a pravidelnú revíziu lehôt |
 
-## 6. Realizačné poradie (bez práce navyše)
+## 7. Nasledujúce kroky – iba to, čo ešte chýba
 
-1. **Teraz:** uložiť tento dokument do `docs/` cez samostatné PR; len dokumentácia, žiadne spustenie migrácie.
-2. **Po kontrole právnych lehôt:** EBBI schváli označené návrhy a určí dátum účinnosti; verzia zostáva 1.0, pokiaľ ide o prvú schválenú verziu.
-3. **Až po schválení:** bezpečne nainštalovať TEST-only migráciu z PR #27 s vypnutou bránou; preveriť náhľady a ochrany.
-4. **Následne osobitne:** povoliť a otestovať iba presne schválenú anonymizáciu kontaktov. Záznam `pending` platby a e-mailové doručenky naďalej riešiť oddelene.
-5. **Napokon:** upraviť a otestovať automatický režim budúcich lehôt a zosúladiť GDPR texty CZ/SK/EN/DE/PL. PROD len po novom výslovnom súhlase.
+1. **Tento krok:** opraviť existujúci dokument v `docs/` cez samostatné PR. To ešte **nie je právne schválenie** a nevykoná žiadnu databázovú zmenu.
+2. **Interné rozhodnutie EBBI:** schváliť alebo upraviť jednotlivé navrhované lehoty, odôvodnenia a pravidlá pozastavenia; finančné/daňové a DAC7 otázky ostávajú odložené.
+3. **Pred akýmkoľvek GDPR čistením:** bezpečne doplniť a otestovať kontrolu skutočného uplynutia 90 dní a existencie platobných, sporových a ďalších blokácií. Pri neistých starých časových údajoch nič automaticky neodstraňovať.
+4. **Až potom:** vykonať odsúhlasený TEST náhľad a prípadný úzko vymedzený test čistenia; záznam s `pending` platbou a šesť historických e-mailov riešiť samostatne.
+5. **Pred spustením V1:** upraviť používateľské GDPR texty CZ/SK/EN/DE/PL podľa schválenej politiky, dokončiť kontrolu dodávateľov a prenosov; PROD iba na osobitný súhlas.
 
-## 7. Schvaľovací záznam EBBI
+## 8. Záznam interného schválenia EBBI
 
-- **Stav dokumentu:** NÁVRH – NESCHVÁLENÝ
-- **Schválené kategórie/lehoty:** ______________________________
-- **Právne stanovisko / interné zdôvodnenie:** ______________________________
-- **Daňové/účtovné lehoty – stanovisko:** ______________________________
-- **Oprávnená osoba za EBBI s. r. o.:** ______________________________
+- **Stav:** NÁVRH – NESCHVÁLENÝ
+- **Kategórie, lehoty a výnimky schválené EBBI:** ______________________________
+- **Odôvodnenie právneho základu a prípadné stanoviská:** ______________________________
+- **Otvorené výnimky (účtovníctvo, DAC7, spory):** ______________________________
+- **Oprávnená osoba EBBI s. r. o.:** ______________________________
 - **Dátum schválenia a účinnosti:** ______________________________
-- **Podpis alebo interná elektronická evidencia schválenia:** ______________________________
+- **Podpis / interný elektronický záznam:** ______________________________
 
-Po schválení sa tento záznam uloží interne a vykoná sa samostatná schválená technická implementácia. **Schválenie návrhu ako GitHub PR nie je schválením lehôt ani pokynom na vymazanie údajov.**
+**Zlúčenie dokumentu na GitHube nie je schválením retenčných lehôt a nie je povolením GDPR mazania.**
 
----
+## 9. Oficiálne právne zdroje (kontrola 20. 10. 2026)
 
-**Právny základ na overenie:** [GDPR – nariadenie (EÚ) 2016/679](https://eur-lex.europa.eu/eli/reg/2016/679/oj), najmä články 5, 6, 17, 24, 28, 30 a 32.
+- [GDPR – nariadenie (EÚ) 2016/679](https://eur-lex.europa.eu/eli/reg/2016/679/oj)
+- [SK zákon č. 18/2018 Z. z. o ochrane osobných údajov](https://www.slov-lex.sk/ezbierky/pravne-predpisy/SK/ZZ/2018/18/)
+- [SK Občiansky zákonník č. 40/1964 Zb., najmä § 101 a 106](https://www.slov-lex.sk/ezbierky/pravne-predpisy/SK/ZZ/1964/40/)
+- [SK Obchodný zákonník č. 513/1991 Zb., najmä § 397](https://www.slov-lex.sk/ezbierky/pravne-predpisy/SK/ZZ/1991/513/20260817)
+- [SK zákon o účtovníctve č. 431/2002 Z. z., najmä § 35](https://www.slov-lex.sk/ezbierky/pravne-predpisy/SK/ZZ/2002/431/20260601)
+- [CZ občiansky zákonník č. 89/2012 Sb., najmä § 629](https://e-sbirka.gov.cz/sb/2012/89)
+- [Rím I – nariadenie (ES) č. 593/2008, najmä čl. 6](https://eur-lex.europa.eu/eli/reg/2008/593/oj)
+
+Tento dokument je **interný odôvodnený návrh**, nie potvrdenie úplného právneho súladu celej platformy Rentulo.
