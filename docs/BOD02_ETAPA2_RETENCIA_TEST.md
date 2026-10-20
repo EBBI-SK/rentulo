@@ -2,8 +2,7 @@
 
 **Scope:** ONLY Supabase TEST project `vspposovhdgvbeukoivh`, rentulo.eu.
 **Code base:** `EBBI-SK/rentulo` main after merged PR #31 (`9bb6700`).
-**Status:** TEST-only implementation prepared for GitHub review. No SQL has
-been executed merely by extracting this ZIP. PROD must not be touched.
+**Actual TEST status on 20 October 2026:** PR #32 merged as `bd03fca`; all four SQL migrations separately applied in Supabase TEST with successful results. Aggregate verification confirmed 2 trusted timestamps, 2 triggers, 6 RLS internal tables, all 4 cleanup gates OFF, 7 categories with 0 enabled, 1 daily inert cron. Dry-runs returned 0 eligible/0 applied, photo preview 0. Photo worker deployed to TEST only with independent secret: valid request returned `ok:true,claimed:0,removed:0`, absent secret HTTP 401. Final checks verified no logged cleanup or photo jobs, denied immutable updates, timestamp protection, temporary legal hold and inert daily call. **This is not proof of successful real deletion with a positive candidate**, which requires a separate authorized TEST exercise. Extracting the ZIP by itself still never installs SQL. PROD must not be touched.
 
 ## What this ZIP changes
 

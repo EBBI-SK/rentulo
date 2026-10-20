@@ -135,7 +135,7 @@
           Údaje o účtech, nabídkách, rezervacích a hodnoceních jsou uloženy v cloudové databázi a autentizačních službách Supabase. Hesla nejsou ukládána v aplikaci v čitelné podobě.
         </p>
         <p data-i18n="privacy.s5p2">
-          Prohlížeč používá localStorage a sessionStorage například pro výběr jazyka a přihlašovací relaci podle nastavení. Tyto prostředky slouží hlavně k fungování a zabezpečení služby.
+          Prohlížeč používá localStorage a sessionStorage např. pro výběr jazyka a přihlašovací relaci. Polohu při hledání v okolí předáváme mezi stránkami jednorázově v sessionStorage stejné záložky, na stránce výsledků ji ihned odstraníme a ponecháme jen v paměti stránky.
         </p>
         <p data-i18n="privacy.s5p3">Poskytovatelé třetích stran, zejména Stripe, mohou pro své funkce používat vlastní cookies nebo obdobné technologie podle svých pravidel.</p>
       </section>
@@ -146,7 +146,7 @@
           Nezbytné údaje mohou obdržet účastníci konkrétní rezervace a poskytovatelé služeb: Supabase (databáze, přihlášení a úložiště), Vercel (hosting), Stripe (platby, refundy, výplaty a ověřování) a Resend (provozní e-maily) a při zapnutých SMS také BulkGate (transakční SMS).
         </p>
         <p data-i18n="privacy.s6p2">
-          Mapové podklady využívají OpenStreetMap; k geokódování adres slouží Nominatim a případně Photon. Technické knihovny se mohou načítat z jsDelivr, některé stránky používají Google Fonts. Při načítání mohou poskytovatelé obdržet IP adresu a údaje prohlížeče. Odkaz na trasu může otevřít Google Maps.
+          Mapové podklady používají OpenStreetMap; pro geokódování adres slouží Nominatim a případně Photon. Technické knihovny se načítají i z jsDelivr. Externí poskytovatelé mohou při načtení získat IP adresu a údaje prohlížeče. Na odkaz pro trasu lze přejít do Google Maps; k tomu dojde až po kliknutí.
         </p>
         <p data-i18n="privacy.s6p3">Role dodavatelů jako správců či zpracovatelů a případné přenosy mimo EHP se řídí příslušnými smlouvami a zákonnými zárukami, například rozhodnutím o odpovídající ochraně nebo standardními smluvními doložkami. Informace o konkrétních přenosech si lze vyžádat u správce.</p>
         <p data-i18n="privacy.s6p4">Pokud to vyžaduje zákon, předáváme příslušným finančním orgánům (zejména Finanční správě SR) údaje potřebné pro DAC7. Tyto orgány je mohou dále sdílet v rámci zákonné mezinárodní výměny; údaje se tím nestávají veřejnými.</p>
@@ -165,7 +165,7 @@
       <section class="privacy-section">
         <h2 data-i18n="privacy.s8Title">8. Lokalita a poloha</h2>
         <p data-i18n="privacy.s8p1">
-          K určení místa vyzvednutí používáme zadanou adresu a ukládáme souřadnice nabídky. Veřejná mapa ukazuje pouze přibližnou polohu, nikoli přesnou adresu. Po povolení polohy v prohlížeči lze souřadnice zařízení použít při hledání v okolí; nevytváříme jejich trvalou historii v profilu. Při přechodu na výsledky se mohou stát součástí URL a historie prohlížeče. Přístup k poloze lze v prohlížeči zakázat.
+          Pro místo předání ukládáme adresu a souřadnice nabídky; veřejná mapa ukazuje jen přibližnou polohu. Polohu zařízení vyžádáme teprve po kliknutí na hledání v okolí a po schválení prohlížečem. Jednorázově ji předáme v rámci stejné záložky, hned odstraníme z dočasného úložiště a použijeme jen k seřazení nabídek v paměti výsledků. Souřadnice zařízení nedáváme do URL ani do profilu. Přístup lze v prohlížeči zakázat.
         </p>
       </section>
 
@@ -181,11 +181,11 @@
         <p data-i18n="privacy.s10p1">
           Údaje uchováváme jen po dobu potřebnou pro jejich účel nebo zákonné povinnosti. Konkrétní lhůty se odvíjejí od povahy údajů, trvání smluvního vztahu, finančního vypořádání a případných právních nároků.
         </p>
-        <p data-i18n="privacy.s10p2">Účet a profil: po dobu používání účtu a poté jen podle existujícího právního důvodu. Nabídky a fotografie: po dobu zveřejnění a nezbytného řešení navazujících rezervací nebo sporů.</p>
-        <p data-i18n="privacy.s10p3">Rezervace, platby, refundy a výplaty: po dobu vypořádání, zákonných účetních povinností a ochrany práv. Hodnocení: po dobu oprávněného zveřejnění a vyřízení námitek.</p>
-        <p data-i18n="privacy.s10p4">Bezpečnostní záznamy a komunikace podpory: jen přiměřeně účelu a řešení případných incidentů či žádostí. Zrušení účtu nemusí znamenat výmaz údajů, které musíme dále zákonně uchovávat.</p>
+        <p data-i18n="privacy.s10p2">Účet a profil vedeme během užívání služby; po zrušení omezujeme údaje podle právních důvodů. Provozní kontakty u prokazatelně uzavřených a nezaplacených rezervací a nepotřebné údaje o předání mají pravidlo 90 dní, pokud nebrání platba, spor či povinnost. Smazané nabídky skryjeme; nepotřebné fotografie posuzujeme k odstranění do 30 dní po vypořádání.</p>
+        <p data-i18n="privacy.s10p3">Nezbytnou smluvní historii rezervací zpravidla posuzujeme podle 3leté doby od konečného vypořádání; právní nároky mohou vyžadovat jinou dobu. Platební a daňové doklady uchováváme podle zákona, u některých dokladů typicky 10 let. Hodnocení po zrušení účtu prověřujeme kvůli nadbytečným identifikačním údajům.</p>
+        <p data-i18n="privacy.s10p4">Běžná oznámení v účtu: 90 dní. Technické doklady doručení e-mailů a SMS: zpravidla 12 měsíců; nepotřebné kontakty a vyřešené chyby po 90 dnech. Neúspěšné pokusy o PIN: 30 dní po prokazatelném uzavření rezervace. U Stripe omezujeme nadbytečný chybový text zpravidla po 180 dnech; identifikátory proti duplicitám a finanční důkazy ponecháváme podle účelu.</p>
         <p data-i18n="privacy.s10p5">Podklady pro zákonná oznámení DAC7 uchováváme po dobu vyžadovanou příslušnými právními předpisy. Zrušení účtu samo o sobě neodstraňuje povinnost uchovávat daňové záznamy.</p>
-        <p data-i18n="privacy.s10p6">Záznamy o přijetí obchodních podmínek používáme k doložení verze smlouvy a vyřízení případných nároků; po uplynutí oprávněné doby je odstraňujeme. Před veřejným spuštěním musí být doplněna ověřená retenční tabulka pro jednotlivé kategorie údajů.</p>
+        <p data-i18n="privacy.s10p6">Záznamy o potvrzení podmínek uchováváme po dobu účtu a zpravidla 3 roky po posledním relevantním smluvním vztahu, pokud netrvá oprávněný důvod déle. Skutečné údaje použité v testech se mají odstranit do 30 dnů po testu, běžné provozní logy zpravidla po 90 dnech. Spory a zákonné povinnosti mohou nezbytné údaje chránit déle; důvody pozastavení pravidelně přezkoumáváme. Mazací mechanismy se aktivují až po samostatných bezpečnostních kontrolách.</p>
       </section>
 
       <section class="privacy-section">
@@ -194,7 +194,7 @@
           Za podmínek GDPR můžete žádat přístup k údajům, opravu, výmaz, omezení, přenositelnost, vznést námitku proti oprávněnému zájmu nebo odvolat souhlas. Žádost zašlete na policy@rentulo.com. Odpovídáme zpravidla do jednoho měsíce; v zákonných případech lze lhůtu prodloužit.
         </p>
         <p data-i18n="privacy.s11p2">Můžete podat stížnost u příslušného dozorového úřadu; pro správce se sídlem na Slovensku je jím Úrad na ochranu osobných údajov Slovenskej republiky. Za podmínek GDPR lze podat stížnost také u příslušného úřadu v jiném státě EU.</p>
-        <p data-i18n="privacy.s11p3">Pro vyřízení žádosti můžeme přiměřeně ověřit totožnost žadatele. Neposílejte hesla ani celé údaje platebních karet. Na žádost také vysvětlíme použitelná retenční kritéria; přesné lhůty se před veřejným spuštěním ještě ověřují.</p>
+        <p data-i18n="privacy.s11p3">Totožnost ověřujeme pouze v nezbytném rozsahu; neposílejte hesla ani údaje platební karty. Na žádosti odpovídáme zpravidla do jednoho kalendářního měsíce; ve složitých odůvodněných případech lze prodloužit o nejvýše dva další měsíce s oznámením během prvního měsíce.</p>
       </section>
 
       <section class="privacy-section">

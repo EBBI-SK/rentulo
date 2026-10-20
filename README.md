@@ -2,10 +2,10 @@
 
 Rentulo je webová platforma na požičiavanie vecí medzi súkromnými osobami v **Českej republike**. Prvá verzia (V1) nie je určená podnikateľom. Prevádzkovateľom je **EBBI s. r. o.**
 
-> **Stav dokumentácie: 13. 10. 2026.** Referenčný GitHub `main` pred touto úpravou: `19c3a2e` (BOD 12 – P1-4); overené **Rentulo CI #402, 423/423 testov**. Ide o historický snapshot: po vložení tohto ZIP-u, commite a pushi treba skontrolovať **nový** CI beh. Vývoj a testovanie prebiehajú na `rentulo.eu`; verejná produkcia `rentulo.com` **nebola spustená**.
+> **Stav dokumentácie: 20. 10. 2026.** GitHub `main` pred etapou 3: `bd03fca` (zlúčený PR #32). Po inštalácii etáp 1 a 2 v Supabase TEST bol overený kód 645/645 testami; pripravená etapa 3 má v lokálnej pracovnej kópii **657/657 testov** a úspešný TEST build, ale vyžaduje nový PR, CI a kontrolu živého TEST webu. Historické údaje nižšie sú zachované s pôvodnými dátumami. Verejný PROD `rentulo.com` nebol spustený.
 
 
-> **BOD 02 (18. 10. 2026, návrh pripravený pre TEST):** Rentulo V1 nebude povoľovať prenájom dopravných prostriedkov; podľa rozhodnutia sa môžu posúdiť až vo V2. Pripravuje sa úprava právnych textov v 5 jazykoch, formulárov a serverovej TEST kontroly. **SQL migrácia ešte nebola nasadená, právne/daňové/Stripe potvrdenia chýbajú a PROD sa nesmie meniť.** Aktuálny stav a testovací plán: [BOD02_PRAVNY_DANOVY_AUDIT_TEST.md](docs/BOD02_PRAVNY_DANOVY_AUDIT_TEST.md).
+> **BOD 02 (20. 10. 2026, TEST):** V1 je určená iba súkromným osobám v ČR a nepovoľuje dopravné prostriedky. Etapa 1 (PR #31) a etapa 2 (PR #32) sú zlúčené, všetkých **5 SQL migrácií** bolo nainštalovaných do Supabase TEST. GDPR/DSA evidencie, retencia, právne pozastavenia a Edge worker fotografií prešli základnými prevádzkovými kontrolami; všetky mazacie brány zostávajú **OFF**. Etapa 3 dopĺňa explicitné GPS vyžiadanie, žiadne súradnice v URL, 5 jazykov a kontrolný zoznam dodávateľov. **DPA/medzinárodné prenosy a finálny právny súhlas nie sú bez dokladov overené.** PROD sa nemení. [Etapa 3](docs/BOD02_ETAPA3_WEB_GPS_PRAVNE_TEXTY_TEST.md), [dodávatelia a DPIA/DPO](docs/BOD02_ETAPA3_DODAVATELIA_DPA_DPIA_TEST.md).
 
 ## Technológie a architektúra
 
@@ -31,7 +31,7 @@ Rentulo je webová platforma na požičiavanie vecí medzi súkromnými osobami 
 ├── scripts/                      # build a SEO katalóg
 ├── supabase/
 │   ├── auth-email-templates/     # zdrojové šablóny Auth e-mailov
-│   ├── functions/                # Supabase Edge Functions (20)
+│   ├── functions/                # Supabase Edge Functions (vrátane TEST GDPR foto workera)
 │   ├── migrations/               # aktuálne SQL migrácie
 │   ├── migrations-archive/       # historický archív; nespúšťať znovu
 │   └── snippets/                # pomocné SQL
@@ -55,7 +55,7 @@ npm run build
 ```
 
 - `npm ci` nainštaluje závislosti podľa `package-lock.json`; používame Supabase CLI ako vývojovú závislosť.
-- `npm test` spustí Node.js testy v `tests/`. K referenčnému commitu `19c3a2e` bolo v projektovom CI potvrdených **423/423** testov (beh #402); po tejto aktualizácii vyžaduje nový commit vlastné CI.
+- `npm test` spustí Node.js testy v `tests/`. Staršia referencia 423/423 (#402) platila k 13. 10.; k 20. 10. bola etapa 2 overená **645/645** a etapa 3 v lokálnej príprave **657/657**. Po novom PR treba overiť **nový** GitHub CI; lokálne číslo nie je dôkazom nasadenia.
 - `npm run build` predvolene vytvorí **TEST** web v `dist/`. Výstup je možné lokálne prehliadať cez HTTP server (napríklad VS Code Live Server).
 - Build **neaplikuje databázové migrácie, nenasadzuje Supabase Edge Functions ani neprepína PROD**.
 

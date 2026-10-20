@@ -6,7 +6,7 @@
 **Prevádzkovateľ:** EBBI s. r. o.
 **GDPR kontakt:** policy@rentulo.com
 **Rozsah:** Rentulo V1 – platforma pre prenájom vecí medzi súkromnými osobami v ČR
-**Východisko:** GitHub `EBBI-SK/rentulo`, `main` `9bb6700` po PR #31; 90-dňová GDPR ochrana z PR #27 a #30 nainštalovaná iba v Supabase TEST. Etapa 1 bola nainstalovana do TEST; etapa 2 je zatial iba pripraveny balicek, nie vykonane SQL.
+**Východisko:** GitHub `EBBI-SK/rentulo`, `main` `bd03fca` po PR #32; 90-dňová GDPR ochrana z PR #27 a #30, etapa 1 z PR #31 aj všetky štyri migrácie etapy 2 z PR #32 nainštalované iba v Supabase TEST. Testy preukázali ochranné brány OFF a nulové vykonané čistenia; pozitívny retenčný test reálne vhodného záznamu ešte nebol vykonaný.
 **Prostredia:** TEST `rentulo.eu`; PROD `rentulo.com` – bez zásahov
 
 ## 1. Účel a zásady
@@ -62,7 +62,7 @@ Rozlišujeme: **(a)** kontakty potrebné iba na realizáciu prenájmu, **(b)** n
 - Existujúce migrácie z PR #27 a #30 boli v TEST nainštalované. Po PR #30 bolo v TEST overené `je_test=true`, `casovy_stlpec_existuje=true`, `casovy_trigger_aktivny=true`, `ochrana_90_dni_aktivna=true`, `mazanie_povolene=false`, `historicke_bez_datumu=2`.
 - Rezervácie `R-000021` a `R-000022` nemajú spoľahlivý čas konečného zrušenia; e-mail/oznámenie nie je dôkaz na automatické doplnenie. U týchto riadkov musí automatické čistenie zlyhať zatvoreným spôsobom.
 - **Žiadne historické kontakty sa doterajšími migračnými kontrolami nemazali.** PROD zostáva nedotknutý.
-- Nové migrácie `20261020170500`, `20261020171000`, `20261020172000` a `20261020173000` sú *pripravené súbory*, nie potvrdené databázové inštalácie. Nadväzujú na už nainštalované interné registre a legal hold z etapy 1; obsahujú časové kotvy, dry-run a samostatne vypnuté vykonávacie brány. Potrebné budú po zlúčení konkrétne integračné testy v Supabase TEST.
+- Nové migrácie `20261020170500`, `20261020171000`, `20261020172000` a `20261020173000` boli v Supabase TEST úspešne nainštalované a overené základným SQL auditom a bezpečnými integračnými pokusmi o nepovolený zápis. Časové kotvy a vypnuté vykonávacie brány fungujú; pri 0 vhodných údajoch ešte nebolo overené skutočné pozitívne čistenie. Nikdy automaticky nezapínať brány v PROD.
 
 **Terminológia:** vymazanie kontaktných snapshotov pri zachovaní UUID/histórie je minimalizácia alebo pseudonymizácia, **nie automatická úplná anonymizácia**.
 

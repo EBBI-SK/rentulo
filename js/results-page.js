@@ -2,6 +2,7 @@
     let resultsRatingSummaries = {};
     let resultsLoadState = "idle";
     let resultsGpsLoadState = "idle";
+    let resultsNearbyLocation = null;
 
     function resultsTranslate(key, fallback) {
       if (typeof window.rentuloTranslate === "function") {
@@ -112,11 +113,11 @@
     }
 
     function getSearchLatitude() {
-      return parseResultsGpsCoordinate(getResultsParams().get("lat"), -90, 90);
+      return resultsNearbyLocation ? resultsNearbyLocation.latitude : null;
     }
 
     function getSearchLongitude() {
-      return parseResultsGpsCoordinate(getResultsParams().get("lng"), -180, 180);
+      return resultsNearbyLocation ? resultsNearbyLocation.longitude : null;
     }
 
     function toRadians(value) {
@@ -789,6 +790,11 @@ const HOME_CATEGORY_GROUPS = {
         whereInput.dataset.locationMode === "nearby"
       );
 
+      // Scrub coordinates from any old/shared URL, regardless of search mode.
+      // They are never required by the current application.
+      params.delete("lat");
+      params.delete("lng");
+
       if (what) {
         params.set("co", what);
       } else {
@@ -946,6 +952,11 @@ const HOME_CATEGORY_GROUPS = {
 
     async function initializeResultsPage() {
       clearLegacyStoredVisitorLocation();
+      if (window.rentuloNearbyLocation) {
+        window.rentuloNearbyLocation.stripLegacyCoordinatesFromUrl();
+        // Never persist: one-time handoff consumed at the start of this page.
+        resultsNearbyLocation = window.rentuloNearbyLocation.consumeOnce();
+      }
       setupResultsFromUrl();
       updateResultsFilterLabelsForViewport();
       setupResultsEvents();
