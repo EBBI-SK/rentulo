@@ -54,7 +54,7 @@ externý cron-job.org (TEST; pravidelné HTTPS POST)
          +--> monitorovacie RPC + heartbeat workera
          +--> Resend (deduplikovaný alarm na ebbi@ebbi.sk)
 
-mapa: OpenStreetMap; adresy: Nominatim + Photon
+mapa: OpenStreetMap; adresy: Geoapify EU (cez Supabase Edge Functions, serverový secret `GEOAPIFY_API_KEY`; TEST aktivovať až po nasadení)
 ```
 
 Frontend nemá bundler ani JS framework, **má však riadený Node.js build** `scripts/build-site.mjs`. Build vytvára `dist/` a vkladá konfiguráciu prostredia a SEO metadata. Vercel má oddelené hostové CSP pravidlá a serverless SEO endpointy. Stripe operácie sa vykonávajú cez dôveryhodný backend/webhook, nie priamou zmenou stavu rezervácie z prehliadača.
@@ -96,7 +96,7 @@ V `main` je **20 Edge Functions**. Zoznam je úplný pre referenčný commit; pr
 | --- | --- |
 | `account-deactivation` | bezpečná deaktivácia účtu a kontrola finančných prekážok |
 | `address-suggestions` | návrhy a filtrovanie adries podľa prostredia |
-| `geocode-pickup` | geokódovanie vyzdvihnutia (Nominatim, Photon fallback) |
+| `geocode-pickup` | geokódovanie vyzdvihnutia (Geoapify EU; bez verejného fallbacku po migrácii) |
 | `create-checkout-session` | vytvorenie Stripe Checkout pre rezerváciu |
 | `create-connect-account` | vytvorenie Stripe Connect účtu prenajímateľa |
 | `create-connect-onboarding-link` | odkaz na Stripe Connect onboarding |
@@ -185,7 +185,7 @@ Pred spustením overiť Resend sender/doménu, SPF/DKIM/DMARC, presmerovania v A
 
 Autoritatívnym miestom ponuky je profilová alebo vlastná adresa vyzdvihnutia. Súradnice sa získavajú geokódovaním, rezervácia si ukladá ich snapshot. Verejná mapa ukazuje iba **približnú polohu**, nie presnú adresu; presné údaje pre odovzdanie sa oprávneným stranám odomknú po zaplatení.
 
-Východisková mapa bola v októbri upravená na **českú lokalitu** (nie Bratislavu). Opravy automatického dopĺňania a filtrovania adries na TEST boli nasadené a overené 10. 10. (commity `caa842c`, `5f8caee`). Fallback geokódovania je Photon, primárny Nominatim. Pravidlá povolených pôvodov požiadaviek/User-Agent sú oddelené medzi `.eu` a `.com`.
+Východisková mapa bola v októbri upravená na **českú lokalitu** (nie Bratislavu). Opravy automatického dopĺňania a filtrovania adries na TEST boli nasadené a overené 10. 10. (commity `caa842c`, `5f8caee`). Historicky bol fallback Photon a primárny Nominatim. V BOD 02 z 20. 10. 2026 bola pripravená ich náhrada Geoapify EU; skutočné správanie TEST sa potvrdí až po konfigurácii serverového kľúča a nasadení oboch Edge Functions. Pravidlá povolených pôvodov požiadaviek/User-Agent zostávajú oddelené medzi `.eu` a `.com`.
 
 **Etapa 3 (pripravená na TEST deploy):** polohu zariadenia žiadať až po výslovnom kliknutí používateľa na hľadanie v okolí; ani platné predošlé browser povolenie nespúšťa žiadosť pri načítaní stránky. Súradnice sa neukladajú do URL, `localStorage` ani profilu. Odovzdajú sa jednorazovo v rámci tej istej browser karty pomocou `sessionStorage` (platnosť maximálne 120 s), na stránke výsledkov sa z neho okamžite odstránia a zostanú len v pamäti zobrazenej stránky. Po refreshi sa musí vyžiadať nová explicitná akcia; bez povolenia funguje manuálne vyhľadávanie. Live TEST overenie ešte vykonať po zlúčení PR.
 

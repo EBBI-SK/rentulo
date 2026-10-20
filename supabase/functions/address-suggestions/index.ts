@@ -54,6 +54,10 @@ const GEOCODING_USER_AGENT = ALLOWED_ORIGINS.has("https://rentulo.com")
   ? "Rentulo/1.0 (https://rentulo.com; contact: rentulo@rentulo.com)"
   : "Rentulo/1.0 (https://rentulo.eu; contact: rentulo@rentulo.com)";
 
+// Server-only API key; never send it back to browsers or log the query URL.
+const GEOAPIFY_API_KEY = (denoRuntime.env.get("GEOAPIFY_API_KEY") || "").trim();
+const GEOAPIFY_EU_URL = "https://api-eu.geoapify.com";
+
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const MAX_CACHE_ENTRIES = 120;
 const cache = new Map<string, CacheEntry>();
@@ -268,7 +272,7 @@ function normalizeStreetForMatch(value: unknown): string {
 }
 
 // Once a house number is supplied, the street is specific enough to reject
-// fuzzy Photon matches from other streets. Allow the last typed street word to
+// fuzzy Geoapify matches from other streets. Allow the last typed street word to
 // be incomplete (e.g. "Vacl" or "nam"), without matching a different street.
 function matchesRequestedStreet(candidate: unknown, requested: unknown): boolean {
   const candidateWords = normalizeStreetForMatch(candidate).split(" ").filter(Boolean);
@@ -317,7 +321,7 @@ function samePhysicalAddress(a: AddressSuggestion, b: AddressSuggestion): boolea
     Math.abs(a.longitude - b.longitude) <= 0.0012;
 }
 
-function mapPhotonFeatures(
+function mapGeoapifyFeatures(
   data: unknown,
   requiredHouseNumber = "",
   requiredCity = "",
@@ -325,18 +329,16 @@ function mapPhotonFeatures(
   requestedStreet = "",
   allowCityPrefix = false
 ): AddressSuggestion[] {
-  const features = Array.isArray((data as { features?: unknown[] })?.features)
-    ? (data as { features: unknown[] }).features
+  const items = Array.isArray((data as { results?: unknown[] })?.results)
+    ? (data as { results: unknown[] }).results
     : [];
   const results: AddressSuggestion[] = [];
 
-  for (const feature of features) {
-    const properties =
-      feature && typeof feature === "object" &&
-      (feature as { properties?: unknown }).properties &&
-      typeof (feature as { properties: unknown }).properties === "object"
-        ? ((feature as { properties: Record<string, unknown> }).properties)
-        : {};
+  for (const item of items) {
+    const properties = item && typeof item === "object"
+      ? item as Record<string, unknown>
+      : {};
+    if (String(properties.country_code || "").toLowerCase() !== "cz") continue;
 
     const propertyHouseNumber = cleanText(properties.housenumber, 24);
 
@@ -347,20 +349,15 @@ function mapPhotonFeatures(
     const street = buildStreet(properties);
     const city = buildCity(properties);
     const postalCode = normalizePostalCode(properties.postcode);
-    const geometry =
-      feature && typeof feature === "object"
-        ? (feature as { geometry?: { coordinates?: unknown } }).geometry
-        : undefined;
-    const coordinates = Array.isArray(geometry?.coordinates)
-      ? geometry.coordinates
-      : [];
-    const longitude = Number(coordinates[0]);
-    const latitude = Number(coordinates[1]);
+    const longitude = Number(properties.lon);
+    const latitude = Number(properties.lat);
 
     if (
       !street ||
       !city ||
       !postalCode ||
+      typeof properties.lat !== "number" ||
+      typeof properties.lon !== "number" ||
       !Number.isFinite(latitude) ||
       !Number.isFinite(longitude)
     ) {
@@ -393,7 +390,7 @@ function mapPhotonFeatures(
     });
   }
 
-  // Rank exact street + house first, then remove duplicate Photon records
+  // Rank exact street + house first, then remove duplicate Geoapify records
   // (e.g. the same Prague address with "Praha" and "Praha 1" locality labels).
   results.sort((a, b) =>
     suggestionScore(b, requestedStreet, requiredHouseNumber, requiredCity) -
@@ -445,12 +442,14 @@ function writeCache(key: string, suggestions: AddressSuggestion[]): void {
   });
 }
 
-async function fetchWithTimeout(url: string, timeoutMs = 4500): Promise<Response> {
+async function fetchWithTimeout(url: URL, timeoutMs = 4500): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    return await fetch(url, {
+    // Geoapify requires the key as an API parameter. Never expose it to the client.
+    url.searchParams.set("apiKey", GEOAPIFY_API_KEY);
+    return await fetch(url.toString(), {
       signal: controller.signal,
       headers: {
         Accept: "application/json",
@@ -462,7 +461,7 @@ async function fetchWithTimeout(url: string, timeoutMs = 4500): Promise<Response
   }
 }
 
-async function fetchPhotonSuggestions(
+async function fetchGeoapifySuggestions(
   url: URL,
   requiredHouseNumber = "",
   requiredCity = "",
@@ -471,15 +470,15 @@ async function fetchPhotonSuggestions(
   allowCityPrefix = false
 ): Promise<AddressSuggestion[]> {
   try {
-    const response = await fetchWithTimeout(url.toString());
+    const response = await fetchWithTimeout(url);
 
     if (!response.ok) {
-      console.warn("address-suggestions: Photon returned", response.status);
+      console.warn("address-suggestions: Geoapify HTTP", response.status);
       return [];
     }
 
     const data = await response.json();
-    return mapPhotonFeatures(
+    return mapGeoapifyFeatures(
       data,
       requiredHouseNumber,
       requiredCity,
@@ -488,10 +487,8 @@ async function fetchPhotonSuggestions(
       allowCityPrefix
     );
   } catch (error) {
-    console.warn(
-      "address-suggestions: Photon request failed",
-      error instanceof Error ? error.message : String(error)
-    );
+    // Do not risk logging the query URL (personal address + server API key).
+    console.warn("address-suggestions: Geoapify request failed");
     return [];
   }
 }
@@ -502,7 +499,10 @@ function createStructuredUrl(
   city: string,
   postalCode: string
 ): URL {
-  const url = new URL("https://photon.komoot.io/structured");
+  const url = new URL(`${GEOAPIFY_EU_URL}/v1/geocode/search`);
+  url.searchParams.set("format", "json");
+  url.searchParams.set("lang", "cs");
+  url.searchParams.set("filter", "countrycode:cz");
   url.searchParams.set("street", street);
 
   if (houseNumber) {
@@ -518,25 +518,16 @@ function createStructuredUrl(
   }
 
   url.searchParams.set("limit", "12");
-  url.searchParams.set("countrycode", "CZ");
-
-  if (houseNumber) {
-    url.searchParams.append("layer", "house");
-  } else {
-    url.searchParams.append("layer", "house");
-    url.searchParams.append("layer", "street");
-  }
-
   return url;
 }
 
 function createForwardUrl(query: string): URL {
-  const url = new URL("https://photon.komoot.io/api/");
-  url.searchParams.set("q", query);
+  const url = new URL(`${GEOAPIFY_EU_URL}/v1/geocode/autocomplete`);
+  url.searchParams.set("text", query);
+  url.searchParams.set("format", "json");
+  url.searchParams.set("lang", "cs");
+  url.searchParams.set("filter", "countrycode:cz");
   url.searchParams.set("limit", "12");
-  url.searchParams.set("countrycode", "CZ");
-  url.searchParams.append("layer", "house");
-  url.searchParams.append("layer", "street");
   return url;
 }
 
@@ -575,6 +566,9 @@ denoRuntime.serve(async (req) => {
   if (query.length < 3) {
     return jsonResponse({ suggestions: [] }, 200, origin);
   }
+  if (!GEOAPIFY_API_KEY) {
+    return jsonResponse({ error: "Address search unavailable" }, 503, origin);
+  }
 
   const parsedQuery = parseAddressQuery(query);
   const streetQuery = parsedQuery.streetQuery;
@@ -606,7 +600,7 @@ denoRuntime.serve(async (req) => {
       postalCode
     );
 
-    suggestions = await fetchPhotonSuggestions(
+    suggestions = await fetchGeoapifySuggestions(
       structuredUrl,
       houseNumber,
       city,
@@ -623,7 +617,7 @@ denoRuntime.serve(async (req) => {
         ""
       );
 
-      suggestions = await fetchPhotonSuggestions(
+      suggestions = await fetchGeoapifySuggestions(
         cityOnlyUrl,
         houseNumber,
         city,
@@ -640,7 +634,7 @@ denoRuntime.serve(async (req) => {
       .join(", ");
     const forwardUrl = createForwardUrl(forwardQuery);
 
-    suggestions = await fetchPhotonSuggestions(
+    suggestions = await fetchGeoapifySuggestions(
       forwardUrl,
       houseNumber,
       city,
@@ -656,7 +650,7 @@ denoRuntime.serve(async (req) => {
       .join(", ");
     const forwardUrl = createForwardUrl(forwardQuery);
 
-    suggestions = await fetchPhotonSuggestions(
+    suggestions = await fetchGeoapifySuggestions(
       forwardUrl,
       houseNumber,
       city,
@@ -666,19 +660,19 @@ denoRuntime.serve(async (req) => {
     );
   }
 
-  // A short city fragment ("pra") may not be accepted by Photon's
+  // A short city fragment ("pra") may not be accepted by Geoapify's
   // structured city parameter. Search the street/house more broadly as a
   // last resort, but STILL filter each result against the typed city.
   if (suggestions.length === 0 && allowCityPrefix && city && houseNumber) {
     const streetOnlyUrl = createStructuredUrl(street, houseNumber, "", postalCode);
-    suggestions = await fetchPhotonSuggestions(
+    suggestions = await fetchGeoapifySuggestions(
       streetOnlyUrl, houseNumber, city, postalCode, street, true
     );
   }
 
   if (suggestions.length === 0 && houseNumber && !city && !postalCode) {
     const structuredUrl = createStructuredUrl(street, houseNumber, "", "");
-    suggestions = await fetchPhotonSuggestions(
+    suggestions = await fetchGeoapifySuggestions(
       structuredUrl, houseNumber, "", "", street, allowCityPrefix
     );
   }

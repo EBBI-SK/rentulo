@@ -81,8 +81,9 @@ test("geocode-pickup identifies TEST and PROD correctly and refuses unknown proj
   assert.match(agentForProject(testProject), /https:\/\/rentulo\.eu; contact: rentulo@rentulo\.com/);
   assert.match(agentForProject(prodProject + "/"), /https:\/\/rentulo\.com; contact: rentulo@rentulo\.com/);
   assert.equal(agentForProject("https://unknown.supabase.co"), null);
-  assert.match(geocode, /geocodeWithNominatim\(street, city, postalCode, userAgent\)/);
-  assert.match(geocode, /geocodeWithPhoton\(street, city, postalCode, userAgent\)/);
+  assert.match(geocode, /geocodeWithGeoapify\(street, city, postalCode, userAgent, apiKey\)/);
+  assert.match(geocode, /api-eu\.geoapify\.com/);
+  assert.doesNotMatch(geocode, /nominatim\.openstreetmap|photon\.komoot/);
   assert.doesNotMatch(geocode, /rentulo-seven\.vercel\.app|info@rentulo\.cz/);
 });
 
