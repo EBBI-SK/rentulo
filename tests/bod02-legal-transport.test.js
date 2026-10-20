@@ -178,13 +178,36 @@ test("listing detail clearly identifies self-declared private seller and offers 
 
 test("registration captures exact displayed TEST legal version and locale", () => {
   const registration = read("js/registration-page.js");
-  assert.match(registration, /terms_version:\s*"1\.1-test-2026-10-18"/);
-  assert.match(registration, /privacy_notice_version:\s*"1\.1-test-2026-10-18"/);
+  assert.match(registration, /terms_version:\s*"1\.0-test-2026-10-20"/);
+  assert.match(registration, /privacy_notice_version:\s*"1\.0-test-2026-10-20"/);
   assert.match(registration, /terms_language:\s*preferredLanguage/);
   assert.match(registration, /terms_accepted_at:\s*now/);
   assert.match(registration, /private_individual_confirmed:\s*true/);
 });
 
+
+test("Rentulo V1 legal notices consistently use the first document version 1.0", () => {
+  const translate = dictionary();
+  const keys = [
+    "terms.eyebrow", "terms.section15.item3",
+    "privacy.eyebrow", "privacy.s13p2",
+    "registration.termsVersionNote"
+  ];
+  for (const language of languages) {
+    for (const key of keys) {
+      const message = translate(key, language);
+      assert.match(message, /\b1\.0\b/, `${language}: ${key}`);
+      assert.doesNotMatch(message, /\b1\.1\b/, `${language}: ${key}`);
+    }
+  }
+  for (const page of ["obchodni-podminky.html", "ochrana-osobnich-udaju.html", "registrace.html"]) {
+    assert.match(read(page), /verz[ei] 1\.0/);
+    assert.doesNotMatch(read(page), /\b1\.1\b/, page);
+  }
+  const registration = read("js/registration-page.js");
+  assert.match(registration, /terms_version:\s*"1\.0-test-2026-10-20"/);
+  assert.match(registration, /privacy_notice_version:\s*"1\.0-test-2026-10-20"/);
+});
 
 test("listing price labels show Czech crowns in all five languages", () => {
   const translate = dictionary();
