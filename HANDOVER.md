@@ -1,15 +1,21 @@
 # Rentulo – HANDOVER
 
-**Servisná a odovzdávacia dokumentácia.** Pôvodný dokument vznikol 18. 8. 2026; priebežné aktualizácie zachytávajú doménový audit z 10. 10. 2026 a **aktuálny stav zdrojov k 13. 10. 2026** (referenčný `main` pred touto aktualizáciou `19c3a2e`, BOD 12 – P1-4). Historické bezpečnostné výsledky a kontroly dashboardov sú výslovne označené dátumom. **Implementácia v Gite, úspešný TEST/CI a pripravenosť živého PROD sú tri odlišné veci.**
+**Servisná a odovzdávacia dokumentácia.** Pôvodný dokument vznikol 18. 8. 2026; priebežné kapitoly obsahujú historické overenia z augusta až októbra. **Aktualizácia BOD 02: 20. 10. 2026**, referenčný GitHub `main` pred etapou 3 `bd03fca` (PR #32). Etapy 1 a 2 sú nasadené v Supabase TEST, etapa 3 je pripravená na vlastný PR a prehliadačový TEST. **Implementácia v Gite, úspešný TEST/CI a pripravenosť živého PROD sú tri odlišné veci.**
 
 Tento dokument **nie je pokynom na spustenie produkcie**. Bez nového schválenia sa nemení vetva `production`, Vercel/Supabase PROD, Stripe live, domény, DNS ani indexovanie. [README.md](README.md) obsahuje stručný úvod; tu je technický stav, prevádzkové pravidlá a kontrolný zoznam pred spustením.
 
 
-## BOD 02 – právna/daňová príprava (návrh k 18. 10. 2026)
+## BOD 02 – GDPR, DSA a právne zábrany (stav k 20. 10. 2026)
 
-**Schválený rozsah V1:** prenájom medzi súkromnými osobami v ČR, bez dopravných prostriedkov; ich pridanie sa môže posúdiť pre V2 podľa dopytu. Nadväzujúci ZIP obsahuje návrh zmien právnych textov CZ/SK/EN/DE/PL, kontrolu formulárov, serverovú SQL migráciu **len pre TEST**, kontaktný postup DSA a regresné testy. Referenčný `main` pre tento ZIP `d8bbfd2` (18. 10. 2026), CI #39104698086 úspešné **pred touto zmenou**. Príprava súborov ≠ merge ≠ nasadenie TEST SQL ≠ právny súhlas.
+**V1:** CZ C2C medzi súkromnými osobami, zákaz dopravných prostriedkov, 5 jazykov. § 7a registrácia EBBI a rozsah DAC7 boli podľa projektového rozhodnutia posúdené; neotvárať ich ako nové úlohy bez zmeny okolností. Právny audit nie je automaticky potvrdením všetkých dodávateľských DPA/PSD2 podmienok ani schválením PROD.
 
-**Zostáva otvorené:** overenie § 7a/DPH a provízie účtovníkom, potvrdenie Stripe Connect a PSD2, český právny súhlas, retenčná tabuľka GDPR, skutočný proces DSA a ručný TEST databázový/UX audit. **PROD `production` / Supabase PROD / Stripe live nemeniť.** Kompletný plán v [docs/BOD02_PRAVNY_DANOVY_AUDIT_TEST.md](docs/BOD02_PRAVNY_DANOVY_AUDIT_TEST.md). V prípade odlišnej technickej histórie majú prednosť konkrétne dátumy a commity pri starších odstavcoch nižšie.
+- **Etapa 1 – PR #31 (`9bb6700`)**: GDPR registračné dôkazy, DSAR, DSA podnety, bezpečnostné incidenty a právne pozastavenia; TEST SQL inštalované a overené, 5 registrov s RLS, 3 triggery, mazanie kontaktov OFF.
+- **Etapa 2 – PR #32 (`bd03fca`)**: 4 ďalšie SQL migrácie v Supabase TEST, 7 samostatne schvaľovaných kategórií, evidencie časov ukončenia, owner-contact minimizácia, fotografie; 645/645 testov pred merge. Kontroly: 2 časové stĺpce a triggery, 6 interných tabuliek RLS, 4 hlavné brány OFF, 0 povolených kategórií, 1 plánovač inertný. Edge `gdpr-cleanup-offer-photo` nasadený len na TEST s vlastným tajomstvom a `--no-verify-jwt`: autorizované volanie `{ok:true,claimed:0,removed:0}`; neautorizované HTTP 401. Žiadne vykonané čistenie; test immutability a právnej blokácie úspešný. Všetky brány ponechať **OFF** bez nového samostatného schválenia.
+- **Etapa 3 – tento ZIP**: upravené GPS na výslovný klik, súradnice nie v URL, one-time browser session handoff, GDPR texty CZ/SK/EN/DE/PL, odstránenie Google Fonts requestov z dotknutých stránok a dokumentácia dodávateľov. Lokálne 657/657 testov + TEST build, ešte **nie je potvrdený PR, CI, ani nasadenie na rentulo.eu**.
+
+**Zostáva pred PROD:** skutočné doklady DPA/rolí/regiónov/prenosov dodávateľov, záverečné potvrdenie českých právnych znení a dátumu účinnosti, kontrola DPIA/DPO, pozitívne reálne TEST scenáre s novými rezerváciami a mazaním pri výslovne povolenom bezpečnom scenári, plus samostatné schválenie PROD. Tieto blokátory sú v [docs/BOD02_ETAPA3_DODAVATELIA_DPA_DPIA_TEST.md](docs/BOD02_ETAPA3_DODAVATELIA_DPA_DPIA_TEST.md). Čisté CI samo nezapína retenciu.
+
+**Podrobný postup:** [etapa 3 a GPS](docs/BOD02_ETAPA3_WEB_GPS_PRAVNE_TEXTY_TEST.md), [retencia](docs/BOD02_ETAPA2_RETENCIA_TEST.md), [pravidlá](docs/BOD02_GDPR_RETENCNA_POLITIKA_V1.md). **PROD `production` / Supabase PROD / Stripe live nemeniť.**
 
 ## 1. Aktuálny stav (snapshot k 13. 10. 2026)
 
@@ -181,7 +187,7 @@ Autoritatívnym miestom ponuky je profilová alebo vlastná adresa vyzdvihnutia.
 
 Východisková mapa bola v októbri upravená na **českú lokalitu** (nie Bratislavu). Opravy automatického dopĺňania a filtrovania adries na TEST boli nasadené a overené 10. 10. (commity `caa842c`, `5f8caee`). Fallback geokódovania je Photon, primárny Nominatim. Pravidlá povolených pôvodov požiadaviek/User-Agent sú oddelené medzi `.eu` a `.com`.
 
-GPS poloha zariadenia slúži na radenie/vyhľadávanie v okolí a presné GPS súradnice návštevníka sa po bezpečnostnej oprave nemajú trvalo ukladať do `localStorage`. Povolenie polohy je dobrovoľné; pri odmietnutí má zostať funkčné manuálne vyhľadávanie.
+**Etapa 3 (pripravená na TEST deploy):** polohu zariadenia žiadať až po výslovnom kliknutí používateľa na hľadanie v okolí; ani platné predošlé browser povolenie nespúšťa žiadosť pri načítaní stránky. Súradnice sa neukladajú do URL, `localStorage` ani profilu. Odovzdajú sa jednorazovo v rámci tej istej browser karty pomocou `sessionStorage` (platnosť maximálne 120 s), na stránke výsledkov sa z neho okamžite odstránia a zostanú len v pamäti zobrazenej stránky. Po refreshi sa musí vyžiadať nová explicitná akcia; bez povolenia funguje manuálne vyhľadávanie. Live TEST overenie ešte vykonať po zlúčení PR.
 
 ## 11. Prevádzkovateľ, kontakty a právne texty
 

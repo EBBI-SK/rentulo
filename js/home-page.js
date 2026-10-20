@@ -2,6 +2,7 @@ document.addEventListener("DOMContentLoaded", function () {
   showHomeEmailChangeConfirmationNotice();
   clearLegacyStoredVisitorLocation();
   setupHomeSearch();
+  setupHomeNearbySearch();
   setupCategorySearch();
   applyHomeDynamicTranslations();
   initializeHomeMap();
@@ -114,6 +115,46 @@ function setupHomeSearch() {
       whatInput ? whatInput.value.trim() : "",
       whereInput ? whereInput.value.trim() : ""
     );
+  });
+}
+
+function setupHomeNearbySearch() {
+  const button = document.getElementById("homeNearbySearchButton");
+  const status = document.getElementById("homeNearbySearchStatus");
+  if (!button) return;
+
+  function showStatus(key, fallback) {
+    if (status) status.textContent = homeTranslate(key, fallback);
+  }
+
+  button.addEventListener("click", function () {
+    if (button.disabled) return;
+    const nearby = window.rentuloNearbyLocation;
+    if (!navigator.geolocation || !nearby) {
+      showStatus("home.locationUnavailable", "Poloha není dostupná. Hledejte podle města.");
+      return;
+    }
+    button.disabled = true;
+    showStatus("home.locationRequesting", "Čekám na povolení polohy…");
+
+    navigator.geolocation.getCurrentPosition(function (position) {
+      const coords = position && position.coords ? position.coords : {};
+      if (!nearby.saveForNextPage(coords.latitude, coords.longitude)) {
+        button.disabled = false;
+        showStatus("home.locationStorageUnavailable", "Polohu nelze bezpečně předat. Hledejte podle města.");
+        return;
+      }
+      const params = new URLSearchParams();
+      const searchTerm = document.getElementById("home-search-what");
+      if (searchTerm && searchTerm.value.trim()) params.set("co", searchTerm.value.trim());
+      params.set("okoli", "1");
+      // The next page consumes the coordinates once and deletes them.
+      // No lat/lng is ever appended to the URL or stored in a user profile.
+      window.location.assign("vysledky.html?" + params.toString());
+    }, function () {
+      button.disabled = false;
+      showStatus("home.locationDenied", "Poloha nebyla povolena. Hledejte podle města.");
+    }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 0 });
   });
 }
 
@@ -304,24 +345,8 @@ function requestVisitorLocation() {
 }
 
 function centerHomeMapOnVisitor() {
-  if (homeMapReturnView && homeMap) {
-    applyHomeMapReturnView();
-    return;
-  }
-
-  requestVisitorLocation();
-
-  if (navigator.permissions && typeof navigator.permissions.query === "function") {
-    navigator.permissions.query({ name: "geolocation" }).then(function (permissionStatus) {
-      permissionStatus.addEventListener("change", function () {
-        if (permissionStatus.state === "granted") {
-          requestVisitorLocation();
-        }
-      });
-    }).catch(function () {
-      // Permissions API nemusí být v každém prohlížeči dostupné.
-    });
-  }
+  // Do not request visitor position on page load, even if previously granted.
+  if (homeMapReturnView && homeMap) applyHomeMapReturnView();
 }
 
 function clearLegacyStoredVisitorLocation() {

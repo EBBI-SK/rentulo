@@ -2,7 +2,7 @@
 
 **Dátum prípravy:** 20. 10. 2026
 **Rozsah:** iba Supabase TEST `vspposovhdgvbeukoivh` / `rentulo.eu`. PROD (`rentulo.com`) **bez zásahov**.
-**Stav:** pripravené na lokálne testy, PR a samostatne odsúhlasené TEST nasadenie. **Databázová migrácia nebola týmto ZIP-om vykonaná.**
+**Stav k 20. 10. 2026:** PR #31 úspešne zlúčený do `main`; migrácia bola **manuálne nainštalovaná do Supabase TEST** a následne kontrolami potvrdených 5 RLS registrov, 3 aktívne triggery, vypnutá GDPR mazacia brána. **ZIP sám nič nenasadil; PROD zostáva nedotknutý.** Registračný live end-to-end TEST bude súčasťou spoločného finálneho preverenia.
 **Prevádzkovateľ:** EBBI s. r. o.; GDPR `policy@rentulo.com`; DSA a všeobecné podnety `rentulo@rentulo.com`.
 
 ## 1. Rozsah a čo presne sa nainštaluje

@@ -6,9 +6,6 @@
 
   <title data-i18n="home.documentTitle">Rentulo - půjčovna věcí</title>
   <link rel="icon" type="image/png" href="assets/rentulo-logo-mark.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-gesture-handling@1.2.2/dist/leaflet-gesture-handling.min.css" />
 
@@ -39,7 +36,7 @@
     body {
       margin: 0;
       min-height: 100vh;
-      font-family: "Manrope", Arial, sans-serif;
+      font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
       background: var(--page);
       color: var(--ink);
     }
@@ -554,7 +551,7 @@
     .home-map-popup {
       min-width: 190px;
       color: var(--ink);
-      font-family: "Manrope", Arial, sans-serif;
+      font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
     }
 
     .home-map-popup strong,
@@ -615,7 +612,7 @@
     }
 
     .leaflet-container {
-      font-family: "Manrope", Arial, sans-serif;
+      font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
     }
 
     .home-offers-map.leaflet-container::after {
@@ -632,7 +629,7 @@
       border-radius: 12px;
       background: rgba(255, 255, 255, 0.96);
       color: var(--ink);
-      font-family: "Manrope", Arial, sans-serif;
+      font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
       font-size: 11px;
       line-height: 1.35;
       font-weight: 800;
@@ -955,7 +952,14 @@
       }
     }
 
-  </style>
+    /* BOD 02: location permission only after a deliberate search click. */
+  .home-nearby-action { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:12px; }
+  .home-nearby-search-button { border:1px solid #2d765f; border-radius:10px; padding:10px 14px; background:transparent; color:inherit; font:inherit; font-weight:700; cursor:pointer; }
+  .home-nearby-search-button:hover { background:rgba(36,120,83,.08); }
+  .home-nearby-search-button:focus-visible { outline:2px solid #1e6a4e; outline-offset:3px; }
+  .home-nearby-search-button:disabled { opacity:.55; cursor:wait; }
+  #homeNearbySearchStatus { font-size:.85rem; }
+</style>
 </head>
 
 <body data-navigation-page="uvod">
@@ -1016,6 +1020,11 @@
             </svg>
           </button>
         </form>
+        <div class="home-nearby-action">
+          <button type="button" id="homeNearbySearchButton" class="home-nearby-search-button" data-i18n="home.nearbyTitle">Najít nabídky v okolí</button>
+          <span id="homeNearbySearchStatus" role="status" aria-live="polite"></span>
+          <small class="home-nearby-hint" data-i18n="home.nearbyPrivacy">Polohu zjistíme jen po kliknutí; nevkládáme ji do odkazu.</small>
+        </div>
 
         <div class="home-points">
           <button type="button" class="home-point-button" data-category="Domácnost">
@@ -1127,6 +1136,7 @@
   <script src="js/utils.js"></script>
   <script src="js/i18n.js"></script>
   <script src="js/navigation.js"></script>
+  <script src="js/nearby-location.js"></script>
   <script src="js/home-page.js"></script>
 </body>
 </html>
