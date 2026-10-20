@@ -13,27 +13,27 @@ const createSource = fs.readFileSync(path.join(root, "js", "offer-form-page.js")
 const editSource = fs.readFileSync(path.join(root, "js", "edit-offer.js"), "utf8");
 const testProject = "https://vspposovhdgvbeukoivh.supabase.co";
 
-function photonFeature(street, number, city, postalCode, latitude, longitude) {
-  return { properties: { street, housenumber: number, city, postcode: postalCode }, geometry: { coordinates: [longitude, latitude] } };
+function geoapifyResult(street, number, city, postalCode, latitude, longitude) {
+  return { street, housenumber: number, city, postcode: postalCode, lat: latitude, lon: longitude, country_code: "cz" };
 }
 
-const photonFeatures = [
-  photonFeature("Václavské náměstí", "846/1", "Praha 1", "110 00", 50.082300, 14.423000),
-  photonFeature("náměstí Václava Havla", "1", "Praha", "110 00", 50.095000, 14.415000),
-  photonFeature("Václavské náměstí", "846/1", "Praha", "110 00", 50.082315, 14.423021),
-  photonFeature("Václavské náměstí", "1", "Praha", "110 00", 50.083200, 14.424500),
-  photonFeature("Václavské náměstí", "1", "Příbram", "261 01", 49.690000, 14.010000),
+const geoapifyResults = [
+  geoapifyResult("Václavské náměstí", "846/1", "Praha 1", "110 00", 50.082300, 14.423000),
+  geoapifyResult("náměstí Václava Havla", "1", "Praha", "110 00", 50.095000, 14.415000),
+  geoapifyResult("Václavské náměstí", "846/1", "Praha", "110 00", 50.082315, 14.423021),
+  geoapifyResult("Václavské náměstí", "1", "Praha", "110 00", 50.083200, 14.424500),
+  geoapifyResult("Václavské náměstí", "1", "Příbram", "261 01", 49.690000, 14.010000),
 ];
 
-function runServer(features = photonFeatures, project = testProject) {
+function runServer(features = geoapifyResults, project = testProject) {
   let handler;
   const upstreamRequests = [];
   const context = {
-    Deno: { env: { get(key) { return key === "SUPABASE_URL" ? project : undefined; } }, serve(fn) { handler = fn; } },
+    Deno: { env: { get(key) { return key === "SUPABASE_URL" ? project : key === "GEOAPIFY_API_KEY" ? "test-provider-key" : undefined; } }, serve(fn) { handler = fn; } },
     Request, Response, URL, AbortController, setTimeout, clearTimeout, console,
     async fetch(url) {
       upstreamRequests.push(new URL(url));
-      return new Response(JSON.stringify({ features }), { status: 200, headers: { "content-type": "application/json" } });
+      return new Response(JSON.stringify({ results: features }), { status: 200, headers: { "content-type": "application/json" } });
     }
   };
   vm.runInNewContext(serverCode, context, { timeout: 2500 });
@@ -86,8 +86,8 @@ test("preserves house numbers when the street name already includes a number", (
 
 test("sorts the exact Prague house first and merges nearby duplicate localities", () => {
   const { context } = runServer();
-  context.testFeatures = { features: photonFeatures };
-  const results = pure(context, 'mapPhotonFeatures(testFeatures, "1", "Praha", "", "Václavské náměstí")');
+  context.testFeatures = { results: geoapifyResults };
+  const results = pure(context, 'mapGeoapifyFeatures(testFeatures, "1", "Praha", "", "Václavské náměstí")');
   assert.equal(results[0].street, "Václavské náměstí 1");
   assert.equal(results[0].city, "Praha");
   assert.equal(results.filter(x => x.street === "Václavské náměstí 846/1").length, 1);
@@ -107,10 +107,10 @@ test("precise street matching accepts normal forms and partial street words, not
 
 test("specific Prague house does not include similarly named buildings on another street", async () => {
   const mock = runServer([
-    photonFeature("Na Václavce", "117/1", "Praha", "150 00", 50.073, 14.398),
-    photonFeature("Václavské náměstí", "846/1", "Praha 1", "110 00", 50.0823, 14.423),
-    photonFeature("Václavské náměstí", "1", "Praha", "110 00", 50.0832, 14.4245),
-    photonFeature("náměstí Václava Havla", "1", "Praha", "110 00", 50.095, 14.415)
+    geoapifyResult("Na Václavce", "117/1", "Praha", "150 00", 50.073, 14.398),
+    geoapifyResult("Václavské náměstí", "846/1", "Praha 1", "110 00", 50.0823, 14.423),
+    geoapifyResult("Václavské náměstí", "1", "Praha", "110 00", 50.0832, 14.4245),
+    geoapifyResult("náměstí Václava Havla", "1", "Praha", "110 00", 50.095, 14.415)
   ]);
   const results = await mock.query("Vaclavske nam. 1 pra");
   assert.equal(results.length, 2);
@@ -120,8 +120,8 @@ test("specific Prague house does not include similarly named buildings on anothe
 
 test("without a house number, autocomplete retains broad street suggestions", async () => {
   const mock = runServer([
-    photonFeature("Václavské náměstí", "1", "Praha", "110 00", 50.0832, 14.4245),
-    photonFeature("Na Václavce", "117/1", "Praha", "150 00", 50.073, 14.398)
+    geoapifyResult("Václavské náměstí", "1", "Praha", "110 00", 50.0832, 14.4245),
+    geoapifyResult("Na Václavce", "117/1", "Praha", "150 00", 50.073, 14.398)
   ]);
   const results = await mock.query("Vacl", "Praha");
   assert.equal(results.length, 2);
@@ -129,18 +129,21 @@ test("without a house number, autocomplete retains broad street suggestions", as
 
 test("does not merge similarly named houses at different physical locations", () => {
   const { context } = runServer();
-  context.testFeatures = { features: [
-    photonFeature("U Lomu", "1", "Praha", "110 00", 50.08, 14.42),
-    photonFeature("U Lomu", "1", "Praha 1", "110 00", 50.1, 14.44)
+  context.testFeatures = { results: [
+    geoapifyResult("U Lomu", "1", "Praha", "110 00", 50.08, 14.42),
+    geoapifyResult("U Lomu", "1", "Praha 1", "110 00", 50.1, 14.44)
   ] };
-  assert.equal(pure(context, 'mapPhotonFeatures(testFeatures,"1","Praha","","U Lomu")').length, 2);
+  assert.equal(pure(context, 'mapGeoapifyFeatures(testFeatures,"1","Praha","","U Lomu")').length, 2);
 });
 
-test("full address in one input builds structured Photon query and filters out other cities", async () => {
+test("full address in one input builds structured Geoapify query and filters out other cities", async () => {
   const mock = runServer();
   const result = await mock.query("Václavské náměstí 1 Praha");
   assert.equal(result[0].street, "Václavské náměstí 1");
   assert.equal(result.every(x => x.city.startsWith("Praha")), true);
+  assert.equal(mock.upstreamRequests[0].host, "api-eu.geoapify.com");
+  assert.equal(mock.upstreamRequests[0].searchParams.get("filter"), "countrycode:cz");
+  assert.equal(mock.upstreamRequests[0].searchParams.get("apiKey"), "test-provider-key");
   assert.equal(mock.upstreamRequests[0].searchParams.get("street"), "Václavské náměstí");
   assert.equal(mock.upstreamRequests[0].searchParams.get("housenumber"), "1");
   assert.equal(mock.upstreamRequests[0].searchParams.get("city"), "Praha");
@@ -157,16 +160,16 @@ test("a partial city falls back to a broader query while still filtering the ret
   let handler;
   const requests = [];
   const context = {
-    Deno: { env: { get(name) { return name === "SUPABASE_URL" ? testProject : undefined; } }, serve(fn) { handler = fn; } },
+    Deno: { env: { get(name) { return name === "SUPABASE_URL" ? testProject : name === "GEOAPIFY_API_KEY" ? "test-provider-key" : undefined; } }, serve(fn) { handler = fn; } },
     URL, Request, Response, AbortController, setTimeout, clearTimeout, console,
     async fetch(url) {
       const request = new URL(url);
       requests.push(request);
-      // Simulate Photon not understanding the short city in either its
+      // Simulate Geoapify not understanding the short city in either its
       // structured endpoint or the forward search endpoint.
-      const features = request.pathname === "/structured" && !request.searchParams.has("city")
-        ? photonFeatures : [];
-      return new Response(JSON.stringify({ features }), { status: 200 });
+      const results = request.pathname === "/v1/geocode/search" && !request.searchParams.has("city")
+        ? geoapifyResults : [];
+      return new Response(JSON.stringify({ results }), { status: 200 });
     }
   };
   vm.runInNewContext(serverCode, context);
@@ -188,6 +191,26 @@ test("city entered in its own field restricts results without silently changing 
   assert.equal(result[0].street, "Václavské náměstí 1");
   assert.equal(result.every(x => x.city.startsWith("Praha")), true);
   assert.equal(mock.upstreamRequests[0].searchParams.get("city"), "Praha");
+});
+
+test("provider secret is mandatory and stays off the browser JSON response", async () => {
+  const client = runServer();
+  const suggestions = await client.query("Václavské náměstí 1", "Praha");
+  assert.ok(suggestions.length > 0);
+  assert.equal(JSON.stringify(suggestions).includes("test-provider-key"), false);
+
+  let handler;
+  const context = {
+    Deno: { env: { get(name) { return name === "SUPABASE_URL" ? testProject : undefined; } }, serve(fn) { handler = fn; } },
+    Request, Response, URL, AbortController, setTimeout, clearTimeout, console,
+    fetch() { throw new Error("Must fail closed without Geoapify key"); }
+  };
+  vm.runInNewContext(serverCode, context);
+  const result = await handler(new Request(`${testProject}/functions/v1/address-suggestions`, {
+    method: "POST", headers: { Origin: "https://rentulo.eu", "content-type": "application/json" },
+    body: JSON.stringify({ query: "Václavské náměstí 1" })
+  }));
+  assert.equal(result.status, 503);
 });
 
 function slice(source, start, end) {

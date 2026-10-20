@@ -7,13 +7,13 @@
 | Poskytovateľ / účel | Údaje a prístup | Overiť v skutočnom účte / zmluve | Stav dokladu |
 |---|---|---|---|
 | Supabase (Auth, DB, Storage, Edge) | účty, kontakty, ponuky, rezervácie, logy | región DB, DPA, subprocesori, exporty/zálohy, retention, oprávnenia, prevody mimo EHP | **NEOVERENÉ** |
-| Vercel (hosting) | IP, požiadavky, deployment/technické logy | typ účtu, DPA, lokality logov, bezpečnosť, subprocesori, obdobie uchovávania | **NEOVERENÉ** |
+| Vercel (hosting) | IP, požiadavky, deployment/technické logy | **Pro schválené pre komerčné používanie V1**; pred PROD fakticky aktivovať Pro v účte EBBI a overiť plán, DPA, lokality logov, subprocesorov a retention | **Verejná Pro DPA overená; aktivácia Pro v EBBI účte nepotvrdená** |
 | Stripe/Stripe Connect | platby, identity, finančné údaje, refundy | priamo rola Stripe samostatného správcu vs. spracovateľa podľa účelu, dokumentácia, medzinárodné prenosy, doklady | **NEOVERENÉ** |
 | Resend (e-mail) | e-mail, obsah transakčných e-mailov, delivery metadata | DPA/rola, región, retenčné nastavenia, subprocesori, ochrana API kľúčov | **NEOVERENÉ** |
 | BulkGate (SMS) | mobilné číslo a SMS udalosti | DPA/rola, skutočný SMS routing, operátori/poddodávatelia, retention, možnosť exportu/výmazu | **NEOVERENÉ** |
 | cron-job.org (monitoring a plánované volania) | URL funkcií, technické výsledky, prípadne IP | DPA/rola, čo sa loguje do požiadaviek/odpovedí, retention, regióny, tajné tokeny v hlavičkách | **NEOVERENÉ** |
 | OpenStreetMap tiles | IP adresa a technické údaje klienta pri mapových požiadavkách | služba a právna rola, pravidlá používania/retencie/transferov, geografická granularita mapy | **NEOVERENÉ** |
-| Nominatim/Photon (geokódovanie) | adresa použitá na vyhľadávanie/geokódovanie | serverový proxy, poskytovateľ služby, zmluvná rola, retencia adries, obmedzenie odosielaných údajov | **NEOVERENÉ** |
+| Geoapify EU (adresy a geokódovanie) | ulica, domové číslo, mesto, PSČ; serverové volania z Edge Functions | V1 schválila použitie Geoapify EU endpointu `api-eu.geoapify.com`, DPA verejne existuje; API kľúč musí zostať iba v Supabase Secrets. Pred zapnutím zachovať dôkaz o zmluve/účte EBBI | **Verejná DPA a EU endpoint overené; zmluvný dôkaz EBBI sa doplní pri registrácii** |
 | jsDelivr CDN (knižnice) | IP a technické údaje pri načítaní zdrojov | dôvody externého CDN, subprocesori/rola, možnosť self-hostingu, pravidlá bezpečnosti/SRI | **NEOVERENÉ** |
 | Google Maps (užívateľský odkaz na trasu) | iba údaje odovzdané po kliknutí na externý odkaz | rozlíšiť samostatného prevádzkovateľa služby; nenahrádzať jeho podmienky naším DPA | **NEOVERENÉ** |
 
