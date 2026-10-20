@@ -952,13 +952,52 @@
       }
     }
 
-    /* BOD 02: location permission only after a deliberate search click. */
-  .home-nearby-action { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:12px; }
-  .home-nearby-search-button { border:1px solid #2d765f; border-radius:10px; padding:10px 14px; background:transparent; color:inherit; font:inherit; font-weight:700; cursor:pointer; }
-  .home-nearby-search-button:hover { background:rgba(36,120,83,.08); }
-  .home-nearby-search-button:focus-visible { outline:2px solid #1e6a4e; outline-offset:3px; }
-  .home-nearby-search-button:disabled { opacity:.55; cursor:wait; }
-  #homeNearbySearchStatus { font-size:.85rem; }
+    /* Compact location action inside the existing KDE? search field. */
+    #home-search-where { padding-right: 40px; }
+    .home-nearby-icon-button {
+      position: absolute;
+      right: 8px;
+      bottom: 9px;
+      display: grid;
+      place-items: center;
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--green);
+      cursor: pointer;
+    }
+    .home-nearby-icon-button:hover { background: var(--green-soft); }
+    .home-nearby-icon-button:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+    .home-nearby-icon-button:disabled { opacity: .5; cursor: wait; }
+    .home-nearby-icon-button svg {
+      width: 21px;
+      height: 21px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.9;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .home-nearby-status:not([hidden]) {
+      position: absolute;
+      top: calc(100% + 10px);
+      right: 0;
+      z-index: 20;
+      width: max-content;
+      max-width: min(260px, calc(100vw - 32px));
+      padding: 8px 11px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: white;
+      color: var(--ink);
+      box-shadow: 0 8px 22px rgba(16, 32, 25, .12);
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.4;
+    }
 </style>
 </head>
 
@@ -1010,6 +1049,15 @@
               placeholder="město nebo PSČ"
               data-i18n-placeholder="home.searchWherePlaceholder"
             />
+            <button type="button" id="homeNearbySearchButton" class="home-nearby-icon-button">
+              <span class="search-button-label" data-i18n="home.nearbyTitle">Najít nabídky v okolí</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <circle cx="12" cy="12" r="7" />
+                <circle cx="12" cy="12" r="2" />
+                <path d="M12 2v3 M12 19v3 M2 12h3 M19 12h3" />
+              </svg>
+            </button>
+            <span id="homeNearbySearchStatus" class="home-nearby-status" role="status" aria-live="polite" hidden></span>
           </div>
 
           <button type="submit" class="search-button">
@@ -1020,11 +1068,6 @@
             </svg>
           </button>
         </form>
-        <div class="home-nearby-action">
-          <button type="button" id="homeNearbySearchButton" class="home-nearby-search-button" data-i18n="home.nearbyTitle">Najít nabídky v okolí</button>
-          <span id="homeNearbySearchStatus" role="status" aria-live="polite"></span>
-          <small class="home-nearby-hint" data-i18n="home.nearbyPrivacy">Polohu zjistíme jen po kliknutí; nevkládáme ji do odkazu.</small>
-        </div>
 
         <div class="home-points">
           <button type="button" class="home-point-button" data-category="Domácnost">

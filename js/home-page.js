@@ -123,19 +123,36 @@ function setupHomeNearbySearch() {
   const status = document.getElementById("homeNearbySearchStatus");
   if (!button) return;
 
+  let statusTimer = null;
+
+  function clearStatus() {
+    if (status) {
+      status.textContent = "";
+      status.hidden = true;
+    }
+    if (statusTimer !== null && typeof window.clearTimeout === "function") {
+      window.clearTimeout(statusTimer);
+    }
+    statusTimer = null;
+  }
+
   function showStatus(key, fallback) {
-    if (status) status.textContent = homeTranslate(key, fallback);
+    if (!status) return;
+    clearStatus();
+    status.textContent = homeTranslate(key, fallback);
+    status.hidden = false;
+    statusTimer = window.setTimeout(clearStatus, 4000);
   }
 
   button.addEventListener("click", function () {
     if (button.disabled) return;
+    clearStatus();
     const nearby = window.rentuloNearbyLocation;
     if (!navigator.geolocation || !nearby) {
       showStatus("home.locationUnavailable", "Poloha není dostupná. Hledejte podle města.");
       return;
     }
     button.disabled = true;
-    showStatus("home.locationRequesting", "Čekám na povolení polohy…");
 
     navigator.geolocation.getCurrentPosition(function (position) {
       const coords = position && position.coords ? position.coords : {};

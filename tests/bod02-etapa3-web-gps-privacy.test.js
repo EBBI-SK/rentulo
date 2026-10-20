@@ -135,6 +135,15 @@ test('stage3: results consume one-time location; ignore GPS query parameters', (
   assert.match(read('vysledky.html'), /<script src="js\/nearby-location\.js"><\/script>[\s\S]*?<script src="js\/results-page\.js"><\/script>/);
 });
 
+test('stage3: nearby GPS is a compact icon inside the KDE search field', () => {
+  const html = read('index.html');
+  assert.match(html, /<label for="home-search-where"[\s\S]*?id="homeNearbySearchButton"[\s\S]*?<\/div>/);
+  assert.match(html, /id="homeNearbySearchStatus"[^>]*hidden/);
+  assert.match(html, /id="homeNearbySearchButton"[^>]*class="home-nearby-icon-button"/);
+  assert.doesNotMatch(html, /class="home-nearby-action"|class="home-nearby-hint"/);
+  assert.match(homeSource, /statusTimer = window\.setTimeout\(clearStatus, 4000\)/);
+});
+
 test('stage3: home uses explicit permission button and avoids reload-loop prompts', () => {
   assert.match(read('index.html'), /id="homeNearbySearchButton"/);
   assert.match(homeSource, /button\.addEventListener\("click", function \(\)/);
