@@ -65,6 +65,10 @@ Rozlišujeme: **(a)** kontakty potrebné iba na realizáciu prenájmu, **(b)** n
 
 **Technická medzera, ktorú treba vyriešiť pred aktiváciou:** aktuálna funkcia `gdpr_review_deactivated_renter_contacts` overuje stav účtu, rezervácie a súvisiacich blokácií, ale **sama zatiaľ neoveruje uplynutie 90 dní od dôveryhodne zaznamenaného uzavretia**. `end_date` ani obyčajné `updated_at` nemusia byť správnym okamihom. Bez doplnenia a otestovania tohto časového pravidla **neschvaľovať zapnutie brány ani `p_apply = true`**.
 
+**Preskúmanie histórie 20. 10. 2026:** rezervácie `R-000021` a `R-000022` nemajú vlastný záznam `reservation_cancellations.cancelled_at`, ale majú oznámenia o zrušení z 18. 10. 2026. Oznámenie nie je spoľahlivým presným časom transakčnej zmeny stavu a **nesmie slúžiť na automatické spätné vyplnenie** časovej pečiatky. Pri dvoch expirovaných rezerváciách je `expired_at` vyplnené a 90 dní ešte neuplynulo.
+
+**Pripravený následný TEST-only patch (zatiaľ nie nainštalovaný):** `20261020150000_bod02_gdpr_closed_status_90_days_TEST.sql` zavádza `reservations.gdpr_closed_at` iba pre **budúce** prechody do `cancelled`/`rejected`. Pri `expired` sa naďalej používa `expired_at`. Po samostatnom TEST nasadení budú náhľad, aktualizačný dotaz aj ďalší BEFORE UPDATE trigger odmietať čistenie pred uplynutím 90 dní alebo bez spoľahlivého dátumu. **Žiadne staré dátumy sa nedopĺňajú; existujúca schvaľovacia brána zostane vypnutá.** Zlúčenie súboru do GitHub `main` samo osebe SQL nevykoná.
+
 **Terminológia:** odstránenie `renter_name`, `renter_email` a `renter_phone` pri zachovaní rezervácie a identifikátorov je *vyčistenie kontaktov / potenciálna pseudonymizácia*. Nie je to automaticky úplná anonymizácia podľa GDPR, ak možno človeka ďalej identifikovať z iných údajov.
 
 ## 5. Pravidlá vykonávania a výnimiek
@@ -93,9 +97,9 @@ Rozlišujeme: **(a)** kontakty potrebné iba na realizáciu prenájmu, **(b)** n
 
 ## 7. Nasledujúce kroky – iba to, čo ešte chýba
 
-1. **Tento krok:** opraviť existujúci dokument v `docs/` cez samostatné PR. To ešte **nie je právne schválenie** a nevykoná žiadnu databázovú zmenu.
+1. **Teraz:** zaradiť pripravený TEST-only opravný SQL patch a túto aktualizáciu dokumentu cez PR. Najprv automatické testy; následne samostatné schválenie a vykonanie SQL **iba v TEST**. GitHub merge sám SQL nespustí.
 2. **Interné rozhodnutie EBBI:** schváliť alebo upraviť jednotlivé navrhované lehoty, odôvodnenia a pravidlá pozastavenia; finančné/daňové a DAC7 otázky ostávajú odložené.
-3. **Pred akýmkoľvek GDPR čistením:** bezpečne doplniť a otestovať kontrolu skutočného uplynutia 90 dní a existencie platobných, sporových a ďalších blokácií. Pri neistých starých časových údajoch nič automaticky neodstraňovať.
+3. **Pred akýmkoľvek GDPR čistením:** v TEST overiť nové zapisovanie spoľahlivého času `gdpr_closed_at` pri zrušení/zamietnutí, čas `expired_at`, nulové oprávnené historické riadky a ochranu pred predčasným čistením. Pri starých časových údajoch bez dôkazu postupovať len individuálne; automaticky nič neodstraňovať.
 4. **Až potom:** vykonať odsúhlasený TEST náhľad a prípadný úzko vymedzený test čistenia; záznam s `pending` platbou a šesť historických e-mailov riešiť samostatne.
 5. **Pred spustením V1:** upraviť používateľské GDPR texty CZ/SK/EN/DE/PL podľa schválenej politiky, dokončiť kontrolu dodávateľov a prenosov; PROD iba na osobitný súhlas.
 
