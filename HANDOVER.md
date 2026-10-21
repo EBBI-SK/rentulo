@@ -52,7 +52,7 @@ Vercel (statický HTML/CSS/vanilla JS build v dist/)
 externý cron-job.org (TEST; pravidelné HTTPS POST)
     +--> Edge Function monitor-reservation-notifications
          +--> monitorovacie RPC + heartbeat workera
-         +--> Resend (deduplikovaný alarm na ebbi@ebbi.sk)
+         +--> Resend (deduplikovaný alarm na support@rentulo.com)
 
 mapa: OpenStreetMap; adresy: Geoapify EU (cez Supabase Edge Functions, serverový secret `GEOAPIFY_API_KEY`; TEST aktivovať až po nasadení)
 ```
@@ -111,7 +111,7 @@ V `main` je **20 Edge Functions**. Zoznam je úplný pre referenčný commit; pr
 | `create-owner-debt-checkout` | úhrada dlhu prenajímateľa cez Stripe |
 | `send-reservation-email` | jazykový transport rezervačných e-mailov cez Resend, interné claimy/idempotencia |
 | `process-reservation-notifications` | chránený worker spoločnej fronty e-mailov a BulkGate SMS, retry a evidencia; úspešný heartbeat P1-4 |
-| `monitor-reservation-notifications` | TEST-only monitor chýb notifikačnej fronty, deduplikované e-mailové alarmy na `ebbi@ebbi.sk`; externé spúšťanie cez cron-job.org |
+| `monitor-reservation-notifications` | TEST-only monitor chýb notifikačnej fronty, deduplikované e-mailové alarmy na `support@rentulo.com`; externé spúšťanie cez cron-job.org |
 | `expire-reservations` | bezpečná 24-hodinová expirácia nezaplatených rezervácií (s kontrolou Stripe Checkout) |
 | `send-overdue-owner-debt-reminders` | upozornenia na dlhy po splatnosti |
 
@@ -448,7 +448,7 @@ ORDER BY d.created_at;
 
 1. **Rezervačný worker:** Supabase `pg_cron` každú minútu volá `process-reservation-notifications`. Spracuje e-maily/SMS a po úspešnom dokončení vrátane ACK zapisuje serverový heartbeat do `reservation_notification_worker_health`. Aj zdravý prázdny beh obnovuje `last_success_at`.
 2. **Nezávislá kontrola:** externý **cron-job.org** odošle cez HTTPS `POST` do `https://vspposovhdgvbeukoivh.supabase.co/functions/v1/monitor-reservation-notifications` s JSON telom `{}`, `Content-Type: application/json` a tajnou hlavičkou `x-rentulo-monitor-secret`. Tajomstvo (minimálne 64 znakov) musí zodpovedať serverovému `RENTULO_MONITOR_SECRET`; **nikdy ho neuvádzať do dokumentov/ZIP-u/Gitu**. Periodicita a úspešnosť sa spravujú v cron-job.org (pôvodný návrh P1-4 počítal s kontrolou približne každých päť minút; skutočné nastavenie treba overiť tam).
-3. **Alarmy:** monitor použije iba serverové RPC, tabuľku `reservation_notification_monitor_alerts` a Resend. Alerty sú smerované na **`ebbi@ebbi.sk`**. `generation`, `claim_token`, lease a stabilný Resend idempotency key bránia duplicitám; pri neúspechu sa používa retry. `sent_at` v databáze znamená akceptované odoslanie, nie potvrdenie doručenia do schránky.
+3. **Alarmy:** monitor použije iba serverové RPC, tabuľku `reservation_notification_monitor_alerts` a Resend. Alerty sú smerované na **`support@rentulo.com`**. `generation`, `claim_token`, lease a stabilný Resend idempotency key bránia duplicitám; pri neúspechu sa používa retry. `sent_at` v databáze znamená akceptované odoslanie, nie potvrdenie doručenia do schránky.
 
 Edge Function je výslovne **TEST-only**: nesprávna URL projektu je odmietnutá (`403`), chýbajúci/nesprávny token (`401`), nesprávna metóda (`405`). Neuchovávať token v URL, query stringu, public workflow ani logoch. GitHub workflow `.github/workflows/rentulo-test-notification-monitor.yml` **nemá `schedule`**, používa len `workflow_dispatch` na `main` s GitHub secretom `RENTULO_TEST_MONITOR_SECRET` pre ručnú diagnostiku. Premenná `RENTULO_TEST_MONITOR_ENABLED` sa po tejto aktualizácii na spúšťanie nepoužíva.
 
@@ -475,3 +475,5 @@ Alarm rieši jednu generáciu incidentu jedným mailom; po vyriešení a novom v
 - **PROD:** tento monitor je pevne viazaný na TEST, má samostatné serverové tajomstvo a príjemcu. Pre PROD je potrebný nový návrh, oddelené secrets/účty, bezpečnostná revízia a výslovné schválenie. Nič neprenášať automaticky.
 
 Podrobný operátorský postup a čítacie SQL: [docs/BOD12_P1-4_monitoring_TEST.md](docs/BOD12_P1-4_monitoring_TEST.md).
+
+**BOD 03A (pripravený na nasadenie, zatiaľ nie aktívny):** interná evidencia incidentov, moderácia, blokovanie používateľov s auditom cez Supabase Owner SQL Editor. Postup a hranice: `docs/BOD03A_INCIDENTY_ADMIN_TEST.md`. `support@rentulo.com` začne dostávať TEST alarmy až po samostatnom redeployi monitorovacej Edge Function; nastavenia cron-job.org sú mimo Gitu. BOD 03B / finančné spory sa nemenia.

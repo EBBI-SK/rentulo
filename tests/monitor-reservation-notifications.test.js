@@ -155,7 +155,7 @@ test('P1-4: idle queue sends nothing; active problem sends limited operational d
   assert.equal(active.externalCalls.length, 1);
   assert.equal(active.externalCalls[0].endpoint, 'https://api.resend.com/emails');
   const payload = JSON.parse(active.externalCalls[0].options.body);
-  assert.deepEqual(payload.to, ['ebbi@ebbi.sk']);
+  assert.deepEqual(payload.to, ['support@rentulo.com']);
   assert.match(payload.subject, /^Rentulo TEST/);
   assert.match(payload.text, /R-000026/);
   assert.match(payload.text, /manuálne|preveriť/);
