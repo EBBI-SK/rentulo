@@ -12,6 +12,15 @@ const TEST_URL = "https://vspposovhdgvbeukoivh.supabase.co";
 const MAX_BATCH = 2;
 const TIMEOUT_MS = 12000;
 
+// Keep the helper's concrete Supabase client type: ReturnType<typeof createClient>
+// would erase inferred database/RPC types and fail Deno's typecheck.
+function createAdminClient(url: string, serviceKey: string) {
+  return createClient(url, serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+type AdminClient = ReturnType<typeof createAdminClient>;
+
 type Claim = {
   settlement_id: string;
   claim_token: string;
@@ -102,7 +111,7 @@ function identifyRefunds(refunds: StripeRefund[], claim: Claim):
 }
 
 async function processClaim(
-  admin: ReturnType<typeof createClient>, claim: Claim, stripeKey: string,
+  admin: AdminClient, claim: Claim, stripeKey: string,
 ): Promise<"settled" | "pending" | "review" | "retry"> {
   const recordError = async (message: string, manual = false): Promise<"review" | "retry"> => {
     const { data, error } = await admin.rpc("bod03b_record_refund_error", {
@@ -221,9 +230,7 @@ deno.serve(async (req: Request): Promise<Response> => {
   }
   const secret = req.headers.get("x-rentulo-dispute-cron-secret") || "";
   if (secret.length < 64) return json({ error: "Unauthorized" }, 401);
-  const admin = createClient(supabaseUrl, serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+  const admin = createAdminClient(supabaseUrl, serviceKey);
   const { data: authorized, error: verifyError } = await admin.rpc(
     "bod03b_verify_refund_cron_secret", { p_secret: secret },
   );
