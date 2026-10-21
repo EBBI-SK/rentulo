@@ -2,23 +2,25 @@
 
 **Stav k 13. 10. 2026: aktivované a otestované v Supabase TEST, externé spúšťanie cez `cron-job.org`.** Monitoring podľa rozhodnutia **zostáva zapnutý** aj počas prestávky. Tento dokument opisuje už vykonanú aktiváciu a prevádzku; **nie je** pokynom na opätovné nasadenie SQL, vytvorenie druhého jobu alebo aktiváciu PROD. Stav externého jobu sa musí kontrolovať priamo v jeho dashboarde. Samotná zmena súborov v Gite nemení existujúci job v cron-job.org.
 
+**Poznámka k pripravovanému BODU 03A:** zdroj v Gite má nové smerovanie na `support@rentulo.com`, ale účinné bude až po samostatnom redeployi monitorovacej Edge Function na TEST. V cron-job.org sa notifikácie o zlyhaní samotného jobu nastavujú zvlášť.
+
 ## Účel a detekčné hranice
 
 - `dead`: terminálne neúspešné e-maily a SMS vrátane nejednoznačnej odpovede BulkGate; **takú SMS nikdy bez manuálnej kontroly neposielať znova**.
 - `queued`/`retry`: `next_attempt_at` prešiel pred viac ako 10 minútami.
 - `sending`: lease vypršal pred viac ako 3 minútami.
 - `worker_stale`: bez úspešného `last_success_at` dlhšie než 8 minút. Zelený stav Postgres `cron.job_run_details` **nie je dôkazom úspešnej HTTP/worker odpovede**.
-- Pri aktívnom probléme odoslať na **`ebbi@ebbi.sk`** jeden e-mail na jednu generáciu incidentu; pri vyriešení a novom výskyte vzniká nová generácia. Pri neúspechu e-mailu sa používajú retry a ten istý Resend `Idempotency-Key` pre ten istý výskyt.
+- Pri aktívnom probléme odoslať na **`support@rentulo.com`** jeden e-mail na jednu generáciu incidentu; pri vyriešení a novom výskyte vzniká nová generácia. Pri neúspechu e-mailu sa používajú retry a ten istý Resend `Idempotency-Key` pre ten istý výskyt.
 
 ## Architektúra a odlíšenie plánovačov
 
 1. **Supabase `pg_cron` pre bežné notifikácie:** `rentulo-process-reservation-notifications-every-minute` každú minútu volá `process-reservation-notifications`. Po úspešnom spracovaní vrátane ACK worker zavolá `record_reservation_notification_worker_success`; aj prázdna zdravá fronta zaznamená heartbeat v `reservation_notification_worker_health`.
 2. **Supabase SQL:** migrácia `20261013100000_monitor_reservation_notifications_TEST.sql` pridala `reservation_notification_worker_health` a `reservation_notification_monitor_alerts`, tri server-only RPC s obmedzenými právami/RLS. Sama **nevytvára ani nespúšťa externý monitorovací cron**.
 3. **Externý plánovač `cron-job.org`:** nezávisle od databázového workera vykonáva autorizované periodické HTTPS `POST` na funkciu `monitor-reservation-notifications`. Periodicita je konfigurovaná v **cron-job.org** (pôvodný zámer P1-4: približne každých päť minút; aktuálnu hodnotu potvrdzuje dashboard, nie repo). Pri presune plánovania sa **nevytvára nový druhý job**.
-4. **Supabase TEST Edge Function:** prijíma výhradne `POST`, kontroluje exact TEST projekt `vspposovhdgvbeukoivh`, minimálne 64-znakové tajomstvo a dostupnosť `RESEND_API_KEY`/`EMAIL_FROM`. Akceptuje najviac päť alarmov na volanie (súbežne najviac tri), cez `claim_token`/lease/`generation` zabraňuje duplicitám. Adresát je pevne `ebbi@ebbi.sk`; z alarmov sa neposielajú PIN-y, telefóny ani privátne kontakty.
+4. **Supabase TEST Edge Function:** prijíma výhradne `POST`, kontroluje exact TEST projekt `vspposovhdgvbeukoivh`, minimálne 64-znakové tajomstvo a dostupnosť `RESEND_API_KEY`/`EMAIL_FROM`. Akceptuje najviac päť alarmov na volanie (súbežne najviac tri), cez `claim_token`/lease/`generation` zabraňuje duplicitám. Adresát je pevne `support@rentulo.com`; z alarmov sa neposielajú PIN-y, telefóny ani privátne kontakty.
 5. **GitHub Actions iba ručne:** `.github/workflows/rentulo-test-notification-monitor.yml` zostáva ako diagnostická možnosť `workflow_dispatch` na vetve `main`. Po tejto aktualizácii **nemá `schedule`** a nepotrebuje `RENTULO_TEST_MONITOR_ENABLED`. GitHub secret `RENTULO_TEST_MONITOR_SECRET` môže zostať iba pre túto manuálnu diagnostiku; samotný opakovaný monitoring sa nevykonáva v GitHube.
 
-**Historická poznámka:** úvodný komentár v `supabase/functions/monitor-reservation-notifications/index.ts` ešte spomína GitHub Actions ako plánovač. Je to zastaraný komentár z pôvodného návrhu, nie aktívne runtime nastavenie; zdroj Edge Function nebol súčasťou schválenej päťsúborovej úpravy.
+**Aktualizácia BOD 03A:** komentár v Edge Function už správne označuje cron-job.org; adresát TEST alarmov sa mení na `support@rentulo.com`. Je potrebné nasadiť zmenenú Edge Function, samotný GitHub merge príjemcu v existujúcej funkcii nemení. Samostatné notifikácie o nedostupnosti HTTP jobu nastavuje cron-job.org mimo zdrojového kódu.
 
 ## Nastavenie externého HTTP jobu – referenčná kontrola, nie pokyn na opätovnú aktiváciu
 

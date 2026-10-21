@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // BOD 12 / P1-4: independent, explicitly enabled TEST-only alert transport.
-// GitHub Actions (not Supabase pg_cron) calls this function every five minutes.
+// The existing cron-job.org TEST monitor calls this endpoint (not GitHub schedule).
 // Do not publish a browser-facing endpoint or deploy it to PROD.
 type RentuloDenoRuntime = {
   serve(handler: (request: Request) => Response | Promise<Response>): void;
@@ -10,7 +10,7 @@ type RentuloDenoRuntime = {
 const runtime = (globalThis as typeof globalThis & { Deno: RentuloDenoRuntime }).Deno;
 
 const TEST_SUPABASE_URL = "https://vspposovhdgvbeukoivh.supabase.co";
-const TEST_ALERT_TO = "ebbi@ebbi.sk";
+const TEST_ALERT_TO = "support@rentulo.com";
 const DB_TIMEOUT_MS = 4000;
 const RESEND_TIMEOUT_MS = 8000;
 const MAX_BATCH = 5;
@@ -44,7 +44,7 @@ function matchesSecret(supplied: string | null, configured: string): boolean {
 
 async function emailIdempotencyKey(alert: Alert): Promise<string> {
   const value = new TextEncoder().encode(
-    `rentulo-test-monitor:${alert.alert_key}:${alert.alert_generation}`,
+    `rentulo-test-monitor-support-v2:${alert.alert_key}:${alert.alert_generation}`,
   );
   const digest = await crypto.subtle.digest("SHA-256", value);
   return `rentulo-alert-${Array.from(new Uint8Array(digest), (n) =>
@@ -113,7 +113,7 @@ runtime.serve(async (request: Request) => {
   const serviceKey = runtime.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   const resendKey = runtime.env.get("RESEND_API_KEY") || "";
   const from = runtime.env.get("EMAIL_FROM") || "";
-  // The recipient is intentionally fixed in this TEST-only implementation.
+  // The TEST alert recipient is fixed; cron-job.org failure notifications are configured separately.
   if (!serviceKey || !resendKey || !from) {
     return json({ error: "Monitoring email credentials are not configured" }, 503);
   }
