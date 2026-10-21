@@ -477,3 +477,18 @@ Alarm rieši jednu generáciu incidentu jedným mailom; po vyriešení a novom v
 Podrobný operátorský postup a čítacie SQL: [docs/BOD12_P1-4_monitoring_TEST.md](docs/BOD12_P1-4_monitoring_TEST.md).
 
 **BOD 03A (pripravený na nasadenie, zatiaľ nie aktívny):** interná evidencia incidentov, moderácia, blokovanie používateľov s auditom cez Supabase Owner SQL Editor. Postup a hranice: `docs/BOD03A_INCIDENTY_ADMIN_TEST.md`. `support@rentulo.com` začne dostávať TEST alarmy až po samostatnom redeployi monitorovacej Edge Function; nastavenia cron-job.org sú mimo Gitu. BOD 03B / finančné spory sa nemenia.
+
+### BOD 03B – príprava samostatnej TEST implementácie (21. 10. 2026)
+
+Nadväzuje na dokončený BOD 03A (PR #36, DB a monitoring). Nová TEST-only
+migrácia `20261021110000_bod03b_exceptional_settlement_TEST.sql`,
+nový worker `process-dispute-refunds`, upravené povolenie v
+`create-owner-transfer`, právne texty CZ/SK/EN/DE/PL a bezpečný runbook
+`docs/BOD03B_SPORY_VYSPORIADANIE_TEST.md`.
+Po merge sa **nepovažuje za nasadené**: Edge Functions a SQL sa nasadzujú
+samostatne po jednom kroku na Supabase TEST. Nový Cron je inertný bez
+manuálne schválenej, dôkazmi podloženej výnimky. Pred PROD nevyhnutné osobitné
+právne/Stripe schválenie; fyzický `picked_up` neprepisovať na `returned`.
+
+Rezerváciu R-000040, už úspešné testy PIN/uvolnenia transferu a EXISTUJÚCI
+cron-job.org monitoring neopakovať ani neprestavovať.

@@ -125,3 +125,12 @@ SEO: build pridáva metadata, canonical a Open Graph; `api/offer-page.mjs` gener
 - Právne dokumenty a kontakty pre V1 sú pripravené v zdrojovom kóde; pred ostrým spustením je nutné overiť ich finálnu účinnosť, právnu správnosť a skutočnú funkčnosť e-mailových schránok.
 
 **Aplikácia nie je automaticky pripravená na ostrú prevádzku len preto, že CI prešlo.** Zostáva samostatná kontrola PROD nastavení, migrácií, Stripe live integrácie, Auth, Resend a produkčných SMS, bezpečnosti, právnych údajov, DNS/TLS a end-to-end smoke testov. Úplný odovzdávací dokument a kontrolný zoznam: **[HANDOVER.md](HANDOVER.md)**.
+
+### BOD 03B – výnimočné vysporiadanie sporov (pripravené pre TEST)
+
+Schválený rozsah: jeden zdokumentovaný incident, nezmeniteľná autorizácia majiteľovi
+alebo úplný refund nájomcovi, súkromné dôkazy, RLS/audit, TEST-only finančný
+worker; bez falošného potvrdenia vrátenia, bez automatickej náhrady škody.
+Nasadenie **nie je automatické po merge**. Poradie, riziká, SQL a prevádzkový
+postup: `docs/BOD03B_SPORY_VYSPORIADANIE_TEST.md`.
+PROD, Stripe live a test R-000040 bez zásahu.
