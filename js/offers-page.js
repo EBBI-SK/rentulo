@@ -62,6 +62,16 @@
       );
     }
 
+    function isMinimumPlatformFeeApplied(price, fee, percent) {
+      const total = Number(price);
+      const chargedFee = Number(fee);
+      const feePercent = Number(percent);
+      return Number.isFinite(total) && total > 0 &&
+        Number.isFinite(chargedFee) && chargedFee === PLATFORM_FEE_MINIMUM_CZK &&
+        Number.isFinite(feePercent) && feePercent > 0 &&
+        Math.round(total * feePercent / 100) < PLATFORM_FEE_MINIMUM_CZK;
+    }
+
     function formatOffersMoneyPerDay(value) {
       return formatOffersNumber(value) + " " + offersTranslate("offers.currencyPerDay", "Kč / den");
     }
@@ -2005,6 +2015,9 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
       const price = reservation.totalPrice;
       const platformFee = reservation.platformFeeAmount || calculatePlatformFee(price);
       const ownerPayout = reservation.ownerPayout || price - platformFee;
+      const minimumFeeNote = isMinimumPlatformFeeApplied(price, platformFee, reservation.platformFeePercent)
+        ? `<small class="owner-fee-minimum-note">(${escapeHtml(offersTranslate("offers.detail.minimumFee", "minimální provize"))})</small>`
+        : "";
 
       return `
         <div class="request-detail-inner">
@@ -2016,6 +2029,7 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
             <span class="owner-payment-item">
               <span>${offersTranslate("offers.detail.fee", "Provize Rentulo")}</span>
               <strong>${escapeHtml(formatOffersMoney(platformFee))}</strong>
+              ${minimumFeeNote}
             </span>
             <span class="owner-payment-item">
               <span>${offersTranslate("offers.detail.ownerReceives", "Vy dostanete")}</span>

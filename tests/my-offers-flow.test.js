@@ -178,3 +178,38 @@ test("My offers opens existing public detail from the active offer photo and nam
   assert.match(page, /isActive \? `<a href="detail\.html\?id=/);
   assert.match(css, /owner-offer-detail-link:focus-visible/);
 });
+
+
+test("My offers reservation toolbar is compact on desktop and full-width on mobile", () => {
+  const css = read(CSS);
+  assert.match(css, /\.owner-reservations-toolbar \{\s*display: grid;\s*grid-template-columns: minmax\(0, 320px\) minmax\(0, 180px\);/);
+  assert.match(css, /@media \(max-width: 560px\) \{[\s\S]*?\.owner-reservations-toolbar \{ grid-template-columns: 1fr; \}/);
+});
+
+test("My offers shows minimum fee text only when the 50 CZK floor increases the 10 percent fee", () => {
+  const vm = require("node:vm");
+  const page = read(OFFERS_PAGE);
+  const i18n = read(I18N);
+  const prefixEnd = page.indexOf("function formatOffersMoneyPerDay(");
+  assert.ok(prefixEnd > 0);
+  const isMinimum = vm.runInNewContext(page.slice(0, prefixEnd) + "\nisMinimumPlatformFeeApplied");
+
+  assert.equal(isMinimum(150, 50, 10), true);
+  assert.equal(isMinimum(400, 50, 10), true);
+  assert.equal(isMinimum(499, 50, 10), false); // Rounded 10 % is already 50 CZK.
+  assert.equal(isMinimum(500, 50, 10), false);
+  assert.equal(isMinimum(800, 80, 10), false);
+  assert.equal(isMinimum(150, 60, 10), false);
+  assert.equal(isMinimum(0, 50, 10), false);
+
+  const start = page.indexOf("function renderRequestDetailContent(");
+  const end = page.indexOf("function renderOwnerRequestDeadline(", start);
+  const detail = page.slice(start, end);
+  assert.match(detail, /const minimumFeeNote = isMinimumPlatformFeeApplied\(price, platformFee, reservation\.platformFeePercent\)/);
+  assert.match(detail, /offers\.detail\.minimumFee/);
+  assert.match(detail, /\$\{minimumFeeNote\}/);
+  const expected = ["minimální provize", "minimálna provízia", "minimum fee", "Mindestgebühr", "minimalna prowizja"];
+  for (const translated of expected) {
+    assert.ok(i18n.includes('"offers.detail.minimumFee": "' + translated + '"'), translated);
+  }
+});
