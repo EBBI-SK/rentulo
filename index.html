@@ -1203,6 +1203,94 @@
       body[data-navigation-page="uvod"] .header .logo-text strong { font-size: 19px !important; }
       body[data-navigation-page="uvod"] .header .logo-icon { width: 40px !important; height: 40px !important; flex-basis: 40px !important; }
     }
+
+    /* Desktop height fit: preserve the approved homepage, only reduce dimensions. */
+    @media (min-width: 1101px) and (max-height: 850px) {
+      body[data-navigation-page="uvod"] .header {
+        padding-top: 6px;
+        padding-bottom: 5px;
+      }
+      body[data-navigation-page="uvod"] .header .logo-icon {
+        width: clamp(44px, 7.2vh, 56px) !important;
+        height: clamp(44px, 7.2vh, 56px) !important;
+        flex-basis: clamp(44px, 7.2vh, 56px) !important;
+      }
+      body[data-navigation-page="uvod"] .header .logo-text strong {
+        font-size: clamp(27px, 4.6vh, 35px) !important;
+      }
+      body[data-navigation-page="uvod"] main {
+        padding-top: 6px;
+        padding-bottom: 4px;
+      }
+      body[data-navigation-page="uvod"] .home-hero { gap: clamp(16px, 2vw, 30px); }
+      body[data-navigation-page="uvod"] .home-copy { padding-top: 8px; padding-bottom: 0; }
+      body[data-navigation-page="uvod"] .home-copy h1 {
+        font-size: clamp(33px, min(3.2vw, 7vh), 54px);
+        line-height: 1.04;
+      }
+      body[data-navigation-page="uvod"] .home-offer-cta {
+        min-height: clamp(48px, 8.5vh, 62px);
+        margin-top: clamp(10px, 2vh, 16px);
+        padding: 6px 16px;
+        border-radius: 17px;
+        font-size: clamp(17px, 2.8vh, 21px);
+      }
+      body[data-navigation-page="uvod"] .home-offer-cta-plus {
+        flex-basis: clamp(32px, 6.2vh, 40px);
+        width: clamp(32px, 6.2vh, 40px);
+        height: clamp(32px, 6.2vh, 40px);
+        font-size: 28px;
+      }
+      body[data-navigation-page="uvod"] .home-offer-cta-arrow { font-size: 30px; }
+      body[data-navigation-page="uvod"] .search-box {
+        grid-template-columns: minmax(0, 1fr) minmax(0, .72fr) 58px;
+        min-height: clamp(53px, 9vh, 64px);
+        margin-top: clamp(7px, 1.5vh, 12px);
+        margin-bottom: 0;
+        padding: 5px;
+        border-radius: 17px;
+      }
+      body[data-navigation-page="uvod"] .search-field { padding: 4px 12px; gap: 3px; }
+      body[data-navigation-page="uvod"] .search-field label { font-size: 12px; }
+      body[data-navigation-page="uvod"] .search-field input { height: 25px; }
+      body[data-navigation-page="uvod"] .search-button {
+        width: clamp(42px, 7vh, 50px);
+        height: clamp(42px, 7vh, 50px);
+      }
+      body[data-navigation-page="uvod"] .home-points {
+        gap: clamp(6px, 1.3vh, 10px);
+        margin-top: clamp(6px, 1.5vh, 11px);
+      }
+      body[data-navigation-page="uvod"] .home-point-button {
+        min-height: 0;
+        gap: 3px;
+        padding: 6px 7px;
+        border-radius: 13px;
+      }
+      body[data-navigation-page="uvod"] .home-category-icon {
+        height: clamp(61px, 11vh, 88px);
+      }
+      body[data-navigation-page="uvod"] .home-point-button > span {
+        font-size: 13px;
+        line-height: 1.15;
+      }
+      body[data-navigation-page="uvod"] .home-map-card { gap: 8px; }
+      body[data-navigation-page="uvod"] .home-map-stage {
+        height: clamp(280px, calc(100dvh - 278px), 420px);
+      }
+      body[data-navigation-page="uvod"] .home-map-previews { gap: 8px; }
+      body[data-navigation-page="uvod"] .home-map-preview {
+        gap: 3px;
+        padding: 5px;
+        border-radius: 13px;
+      }
+      body[data-navigation-page="uvod"] .home-map-preview-photo {
+        height: clamp(60px, 10vh, 78px);
+        border-radius: 9px;
+      }
+      body[data-navigation-page="uvod"] .home-map-preview-title { padding-top: 0; }
+      body[data-navigation-page="uvod"] .home-map-preview-price { padding-bottom: 1px; }
+    }
 </style>
 </head>
 
