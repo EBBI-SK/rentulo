@@ -72,6 +72,36 @@ test("all pages share the simplified header; the existing PIN and account contro
   }
 });
 
+test("browse listings is first in both desktop and mobile account menus", () => {
+  const context = {
+    window: {},
+    navGetCurrentUser() { return { id: "owner-1" }; },
+    navEnsureProfileSummary() { return { name: "Owner", email: "owner@example.com" }; },
+    navEscapeHtml(value) { return String(value); },
+    navGetProfileInitials() { return "OW"; },
+    navFormatProfileRating() { return "No rating"; },
+    navGetAccountNotificationCounts() { return { reservations: 0, offers: 0 }; },
+    navMenuNotificationBadge() { return ""; },
+    navProfileText(key) { return key; },
+    navTranslate(key, fallback) { return key === "nav.browse" ? "Prohlédnout nabídky" : fallback; }
+  };
+  const desktopMenu = extractFunction(
+    navigation, "function navProfileControl(notificationCount)",
+    "function navPinIcon()", context
+  )(0);
+  const mobileMenu = extractFunction(
+    navigation, "function navMobileAccountMenu()",
+    "function navMobileLogoutControl()", context
+  )();
+
+  for (const menu of [desktopMenu, mobileMenu]) {
+    assert.match(menu, /href="vysledky\.html"[^>]*>Prohlédnout nabídky<\/a>/);
+    assert.equal((menu.match(/href="vysledky\.html"/g) || []).length, 1);
+    assert.ok(menu.indexOf('href="vysledky.html"') < menu.indexOf('href="moje-rezervace.html"'));
+    assert.ok(menu.indexOf('href="vysledky.html"') < menu.indexOf('href="moje-nabidky.html"'));
+  }
+});
+
 async function renderOfferFor(user) {
   const element = { innerHTML: "" };
   let bookingFormSetups = 0;
