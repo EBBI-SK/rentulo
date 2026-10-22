@@ -69,6 +69,7 @@
       pending: "\u010cek\u00e1 na potvrzen\u00ed", approved: "\u010cek\u00e1 na platbu",
       paid: "Zaplaceno", picked_up: "P\u0159ed\u00e1no",
       noMatches: "\u017d\u00e1dn\u00e9 rezervace neodpov\u00eddaj\u00ed hled\u00e1n\u00ed nebo filtru.",
+      handover: "Předat věc", receiveBack: "Převzít zpět",
       completed: "Dokon\u010den\u00e9 rezervace", history: "Otev\u0159\u00edt historii"
     },
     sk: {
@@ -79,6 +80,7 @@
       pending: "\u010cak\u00e1 na potvrdenie", approved: "\u010cak\u00e1 na platbu",
       paid: "Zaplaten\u00e9", picked_up: "Odovzdan\u00e9",
       noMatches: "\u017diadne rezerv\u00e1cie nezodpovedaj\u00fa h\u013eadaniu alebo filtru.",
+      handover: "Odovzdať vec", receiveBack: "Prevziať späť",
       completed: "Dokon\u010den\u00e9 rezerv\u00e1cie", history: "Otvori\u0165 hist\u00f3riu"
     },
     en: {
@@ -87,6 +89,7 @@
       search: "Search number, item or renter", filter: "Reservation status", all: "All statuses",
       pending: "Awaiting approval", approved: "Awaiting payment", paid: "Paid", picked_up: "Handed over",
       noMatches: "No reservations match your search or filter.",
+      handover: "Hand over item", receiveBack: "Receive item back",
       completed: "Completed reservations", history: "Open history"
     },
     de: {
@@ -96,6 +99,7 @@
       all: "Alle Status", pending: "Wartet auf Best\u00e4tigung",
       approved: "Wartet auf Zahlung", paid: "Bezahlt", picked_up: "\u00dcbergeben",
       noMatches: "Keine Reservierungen entsprechen der Suche oder dem Filter.",
+      handover: "Gegenstand übergeben", receiveBack: "Gegenstand zurücknehmen",
       completed: "Abgeschlossene Reservierungen", history: "Verlauf \u00f6ffnen"
     },
     pl: {
@@ -105,6 +109,7 @@
       all: "Wszystkie statusy", pending: "Czeka na zatwierdzenie",
       approved: "Czeka na p\u0142atno\u015b\u0107", paid: "Op\u0142acona", picked_up: "Przekazana",
       noMatches: "Brak rezerwacji pasuj\u0105cych do wyszukiwania lub filtra.",
+      handover: "Przekaż przedmiot", receiveBack: "Odbierz przedmiot z powrotem",
       completed: "Zako\u0144czone rezerwacje", history: "Otw\u00f3rz histori\u0119"
     }
   };
@@ -303,11 +308,26 @@
     const status = row.querySelector(":scope > .request-status");
     const actions = row.querySelector(":scope > .row-actions");
 
+    if (actions && card.dataset.ownerStatus === "paid") {
+      // Launch the existing PIN form. The hidden mark-picked-up button is kept
+      // for pickup-security.js and only becomes actionable after PIN verification.
+      const handover = document.createElement("button");
+      handover.type = "button";
+      handover.className = "small-button owner-handover-launch";
+      handover.dataset.ownerOpenPickup = "true";
+      handover.textContent = label("handover");
+      actions.prepend(handover);
+    }
+    if (actions && card.dataset.ownerStatus === "picked_up") {
+      const receiveBack = actions.querySelector('[data-offers-action="mark-returned"]');
+      if (receiveBack) receiveBack.textContent = label("receiveBack");
+    }
+
     if (party) {
       party.classList.add("owner-reservation-party");
       setFieldLabel(party, label("offerRenter"));
       const emails = party.querySelectorAll(":scope > .request-email");
-      // Email remains in the paid reservation detail; the row stays a compact summary.
+      // The email is shown in the contact block after payment; keep the main row compact.
       if (emails[0]) emails[0].classList.add("owner-reservation-contact-preview");
       if (emails[1]) emails[1].classList.add("owner-reservation-reference");
 
@@ -376,6 +396,10 @@
       if (statusField) statusField.dataset.ownerLabel = label("status");
 
       setFieldLabel(card.querySelector(".owner-reservation-actions"), label("action"));
+      const handover = card.querySelector(".owner-handover-launch");
+      if (handover) setText(handover, label("handover"));
+      const receiveBack = card.querySelector('[data-offers-action="mark-returned"]');
+      if (receiveBack) setText(receiveBack, label("receiveBack"));
     });
 
     const search = root.querySelector("#ownerReservationSearch");
@@ -622,6 +646,18 @@
     observer.observe(root, {
       childList: true,
       subtree: true
+    });
+
+    root.addEventListener("click", function (event) {
+      const launch = event.target.closest("[data-owner-open-pickup]");
+      if (!launch) return;
+      event.preventDefault();
+      const entry = document.getElementById("pickupHandoffEntry");
+      const open = document.getElementById("pickupHandoffOpen");
+      if (!entry || !open) return;
+      entry.hidden = false;
+      open.click();
+      entry.scrollIntoView({ behavior: "smooth", block: "start" });
     });
 
     root.addEventListener("input", function (event) {
