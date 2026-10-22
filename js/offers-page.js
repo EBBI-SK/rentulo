@@ -2008,21 +2008,19 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
 
       return `
         <div class="request-detail-inner">
-          <div class="request-money">
-            <div class="money-cell">
-              ${offersTranslate("offers.detail.customerPrice", "Cena pro zákazníka")}
+          <div class="owner-payment-summary">
+            <span class="owner-payment-item">
+              <span>${offersTranslate("offers.detail.customerPrice", "Cena pro z\u00e1kazn\u00edka")}</span>
               <strong>${escapeHtml(formatOffersMoney(price))}</strong>
-            </div>
-
-            <div class="money-cell">
-              ${offersTranslate("offers.detail.fee", "Provize Rentulo")}
+            </span>
+            <span class="owner-payment-item">
+              <span>${offersTranslate("offers.detail.fee", "Provize Rentulo")}</span>
               <strong>${escapeHtml(formatOffersMoney(platformFee))}</strong>
-            </div>
-
-            <div class="money-cell">
-              ${offersTranslate("offers.detail.ownerReceives", "Vy dostanete")}
+            </span>
+            <span class="owner-payment-item">
+              <span>${offersTranslate("offers.detail.ownerReceives", "Vy dostanete")}</span>
               <strong>${escapeHtml(formatOffersMoney(ownerPayout))}</strong>
-            </div>
+            </span>
           </div>
 
           ${renderReservationContactBlock(reservation)}
@@ -2075,12 +2073,16 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
       const actionButtons = renderRequestActions(reservation, status);
 
       return `
-        <article class="request-card" id="request-card-${escapeHtml(reservationId)}">
+        <article class="request-card" id="request-card-${escapeHtml(reservationId)}"
+          data-owner-status="${escapeHtml(normalizeReservationStatus(status))}"
+          data-owner-number="${escapeHtml(reservation.reservationNumber || "")}"
+          data-owner-date="${escapeHtml(startDate || "")}"
+          data-owner-renter="${escapeHtml(renterName)}">
           <div class="request-row">
             <div class="request-main">
               <span class="request-name">${escapeHtml(renterName)}</span>
               <span class="request-email">${escapeHtml(renterEmail)}</span>
-              ${reservation.reservationNumber ? `<span class="request-email">${escapeHtml(offersTranslate("reference.reservation", "Číslo rezervace"))}: ${escapeHtml(reservation.reservationNumber)}</span>` : ""}
+              ${reservation.reservationNumber ? `<span class="request-email"><span class="owner-reservation-reference-prefix">${escapeHtml(offersTranslate("reference.reservation", "Číslo rezervace"))}: </span>${escapeHtml(reservation.reservationNumber)}</span>` : ""}
               ${renderOwnerRequestDeadline(reservation)}
             </div>
 
@@ -2223,7 +2225,7 @@ function renderSimpleOffer(offer, requests) {
   `;
 
   return `
-    <div class="simple-offer-record">
+    <div class="simple-offer-record" data-owner-offer-number="${escapeHtml(offer.offerNumber || "")}">
       <article class="simple-offer-row">
         <div class="simple-offer-main">
           ${renderToolImage(offer)}
