@@ -38,6 +38,7 @@
   gap: 11px;
   margin-bottom: 12px;
 }
+.owner-reservations-toolbar[hidden] { display: none !important; }
 .owner-reservations-toolbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(175px, 235px);
@@ -64,9 +65,17 @@
 .owner-offer-manage-summary:focus-visible,
 .owner-offer-manage-panel a:focus-visible,
 .owner-offer-manage-panel button:focus-visible,
-.owner-completed-link a:focus-visible {
+.owner-completed-link:focus-visible,
+.owner-offer-detail-link:focus-visible {
   outline: 2px solid #176747;
   outline-offset: 2px;
+}
+.owner-reservations-section-header { flex-wrap: wrap; }
+.owner-reservations-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 .owner-reservation-group {
   display: grid;
@@ -101,18 +110,8 @@
   font-size: 13px;
 }
 .owner-completed-link {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px 18px;
-  padding: 12px 2px 4px;
-  border-top: 1px solid #d9e7df;
-  color: #173f35;
-  font-size: 13px;
-}
-.owner-completed-link a {
   color: #176747;
+  font-size: 13px;
   font-weight: 800;
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -129,6 +128,23 @@
   padding: 8px 12px !important;
 }
 .owner-offer-request-summary { display: none !important; }
+.owner-offer-detail-link {
+  color: inherit;
+  text-decoration: none;
+}
+.owner-offer-photo-link {
+  display: inline-flex;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+}
+.owner-offer-title-link {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+}
+.owner-offer-title-link:hover .simple-offer-name { text-decoration: underline; text-underline-offset: 2px; }
+.owner-offer-photo-link:hover .tool-image { border-color: #176747 !important; }
 .owner-offer-row .simple-offer-actions {
   justify-content: flex-end !important;
   gap: 7px !important;

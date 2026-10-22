@@ -11,7 +11,7 @@
       price: "Cena",
       status: "Stav",
       action: "Co udělat",
-      empty: "Teď nemáte žádnou žádost ani probíhající rezervaci."
+      empty: "Zatím nemáte žádné aktivní rezervace."
     },
     sk: {
       offers: "Ponuky",
@@ -22,7 +22,7 @@
       price: "Cena",
       status: "Stav",
       action: "Čo urobiť",
-      empty: "Teraz nemáte žiadnu žiadosť ani prebiehajúcu rezerváciu."
+      empty: "Zatiaľ nemáte žiadne aktívne rezervácie."
     },
     en: {
       offers: "Listings",
@@ -33,7 +33,7 @@
       price: "Price",
       status: "Status",
       action: "Next step",
-      empty: "You have no requests or active reservations right now."
+      empty: "You have no active reservations yet."
     },
     de: {
       offers: "Angebote",
@@ -44,7 +44,7 @@
       price: "Preis",
       status: "Status",
       action: "Nächster Schritt",
-      empty: "Sie haben derzeit keine Anfragen oder laufenden Reservierungen."
+      empty: "Sie haben noch keine aktiven Reservierungen."
     },
     pl: {
       offers: "Oferty",
@@ -55,13 +55,14 @@
       price: "Cena",
       status: "Status",
       action: "Co zrobić",
-      empty: "Nie masz teraz żadnych próśb ani trwających rezerwacji."
+      empty: "Nie masz jeszcze aktywnych rezerwacji."
     }
   };
 
   // These labels only affect the owner page; no global navigation translations change.
   const EXTRA_LABELS = {
     cs: {
+      activeReservations: "Aktivní rezervace",
       attention: "K vy\u0159\u00edzen\u00ed", waiting: "Ostatn\u00ed aktivn\u00ed",
       search: "Hledat \u010d\u00edslo, p\u0159edm\u011bt nebo n\u00e1jemce",
       filter: "Stav rezervace", all: "V\u0161echny stavy",
@@ -71,6 +72,7 @@
       completed: "Dokon\u010den\u00e9 rezervace", history: "Otev\u0159\u00edt historii"
     },
     sk: {
+      activeReservations: "Aktívne rezervácie",
       attention: "Na vybavenie", waiting: "Ostatn\u00e9 akt\u00edvne",
       search: "H\u013eada\u0165 \u010d\u00edslo, predmet alebo n\u00e1jomcu",
       filter: "Stav rezerv\u00e1cie", all: "V\u0161etky stavy",
@@ -80,6 +82,7 @@
       completed: "Dokon\u010den\u00e9 rezerv\u00e1cie", history: "Otvori\u0165 hist\u00f3riu"
     },
     en: {
+      activeReservations: "Active reservations",
       attention: "Needs attention", waiting: "Other active reservations",
       search: "Search number, item or renter", filter: "Reservation status", all: "All statuses",
       pending: "Awaiting approval", approved: "Awaiting payment", paid: "Paid", picked_up: "Handed over",
@@ -87,6 +90,7 @@
       completed: "Completed reservations", history: "Open history"
     },
     de: {
+      activeReservations: "Aktive Reservierungen",
       attention: "Zu erledigen", waiting: "Weitere aktive Reservierungen",
       search: "Nummer, Gegenstand oder Mieter suchen", filter: "Reservierungsstatus",
       all: "Alle Status", pending: "Wartet auf Best\u00e4tigung",
@@ -95,6 +99,7 @@
       completed: "Abgeschlossene Reservierungen", history: "Verlauf \u00f6ffnen"
     },
     pl: {
+      activeReservations: "Aktywne rezerwacje",
       attention: "Do za\u0142atwienia", waiting: "Pozosta\u0142e aktywne rezerwacje",
       search: "Szukaj numeru, przedmiotu lub najemcy", filter: "Status rezerwacji",
       all: "Wszystkie statusy", pending: "Czeka na zatwierdzenie",
@@ -117,6 +122,10 @@
     return Object.prototype.hasOwnProperty.call(priority, status) ? priority[status] : 4;
   }
 
+  function shouldShowReservationsFirst(statuses) {
+    return statuses.some(function (status) { return ATTENTION_STATUSES.has(status); });
+  }
+
   function compareReservationData(first, second) {
     const rank = priorityForStatus(first.status) - priorityForStatus(second.status);
     if (rank) return rank;
@@ -137,7 +146,7 @@
 
   // Pure helpers are testable without Supabase, the DOM or browser-only dependencies.
   if (typeof module !== "undefined" && module.exports) {
-    module.exports = { normalizeSearch, priorityForStatus, compareReservationData, matchesReservation };
+    module.exports = { normalizeSearch, priorityForStatus, shouldShowReservationsFirst, compareReservationData, matchesReservation };
   }
   if (typeof document === "undefined") return;
 
@@ -199,6 +208,31 @@
 
     if (!actions) {
       return offerName.trim();
+    }
+
+    // The public detail is reachable from the photo or title; it is not a management action.
+    const detailLink = actions.querySelector(':scope > a[href^="detail.html?id="]');
+    if (detailLink) {
+      const href = detailLink.getAttribute("href");
+      const image = row.querySelector(".simple-offer-main > .tool-image");
+      const title = row.querySelector(".simple-offer-name");
+
+      if (image) {
+        const photoLink = document.createElement("a");
+        photoLink.href = href;
+        photoLink.className = "owner-offer-detail-link owner-offer-photo-link";
+        photoLink.setAttribute("aria-label", offerName.trim());
+        image.replaceWith(photoLink);
+        photoLink.appendChild(image);
+      }
+      if (title) {
+        const titleLink = document.createElement("a");
+        titleLink.href = href;
+        titleLink.className = "owner-offer-detail-link owner-offer-title-link";
+        title.replaceWith(titleLink);
+        titleLink.appendChild(title);
+      }
+      detailLink.remove();
     }
 
     const openReservationsButton = actions.querySelector(
@@ -324,7 +358,9 @@
     const empty = root.querySelector(".owner-reservations-empty");
 
     setText(offersHeader, label("offers"));
-    setText(reservationsHeader, label("reservations"));
+    setText(reservationsHeader, label(
+      root.querySelectorAll(".owner-reservation-card").length ? "reservations" : "activeReservations"
+    ));
     setText(empty, label("empty"));
 
     root.querySelectorAll(".owner-offer-manage-summary").forEach(function (summary) {
@@ -357,8 +393,7 @@
     root.querySelectorAll(".owner-reservation-group-title").forEach(function (heading) {
       setText(heading, label(heading.dataset.groupLabel));
     });
-    setText(root.querySelector(".owner-completed-title"), label("completed"));
-    setText(root.querySelector(".owner-completed-link a"), label("history"));
+    setText(root.querySelector(".owner-completed-link"), label("history"));
   }
 
   function readReservationData(card) {
@@ -429,6 +464,8 @@
       });
       group.hidden = groupShown === 0;
     });
+    const toolbar = section.querySelector(".owner-reservations-toolbar");
+    if (toolbar) toolbar.hidden = total === 0;
     const empty = section.querySelector(".owner-reservations-empty");
     if (empty) {
       empty.hidden = shown > 0;
@@ -516,33 +553,41 @@
 
       const section = document.createElement("section");
       section.className = "owner-reservations-section";
-      const header = createSectionHeader("owner-reservations-section-header", label("reservations"));
+      const header = createSectionHeader(
+        "owner-reservations-section-header",
+        label(reservationCards.length ? "reservations" : "activeReservations")
+      );
+      const headingWithCount = document.createElement("div");
+      headingWithCount.className = "owner-reservations-heading";
+      headingWithCount.appendChild(header.querySelector("h2"));
       const count = document.createElement("span");
       count.className = "owner-section-count";
       count.textContent = String(reservationCards.length);
-      header.appendChild(count);
+      headingWithCount.appendChild(count);
+      header.appendChild(headingWithCount);
+      const historyLink = document.createElement("a");
+      historyLink.className = "owner-completed-link";
+      historyLink.href = "historie.html";
+      historyLink.textContent = label("history");
+      header.appendChild(historyLink);
       section.appendChild(header);
-      section.appendChild(createReservationToolbar());
+      const toolbar = createReservationToolbar();
+      toolbar.hidden = reservationCards.length === 0;
+      section.appendChild(toolbar);
       section.appendChild(createReservationGroup("attention", attention));
       section.appendChild(createReservationGroup("waiting", waiting));
       const empty = document.createElement("div");
       empty.className = "owner-reservations-empty";
       section.appendChild(empty);
 
-      const completed = document.createElement("div");
-      completed.className = "owner-completed-link";
-      const completedTitle = document.createElement("strong");
-      completedTitle.className = "owner-completed-title";
-      completedTitle.textContent = label("completed");
-      const historyLink = document.createElement("a");
-      historyLink.href = "historie.html";
-      historyLink.textContent = label("history");
-      completed.appendChild(completedTitle);
-      completed.appendChild(historyLink);
-      section.appendChild(completed);
-
-      // Tasks first: reservations, then the owner's compact listing rows.
-      root.insertBefore(section, offersHeader);
+      // Put the reservations first only when an action or handover is needed.
+      if (shouldShowReservationsFirst(reservationCards.map(function (card) {
+        return card.dataset.ownerStatus;
+      }))) {
+        root.insertBefore(section, offersHeader);
+      } else {
+        root.insertBefore(section, offersList.nextSibling);
+      }
       applyReservationFilters(root);
       focusActionReservation(section);
     } finally {

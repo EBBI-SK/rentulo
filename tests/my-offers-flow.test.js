@@ -130,3 +130,51 @@ test("Reservation detail uses a compact financial summary and retains contact, n
   assert.match(flow, /button\.hidden = true/);
   assert.match(css, /\.owner-payment-summary/);
 });
+
+test("My offers shows listings first unless an existing reservation needs owner attention", () => {
+  const { shouldShowReservationsFirst } = require(FLOW);
+  assert.equal(shouldShowReservationsFirst([]), false);
+  assert.equal(shouldShowReservationsFirst(["approved"]), false);
+  assert.equal(shouldShowReservationsFirst(["pending"]), true);
+  assert.equal(shouldShowReservationsFirst(["picked_up"]), true);
+  assert.equal(shouldShowReservationsFirst(["paid"]), true);
+  assert.equal(shouldShowReservationsFirst(["approved", "pending"]), true);
+
+  const flow = read(FLOW);
+  assert.match(flow, /if \(shouldShowReservationsFirst\(reservationCards\.map/);
+  assert.match(flow, /root\.insertBefore\(section, offersHeader\)/);
+  assert.match(flow, /root\.insertBefore\(section, offersList\.nextSibling\)/);
+});
+
+test("My offers hides zero-reservation search and filter, with a compact empty message and history link", () => {
+  const flow = read(FLOW);
+  const css = read(CSS);
+
+  assert.match(flow, /toolbar\.hidden = reservationCards\.length === 0/);
+  assert.match(flow, /if \(toolbar\) toolbar\.hidden = total === 0/);
+  assert.match(css, /\.owner-reservations-toolbar\[hidden\] \{ display: none !important; \}/);
+  assert.match(flow, /Zatím nemáte žádné aktivní rezervace/);
+  assert.match(flow, /Aktivní rezervace/);
+  assert.match(flow, /header\.appendChild\(historyLink\)/);
+  assert.doesNotMatch(flow, /completedTitle = document\.createElement/);
+  for (const language of ["cs", "sk", "en", "de", "pl"]) {
+    const entry = flow.match(new RegExp(`\\b${language}: \\{\\n\\s+activeReservations:`));
+    assert.ok(entry, `Zero-reservation heading should be translated into ${language}`);
+  }
+});
+
+test("My offers opens existing public detail from the active offer photo and name, not the manage menu", () => {
+  const flow = read(FLOW);
+  const page = read(OFFERS_PAGE);
+  const css = read(CSS);
+
+  assert.match(flow, /const detailLink = actions\.querySelector/);
+  assert.match(flow, /if \(detailLink\) \{/);
+  assert.match(flow, /photoLink\.href = href/);
+  assert.match(flow, /titleLink\.href = href/);
+  assert.match(flow, /detailLink\.remove\(\)/);
+  assert.match(flow, /owner-offer-photo-link/);
+  assert.match(flow, /owner-offer-title-link/);
+  assert.match(page, /isActive \? `<a href="detail\.html\?id=/);
+  assert.match(css, /owner-offer-detail-link:focus-visible/);
+});
