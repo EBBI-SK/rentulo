@@ -99,7 +99,8 @@ test("owner listing and requests normalize and render database reference fields"
   assert.match(offers, /request-email[^\n]*reservation\.reservationNumber/);
   assert.match(offers, /escapeHtml\(offer\.offerNumber\)/);
   assert.match(offers, /escapeHtml\(reservation\.reservationNumber\)/);
-  assert.match(offers, /data-offers-action="toggle-request-detail" data-reservation-id="\$\{escapeHtml\(reservationId\)\}"/);
+  assert.match(offers, /data-owner-number="\$\{escapeHtml\(reservation\.reservationNumber \|\| ""\)\}"/);
+  assert.match(offers, /data-offers-action="mark-picked-up" data-reservation-id="\$\{escapeHtml\(reservationId\)\}"/);
 });
 
 test("renter list and detail show immutable labels while actions still use UUID", () => {

@@ -213,3 +213,96 @@ test("My offers shows minimum fee text only when the 50 CZK floor increases the 
     assert.ok(i18n.includes('"offers.detail.minimumFee": "' + translated + '"'), translated);
   }
 });
+
+
+test("My offers shows a net payout directly and no financial detail toggle in live reservation rows", () => {
+  const vm = require("node:vm");
+  const page = read(OFFERS_PAGE);
+  const start = page.indexOf("function renderRequest(reservation)");
+  const end = page.indexOf("function toggleRequestDetail(", start);
+  assert.ok(start >= 0 && end > start);
+  const render = vm.runInNewContext("(" + page.slice(start, end).trim() + ")", {
+    getStatusText: (status) => status,
+    offersTranslate: (_key, fallback) => fallback,
+    canShowContact: (status) => status === "paid" || status === "picked_up",
+    escapeHtml: (value) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;"),
+    normalizeReservationStatus: (status) => status,
+    formatOffersMoney: (amount) => amount + " Kč",
+    formatOffersDate: (date) => date,
+    calculatePlatformFee: (price) => Math.max(50, Math.round(price * 0.1)),
+    renderRequestActions: () => "<button>Akce</button>",
+    renderOwnerRequestDeadline: () => "",
+    getRequestStatusClass: () => "paid",
+    renderReservationContactBlock: (r) => r.status === "paid" || r.status === "picked_up"
+      ? `<aside class="owner-reservation-contacts">${r.renterPhone}|${r.renterEmail}</aside>` : ""
+  });
+  const reservation = { id: "uuid-test", reservationNumber: "R-000041", renterName: "Jan",
+    renterEmail: "jan@example.cz", renterPhone: "+420777123456", status: "pending",
+    totalPrice: 150, platformFeeAmount: 50, ownerPayout: 100,
+    startDate: "2026-10-26", endDate: "2026-10-27" };
+  const pending = render(reservation);
+  assert.match(pending, /Vy dostanete/);
+  assert.match(pending, /100 Kč/);
+  assert.doesNotMatch(pending, /150 Kč/);
+  assert.doesNotMatch(pending, /data-offers-action="toggle-request-detail"/);
+  assert.doesNotMatch(pending, /jan@example\.cz/);
+  assert.doesNotMatch(pending, /\+420777123456/);
+  const paid = render({ ...reservation, status: "paid" });
+  assert.match(paid, /owner-reservation-contacts/);
+  assert.match(paid, /jan@example\.cz/);
+  assert.match(paid, /\+420777123456/);
+});
+
+test("My offers gates contact block on existing payment-verified visibility rule", () => {
+  const vm = require("node:vm");
+  const page = read(OFFERS_PAGE);
+  const start = page.indexOf("function renderReservationContactBlock(reservation)");
+  const end = page.indexOf("function renderRequestDetailContent(", start);
+  assert.ok(start >= 0 && end > start);
+  const contact = vm.runInNewContext("(" + page.slice(start, end).trim() + ")", {
+    canShowContact: (status) => ["paid", "picked_up", "returned"].includes(status),
+    offersTranslate: (_key, fallback) => fallback,
+    escapeHtml: (value) => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+  });
+  for (const status of ["pending", "approved"]) {
+    assert.equal(contact({ status, renterPhone: "+420111", renterEmail: "secret@example.cz" }), "");
+  }
+  const paid = contact({ status: "paid", renterPhone: "+420111", renterEmail: "hello@example.cz" });
+  assert.match(paid, /Telefon/);
+  assert.match(paid, /E-mail/);
+  assert.match(paid, /\+420111/);
+  assert.match(paid, /hello@example\.cz/);
+  assert.match(paid, /owner-reservation-contacts/);
+  const injection = contact({ status: "paid", renterPhone: "<script>alert(1)</script>", renterEmail: "x&y" });
+  assert.doesNotMatch(injection, /<script>/);
+  assert.match(injection, /&lt;script&gt;/);
+  assert.match(injection, /x&amp;y/);
+});
+
+test("My offers retains original PIN verify -> matched reservation -> explicit handover flow", () => {
+  const flow = read(FLOW);
+  const page = read(OFFERS_PAGE);
+  const pickup = read(path.join(ROOT, "js", "pickup-security.js"));
+  assert.match(flow, /data-owner-open-pickup/);
+  assert.match(flow, /const open = document\.getElementById\("pickupHandoffOpen"\)/);
+  assert.match(flow, /open\.click\(\)/);
+  assert.match(page, /data-offers-action="mark-picked-up" data-reservation-id="\$\{escapeHtml\(reservationId\)\}"/);
+  assert.match(pickup, /showMatchedReservation\(verifiedReservationId\)/);
+  assert.match(pickup, /row\.querySelectorAll\("\.row-actions button"\)/);
+  assert.match(pickup, /if \(button\.dataset\.offersAction !== "mark-picked-up"\) button\.remove\(\)/);
+  assert.match(pickup, /confirmVerifiedPickup\(button\)/);
+  assert.match(pickup, /invoke\("confirm-pickup", \{/);
+  assert.doesNotMatch(flow, /invoke\("confirm-pickup"/);
+});
+
+test("My offers labels existing return action and paid handover in all five languages", () => {
+  const flow = read(FLOW);
+  const page = read(OFFERS_PAGE);
+  const translations = ["Předat věc", "Převzít zpět", "Odovzdať vec", "Prevziať späť",
+    "Hand over item", "Receive item back", "Gegenstand übergeben", "Gegenstand zurücknehmen",
+    "Przekaż przedmiot", "Odbierz przedmiot z powrotem"];
+  for (const label of translations) assert.ok(flow.includes(label), label);
+  assert.match(flow, /receiveBack\.textContent = label\("receiveBack"\)/);
+  assert.match(flow, /data-offers-action="mark-returned"/);
+  assert.match(page, /data-offers-action="mark-returned" data-reservation-id="\$\{escapeHtml\(reservationId\)\}"/);
+});

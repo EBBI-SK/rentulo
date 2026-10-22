@@ -207,7 +207,7 @@
 .owner-offer-manage-panel .danger { color: #a43b2f !important; }
 .owner-offer-manage-panel .danger:hover { background: #fff3f0 !important; }
 
-/* Each active reservation is one short row; details remain collapsible. */
+/* Each active reservation has a compact row, with contact details after payment. */
 .owner-reservation-card {
   overflow: hidden;
   border: 1px solid #cfe3da !important;
@@ -220,7 +220,7 @@
 }
 .owner-reservation-card > .request-row {
   display: grid;
-  grid-template-columns: minmax(260px, 1.6fr) minmax(125px, 150px) 87px minmax(112px, 130px) minmax(215px, auto) !important;
+  grid-template-columns: minmax(235px, 1.6fr) minmax(160px, 180px) minmax(115px, 140px) minmax(110px, 130px) minmax(185px, auto) !important;
   gap: 9px !important;
   align-items: center !important;
   min-height: 60px !important;
@@ -283,6 +283,23 @@
   font-size: 12px !important;
   font-weight: 800 !important;
 }
+.owner-reservation-card .owner-reservation-price {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  line-height: 1.25;
+}
+.owner-reservation-payout-label {
+  color: #697970;
+  font-size: 11px;
+  font-weight: 650;
+}
+.owner-reservation-card .owner-reservation-price strong {
+  color: #173f35;
+  font-size: 13px;
+  font-weight: 800;
+}
 .owner-reservation-card .request-status {
   max-width: 100%;
   white-space: normal !important;
@@ -317,6 +334,27 @@
   background: #edf5f1 !important;
   color: #173f35 !important;
 }
+.owner-reservation-actions .small-button.owner-handover-launch {
+  background: #73d64f !important;
+  color: #173a22 !important;
+}
+.owner-reservation-card > .owner-reservation-contacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  align-items: center;
+  margin: 0 !important;
+  padding: 10px 12px !important;
+  border: 0 !important;
+  border-top: 1px solid #e0eee6 !important;
+  border-radius: 0 !important;
+  background: #f7fbf9 !important;
+  color: #526b5d;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.owner-reservation-contacts span { min-width: 0; overflow-wrap: anywhere; }
+.owner-reservation-contacts strong { display: inline; margin: 0; color: #173f35; font-size: inherit; font-weight: 800; }
 .owner-reservation-card .request-detail {
   padding: 0 12px 12px !important;
   background: #f7fbf9 !important;
@@ -346,7 +384,7 @@
     grid-template-columns: minmax(0, 1fr) 110px 95px minmax(165px, auto) !important;
   }
   .owner-reservation-card > .request-row {
-    grid-template-columns: minmax(215px, 1.4fr) minmax(115px, 140px) 75px minmax(106px, 120px) minmax(185px, auto) !important;
+    grid-template-columns: minmax(185px, 1.5fr) minmax(145px, 160px) minmax(115px, 130px) minmax(106px, 120px) minmax(155px, auto) !important;
   }
 }
 @media (max-width: 920px) {
@@ -363,7 +401,7 @@
   }
   .owner-reservation-party { grid-column: 1 / -1; }
   .owner-reservation-term { grid-column: 1; }
-  .owner-reservation-price { grid-column: 2; text-align: right; }
+  .owner-reservation-price { grid-column: 2; text-align: right; align-items: flex-end !important; }
   .owner-reservation-status-field { grid-column: 1; }
   .owner-reservation-actions { grid-column: 2; }
 }

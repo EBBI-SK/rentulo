@@ -1954,7 +1954,7 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
 
       if (normalizeReservationStatus(status) === RESERVATION_STATUS_PAID) {
         actions.push(`
-          <button class="small-button orange" type="button" data-offers-action="mark-picked-up" data-reservation-id="${escapeHtml(reservationId)}">
+          <button class="small-button orange" type="button" hidden data-offers-action="mark-picked-up" data-reservation-id="${escapeHtml(reservationId)}">
             ${offersTranslate("offers.action.pickedUp", "Potvrdit předání")}
           </button>
         `);
@@ -1983,31 +1983,18 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
     }
 
     function renderReservationContactBlock(reservation) {
+      // Contacts are returned to the owner only after verified payment.
       if (!canShowContact(reservation.status)) {
         return "";
       }
 
-      const renterName = reservation.renterName || offersTranslate("offers.renterFallback", "Zájemce");
       const renterEmail = reservation.renterEmail || offersTranslate("offers.emailMissing", "E-mail není uložen");
       const renterPhone = reservation.renterPhone || offersTranslate("offers.phoneMissing", "Telefon není uložen");
 
-      const contactTitle =
-  normalizeReservationStatus(reservation.status) === RESERVATION_STATUS_RETURNED
-        ? offersTranslate("offers.contact.completedTitle", "Kontakt na zákazníka k dokončené rezervaci")
-        : offersTranslate("offers.contact.renterTitle", "Kontakt na zájemce");
-
-      const returnedNote =
-  normalizeReservationStatus(reservation.status) === RESERVATION_STATUS_RETURNED
-        ? offersTranslate("offers.contact.completedNote", "Rezervace je dokončená, kontakt zůstává dostupný pro případné zpětné dohledání. ")
-        : "";
-
       return `
-        <div class="request-contact-box">
-          <strong>${contactTitle}</strong>
-          ${escapeHtml(returnedNote)}
-          ${offersTranslate("offers.contact.name", "Jméno")}: ${escapeHtml(renterName)}<br>
-          ${offersTranslate("offers.contact.email", "E-mail")}: ${escapeHtml(renterEmail)}<br>
-          ${offersTranslate("offers.contact.phone", "Telefon")}: ${escapeHtml(renterPhone)}
+        <div class="request-contact-box owner-reservation-contacts">
+          <span>${offersTranslate("offers.contact.phone", "Telefon")}: <strong>${escapeHtml(renterPhone)}</strong></span>
+          <span>${offersTranslate("offers.contact.email", "E-mail")}: <strong>${escapeHtml(renterEmail)}</strong></span>
         </div>
       `;
     }
@@ -2082,6 +2069,8 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
       const startDate = reservation.startDate;
       const endDate = reservation.endDate;
       const price = reservation.totalPrice;
+      const platformFee = reservation.platformFeeAmount || calculatePlatformFee(price);
+      const ownerPayout = reservation.ownerPayout || Math.max(0, price - platformFee);
       const reservationId = reservation.id;
 
       const actionButtons = renderRequestActions(reservation, status);
@@ -2105,22 +2094,18 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
             </div>
 
             <div class="table-value hide-tablet">
-              ${escapeHtml(formatOffersMoney(price))}
+              <span class="owner-reservation-payout-label">${escapeHtml(offersTranslate("offers.detail.ownerReceives", "Vy dostanete"))}</span>
+              <strong>${escapeHtml(formatOffersMoney(ownerPayout))}</strong>
             </div>
 
             <span class="request-status ${getRequestStatusClass(status)}">${escapeHtml(statusText)}</span>
 
             <div class="row-actions">
               ${actionButtons}
-              <button class="history-toggle-button" type="button" data-offers-action="toggle-request-detail" data-reservation-id="${escapeHtml(reservationId)}">
-                ${offersTranslate("offers.detail.show", "Detail")}
-              </button>
             </div>
           </div>
 
-          <div class="request-detail" id="request-detail-${escapeHtml(reservationId)}">
-            ${renderRequestDetailContent(reservation, status)}
-          </div>
+          ${renderReservationContactBlock(reservation)}
         </article>
       `;
     }
