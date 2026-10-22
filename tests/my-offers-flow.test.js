@@ -102,6 +102,7 @@ test("My offers renders action-first rows, a five-language filter and a separate
   assert.match(page, /data-owner-number="\$\{escapeHtml\(reservation\.reservationNumber \|\| ""\)\}"/);
   assert.match(page, /data-owner-offer-number="\$\{escapeHtml\(offer\.offerNumber \|\| ""\)\}"/);
   assert.match(css, /\.owner-reservation-card\[hidden\]/);
+  assert.match(css, /grid-template-columns: minmax\(235px, 1\.6fr\) minmax\(160px, 180px\) minmax\(110px, 130px\) minmax\(185px, auto\)/);
   assert.match(css, /\.owner-reservations-toolbar/);
   assert.match(css, /@media \(max-width: 560px\)/);
 
@@ -215,7 +216,7 @@ test("My offers shows minimum fee text only when the 50 CZK floor increases the 
 });
 
 
-test("My offers shows a net payout directly and no financial detail toggle in live reservation rows", () => {
+test("My offers keeps active reservation rows free of financial amounts and preserves paid contacts", () => {
   const vm = require("node:vm");
   const page = read(OFFERS_PAGE);
   const start = page.indexOf("function renderRequest(reservation)");
@@ -241,8 +242,8 @@ test("My offers shows a net payout directly and no financial detail toggle in li
     totalPrice: 150, platformFeeAmount: 50, ownerPayout: 100,
     startDate: "2026-10-26", endDate: "2026-10-27" };
   const pending = render(reservation);
-  assert.match(pending, /Vy dostanete/);
-  assert.match(pending, /100 Kč/);
+  assert.doesNotMatch(pending, /Vy dostanete/);
+  assert.doesNotMatch(pending, /100 Kč/);
   assert.doesNotMatch(pending, /150 Kč/);
   assert.doesNotMatch(pending, /data-offers-action="toggle-request-detail"/);
   assert.doesNotMatch(pending, /jan@example\.cz/);

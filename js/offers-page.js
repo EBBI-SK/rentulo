@@ -2068,9 +2068,6 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
 
       const startDate = reservation.startDate;
       const endDate = reservation.endDate;
-      const price = reservation.totalPrice;
-      const platformFee = reservation.platformFeeAmount || calculatePlatformFee(price);
-      const ownerPayout = reservation.ownerPayout || Math.max(0, price - platformFee);
       const reservationId = reservation.id;
 
       const actionButtons = renderRequestActions(reservation, status);
@@ -2091,11 +2088,6 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
 
             <div class="request-date">
               ${escapeHtml(formatOffersDate(startDate))} – ${escapeHtml(formatOffersDate(endDate))}
-            </div>
-
-            <div class="table-value hide-tablet">
-              <span class="owner-reservation-payout-label">${escapeHtml(offersTranslate("offers.detail.ownerReceives", "Vy dostanete"))}</span>
-              <strong>${escapeHtml(formatOffersMoney(ownerPayout))}</strong>
             </div>
 
             <span class="request-status ${getRequestStatusClass(status)}">${escapeHtml(statusText)}</span>

@@ -116,3 +116,31 @@ test("fee and minimum-price copy is synchronized across supported languages and 
   assert.ok(termsHtml.includes("50 Kč za rezervaci"));
   assert.doesNotMatch(termsHtml, /majiteli připadne 90\s*%/i);
 });
+
+
+test("existing create and edit price fields explain commission in all five languages", () => {
+  const create = read("nabidnout.html");
+  const edit = read("edit-nabidka.html");
+  const i18n = read("js/i18n.js");
+  const owner = read("js/offers-page.js");
+
+  assert.match(create, /id="toolPrice"[^>]+aria-describedby="toolPriceError offerCommissionInfo"/);
+  assert.match(edit, /id="edit-price"[^>]+aria-describedby="editCommissionInfo"/);
+  assert.match(create, /id="offerCommissionInfo" data-i18n="offer.commissionNote"/);
+  assert.match(edit, /id="editCommissionInfo" data-i18n="offer.commissionNote"/);
+  assert.equal((i18n.match(/"offer.commissionNote":/g) || []).length, 5);
+  for (const phrase of [
+    "minimálně 50 Kč za rezervaci",
+    "minimálne 50 Kč za rezerváciu",
+    "minimum fee of 50 Kč per reservation",
+    "mindestens jedoch 50 Kč pro Reservierung",
+    "minimum 50 Kč za rezerwację"
+  ]) {
+    assert.ok(i18n.includes(phrase), `Missing fee information: ${phrase}`);
+  }
+  const reservationStart = owner.indexOf("function renderRequest(reservation)");
+  const reservationEnd = owner.indexOf("function toggleRequestDetail(", reservationStart);
+  const row = owner.slice(reservationStart, reservationEnd);
+  assert.doesNotMatch(row, /owner-reservation-payout-label|ownerPayout|platformFee/);
+  assert.match(row, /renderReservationContactBlock\(reservation\)/);
+});

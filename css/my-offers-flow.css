@@ -220,7 +220,7 @@
 }
 .owner-reservation-card > .request-row {
   display: grid;
-  grid-template-columns: minmax(235px, 1.6fr) minmax(160px, 180px) minmax(115px, 140px) minmax(110px, 130px) minmax(185px, auto) !important;
+  grid-template-columns: minmax(235px, 1.6fr) minmax(160px, 180px) minmax(110px, 130px) minmax(185px, auto) !important;
   gap: 9px !important;
   align-items: center !important;
   min-height: 60px !important;
@@ -384,7 +384,7 @@
     grid-template-columns: minmax(0, 1fr) 110px 95px minmax(165px, auto) !important;
   }
   .owner-reservation-card > .request-row {
-    grid-template-columns: minmax(185px, 1.5fr) minmax(145px, 160px) minmax(115px, 130px) minmax(106px, 120px) minmax(155px, auto) !important;
+    grid-template-columns: minmax(185px, 1.5fr) minmax(145px, 160px) minmax(106px, 120px) minmax(155px, auto) !important;
   }
 }
 @media (max-width: 920px) {

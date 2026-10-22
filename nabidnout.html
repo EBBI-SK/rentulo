@@ -191,6 +191,16 @@
       }
     }
 
+    .offer-commission-note {
+      margin: 9px 0 0;
+      padding-left: 10px;
+      border-left: 3px solid var(--rentulo-green, #176747);
+      color: var(--rentulo-muted, #64706b);
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.5;
+    }
+
     .form-message {
       display: none;
       margin: 0;
@@ -837,8 +847,9 @@
 
             <div class="form-group price-group">
               <label for="toolPrice" data-i18n="offer.priceLabel">Cena za den (Kč)</label>
-              <input id="toolPrice" type="text" placeholder="např. 250 Kč" data-i18n-placeholder="offer.pricePlaceholder" aria-describedby="toolPriceError" />
+              <input id="toolPrice" type="text" placeholder="např. 250 Kč" data-i18n-placeholder="offer.pricePlaceholder" aria-describedby="toolPriceError offerCommissionInfo" />
               <p class="field-error-message" id="toolPriceError" data-i18n="offer.priceValidationPositive" hidden>Minimální cena je 100 Kč za den.</p>
+              <p class="offer-commission-note" id="offerCommissionInfo" data-i18n="offer.commissionNote">Provize Rentulo je 10 % z půjčovného za zaplacenou rezervaci, minimálně 50 Kč za rezervaci.</p>
             </div>
           </div>
           </div>
@@ -916,7 +927,7 @@
             </label>
           </div>
 
-          <p class="offer-action-note" data-i18n="offer.helpDescription">Po zveřejnění se nabídka zobrazí ve výsledcích vyhledávání. Žádosti vyřídíte v Moje nabídky. Rentulo si z úspěšné platby ponechá 10 % z půjčovného, minimálně 50 Kč za rezervaci.</p>
+          <p class="offer-action-note" data-i18n="offer.helpDescription">Po zveřejnění se nabídka zobrazí ve výsledcích vyhledávání. Žádosti vyřídíte v Moje nabídky.</p>
 
           <div class="form-actions">
             <button type="button" class="btn-secondary" id="saveDraftButton" data-i18n="offer.saveDraft">Uložit bez zveřejnění</button>

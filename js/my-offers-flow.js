@@ -304,7 +304,6 @@
 
     const party = row.querySelector(":scope > .request-main");
     const term = row.querySelector(":scope > .request-date");
-    const price = row.querySelector(":scope > .table-value");
     const status = row.querySelector(":scope > .request-status");
     const actions = row.querySelector(":scope > .row-actions");
 
@@ -345,12 +344,6 @@
     if (term) {
       term.classList.add("owner-reservation-term");
       setFieldLabel(term, label("term"));
-    }
-
-    if (price) {
-      price.classList.remove("hide-tablet");
-      price.classList.add("owner-reservation-price");
-      setFieldLabel(price, label("price"));
     }
 
     if (status) {
