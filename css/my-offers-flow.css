@@ -41,7 +41,7 @@
 .owner-reservations-toolbar[hidden] { display: none !important; }
 .owner-reservations-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(175px, 235px);
+  grid-template-columns: minmax(0, 320px) minmax(0, 180px);
   align-items: center;
   gap: 9px;
 }
@@ -339,6 +339,7 @@
   color: #63746b;
 }
 .owner-payment-item strong { color: #173f35; font-weight: 800; }
+.owner-fee-minimum-note { color: #64766e; font-size: 11px; font-weight: 600; white-space: nowrap; }
 
 @media (max-width: 1050px) {
   .owner-offer-row {
