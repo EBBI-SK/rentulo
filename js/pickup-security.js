@@ -352,7 +352,7 @@
 
     if (elements.wrapper) {
       const sourceButtons = document.querySelectorAll('#offersList [data-offers-action="mark-picked-up"]');
-      const shouldBeHidden = sourceButtons.length === 0;
+      const shouldBeHidden = sourceButtons.length === 0 && window.location.hash !== "#pickupHandoffEntry";
       if (elements.wrapper.hidden !== shouldBeHidden) elements.wrapper.hidden = shouldBeHidden;
     }
   }
@@ -644,6 +644,13 @@
     refreshHandoffText();
     if (elements.openButton) elements.openButton.addEventListener("click", openHandoffForm);
     if (elements.changeButton) elements.changeButton.addEventListener("click", openHandoffForm);
+    if (window.location.hash === "#pickupHandoffEntry") {
+      elements.wrapper.hidden = false;
+      openHandoffForm();
+      window.requestAnimationFrame(function () {
+        elements.wrapper.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
     if (elements.input) {
       elements.input.addEventListener("input", function (event) {
         event.target.value = event.target.value.replace(/\D/g, "").slice(0, 6);
