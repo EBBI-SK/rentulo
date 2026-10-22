@@ -1767,6 +1767,7 @@ function navProfileControl(notificationCount) {
             <small id="sharedProfileRating">${profileRating}</small>
           </div>
         </div>
+        <a href="vysledky.html" role="menuitem">${navEscapeHtml(navTranslate("nav.browse", "Prohlédnout nabídky"))}</a>
         <a href="moje-rezervace.html" role="menuitem">
           <span>${navProfileText("reservations")}</span>
           ${navMenuNotificationBadge(accountNotificationCounts.reservations)}
@@ -1836,6 +1837,7 @@ function navMobileAccountMenu() {
 
   return `
     <div class="nav-profile-menu nav-mobile-account-menu">
+      <a href="vysledky.html">${navEscapeHtml(navTranslate("nav.browse", "Prohlédnout nabídky"))}</a>
       <a href="moje-rezervace.html">
         <span>${navProfileText("reservations")}</span>
         ${navMenuNotificationBadge(accountNotificationCounts.reservations)}
