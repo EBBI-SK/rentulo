@@ -1291,6 +1291,38 @@
       body[data-navigation-page="uvod"] .home-map-preview-title { padding-top: 0; }
       body[data-navigation-page="uvod"] .home-map-preview-price { padding-bottom: 1px; }
     }
+
+    /* Align the bottom of the six categories with the bottom of the offers. */
+    @media (min-width: 1101px) {
+      body[data-navigation-page="uvod"] .home-hero { align-items: stretch; }
+      body[data-navigation-page="uvod"] .home-copy {
+        display: flex;
+        flex-direction: column;
+      }
+      body[data-navigation-page="uvod"] .home-points {
+        flex: 1 1 auto;
+        grid-template-rows: repeat(2, minmax(0, 1fr));
+      }
+    }
+    /* Restore the approved breathing room on normal-height desktop screens. */
+    @media (min-width: 1101px) and (min-height: 690px) {
+      body[data-navigation-page="uvod"] .home-offer-cta { margin-top: clamp(20px, 2.8vh, 25px); }
+      body[data-navigation-page="uvod"] .search-box { margin-top: clamp(15px, 2.3vh, 20px); }
+    }
+    /* Mobile: keep the location button accessible, but show only its icon. */
+    @media (max-width: 640px) {
+      .home-nearby-icon-button .search-button-label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+    }
 </style>
 </head>
 
