@@ -13,6 +13,7 @@ document.addEventListener("DOMContentLoaded", function () {
 document.addEventListener("rentuloLanguageChanged", function () {
   applyHomeDynamicTranslations();
   renderHomeOffersMap();
+  renderHomeMapPreviews();
 });
 
 let homeMap = null;
@@ -209,6 +210,10 @@ function applyHomeDynamicTranslations() {
     );
   }
 
+  const previews = document.getElementById("homeMapPreviews");
+  if (previews) {
+    previews.setAttribute("aria-label", homeTranslate("home.latestInView", "Nejnovější nabídky v zobrazené oblasti"));
+  }
   applyHomeMapGestureTranslations();
 }
 
@@ -453,6 +458,7 @@ async function loadHomeMapOffers() {
 
   homeMapLoadState = homeMapOffers.length ? "ready" : "empty";
   renderHomeOffersMap();
+  renderHomeMapPreviews();
 }
 
 function updateHomeMapZoomControls() {
@@ -516,7 +522,10 @@ function initializeHomeMap() {
   homeMapLayer = window.L.layerGroup().addTo(homeMap);
   bindHomeMapZoomControls();
 
-  homeMap.on("moveend", updateHomeMapViewportStatus);
+  homeMap.on("moveend", function () {
+    updateHomeMapViewportStatus();
+    renderHomeMapPreviews();
+  });
   homeMap.on("zoomend", function () {
     updateHomeMapViewportStatus();
     updateHomeMapZoomControls();
@@ -544,6 +553,60 @@ function updateHomeMapViewportStatus() {
     "home.mapEmpty",
     "V zobrazené oblasti zatím nejsou žádné nabídky."
   );
+}
+
+// Only public, published offers in the current map bounds. No test or placeholder cards.
+function renderHomeMapPreviews() {
+  const container = document.getElementById("homeMapPreviews");
+  if (!container) return;
+
+  container.replaceChildren();
+  container.hidden = true;
+  if (!homeMap || homeMapLoadState !== "ready") return;
+
+  const bounds = homeMap.getBounds();
+  const latest = homeMapOffers.filter(function (offer) {
+    return bounds.contains([offer.map_latitude, offer.map_longitude]);
+  }).sort(function (a, b) {
+    return (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0);
+  }).slice(0, 3);
+
+  latest.forEach(function (offer) {
+    const card = document.createElement("a");
+    card.className = "home-map-preview";
+    card.href = "detail.html?id=" + encodeURIComponent(offer.id);
+    card.addEventListener("click", saveHomeMapViewForReturn);
+
+    const photo = document.createElement("div");
+    photo.className = "home-map-preview-photo";
+    if (offer.photo_url) {
+      const image = document.createElement("img");
+      image.src = offer.photo_url;
+      image.alt = "";
+      image.loading = "lazy";
+      image.decoding = "async";
+      photo.appendChild(image);
+    } else {
+      photo.textContent = "▦";
+      photo.setAttribute("aria-hidden", "true");
+    }
+
+    const copy = document.createElement("div");
+    copy.className = "home-map-preview-copy";
+    const title = document.createElement("strong");
+    title.className = "home-map-preview-title";
+    title.textContent = offer.name || homeTranslate("home.featuredUnnamed", "Nabídka");
+    const city = document.createElement("span");
+    city.className = "home-map-preview-city";
+    city.textContent = offer.city || homeTranslate("home.featuredUnknownCity", "Město neuvedeno");
+    const price = document.createElement("strong");
+    price.className = "home-map-preview-price";
+    price.textContent = formatMapPrice(offer.price_per_day);
+    copy.append(title, city, price);
+    card.append(photo, copy);
+    container.appendChild(card);
+  });
+  container.hidden = latest.length === 0;
 }
 
 function createMapMarkerIcon(count) {
@@ -707,6 +770,7 @@ function showHomeMapError() {
   const status = document.getElementById("homeMapStatus");
   const emptyStatus = document.getElementById("homeMapEmptyStatus");
   homeMapLoadState = "error";
+  renderHomeMapPreviews();
   if (emptyStatus) emptyStatus.hidden = true;
   if (!status) return;
   status.hidden = false;

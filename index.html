@@ -998,6 +998,211 @@
       font-weight: 600;
       line-height: 1.4;
     }
+
+    /* Approved Rentulo V1 homepage: photo categories and a clear 2-column layout. */
+    body[data-navigation-page="uvod"] .header .logo-icon {
+      width: 64px !important;
+      height: 64px !important;
+      flex-basis: 64px !important;
+    }
+    body[data-navigation-page="uvod"] .header .logo-text strong {
+      font-size: 40px !important;
+    }
+    body[data-navigation-page="uvod"] main {
+      padding-top: 14px;
+      padding-bottom: 18px;
+    }
+    body[data-navigation-page="uvod"] .home-hero {
+      grid-template-columns: minmax(0, 1.07fr) minmax(0, 1fr);
+      gap: 35px;
+      align-items: start;
+      min-height: 0;
+    }
+    body[data-navigation-page="uvod"] .home-copy {
+      padding: 38px 0 0;
+      transform: none !important;
+    }
+    body[data-navigation-page="uvod"] .home-copy h1 {
+      max-width: none;
+      font-size: clamp(40px, 3.9vw, 63px);
+      line-height: 1.08;
+      letter-spacing: -0.053em;
+      text-wrap: initial;
+      color: #0e2019;
+      background: none;
+      -webkit-background-clip: initial;
+      background-clip: initial;
+      -webkit-text-fill-color: currentColor;
+    }
+    .home-title-dark, .home-title-green { display: block; }
+    .home-copy .home-title-green { color: #087048; }
+    .home-offer-cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      width: min(100%, 470px);
+      min-height: 76px;
+      margin-top: 30px;
+      padding: 10px 24px;
+      border-radius: 22px;
+      background: #00835a;
+      color: #fff;
+      font-size: 24px;
+      font-weight: 800;
+      box-shadow: 0 13px 24px rgba(0, 112, 75, 0.14);
+      transition: background 0.15s ease;
+    }
+    .home-offer-cta:hover { background: #006846; }
+    .home-offer-cta-plus {
+      display: grid;
+      place-items: center;
+      flex: 0 0 48px;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: #006443;
+      font-size: 36px;
+      line-height: 1;
+    }
+    .home-offer-cta-arrow { font-size: 39px; font-weight: 400; line-height: 1; }
+    body[data-navigation-page="uvod"] .search-box { margin: 20px 0 16px; }
+    body[data-navigation-page="uvod"] .home-points {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      width: 100%;
+      margin-top: 18px;
+    }
+    body[data-navigation-page="uvod"] .home-point-button {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      min-height: 137px;
+      padding: 9px 8px;
+      text-align: center;
+      border-radius: 16px;
+    }
+    body[data-navigation-page="uvod"] .home-category-icon {
+      width: 100%;
+      height: 103px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 0;
+      border-radius: 12px;
+      background: transparent;
+      overflow: hidden;
+    }
+    body[data-navigation-page="uvod"] .home-category-icon img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
+    }
+    body[data-navigation-page="uvod"] .home-point-button > span {
+      font-size: 15px;
+      font-weight: 800;
+    }
+    body[data-navigation-page="uvod"] .home-map-card { gap: 14px; }
+    body[data-navigation-page="uvod"] .home-map-stage { height: clamp(390px, 28vw, 475px); }
+    body[data-navigation-page="uvod"] .home-map-shell { border-radius: 24px; }
+    .home-map-previews {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 11px;
+    }
+    .home-map-previews[hidden] { display: none; }
+    .home-map-preview {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+      padding: 6px;
+      border: 1px solid #e2e9e5;
+      border-radius: 16px;
+      background: #fff;
+      color: #102019;
+      text-decoration: none;
+      transition: border-color .15s ease, transform .15s ease;
+    }
+    .home-map-preview:hover { border-color: #88bfaa; transform: translateY(-2px); }
+    .home-map-preview-photo {
+      width: 100%;
+      height: 90px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      border-radius: 12px;
+      background: #e9f4ee;
+      color: #0a7956;
+      font-size: 28px;
+      font-weight: 700;
+    }
+    .home-map-preview-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+    .home-map-preview-title {
+      display: block;
+      padding: 2px 4px 0;
+      font-size: 12px;
+      line-height: 1.3;
+      font-weight: 800;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .home-map-preview-city {
+      display: block;
+      padding: 0 4px;
+      color: #65736b;
+      font-size: 11px;
+      line-height: 1.2;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .home-map-preview-price {
+      display: block;
+      padding: 0 4px 3px;
+      color: #006846;
+      font-size: 14px;
+      line-height: 1.3;
+      font-weight: 800;
+    }
+    @media (min-width: 1101px) and (max-width: 1370px) {
+      body[data-navigation-page="uvod"] .home-copy h1 { font-size: clamp(37px, 3.7vw, 55px); }
+      body[data-navigation-page="uvod"] .home-offer-cta { min-height: 66px; font-size: 20px; }
+      body[data-navigation-page="uvod"] .home-map-stage { height: 400px; }
+    }
+    @media (max-width: 1100px) {
+      body[data-navigation-page="uvod"] .home-hero { grid-template-columns: 1fr; gap: 26px; }
+      body[data-navigation-page="uvod"] .home-copy { padding: 16px 0 0; }
+      body[data-navigation-page="uvod"] .home-copy h1 { font-size: clamp(36px, 6vw, 57px); }
+      body[data-navigation-page="uvod"] .home-map-stage { height: 400px; }
+      body[data-navigation-page="uvod"] .header .logo-icon { width: 48px !important; height: 48px !important; flex-basis: 48px !important; }
+      body[data-navigation-page="uvod"] .header .logo-text strong { font-size: 25px !important; }
+    }
+    @media (max-width: 640px) {
+      body[data-navigation-page="uvod"] .home-copy h1 { font-size: clamp(33px, 8vw, 44px); letter-spacing: -0.045em; }
+      .home-title-dark, .home-title-green { display: inline; }
+      .home-title-dark::after { content: ' '; }
+      body[data-navigation-page="uvod"] .home-offer-cta { min-height: 61px; margin-top: 21px; font-size: 18px; padding: 8px 15px; border-radius: 15px; }
+      .home-offer-cta-plus { flex-basis: 38px; width: 38px; height: 38px; font-size: 28px; }
+      .home-offer-cta-arrow { font-size: 28px; }
+      body[data-navigation-page="uvod"] .home-points { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      body[data-navigation-page="uvod"] .home-point-button { min-height: 118px; }
+      body[data-navigation-page="uvod"] .home-category-icon { height: 85px; }
+      body[data-navigation-page="uvod"] .home-map-stage { height: 335px; }
+      .home-map-previews { grid-template-columns: 1fr; gap: 8px; }
+      .home-map-preview { flex-direction: row; gap: 12px; align-items: center; padding: 7px; }
+      .home-map-preview-photo { flex: 0 0 84px; width: 84px; height: 75px; }
+      .home-map-preview-copy { min-width: 0; }
+    }
+    @media (max-width: 360px) {
+      body[data-navigation-page="uvod"] .header .logo-text strong { font-size: 19px !important; }
+      body[data-navigation-page="uvod"] .header .logo-icon { width: 40px !important; height: 40px !important; flex-basis: 40px !important; }
+    }
 </style>
 </head>
 
@@ -1023,12 +1228,13 @@
   <main>
     <section class="home-hero">
       <div class="home-copy">
-        <h1 data-i18n="home.title">Půjč si cokoli ve svém okolí.</h1>
+        <h1><span class="home-title-dark" data-i18n="home.titleFirst">Vydělávej na věcech,</span><span class="home-title-green" data-i18n="home.titleSecond">které právě nepoužíváš.</span></h1>
 
-        <p class="home-text" data-i18n="home.description">
-          Najdi věci, které právě potřebuješ, přímo od lidí ve svém okolí.
-          Nebo nabídni vlastní věci a vydělávej, když je zrovna nepoužíváš.
-        </p>
+        <a href="nabidnout.html" class="home-offer-cta">
+          <span class="home-offer-cta-plus" aria-hidden="true">+</span>
+          <span data-i18n="nav.offer">Nabídnout cokoli</span>
+          <span class="home-offer-cta-arrow" aria-hidden="true">→</span>
+        </a>
 
         <form class="search-box" id="homeSearchForm">
           <div class="search-field">
@@ -1072,73 +1278,42 @@
         <div class="home-points">
           <button type="button" class="home-point-button" data-category="Domácnost">
             <strong class="home-category-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false">
-                <path d="M9 7.5h5.8a3.7 3.7 0 0 1 3.7 3.7v5.3H14a4 4 0 0 1-4-4v-5z" />
-                <path d="M10 7.5V6.3A2.3 2.3 0 0 1 12.3 4H16" />
-                <path d="M10 12.5H7.5L5 16" />
-                <path d="M13.5 16.5V20" />
-              </svg>
+              <img src="assets/categories/household.webp" alt="" width="235" height="129" loading="eager" decoding="async" />
             </strong>
             <span data-i18n="home.category.household">Domácnost</span>
           </button>
 
           <button type="button" class="home-point-button" data-category="Zahrada">
             <strong class="home-category-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false">
-                <path d="M4.5 15h11l2.2-5h2.3" />
-                <path d="M6 15 7.2 11h7.4l1.4 4" />
-                <circle cx="7.5" cy="18" r="1.7" />
-                <circle cx="16" cy="18" r="1.7" />
-                <path d="M8.5 11V8.5H13" />
-                <path d="M17.7 10 19 7.5" />
-              </svg>
+              <img src="assets/categories/garden.webp" alt="" width="235" height="129" loading="eager" decoding="async" />
             </strong>
             <span data-i18n="home.category.garden">Zahrada</span>
           </button>
 
           <button type="button" class="home-point-button" data-category="Stavba">
             <strong class="home-category-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false">
-                <path d="M5 7h8.5l3 3-3 3H10l-2-2H5z" />
-                <path d="M10 13 6.5 19" />
-                <path d="M16.5 10H20" />
-                <path d="M18.5 8v4" />
-              </svg>
+              <img src="assets/categories/construction.webp" alt="" width="235" height="129" loading="eager" decoding="async" />
             </strong>
             <span data-i18n="home.category.construction">Stavba</span>
           </button>
 
           <button type="button" class="home-point-button" data-category="Hobby">
             <strong class="home-category-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false">
-                <path d="M5 8h3.2l1.3-2h5l1.3 2H19a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" />
-                <circle cx="12" cy="13.5" r="3.3" />
-                <path d="M17.5 10.5h.1" />
-              </svg>
+              <img src="assets/categories/hobby.webp" alt="" width="235" height="129" loading="eager" decoding="async" />
             </strong>
             <span data-i18n="home.category.hobby">Hobby</span>
           </button>
 
           <button type="button" class="home-point-button" data-category="Párty">
             <strong class="home-category-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false">
-                <rect x="7" y="3.5" width="10" height="17" rx="2" />
-                <circle cx="12" cy="15" r="3.2" />
-                <circle cx="12" cy="8.2" r="1.2" />
-                <path d="M9.5 11.5h5" />
-              </svg>
+              <img src="assets/categories/party.webp" alt="" width="235" height="129" loading="eager" decoding="async" />
             </strong>
             <span data-i18n="home.category.party">Párty</span>
           </button>
 
           <button type="button" class="home-point-button" data-category="Ostatní">
             <strong class="home-category-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false">
-                <rect x="5" y="5" width="5" height="5" rx="1.2" />
-                <rect x="14" y="5" width="5" height="5" rx="1.2" />
-                <rect x="5" y="14" width="5" height="5" rx="1.2" />
-                <rect x="14" y="14" width="5" height="5" rx="1.2" />
-              </svg>
+              <img src="assets/categories/other.webp" alt="" width="235" height="129" loading="eager" decoding="async" />
             </strong>
             <span data-i18n="home.category.other">Ostatní</span>
           </button>
@@ -1168,6 +1343,7 @@
             </div>
           </div>
         </div>
+        <div class="home-map-previews" id="homeMapPreviews" aria-label="Nejnovější nabídky v zobrazené oblasti" data-i18n-aria-label="home.latestInView" hidden></div>
       </aside>
     </section>
   </main>
