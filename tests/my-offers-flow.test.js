@@ -57,3 +57,76 @@ test("My offers simple flow supports all five languages and mobile layout", () =
   assert.match(css, /\.owner-reservation-card/);
   assert.match(css, /@media \(max-width: 560px\)/);
 });
+
+test("My offers prioritizes decisions, returns and PIN handovers before waiting for payment", () => {
+  const { priorityForStatus, compareReservationData } = require(FLOW);
+  const statuses = ["approved", "paid", "picked_up", "pending"];
+  const result = statuses.map((status) => ({ status, date: "2026-10-25", number: status }))
+    .sort(compareReservationData)
+    .map((entry) => entry.status);
+  assert.deepEqual(result, ["pending", "picked_up", "paid", "approved"]);
+  assert.ok(priorityForStatus("approved") > priorityForStatus("paid"));
+  assert.deepEqual([
+    { status: "pending", date: "2026-10-29" },
+    { status: "pending", date: "2026-10-23" }
+  ].sort(compareReservationData).map((entry) => entry.date), ["2026-10-23", "2026-10-29"]);
+});
+
+test("My offers search matches reservation number, offer number, renter and name regardless of accents", () => {
+  const { matchesReservation } = require(FLOW);
+  const item = {
+    status: "pending", number: "R-000040", offerNumber: "N-000001",
+    offer: "Test Pila", renter: "Ji\u0159\u00ed \u010Cern\u00fd"
+  };
+  for (const query of ["R-000040", "r-000040", "N-000001", "test pila", "jiri cerny"]) {
+    assert.equal(matchesReservation(item, query, "all"), true, `Expected match for ${query}`);
+  }
+  assert.equal(matchesReservation(item, "R-000040", "paid"), false);
+  assert.equal(matchesReservation(item, "unknown", "pending"), false);
+  assert.equal(matchesReservation(item, "", "pending"), true);
+});
+
+test("My offers renders action-first rows, a five-language filter and a separate history link", () => {
+  const flow = read(FLOW);
+  const page = read(OFFERS_PAGE);
+  const css = read(CSS);
+  assert.match(flow, /root\.insertBefore\(section, offersHeader\)/);
+  assert.match(flow, /ATTENTION_STATUSES = new Set\(\["pending", "picked_up", "paid"\]\)/);
+  assert.match(flow, /createReservationToolbar\(/);
+  assert.match(flow, /ownerReservationSearch/);
+  assert.match(flow, /ownerReservationStatus/);
+  assert.match(flow, /statusFilter = FILTER_STATUSES\.includes/);
+  assert.match(flow, /historyLink\.href = "historie\.html"/);
+  assert.match(flow, /owner-reservation-card/);
+  assert.match(page, /data-owner-status="\$\{escapeHtml\(normalizeReservationStatus\(status\)\)\}"/);
+  assert.match(page, /data-owner-number="\$\{escapeHtml\(reservation\.reservationNumber \|\| ""\)\}"/);
+  assert.match(page, /data-owner-offer-number="\$\{escapeHtml\(offer\.offerNumber \|\| ""\)\}"/);
+  assert.match(css, /\.owner-reservation-card\[hidden\]/);
+  assert.match(css, /\.owner-reservations-toolbar/);
+  assert.match(css, /@media \(max-width: 560px\)/);
+
+  for (const lang of ["cs", "sk", "en", "de", "pl"]) {
+    assert.match(flow, new RegExp(`\\b${lang}: \\{`));
+  }
+});
+
+test("Reservation detail uses a compact financial summary and retains contact, notes, actions and PIN", () => {
+  const flow = read(FLOW);
+  const page = read(OFFERS_PAGE);
+  const css = read(CSS);
+  const start = page.indexOf("function renderRequestDetailContent(");
+  const end = page.indexOf("function renderOwnerRequestDeadline(", start);
+  const detail = page.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.match(detail, /class="owner-payment-summary"/);
+  assert.doesNotMatch(detail, /class="money-cell"/);
+  assert.match(detail, /offers\.detail\.customerPrice/);
+  assert.match(detail, /offers\.detail\.fee/);
+  assert.match(detail, /offers\.detail\.ownerReceives/);
+  assert.match(detail, /renderReservationContactBlock\(reservation\)/);
+  assert.match(detail, /renderRequestNote\(status\)/);
+  assert.match(page, /data-offers-action="report-return-missing"/);
+  assert.match(page, /data-offers-action="mark-returned"/);
+  assert.match(flow, /button\.hidden = true/);
+  assert.match(css, /\.owner-payment-summary/);
+});

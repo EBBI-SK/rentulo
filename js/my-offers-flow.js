@@ -59,6 +59,90 @@
     }
   };
 
+  // These labels only affect the owner page; no global navigation translations change.
+  const EXTRA_LABELS = {
+    cs: {
+      attention: "K vy\u0159\u00edzen\u00ed", waiting: "Ostatn\u00ed aktivn\u00ed",
+      search: "Hledat \u010d\u00edslo, p\u0159edm\u011bt nebo n\u00e1jemce",
+      filter: "Stav rezervace", all: "V\u0161echny stavy",
+      pending: "\u010cek\u00e1 na potvrzen\u00ed", approved: "\u010cek\u00e1 na platbu",
+      paid: "Zaplaceno", picked_up: "P\u0159ed\u00e1no",
+      noMatches: "\u017d\u00e1dn\u00e9 rezervace neodpov\u00eddaj\u00ed hled\u00e1n\u00ed nebo filtru.",
+      completed: "Dokon\u010den\u00e9 rezervace", history: "Otev\u0159\u00edt historii"
+    },
+    sk: {
+      attention: "Na vybavenie", waiting: "Ostatn\u00e9 akt\u00edvne",
+      search: "H\u013eada\u0165 \u010d\u00edslo, predmet alebo n\u00e1jomcu",
+      filter: "Stav rezerv\u00e1cie", all: "V\u0161etky stavy",
+      pending: "\u010cak\u00e1 na potvrdenie", approved: "\u010cak\u00e1 na platbu",
+      paid: "Zaplaten\u00e9", picked_up: "Odovzdan\u00e9",
+      noMatches: "\u017diadne rezerv\u00e1cie nezodpovedaj\u00fa h\u013eadaniu alebo filtru.",
+      completed: "Dokon\u010den\u00e9 rezerv\u00e1cie", history: "Otvori\u0165 hist\u00f3riu"
+    },
+    en: {
+      attention: "Needs attention", waiting: "Other active reservations",
+      search: "Search number, item or renter", filter: "Reservation status", all: "All statuses",
+      pending: "Awaiting approval", approved: "Awaiting payment", paid: "Paid", picked_up: "Handed over",
+      noMatches: "No reservations match your search or filter.",
+      completed: "Completed reservations", history: "Open history"
+    },
+    de: {
+      attention: "Zu erledigen", waiting: "Weitere aktive Reservierungen",
+      search: "Nummer, Gegenstand oder Mieter suchen", filter: "Reservierungsstatus",
+      all: "Alle Status", pending: "Wartet auf Best\u00e4tigung",
+      approved: "Wartet auf Zahlung", paid: "Bezahlt", picked_up: "\u00dcbergeben",
+      noMatches: "Keine Reservierungen entsprechen der Suche oder dem Filter.",
+      completed: "Abgeschlossene Reservierungen", history: "Verlauf \u00f6ffnen"
+    },
+    pl: {
+      attention: "Do za\u0142atwienia", waiting: "Pozosta\u0142e aktywne rezerwacje",
+      search: "Szukaj numeru, przedmiotu lub najemcy", filter: "Status rezerwacji",
+      all: "Wszystkie statusy", pending: "Czeka na zatwierdzenie",
+      approved: "Czeka na p\u0142atno\u015b\u0107", paid: "Op\u0142acona", picked_up: "Przekazana",
+      noMatches: "Brak rezerwacji pasuj\u0105cych do wyszukiwania lub filtra.",
+      completed: "Zako\u0144czone rezerwacje", history: "Otw\u00f3rz histori\u0119"
+    }
+  };
+
+  const ATTENTION_STATUSES = new Set(["pending", "picked_up", "paid"]);
+  const FILTER_STATUSES = ["all", "pending", "approved", "paid", "picked_up"];
+
+  function normalizeSearch(value) {
+    return String(value || "").normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  }
+
+  function priorityForStatus(status) {
+    const priority = { pending: 0, picked_up: 1, paid: 2, approved: 3 };
+    return Object.prototype.hasOwnProperty.call(priority, status) ? priority[status] : 4;
+  }
+
+  function compareReservationData(first, second) {
+    const rank = priorityForStatus(first.status) - priorityForStatus(second.status);
+    if (rank) return rank;
+    const a = String(first.date || "");
+    const b = String(second.date || "");
+    if (a !== b) return (a || "9999").localeCompare(b || "9999");
+    return String(first.number || "").localeCompare(String(second.number || ""));
+  }
+
+  function matchesReservation(data, query, statusFilter) {
+    if (statusFilter && statusFilter !== "all" && data.status !== statusFilter) return false;
+    const search = normalizeSearch(query);
+    if (!search) return true;
+    return normalizeSearch([
+      data.number, data.offerNumber, data.offer, data.renter
+    ].join(" ")).includes(search);
+  }
+
+  // Pure helpers are testable without Supabase, the DOM or browser-only dependencies.
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = { normalizeSearch, priorityForStatus, compareReservationData, matchesReservation };
+  }
+  if (typeof document === "undefined") return;
+
+  let searchQuery = "";
+  let statusFilter = "all";
   let scheduled = false;
   let applying = false;
 
@@ -71,7 +155,9 @@
   }
 
   function label(key) {
-    return LABELS[language()][key] || LABELS.cs[key] || key;
+    const current = language();
+    return EXTRA_LABELS[current][key] || LABELS[current][key] ||
+      EXTRA_LABELS.cs[key] || LABELS.cs[key] || key;
   }
 
   function setText(element, value) {
@@ -162,8 +248,10 @@
     }
   }
 
-  function enhanceReservationCard(card, offerName) {
+  function enhanceReservationCard(card, offerName, offerNumber) {
     card.classList.add("owner-reservation-card");
+    card.dataset.ownerOffer = offerName;
+    card.dataset.ownerOfferNumber = offerNumber;
 
     card.querySelectorAll('[data-offers-action="mark-picked-up"]').forEach(function (button) {
       button.hidden = true;
@@ -184,6 +272,10 @@
     if (party) {
       party.classList.add("owner-reservation-party");
       setFieldLabel(party, label("offerRenter"));
+      const emails = party.querySelectorAll(":scope > .request-email");
+      // Email remains in the paid reservation detail; the row stays a compact summary.
+      if (emails[0]) emails[0].classList.add("owner-reservation-contact-preview");
+      if (emails[1]) emails[1].classList.add("owner-reservation-reference");
 
       let offer = party.querySelector(":scope > .owner-reservation-offer");
 
@@ -249,6 +341,101 @@
 
       setFieldLabel(card.querySelector(".owner-reservation-actions"), label("action"));
     });
+
+    const search = root.querySelector("#ownerReservationSearch");
+    const filter = root.querySelector("#ownerReservationStatus");
+    if (search) {
+      search.placeholder = label("search");
+      search.setAttribute("aria-label", label("search"));
+    }
+    if (filter) {
+      filter.setAttribute("aria-label", label("filter"));
+      Array.from(filter.options).forEach(function (option) {
+        setText(option, label(option.value));
+      });
+    }
+    root.querySelectorAll(".owner-reservation-group-title").forEach(function (heading) {
+      setText(heading, label(heading.dataset.groupLabel));
+    });
+    setText(root.querySelector(".owner-completed-title"), label("completed"));
+    setText(root.querySelector(".owner-completed-link a"), label("history"));
+  }
+
+  function readReservationData(card) {
+    return {
+      status: card.dataset.ownerStatus || "",
+      date: card.dataset.ownerDate || "",
+      number: card.dataset.ownerNumber || "",
+      offerNumber: card.dataset.ownerOfferNumber || "",
+      offer: card.dataset.ownerOffer || "",
+      renter: card.dataset.ownerRenter || ""
+    };
+  }
+
+  function createReservationToolbar() {
+    const toolbar = document.createElement("div");
+    toolbar.className = "owner-reservations-toolbar";
+    const input = document.createElement("input");
+    input.type = "search";
+    input.id = "ownerReservationSearch";
+    input.className = "owner-reservation-search";
+    input.autocomplete = "off";
+    input.value = searchQuery;
+    input.placeholder = label("search");
+    input.setAttribute("aria-label", label("search"));
+    const select = document.createElement("select");
+    select.id = "ownerReservationStatus";
+    select.className = "owner-reservation-filter";
+    select.setAttribute("aria-label", label("filter"));
+    FILTER_STATUSES.forEach(function (status) {
+      const option = document.createElement("option");
+      option.value = status;
+      option.textContent = label(status);
+      select.appendChild(option);
+    });
+    select.value = statusFilter;
+    toolbar.appendChild(input);
+    toolbar.appendChild(select);
+    return toolbar;
+  }
+
+  function createReservationGroup(type, cards) {
+    const section = document.createElement("section");
+    section.className = "owner-reservation-group owner-reservation-group-" + type;
+    const heading = document.createElement("h3");
+    heading.className = "owner-reservation-group-title";
+    heading.dataset.groupLabel = type === "attention" ? "attention" : "waiting";
+    heading.textContent = label(heading.dataset.groupLabel);
+    const list = document.createElement("div");
+    list.className = "owner-reservations-list";
+    cards.forEach(function (card) { list.appendChild(card); });
+    section.appendChild(heading);
+    section.appendChild(list);
+    return section;
+  }
+
+  function applyReservationFilters(root) {
+    const section = root.querySelector(":scope > .owner-reservations-section");
+    if (!section) return;
+    let shown = 0;
+    let total = 0;
+    section.querySelectorAll(".owner-reservation-group").forEach(function (group) {
+      let groupShown = 0;
+      group.querySelectorAll(".owner-reservation-card").forEach(function (card) {
+        total++;
+        const matches = matchesReservation(readReservationData(card), searchQuery, statusFilter);
+        card.hidden = !matches;
+        if (matches) { groupShown++; shown++; }
+      });
+      group.hidden = groupShown === 0;
+    });
+    const empty = section.querySelector(".owner-reservations-empty");
+    if (empty) {
+      empty.hidden = shown > 0;
+      setText(empty, total ? label("noMatches") : label("empty"));
+    }
+    const badge = section.querySelector(".owner-reservations-section-header .owner-section-count");
+    if (badge) setText(badge, String(shown));
   }
 
   function focusActionReservation(section) {
@@ -260,14 +447,14 @@
 
     const cards = Array.from(section.querySelectorAll(".owner-reservation-card"));
     const actionable = cards.find(function (card) {
-      return card.querySelector(
+      return !card.hidden && card.querySelector(
         '[data-offers-action="approve-reservation"], ' +
         '[data-offers-action="reject-reservation"], ' +
         '[data-offers-action="mark-returned"]'
       );
     });
 
-    const target = actionable || cards[0];
+    const target = actionable || cards.find(function (card) { return !card.hidden; });
 
     if (target) {
       window.setTimeout(function () {
@@ -277,99 +464,86 @@
   }
 
   function enhance() {
-    if (applying) {
-      return;
-    }
-
+    if (applying) return;
     const root = document.getElementById("offersList");
-
-    if (!root) {
-      return;
-    }
-
+    if (!root) return;
     const offersList = root.querySelector(":scope > .offers-card-list");
-
-    if (!offersList) {
-      return;
-    }
+    if (!offersList) return;
 
     const rawPanels = Array.from(
       offersList.querySelectorAll(":scope > .simple-offer-record > .request-panel")
     );
-
     if (!rawPanels.length && root.querySelector(":scope > .owner-reservations-section")) {
       updateGeneratedLabels(root);
+      applyReservationFilters(root);
       return;
     }
-
-    if (!rawPanels.length) {
-      return;
-    }
+    if (!rawPanels.length) return;
 
     applying = true;
-
     try {
       offersList.classList.add("owner-offers-list");
-
       let offersHeader = root.querySelector(":scope > .owner-offers-section-header");
-
       if (!offersHeader) {
         offersHeader = createSectionHeader("owner-offers-section-header", label("offers"));
         root.insertBefore(offersHeader, offersList);
       }
 
       const reservationCards = [];
-
       Array.from(offersList.querySelectorAll(":scope > .simple-offer-record")).forEach(function (record) {
         const offerName = simplifyOfferRow(record);
+        const offerNumber = record.dataset.ownerOfferNumber || "";
         const panel = record.querySelector(":scope > .request-panel");
-
-        if (!panel) {
-          return;
-        }
-
+        if (!panel) return;
         Array.from(panel.querySelectorAll(":scope .request-card")).forEach(function (card) {
-          enhanceReservationCard(card, offerName);
+          enhanceReservationCard(card, offerName, offerNumber);
           reservationCards.push(card);
         });
-
         panel.remove();
       });
 
       const oldReservations = root.querySelector(":scope > .owner-reservations-section");
       if (oldReservations) oldReservations.remove();
+      reservationCards.sort(function (first, second) {
+        return compareReservationData(readReservationData(first), readReservationData(second));
+      });
+      const attention = reservationCards.filter(function (card) {
+        return ATTENTION_STATUSES.has(card.dataset.ownerStatus);
+      });
+      const waiting = reservationCards.filter(function (card) {
+        return !ATTENTION_STATUSES.has(card.dataset.ownerStatus);
+      });
 
       const section = document.createElement("section");
       section.className = "owner-reservations-section";
-
       const header = createSectionHeader("owner-reservations-section-header", label("reservations"));
-
-      if (reservationCards.length) {
-        const count = document.createElement("span");
-        count.className = "owner-section-count";
-        count.textContent = String(reservationCards.length);
-        header.appendChild(count);
-      }
-
+      const count = document.createElement("span");
+      count.className = "owner-section-count";
+      count.textContent = String(reservationCards.length);
+      header.appendChild(count);
       section.appendChild(header);
+      section.appendChild(createReservationToolbar());
+      section.appendChild(createReservationGroup("attention", attention));
+      section.appendChild(createReservationGroup("waiting", waiting));
+      const empty = document.createElement("div");
+      empty.className = "owner-reservations-empty";
+      section.appendChild(empty);
 
-      const list = document.createElement("div");
-      list.className = "owner-reservations-list";
+      const completed = document.createElement("div");
+      completed.className = "owner-completed-link";
+      const completedTitle = document.createElement("strong");
+      completedTitle.className = "owner-completed-title";
+      completedTitle.textContent = label("completed");
+      const historyLink = document.createElement("a");
+      historyLink.href = "historie.html";
+      historyLink.textContent = label("history");
+      completed.appendChild(completedTitle);
+      completed.appendChild(historyLink);
+      section.appendChild(completed);
 
-      if (reservationCards.length) {
-        reservationCards.forEach(function (card) {
-          list.appendChild(card);
-        });
-      } else {
-        const empty = document.createElement("div");
-        empty.className = "owner-reservations-empty";
-        empty.textContent = label("empty");
-        list.appendChild(empty);
-      }
-
-      section.appendChild(list);
-      root.appendChild(section);
-
+      // Tasks first: reservations, then the owner's compact listing rows.
+      root.insertBefore(section, offersHeader);
+      applyReservationFilters(root);
       focusActionReservation(section);
     } finally {
       applying = false;
@@ -403,6 +577,19 @@
     observer.observe(root, {
       childList: true,
       subtree: true
+    });
+
+    root.addEventListener("input", function (event) {
+      if (event.target && event.target.id === "ownerReservationSearch") {
+        searchQuery = event.target.value;
+        applyReservationFilters(root);
+      }
+    });
+    root.addEventListener("change", function (event) {
+      if (event.target && event.target.id === "ownerReservationStatus") {
+        statusFilter = FILTER_STATUSES.includes(event.target.value) ? event.target.value : "all";
+        applyReservationFilters(root);
+      }
     });
 
     scheduleEnhance();
