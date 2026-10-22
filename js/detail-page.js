@@ -541,9 +541,8 @@ function renderDetailImage(offer) {
         <div class="message-card ${type === "warning" ? "warning" : ""}">
           <div class="price">${escapeHtml(formatDetailNumber(price))}</div>
           <div class="price-small">${escapeHtml(detailTranslate("detail.currencyPerDay"))}</div>
-          <strong>${escapeHtml(title)}</strong><br>
-          ${escapeHtml(text)}
-          <br>
+          ${title ? `<strong>${escapeHtml(title)}</strong><br>` : ""}
+          ${text ? `${escapeHtml(text)}<br>` : ""}
           <a href="${escapeHtml(buttonHref)}" class="primary-button">${escapeHtml(buttonText)}</a>
         </div>
       `;
@@ -761,7 +760,7 @@ const hasGps = offerHasGpsLocation(offer);
 
       if (isOwner && isActive) {
         availabilityText = detailTranslate("detail.ownerOfferActiveTitle");
-        availabilityPanelText = detailTranslate("detail.ownerOfferActiveText");
+        availabilityPanelText = "";
       } else if (!isActive) {
         availabilityText = detailTranslate("detail.inactive");
         availabilityPanelText = detailTranslate("detail.availabilityPanelInactive");
@@ -783,8 +782,8 @@ const hasGps = offerHasGpsLocation(offer);
 } else if (isOwner) {
   sidebarContent = renderSidebarMessage(
     "",
-    detailTranslate("detail.ownItemTitle"),
-    detailTranslate("detail.ownItemText"),
+    "",
+    "",
     "moje-nabidky.html",
     detailTranslate("account.myListingsTitle"),
     price
@@ -831,8 +830,7 @@ const hasGps = offerHasGpsLocation(offer);
                 </section>
               ` : ""}
 
-              <p class="gps-note" style="margin: 12px 0;">${escapeHtml(detailTranslate("detail.privateListingNote"))}</p>
-              <p style="margin: 8px 0 16px;"><a href="mailto:rentulo@rentulo.com?subject=${encodeURIComponent("Rentulo - ohlášení nabídky " + (offer.offerNumber || offer.id || ""))}">${escapeHtml(detailTranslate("detail.reportOffer"))}</a></p>
+              ${!isOwner ? `<p style="margin: 8px 0 16px;"><a href="mailto:rentulo@rentulo.com?subject=${encodeURIComponent("Rentulo - ohlášení nabídky " + (offer.offerNumber || offer.id || ""))}">${escapeHtml(detailTranslate("detail.reportOffer"))}</a></p>` : ""}
 
               <div class="info-grid">
                 <div class="section">

@@ -1879,24 +1879,17 @@ function renderSharedNavigation(activePage) {
   const notificationCount = Number.isFinite(storedNotificationCount) ? storedNotificationCount : 0;
 
   const isHowActive = activePage === "jak-to-funguje" ? "active-link" : "";
-  const isResultsActive = activePage === "vysledky" ? "active-link" : "";
-  const isOfferActive = activePage === "nabidnout" ? "active-link" : "";
   const isLoginActive = activePage === "prihlaseni" ? "active-link" : "";
   const isRegisterActive = activePage === "registrace" ? "active-link" : "";
 
   const howItWorksText = navTranslate("nav.howItWorks", "Jak to funguje");
-  const browseText = navTranslate("nav.browse", "Prohlédnout nabídky");
-  const offerText = navTranslate("nav.offer", "Nabídnout cokoli");
   const loginText = navTranslate("nav.login", "Přihlásit se");
   const registerText = navTranslate("nav.register", "Registrovat se");
-  const showHomeNavigation = activePage === "uvod";
 
   if (currentUser) {
     nav.innerHTML = `
       ${navMobileProfileSummary()}
       <a href="jak-to-funguje.html" class="${isHowActive}">${howItWorksText}</a>
-      ${showHomeNavigation ? "" : `<a href="vysledky.html" class="${isResultsActive}">${browseText}</a>`}
-      ${showHomeNavigation ? "" : `<a href="nabidnout.html" class="${isOfferActive}">${offerText}</a>`}
       ${navPinLink()}
       ${navProfileControl(notificationCount)}
       ${navMobileAccountMenu()}
@@ -1906,8 +1899,6 @@ function renderSharedNavigation(activePage) {
   } else {
     nav.innerHTML = `
       <a href="jak-to-funguje.html" class="${isHowActive}">${howItWorksText}</a>
-      ${showHomeNavigation ? "" : `<a href="vysledky.html" class="${isResultsActive}">${browseText}</a>`}
-      ${showHomeNavigation ? "" : `<a href="nabidnout.html" class="${isOfferActive}">${offerText}</a>`}
       <a href="prihlaseni.html" class="${isLoginActive}">${loginText}</a>
       <a href="registrace.html" class="btn-register ${isRegisterActive}">${registerText}</a>
       ${navLanguageControl()}

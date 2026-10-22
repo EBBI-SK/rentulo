@@ -168,9 +168,13 @@ test("V1 public legal copy stays clear without mentioning future V2 availability
   assert.doesNotMatch(read("js/i18n.js"), /"offer\.transportRule":/);
 });
 
-test("listing detail clearly identifies self-declared private seller and offers a report channel", () => {
+test("private-party disclosure remains in the terms while visitors can report a listing", () => {
   const detail = read("js/detail-page.js");
-  assert.match(detail, /detail\.privateListingNote/);
+  const terms = read("obchodni-podminky.html");
+  assert.doesNotMatch(detail, /detail\.privateListingNote/);
+  assert.match(terms, /data-i18n="terms\.section3\.item2"/);
+  assert.match(terms, /data-i18n="terms\.section3\.item3"/);
+  assert.match(detail, /!isOwner \? `<p/);
   assert.match(detail, /detail\.reportOffer/);
   assert.match(detail, /mailto:rentulo@rentulo\.com/);
   assert.match(detail, /offer\.offerNumber \|\| offer\.id/);
