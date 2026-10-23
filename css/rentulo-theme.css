@@ -528,3 +528,82 @@ body[data-navigation-page="uvod"] .home-map-zoom-controls {
     text-align: center;
   }
 }
+
+/* V1 visual consistency: action buttons use the same green as "Nabidnout cokoli".
+   Deliberately exclude orange map pins, notifications, and status/warning badges. */
+:root {
+  --rentulo-action-green: #00835a;
+  --rentulo-action-green-hover: #006846;
+}
+
+body .btn-register,
+body .logout-link,
+body #mainNav .btn-register,
+body .search-button,
+body .home-map-popup-link,
+body .manual-button:not(.green),
+body .top-action-button,
+body .account-empty-state a,
+body #results-search-button,
+body .result-button,
+body .empty-results-button,
+body .btn-primary,
+body[data-navigation-page="nastaveni"] .primary-button,
+body .pickup-handoff-open,
+body .pickup-confirm-ready,
+body .owner-debt-pay,
+body .small-button.orange,
+body .request-row .small-button.orange,
+body .offer-primary-button.orange,
+body .offer-primary-button.urgent,
+body .simple-offer-actions .urgent,
+body .reservation-primary-action.orange,
+body .simple-reservation-actions .reservation-primary-action.orange,
+body .reservation-modal-pay,
+body .login-required-actions a:not(.secondary-action) {
+  background: var(--rentulo-action-green) !important;
+  border-color: var(--rentulo-action-green) !important;
+  color: #fff !important;
+}
+
+body .btn-register:hover,
+body .logout-link:hover,
+body #mainNav .btn-register:hover,
+body .search-button:hover,
+body .home-map-popup-link:hover,
+body .manual-button:not(.green):hover,
+body .top-action-button:hover,
+body .account-empty-state a:hover,
+body #results-search-button:hover,
+body .result-button:hover,
+body .empty-results-button:hover,
+body .btn-primary:hover,
+body[data-navigation-page="nastaveni"] .primary-button:hover,
+body .pickup-handoff-open:hover,
+body .pickup-confirm-ready:hover,
+body .owner-debt-pay:hover,
+body .small-button.orange:hover,
+body .request-row .small-button.orange:hover,
+body .offer-primary-button.orange:hover,
+body .offer-primary-button.urgent:hover,
+body .simple-offer-actions .urgent:hover,
+body .reservation-primary-action.orange:hover,
+body .simple-reservation-actions .reservation-primary-action.orange:hover,
+body .reservation-modal-pay:hover,
+body .login-required-actions a:not(.secondary-action):hover {
+  background: var(--rentulo-action-green-hover) !important;
+  border-color: var(--rentulo-action-green-hover) !important;
+  color: #fff !important;
+}
+
+/* Replace only the orange glow that accompanied orange call-to-action buttons. */
+body .btn-register,
+body .logout-link,
+body .search-button,
+body .manual-button:not(.green),
+body #results-search-button,
+body .result-button,
+body .empty-results-button,
+body .btn-primary {
+  box-shadow: 0 10px 24px rgba(0, 112, 75, 0.14) !important;
+}

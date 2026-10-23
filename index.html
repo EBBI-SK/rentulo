@@ -1395,6 +1395,17 @@
       body[data-navigation-page="uvod"] .home-map-stage { order: 6; width: 100%; margin-top: 20px; }
       body[data-navigation-page="uvod"] .home-map-previews { order: 7; margin-top: 10px; }
     }
+    /* Only the mobile search action: match the existing "Nabidnout cokoli" frame. */
+    @media (max-width: 640px) {
+      body[data-navigation-page="uvod"] .search-box .search-button {
+        width: calc(100% + 16px);
+        height: 61px;
+        min-height: 61px;
+        justify-self: start;
+        margin-left: -8px;
+        border-radius: 15px;
+      }
+    }
 </style>
 </head>
 
