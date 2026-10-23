@@ -795,6 +795,38 @@ function navInjectStyles() {
       opacity: 0.9;
     }
 
+    /* Desktop account dropdown trigger: initials and chevron in one shared frame.
+       The mobile/tablet trigger at <=1100px remains unchanged. */
+    @media (min-width: 1101px) {
+      .nav-profile-button {
+        height: 43px;
+        gap: 8px;
+        padding: 0 14px;
+        border: 1px solid #91cbb4;
+        border-radius: 12px;
+        background: rgba(232, 247, 239, .88);
+      }
+      .nav-profile-button:hover,
+      .nav-profile-button.is-active {
+        background: #dcefe4;
+      }
+      .nav-profile-button-initials {
+        width: auto;
+        height: auto;
+        flex: 0 0 auto;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        color: #173f35;
+        box-shadow: none;
+      }
+      .nav-profile-button .nav-notification-badge {
+        top: -6px;
+        right: -6px;
+        left: auto;
+      }
+    }
+
     .nav-notification-badge {
       position: absolute;
       top: -4px;
