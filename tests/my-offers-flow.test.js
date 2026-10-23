@@ -187,7 +187,7 @@ test("My offers reservation toolbar is compact on desktop and full-width on mobi
   assert.match(css, /@media \(max-width: 560px\) \{[\s\S]*?\.owner-reservations-toolbar \{ grid-template-columns: 1fr; \}/);
 });
 
-test("My offers shows minimum fee text only when the 50 CZK floor increases the 10 percent fee", () => {
+test("My offers shows minimum fee text only when the 70 CZK floor increases the 10 percent fee", () => {
   const vm = require("node:vm");
   const page = read(OFFERS_PAGE);
   const i18n = read(I18N);
@@ -195,13 +195,14 @@ test("My offers shows minimum fee text only when the 50 CZK floor increases the 
   assert.ok(prefixEnd > 0);
   const isMinimum = vm.runInNewContext(page.slice(0, prefixEnd) + "\nisMinimumPlatformFeeApplied");
 
-  assert.equal(isMinimum(150, 50, 10), true);
-  assert.equal(isMinimum(400, 50, 10), true);
-  assert.equal(isMinimum(499, 50, 10), false); // Rounded 10 % is already 50 CZK.
-  assert.equal(isMinimum(500, 50, 10), false);
+  assert.equal(isMinimum(150, 70, 10), true);
+  assert.equal(isMinimum(400, 70, 10), true);
+  assert.equal(isMinimum(694, 70, 10), true); // 10% rounds to 69 CZK.
+  assert.equal(isMinimum(695, 70, 10), false); // 10% already rounds to 70 CZK.
+  assert.equal(isMinimum(700, 70, 10), false);
   assert.equal(isMinimum(800, 80, 10), false);
   assert.equal(isMinimum(150, 60, 10), false);
-  assert.equal(isMinimum(0, 50, 10), false);
+  assert.equal(isMinimum(0, 70, 10), false);
 
   const start = page.indexOf("function renderRequestDetailContent(");
   const end = page.indexOf("function renderOwnerRequestDeadline(", start);

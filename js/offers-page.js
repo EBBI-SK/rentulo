@@ -1,5 +1,5 @@
     const PLATFORM_FEE_PERCENT = 10;
-    const PLATFORM_FEE_MINIMUM_CZK = 50;
+    const PLATFORM_FEE_MINIMUM_CZK = 70;
 
     const OFFERS_LOCALES = {
       cs: "cs-CZ",

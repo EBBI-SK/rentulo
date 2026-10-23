@@ -15,7 +15,7 @@ function compactSql(sql) {
   return sql.replace(/\s+/g, " ").trim();
 }
 
-test("database enforces 100 CZK minimum listing price and 50 CZK minimum platform fee", () => {
+test("historical migration enforces 100 CZK minimum listing price and originally 50 CZK fee", () => {
   const sql = compactSql(read(
     "supabase/migrations/20260924093000_enforce_minimum_price_and_platform_fee.sql"
   ));
@@ -39,6 +39,18 @@ test("database enforces 100 CZK minimum listing price and 50 CZK minimum platfor
   );
 });
 
+test("new fee migration upgrades only future reservation pricing to 70 CZK", () => {
+  const sql = read(
+    "supabase/migrations/20261023150000_raise_platform_fee_minimum_to_70.sql"
+  );
+  assert.match(sql, /to_regprocedure\('public\.prepare_reservation_insert\(\)'\)/);
+  assert.match(sql, /pg_get_functiondef\(v_function_oid\)/);
+  assert.match(sql, /v_old_expression constant text := E'.*50/);
+  assert.match(sql, /v_new_expression constant text := E'.*70/);
+  assert.match(sql, /execute replace\(v_definition, v_old_expression, v_new_expression\)/);
+  assert.doesNotMatch(sql, /update\s+public\.(reservations|payments)/i);
+});
+
 test("create and edit listing forms reject prices below 100 CZK", () => {
   const createSource = read("js/offer-form-page.js");
   const editSource = read("js/edit-offer.js");
@@ -56,11 +68,11 @@ test("create and edit listing forms reject prices below 100 CZK", () => {
   );
 });
 
-test("owner-side fee fallback applies the same 10 percent or 50 CZK minimum rule", () => {
+test("owner-side fee fallback applies the 10 percent or 70 CZK minimum rule", () => {
   const source = read("js/offers-page.js");
 
   assert.match(source, /const PLATFORM_FEE_PERCENT = 10;/);
-  assert.match(source, /const PLATFORM_FEE_MINIMUM_CZK = 50;/);
+  assert.match(source, /const PLATFORM_FEE_MINIMUM_CZK = 70;/);
   assert.match(source, /function calculatePlatformFee\(price\)/);
   assert.match(
     source,
@@ -97,23 +109,23 @@ test("fee and minimum-price copy is synchronized across supported languages and 
     assert.ok(i18n.includes(copy), copy);
   }
 
-  assert.ok(i18n.includes("minimálně 50 Kč za rezervaci"));
-  assert.ok(i18n.includes("minimálne 50 Kč za rezerváciu"));
-  assert.ok(i18n.includes("minimum fee of 50 Kč per reservation"));
-  assert.ok(i18n.includes("mindestens jedoch 50 Kč pro Reservierung"));
-  assert.ok(i18n.includes("minimum 50 Kč za rezerwację"));
+  assert.ok(i18n.includes("minimálně 70 Kč za rezervaci"));
+  assert.ok(i18n.includes("minimálne 70 Kč za rezerváciu"));
+  assert.ok(i18n.includes("minimum fee of 70 Kč per reservation"));
+  assert.ok(i18n.includes("mindestens jedoch 70 Kč pro Reservierung"));
+  assert.ok(i18n.includes("minimum 70 Kč za rezerwację"));
   assert.doesNotMatch(i18n, /90\s*%/);
 
-  assert.match(detailSource, /const PLATFORM_FEE_MINIMUM_CZK = 50;/);
+  assert.match(detailSource, /const PLATFORM_FEE_MINIMUM_CZK = 70;/);
   assert.match(
     detailSource,
     /detailTranslate\("detail\.platformFee", \{\s*percent: PLATFORM_FEE_PERCENT,\s*minimum: PLATFORM_FEE_MINIMUM_CZK\s*\}\)/
   );
 
   assert.ok(offerHtml.includes("Minimální cena je 100 Kč za den."));
-  assert.ok(offerHtml.includes("minimálně 50 Kč za rezervaci."));
+  assert.ok(offerHtml.includes("minimálně 70 Kč za rezervaci."));
   assert.ok(termsHtml.includes("minimálně však"));
-  assert.ok(termsHtml.includes("50 Kč za rezervaci"));
+  assert.ok(termsHtml.includes("70 Kč za rezervaci"));
   assert.doesNotMatch(termsHtml, /majiteli připadne 90\s*%/i);
 });
 
@@ -130,11 +142,11 @@ test("existing create and edit price fields explain commission in all five langu
   assert.match(edit, /id="editCommissionInfo" data-i18n="offer.commissionNote"/);
   assert.equal((i18n.match(/"offer.commissionNote":/g) || []).length, 5);
   for (const phrase of [
-    "minimálně 50 Kč za rezervaci",
-    "minimálne 50 Kč za rezerváciu",
-    "minimum fee of 50 Kč per reservation",
-    "mindestens jedoch 50 Kč pro Reservierung",
-    "minimum 50 Kč za rezerwację"
+    "minimálně 70 Kč za rezervaci",
+    "minimálne 70 Kč za rezerváciu",
+    "minimum fee of 70 Kč per reservation",
+    "mindestens jedoch 70 Kč pro Reservierung",
+    "minimum 70 Kč za rezerwację"
   ]) {
     assert.ok(i18n.includes(phrase), `Missing fee information: ${phrase}`);
   }
