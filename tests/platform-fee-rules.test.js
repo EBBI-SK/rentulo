@@ -45,9 +45,19 @@ test("new fee migration upgrades only future reservation pricing to 70 CZK", () 
   );
   assert.match(sql, /to_regprocedure\('public\.prepare_reservation_insert\(\)'\)/);
   assert.match(sql, /pg_get_functiondef\(v_function_oid\)/);
-  assert.match(sql, /v_old_expression constant text := E'.*50/);
-  assert.match(sql, /v_new_expression constant text := E'.*70/);
-  assert.match(sql, /execute replace\(v_definition, v_old_expression, v_new_expression\)/);
+  // The deployed migration matches the specific commission formula despite SQL whitespace.
+  assert.match(sql, /v_prefix constant text :=\s*'\(new\\\.platform_fee_amount/);
+  assert.match(sql, /new\\\.total_price/);
+  assert.match(sql, /new\\\.platform_fee_percent/);
+  assert.match(sql, /v_old_pattern text := v_prefix \|\| '50' \|\| v_suffix;/);
+  assert.match(sql, /v_new_pattern text := v_prefix \|\| '70' \|\| v_suffix;/);
+  assert.match(sql, /from regexp_matches\(v_definition, v_old_pattern, 'g'\)/);
+  assert.match(sql, /from regexp_matches\(v_definition, v_new_pattern, 'g'\)/);
+  assert.match(sql, /v_old_count = 0 and v_new_count = 1/);
+  assert.match(sql, /v_old_count = 1 and v_new_count = 0/);
+  assert.match(sql, /v_updated := regexp_replace\(/);
+  assert.match(sql, /execute v_updated;/);
+  assert.match(sql, /has_offer_reservation_time_conflict/);
   assert.doesNotMatch(sql, /update\s+public\.(reservations|payments)/i);
 });
 
