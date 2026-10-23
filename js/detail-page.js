@@ -1,5 +1,5 @@
     const PLATFORM_FEE_PERCENT = 10;
-    const PLATFORM_FEE_MINIMUM_CZK = 50;
+    const PLATFORM_FEE_MINIMUM_CZK = 70;
     let currentOffer = null;
     let detailPageState = "idle";
     let detailBookingMessage = "";
