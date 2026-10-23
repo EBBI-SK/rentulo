@@ -49,10 +49,10 @@ test("renter page exposes withdrawal and keeps approved/paid cutoff lock", () =>
   assert.match(shared, /RESERVATION_STATUS_PENDING[\s\S]*?return true;/);
 });
 
-test("owner's ordinary cancel is disabled after cutoff instead of becoming 'item unavailable'", () => {
+test("owner's ordinary cancel disappears at cutoff instead of showing a disabled button", () => {
   assert.match(owner, /function disableOwnerReservationCancellationButton/);
-  assert.match(owner, /button.disabled = true/);
-  assert.match(owner, /reservation-cancel-locked/);
+  assert.match(owner, /button\.remove\(\)/);
+  assert.match(owner, /if \(cutoff && !isReservationCancellationWindowOpen\(reservation\)\) \{\s*return "";/);
   assert.doesNotMatch(owner, /ownerExceptionAvailable|exceptionalReason|ownerReservationCancelModalExceptional/);
 });
 

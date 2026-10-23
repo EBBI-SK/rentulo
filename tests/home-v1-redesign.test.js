@@ -60,15 +60,19 @@ test("approved homepage layout keeps original assets and search functionality", 
   assert.equal(locales.length, 5, "the supporting copy is localized in all five languages");
 });
 
-test("desktop and mobile PIN shortcuts open the original owner PIN entry", () => {
+test("desktop and mobile homepage PIN buttons open one modal and route to the correct owner row", () => {
+  const home = read("index.html");
+  const offers = read("moje-nabidky.html");
   assert.match(navigation, /function navPinLink\(\)/);
   assert.match(navigation, /function navEnsureMobilePinShortcut\(nav\)/);
-  assert.match(navigation, /navEnsureMobilePinShortcut\(nav\);/);
-  assert.match(navigation, /href="moje-nabidky\.html#pickupHandoffEntry"/);
-  assert.match(navigation, /link\.href = "moje-nabidky\.html#pickupHandoffEntry"/);
-  assert.match(pin, /window\.location\.hash === "#pickupHandoffEntry"/);
-  assert.match(pin, /openHandoffForm\(\);/);
+  assert.match(navigation, /activePage === "uvod" \? navPinLink\(\)/);
+  assert.match(navigation, /data-home-pin-open="true"/);
+  assert.match(navigation, /link\.dataset\.homePinOpen = "true"/);
+  assert.match(home, /id="homePinModal"/);
+  assert.match(home, /id="homePinInput"/);
+  assert.doesNotMatch(offers, /id="pickupHandoffEntry"/);
   assert.match(pin, /invoke\("resolve-pickup-pin", \{ pin: pin \}\)/);
+  assert.match(pin, /moje-nabidky\.html#handoff-/);
   assert.match(pin, /invoke\("confirm-pickup", \{/);
 });
 

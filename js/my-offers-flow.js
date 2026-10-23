@@ -307,16 +307,6 @@
     const status = row.querySelector(":scope > .request-status");
     const actions = row.querySelector(":scope > .row-actions");
 
-    if (actions && card.dataset.ownerStatus === "paid") {
-      // Launch the existing PIN form. The hidden mark-picked-up button is kept
-      // for pickup-security.js and only becomes actionable after PIN verification.
-      const handover = document.createElement("button");
-      handover.type = "button";
-      handover.className = "small-button owner-handover-launch";
-      handover.dataset.ownerOpenPickup = "true";
-      handover.textContent = label("handover");
-      actions.prepend(handover);
-    }
     if (actions && card.dataset.ownerStatus === "picked_up") {
       const receiveBack = actions.querySelector('[data-offers-action="mark-returned"]');
       if (receiveBack) receiveBack.textContent = label("receiveBack");
@@ -389,8 +379,6 @@
       if (statusField) statusField.dataset.ownerLabel = label("status");
 
       setFieldLabel(card.querySelector(".owner-reservation-actions"), label("action"));
-      const handover = card.querySelector(".owner-handover-launch");
-      if (handover) setText(handover, label("handover"));
       const receiveBack = card.querySelector('[data-offers-action="mark-returned"]');
       if (receiveBack) setText(receiveBack, label("receiveBack"));
     });
@@ -639,18 +627,6 @@
     observer.observe(root, {
       childList: true,
       subtree: true
-    });
-
-    root.addEventListener("click", function (event) {
-      const launch = event.target.closest("[data-owner-open-pickup]");
-      if (!launch) return;
-      event.preventDefault();
-      const entry = document.getElementById("pickupHandoffEntry");
-      const open = document.getElementById("pickupHandoffOpen");
-      if (!entry || !open) return;
-      entry.hidden = false;
-      open.click();
-      entry.scrollIntoView({ behavior: "smooth", block: "start" });
     });
 
     root.addEventListener("input", function (event) {

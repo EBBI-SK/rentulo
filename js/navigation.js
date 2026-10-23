@@ -680,6 +680,7 @@ function navInjectStyles() {
       font-weight: 800;
       line-height: 1.1;
       white-space: nowrap;
+      cursor: pointer;
     }
     #mainNav > .nav-pin-shortcut:hover { background: #dcefe4; border-color: #559e7b !important; }
     .nav-pin-shortcut svg, .nav-mobile-pin-shortcut svg {
@@ -694,6 +695,8 @@ function navInjectStyles() {
     }
     .nav-mobile-pin-shortcut { display: none; }
     @media (max-width: 1100px) {
+      /* A single visible PIN action on mobile: the header shortcut. */
+      #mainNav > .nav-pin-shortcut { display: none !important; }
       .nav-mobile-pin-shortcut {
         display: inline-flex;
         flex: 0 0 auto;
@@ -1830,7 +1833,7 @@ function navPinIcon() {
 
 function navPinLink() {
   const label = navEscapeHtml(navProfileText("pin"));
-  return `<a class="nav-pin-shortcut" href="moje-nabidky.html#pickupHandoffEntry" title="${label}">${navPinIcon()}<span>${label}</span></a>`;
+  return `<button class="nav-pin-shortcut" type="button" data-home-pin-open="true" title="${label}">${navPinIcon()}<span>${label}</span></button>`;
 }
 
 function navEnsureMobilePinShortcut(nav) {
@@ -1838,14 +1841,15 @@ function navEnsureMobilePinShortcut(nav) {
   if (!header) return;
   const menu = header.querySelector(".shared-mobile-menu-button");
   let link = header.querySelector(".nav-mobile-pin-shortcut");
-  if (!navGetCurrentUser() || !menu) {
+  if (!navGetCurrentUser() || !menu || document.body.dataset.navigationPage !== "uvod") {
     if (link) link.remove();
     return;
   }
   if (!link) {
-    link = document.createElement("a");
+    link = document.createElement("button");
+    link.type = "button";
     link.className = "nav-mobile-pin-shortcut";
-    link.href = "moje-nabidky.html#pickupHandoffEntry";
+    link.dataset.homePinOpen = "true";
     header.insertBefore(link, menu);
   }
   link.setAttribute("aria-label", navProfileText("pin"));
@@ -1930,7 +1934,7 @@ function renderSharedNavigation(activePage) {
     nav.innerHTML = `
       ${navMobileProfileSummary()}
       <a href="jak-to-funguje.html" class="${isHowActive}">${howItWorksText}</a>
-      ${navPinLink()}
+      ${activePage === "uvod" ? navPinLink() : ""}
       ${navProfileControl(notificationCount)}
       ${navMobileAccountMenu()}
       ${navLanguageControl()}

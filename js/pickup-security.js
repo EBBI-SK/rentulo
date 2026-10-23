@@ -11,6 +11,9 @@
       handoffTitle: "Předáváte věc nájemci?",
       handoffText: "Zadejte 6místný PIN od nájemce. Rentulo najde správnou rezervaci za vás.",
       handoffOpen: "Zadat PIN",
+      homePinInstructions: "Zadejte 6místný PIN od nájemce. Po ověření se otevře jeho rezervace.",
+      verifyPin: "Ověřit PIN",
+      closePin: "Zpět",
       verifiedTitle: "PIN ověřen",
       changePin: "Zadat jiný PIN",
       handoffInput: "6místný PIN",
@@ -38,6 +41,9 @@
       handoffTitle: "Odovzdávate vec nájomcovi?",
       handoffText: "Zadajte 6-miestny PIN od nájomcu. Rentulo nájde správnu rezerváciu za vás.",
       handoffOpen: "Zadať PIN",
+      homePinInstructions: "Zadajte 6-miestny PIN od nájomcu. Po overení sa otvorí jeho rezervácia.",
+      verifyPin: "Overiť PIN",
+      closePin: "Späť",
       verifiedTitle: "PIN overený",
       changePin: "Zadať iný PIN",
       handoffInput: "6-miestny PIN",
@@ -65,6 +71,9 @@
       handoffTitle: "Handing an item to the renter?",
       handoffText: "Enter the renter's 6-digit PIN. Rentulo will find the correct reservation for you.",
       handoffOpen: "Enter PIN",
+      homePinInstructions: "Enter the renter's 6-digit PIN. The matching reservation will open after verification.",
+      verifyPin: "Verify PIN",
+      closePin: "Back",
       verifiedTitle: "PIN verified",
       changePin: "Enter another PIN",
       handoffInput: "6-digit PIN",
@@ -92,6 +101,9 @@
       handoffTitle: "Übergeben Sie einen Gegenstand?",
       handoffText: "Geben Sie den 6-stelligen PIN des Mieters ein. Rentulo findet die richtige Reservierung.",
       handoffOpen: "PIN eingeben",
+      homePinInstructions: "Geben Sie die 6-stellige PIN des Mieters ein. Danach öffnet sich die passende Reservierung.",
+      verifyPin: "PIN prüfen",
+      closePin: "Zurück",
       verifiedTitle: "PIN bestätigt",
       changePin: "Anderen PIN eingeben",
       handoffInput: "6-stelliger PIN",
@@ -119,6 +131,9 @@
       handoffTitle: "Przekazujesz przedmiot najemcy?",
       handoffText: "Wpisz 6-cyfrowy PIN najemcy. Rentulo znajdzie właściwą rezerwację.",
       handoffOpen: "Wpisz PIN",
+      homePinInstructions: "Wpisz 6-cyfrowy PIN najemcy. Po weryfikacji otworzy się odpowiednia rezerwacja.",
+      verifyPin: "Sprawdź PIN",
+      closePin: "Wstecz",
       verifiedTitle: "PIN zweryfikowany",
       changePin: "Wpisz inny PIN",
       handoffInput: "6-cyfrowy PIN",
@@ -142,6 +157,9 @@
   let verifiedReservationId = "";
   let verifiedPin = "";
   let confirmingPickup = false;
+  let focusedOwnerReservation = false;
+  const HANDOFF_SESSION_KEY = "rentuloVerifiedPickupHandoff";
+  const HANDOFF_SESSION_TTL_MS = 90 * 1000;
 
   function language() {
     const value = typeof window.getRentuloLanguage === "function"
@@ -276,230 +294,65 @@
     element.classList.add("active");
   }
 
-  function getHandoffElements() {
-    return {
-      wrapper: document.getElementById("pickupHandoffEntry"),
-      title: document.getElementById("pickupHandoffTitle"),
-      description: document.getElementById("pickupHandoffDescription"),
-      openButton: document.getElementById("pickupHandoffOpen"),
-      form: document.getElementById("pickupHandoffForm"),
-      input: document.getElementById("pickupHandoffPin"),
-      match: document.getElementById("pickupHandoffMatch"),
-      changeButton: document.getElementById("pickupHandoffChange"),
-      feedback: document.getElementById("pickupHandoffFeedback")
-    };
+  // The owner enters PIN only via the single action on the homepage.
+  // Carry it only across the immediate same-tab navigation, never in the URL,
+  // never in localStorage. The receiving page consumes the value immediately.
+  function storeOwnerHandoff(reservationId, pin, ownerId) {
+    try {
+      window.sessionStorage.setItem(HANDOFF_SESSION_KEY, JSON.stringify({
+        reservationId: reservationId,
+        pin: pin,
+        ownerId: ownerId,
+        createdAt: Date.now()
+      }));
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
-  function refreshHandoffText() {
-    const elements = getHandoffElements();
-    if (!elements.wrapper) return;
-
-    const isVerified = Boolean(verifiedReservationId);
-    if (elements.title) elements.title.textContent = text(isVerified ? "verifiedTitle" : "handoffTitle");
-    if (elements.description) {
-      elements.description.textContent = text(isVerified ? "matched" : "handoffText");
-      elements.description.hidden = false;
+  function consumeOwnerHandoff() {
+    try {
+      const raw = window.sessionStorage.getItem(HANDOFF_SESSION_KEY);
+      window.sessionStorage.removeItem(HANDOFF_SESSION_KEY);
+      if (!raw) return null;
+      const candidate = JSON.parse(raw);
+      if (!candidate || !/^[a-f0-9-]{36}$/i.test(String(candidate.reservationId || "")) ||
+          !/^\d{6}$/.test(String(candidate.pin || "")) ||
+          !/^[a-f0-9-]{36}$/i.test(String(candidate.ownerId || "")) ||
+          !Number.isFinite(candidate.createdAt) ||
+          Date.now() - candidate.createdAt < 0 ||
+          Date.now() - candidate.createdAt > HANDOFF_SESSION_TTL_MS) return null;
+      return candidate;
+    } catch (_) {
+      return null;
     }
-    if (elements.feedback) elements.feedback.hidden = isVerified;
-    if (elements.openButton) elements.openButton.textContent = text("handoffOpen");
-    if (elements.changeButton) elements.changeButton.textContent = text("changePin");
-    if (elements.input) elements.input.setAttribute("aria-label", text("handoffInput"));
-  }
-
-  function clearVerifiedReservation() {
-    verifiedReservationId = "";
-    verifiedPin = "";
-    const elements = getHandoffElements();
-    if (elements.match) {
-      elements.match.hidden = true;
-      elements.match.innerHTML = "";
-    }
-    if (elements.changeButton) elements.changeButton.hidden = true;
   }
 
   function updateOwnerPickupButtons() {
-    const buttons = Array.from(document.querySelectorAll('[data-offers-action="mark-picked-up"]'));
-    const elements = getHandoffElements();
-
+    const buttons = document.querySelectorAll('[data-offers-action="mark-picked-up"]');
     buttons.forEach(function (button) {
       const reservationId = button.dataset.reservationId || "";
-      const isVerified = Boolean(verifiedReservationId && reservationId === verifiedReservationId);
-      const isVerifiedMatchButton = Boolean(elements.match && elements.match.contains(button));
-      const shouldBeHidden = !(isVerified && isVerifiedMatchButton);
-      if (button.hidden !== shouldBeHidden) button.hidden = shouldBeHidden;
-      if (isVerified && isVerifiedMatchButton) {
-        const label = text("confirmAction");
-        if (button.textContent !== label) button.textContent = label;
+      const card = button.closest(".owner-reservation-card");
+      const isVerified = Boolean(card && verifiedPin && reservationId === verifiedReservationId);
+      if (button.hidden === isVerified) button.hidden = !isVerified;
+      if (isVerified) {
+        if (button.textContent !== text("confirmAction")) button.textContent = text("confirmAction");
         button.classList.add("pickup-confirm-ready");
+        if (!focusedOwnerReservation) {
+          focusedOwnerReservation = true;
+          card.classList.add("owner-pin-target");
+          window.requestAnimationFrame(function () {
+            if (button.isConnected) {
+              card.scrollIntoView({ behavior: "smooth", block: "center" });
+              button.focus({ preventScroll: true });
+            }
+          });
+        }
       } else {
         button.classList.remove("pickup-confirm-ready");
       }
     });
-
-    document.querySelectorAll(".simple-offer-record").forEach(function (record) {
-      const panel = record.querySelector(":scope > .request-panel");
-      const primary = record.querySelector(':scope > .simple-offer-row > .simple-offer-actions > [data-offers-action="open-offer-requests"]');
-      if (!panel || !primary) return;
-
-      const hasPickup = Boolean(panel.querySelector('[data-offers-action="mark-picked-up"]'));
-      const hasOtherOwnerAction = Boolean(panel.querySelector('[data-offers-action="approve-reservation"], [data-offers-action="reject-reservation"]'));
-      if (hasPickup && !hasOtherOwnerAction) {
-        const label = text("showReservations");
-        if (primary.textContent !== label) primary.textContent = label;
-        primary.classList.remove("urgent");
-      }
-    });
-
-    if (elements.wrapper) {
-      const sourceButtons = document.querySelectorAll('#offersList [data-offers-action="mark-picked-up"]');
-      const shouldBeHidden = sourceButtons.length === 0 && window.location.hash !== "#pickupHandoffEntry";
-      if (elements.wrapper.hidden !== shouldBeHidden) elements.wrapper.hidden = shouldBeHidden;
-    }
-  }
-
-  function openHandoffForm() {
-    const elements = getHandoffElements();
-    if (!elements.form || !elements.input || !elements.openButton) return;
-    clearVerifiedReservation();
-    refreshHandoffText();
-    updateOwnerPickupButtons();
-    elements.openButton.hidden = true;
-    elements.form.hidden = false;
-    elements.input.value = "";
-    elements.input.disabled = false;
-    if (elements.feedback) {
-      elements.feedback.hidden = false;
-      elements.feedback.textContent = "";
-      elements.feedback.classList.remove("success");
-    }
-    setTimeout(function () { elements.input.focus(); }, 0);
-  }
-
-  function showMatchedReservation(reservationId) {
-    const sourceButton = document.querySelector('#offersList [data-offers-action="mark-picked-up"][data-reservation-id="' + CSS.escape(reservationId) + '"]');
-    if (!sourceButton) return false;
-
-    const card = sourceButton.closest(".request-card");
-    const elements = getHandoffElements();
-    if (!card || !elements.match) return false;
-
-    const sourceRow = card.querySelector(":scope > .request-row");
-    if (!sourceRow) return false;
-
-    const row = sourceRow.cloneNode(true);
-    row.classList.add("pickup-handoff-match-row");
-
-    const record = sourceButton.closest(".simple-offer-record");
-    if (record) {
-      const sourceOffer = record.querySelector(":scope > .simple-offer-row > .simple-offer-main");
-      if (!sourceOffer) return false;
-
-      const offer = sourceOffer.cloneNode(true);
-      offer.classList.add("pickup-handoff-match-offer");
-      row.insertBefore(offer, row.firstChild);
-    } else if (card.classList.contains("owner-reservation-card")) {
-      row.classList.add("pickup-handoff-owner-row");
-    } else {
-      return false;
-    }
-
-    row.querySelectorAll("[id]").forEach(function (element) {
-      element.removeAttribute("id");
-    });
-    row.querySelectorAll('[data-offers-action="toggle-request-detail"]').forEach(function (element) {
-      element.remove();
-    });
-    row.querySelectorAll(".row-actions button").forEach(function (button) {
-      if (button.dataset.offersAction !== "mark-picked-up") button.remove();
-    });
-
-    const confirmButton = row.querySelector('[data-offers-action="mark-picked-up"]');
-    if (!confirmButton) return false;
-
-    confirmButton.hidden = false;
-    confirmButton.disabled = false;
-    confirmButton.textContent = text("confirmAction");
-    confirmButton.classList.add("pickup-confirm-ready");
-
-    elements.match.replaceChildren(row);
-    elements.match.hidden = false;
-    if (elements.form) elements.form.hidden = true;
-    if (elements.changeButton) elements.changeButton.hidden = true;
-
-    updateOwnerPickupButtons();
-
-    setTimeout(function () {
-      elements.match.scrollIntoView({ behavior: "smooth", block: "center" });
-      confirmButton.focus({ preventScroll: true });
-    }, 0);
-    return true;
-  }
-
-  async function resolveHandoffPin() {
-    const elements = getHandoffElements();
-    if (!elements.input || !elements.feedback) return;
-    const pin = elements.input.value.trim();
-    if (!/^\d{6}$/.test(pin) || elements.form?.dataset.submitting === "true") return;
-
-    elements.form.dataset.submitting = "true";
-    elements.input.disabled = true;
-    elements.feedback.textContent = text("verifying");
-    elements.feedback.classList.remove("success");
-
-    try {
-      const result = await invoke("resolve-pickup-pin", { pin: pin });
-      const data = result.data || {};
-
-      if (result.ok && data.status === "verified" && data.reservation_id) {
-        verifiedReservationId = String(data.reservation_id);
-        verifiedPin = pin;
-        elements.feedback.textContent = "";
-        elements.feedback.classList.add("success");
-        refreshHandoffText();
-        if (!showMatchedReservation(verifiedReservationId)) {
-          clearVerifiedReservation();
-          refreshHandoffText();
-          elements.feedback.hidden = false;
-          elements.feedback.classList.remove("success");
-          elements.feedback.textContent = text("genericError");
-          return;
-        }
-        return;
-      }
-
-      if (data.code === "locked") {
-        const time = formatLockTime(data.locked_until);
-        elements.feedback.textContent = time
-          ? text("locked") + " " + text("lockedUntil", { time: time })
-          : text("locked");
-        return;
-      }
-
-      if (data.code === "pickup_wrong_day") {
-        elements.feedback.textContent = text("wrongDay");
-        return;
-      }
-
-      if (data.code === "invalid_pin") {
-        const remaining = Number(data.attempts_remaining || 0);
-        elements.feedback.textContent = text("invalid") + " " + (
-          remaining === 1 ? text("remainingOne") : text("remainingMany", { count: remaining })
-        );
-        elements.input.value = "";
-        if (elements.changeButton) elements.changeButton.hidden = false;
-        return;
-      }
-
-      elements.feedback.textContent = text("genericError");
-    } finally {
-      if (elements.form && elements.form.isConnected) {
-        elements.form.dataset.submitting = "false";
-        if (!verifiedReservationId) {
-          elements.input.disabled = false;
-          elements.input.focus();
-        }
-      }
-    }
   }
 
   async function confirmVerifiedPickup(button) {
@@ -518,8 +371,10 @@
       });
 
       if (result.ok && result.data && result.data.status === "picked_up") {
+        verifiedPin = "";
+        verifiedReservationId = "";
         setOwnerMessage(text("success"), "success");
-        window.setTimeout(function () { window.location.reload(); }, 500);
+        window.setTimeout(function () { window.location.replace("moje-nabidky.html"); }, 500);
         return;
       }
 
@@ -546,19 +401,113 @@
   function interceptOwnerPickup(event) {
     const button = event.target.closest('[data-offers-action="mark-picked-up"]');
     if (!button) return;
-
     event.preventDefault();
     event.stopImmediatePropagation();
+    if (button.dataset.reservationId === verifiedReservationId && verifiedPin) {
+      void confirmVerifiedPickup(button);
+    }
+  }
 
-    const reservationId = button.dataset.reservationId || "";
-    if (reservationId === verifiedReservationId && verifiedPin) {
-      confirmVerifiedPickup(button);
+  function getHomePinElements() {
+    return {
+      overlay: document.getElementById("homePinModal"),
+      title: document.getElementById("homePinTitle"),
+      description: document.getElementById("homePinDescription"),
+      inputLabel: document.getElementById("homePinInputLabel"),
+      form: document.getElementById("homePinForm"),
+      input: document.getElementById("homePinInput"),
+      submit: document.getElementById("homePinSubmit"),
+      cancel: document.getElementById("homePinClose"),
+      feedback: document.getElementById("homePinFeedback")
+    };
+  }
+
+  function updateHomePinText() {
+    const e = getHomePinElements();
+    if (!e.overlay) return;
+    if (e.title) e.title.textContent = text("handoffOpen");
+    if (e.description) e.description.textContent = text("homePinInstructions");
+    if (e.inputLabel) e.inputLabel.textContent = text("handoffInput");
+    if (e.submit) e.submit.textContent = text("verifyPin");
+    if (e.cancel) e.cancel.textContent = text("closePin");
+  }
+
+  let homePinReturnFocus = null;
+  function closeHomePinModal() {
+    const e = getHomePinElements();
+    if (!e.overlay) return;
+    e.overlay.hidden = true;
+    e.overlay.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("home-pin-open");
+    if (e.input) e.input.value = "";
+    if (homePinReturnFocus && homePinReturnFocus.isConnected) homePinReturnFocus.focus();
+    homePinReturnFocus = null;
+  }
+
+  function openHomePinModal(button) {
+    const e = getHomePinElements();
+    if (!e.overlay) return;
+    homePinReturnFocus = button;
+    updateHomePinText();
+    e.overlay.hidden = false;
+    e.overlay.setAttribute("aria-hidden", "false");
+    document.body.classList.add("home-pin-open");
+    if (e.feedback) e.feedback.textContent = "";
+    if (e.input) {
+      e.input.disabled = false;
+      e.input.value = "";
+      e.input.focus();
+    }
+  }
+
+  async function resolveHomePin() {
+    const e = getHomePinElements();
+    if (!e.form || !e.input || !e.feedback || e.form.dataset.submitting === "true") return;
+    const pin = e.input.value.trim();
+    if (!/^\d{6}$/.test(pin)) {
+      e.feedback.textContent = text("handoffInput");
       return;
     }
 
-    const elements = getHandoffElements();
-    if (elements.wrapper) elements.wrapper.scrollIntoView({ behavior: "smooth", block: "center" });
-    openHandoffForm();
+    e.form.dataset.submitting = "true";
+    e.input.disabled = true;
+    if (e.submit) e.submit.disabled = true;
+    e.feedback.textContent = text("verifying");
+    try {
+      const result = await invoke("resolve-pickup-pin", { pin: pin });
+      const data = result.data || {};
+      if (result.ok && data.status === "verified" && data.reservation_id &&
+          /^[a-f0-9-]{36}$/i.test(String(data.reservation_id))) {
+        const owner = typeof getCurrentSupabaseUser === "function"
+          ? await getCurrentSupabaseUser() : null;
+        if (owner && storeOwnerHandoff(String(data.reservation_id), pin, owner.id)) {
+          window.location.assign("moje-nabidky.html#handoff-" + encodeURIComponent(data.reservation_id));
+          return;
+        }
+        e.feedback.textContent = text("genericError");
+      } else if (data.code === "locked") {
+        const time = formatLockTime(data.locked_until);
+        e.feedback.textContent = time ? text("locked") + " " + text("lockedUntil", { time: time }) : text("locked");
+      } else if (data.code === "pickup_wrong_day") {
+        e.feedback.textContent = text("wrongDay");
+      } else if (data.code === "invalid_pin") {
+        const remaining = Number(data.attempts_remaining || 0);
+        e.feedback.textContent = text("invalid") + " " +
+          (remaining === 1 ? text("remainingOne") : text("remainingMany", { count: remaining }));
+        e.input.value = "";
+      } else {
+        e.feedback.textContent = text("genericError");
+      }
+    } catch (_) {
+      e.feedback.textContent = text("genericError");
+    } finally {
+      e.form.dataset.submitting = "false";
+      if (e.input.isConnected) {
+        e.input.disabled = false;
+        if (e.submit) e.submit.disabled = false;
+        if (!e.overlay.hidden) e.input.focus();
+      }
+    }
   }
 
   function showExpiredRenterPin(block) {
@@ -637,26 +586,67 @@
     enhanceRenterRows();
   }
 
-  function initializeHandoffEntry() {
-    const elements = getHandoffElements();
-    if (!elements.wrapper) return;
+  function initializeHomePinEntry() {
+    const e = getHomePinElements();
+    if (!e.overlay || !e.form) return;
+    updateHomePinText();
+    document.addEventListener("click", function (event) {
+      const trigger = event.target.closest('[data-home-pin-open="true"]');
+      if (trigger) {
+        event.preventDefault();
+        openHomePinModal(trigger);
+      }
+    });
+    if (e.cancel) e.cancel.addEventListener("click", closeHomePinModal);
+    e.overlay.addEventListener("click", function (event) {
+      if (event.target === e.overlay) closeHomePinModal();
+    });
+    e.form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      void resolveHomePin();
+    });
+    if (e.input) e.input.addEventListener("input", function (event) {
+      event.target.value = event.target.value.replace(/\D/g, "").slice(0, 6);
+    });
+    document.addEventListener("keydown", function (event) {
+      if (e.overlay.hidden) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeHomePinModal();
+      } else if (event.key === "Tab") {
+        const focusable = [e.input, e.cancel, e.submit].filter(Boolean);
+        if (event.shiftKey && document.activeElement === focusable[0]) {
+          event.preventDefault();
+          focusable[focusable.length - 1].focus();
+        } else if (!event.shiftKey && document.activeElement === focusable[focusable.length - 1]) {
+          event.preventDefault();
+          focusable[0].focus();
+        }
+      }
+    });
+  }
 
-    refreshHandoffText();
-    if (elements.openButton) elements.openButton.addEventListener("click", openHandoffForm);
-    if (elements.changeButton) elements.changeButton.addEventListener("click", openHandoffForm);
-    if (window.location.hash === "#pickupHandoffEntry") {
-      elements.wrapper.hidden = false;
-      openHandoffForm();
-      window.requestAnimationFrame(function () {
-        elements.wrapper.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
+  async function initializeOwnerHandoff() {
+    if (!document.getElementById("offersList")) return;
+    const session = consumeOwnerHandoff();
+    if (!session || window.location.hash !== "#handoff-" + session.reservationId) return;
+    const user = typeof getCurrentSupabaseUser === "function"
+      ? await getCurrentSupabaseUser() : null;
+    if (!user || user.id !== session.ownerId) return;
+
+    // A sessionStorage value alone is not authorization. Reverify against the
+    // authenticated owner's actual Stripe-paid reservation before enabling UI.
+    const checked = await invoke("resolve-pickup-pin", { pin: session.pin });
+    if (!checked.ok || !checked.data || checked.data.status !== "verified" ||
+        checked.data.reservation_id !== session.reservationId) {
+      setOwnerMessage(text("genericError"), "error");
+      return;
     }
-    if (elements.input) {
-      elements.input.addEventListener("input", function (event) {
-        event.target.value = event.target.value.replace(/\D/g, "").slice(0, 6);
-        if (/^\d{6}$/.test(event.target.value)) resolveHandoffPin();
-      });
-    }
+    verifiedReservationId = session.reservationId;
+    verifiedPin = session.pin;
+    focusedOwnerReservation = false;
+    setOwnerMessage(text("matched"), "success");
+    scheduleOwnerPickupRefresh();
   }
 
   let ownerPickupRefreshScheduled = false;
@@ -671,13 +661,14 @@
 
   document.addEventListener("click", interceptOwnerPickup, true);
   document.addEventListener("rentuloLanguageChanged", function () {
-    refreshHandoffText();
+    updateHomePinText();
     resetRenterEnhancements();
     scheduleOwnerPickupRefresh();
   });
 
   document.addEventListener("DOMContentLoaded", function () {
-    initializeHandoffEntry();
+    initializeHomePinEntry();
+    void initializeOwnerHandoff();
 
     const reservationsList = document.getElementById("reservationsList");
     if (reservationsList) {

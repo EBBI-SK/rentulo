@@ -107,51 +107,42 @@ test("successful pickup consumes PIN but never initiates a Stripe transfer", () 
   assert.match(source, /status: "picked_up"/);
 });
 
-test("owner handoff starts from one clear PIN entry above the offers without a cancel action", () => {
-  const html = read(OFFERS_HTML);
+test("owner enters PIN on homepage only, with a single accessible modal", () => {
+  const offersHtml = read(OFFERS_HTML);
+  const homeHtml = read(path.join(ROOT, "index.html"));
   const source = read(UI);
-  assert.match(html, /id="pickupHandoffEntry"/);
-  assert.match(html, /id="pickupHandoffOpen"/);
-  assert.match(html, /id="pickupHandoffPin"/);
-  assert.match(html, /id="pickupHandoffMatch"/);
-  assert.match(html, /id="pickupHandoffChange"/);
-  assert.doesNotMatch(html, /id="pickupHandoffCancel"/);
+  assert.doesNotMatch(offersHtml, /id="pickupHandoffEntry"/);
+  for (const id of ["homePinModal", "homePinForm", "homePinInput", "homePinSubmit"]) {
+    assert.match(homeHtml, new RegExp('id="'+id+'"'));
+  }
   assert.match(source, /invoke\("resolve-pickup-pin", \{ pin: pin \}\)/);
-  assert.match(source, /Rentulo najde správnou rezervaci za vás/);
+  assert.match(source, /sessionStorage\.setItem\(HANDOFF_SESSION_KEY/);
+  assert.match(source, /sessionStorage\.removeItem\(HANDOFF_SESSION_KEY/);
+  assert.doesNotMatch(source, /localStorage\.setItem\(HANDOFF_SESSION_KEY/);
+  assert.doesNotMatch(homeHtml, /id="pickupHandoffEntry"/);
 });
 
-test("paid reservation handoff buttons stay hidden until the entered PIN resolves to that reservation", () => {
+test("paid handover button is enabled only for the verified matching owner row", () => {
   const source = read(UI);
   const css = read(CSS);
-  assert.match(source, /button\.hidden !== shouldBeHidden/);
-  assert.match(source, /reservationId === verifiedReservationId/);
-  assert.match(source, /elements\.match && elements\.match\.contains\(button\)/);
-  assert.match(source, /shouldBeHidden = !\(isVerified && isVerifiedMatchButton\)/);
+  assert.match(source, /const isVerified = Boolean\(card && verifiedPin && reservationId === verifiedReservationId\)/);
+  assert.match(source, /button\.hidden = !isVerified/);
+  assert.match(source, /button\.classList\.add\("pickup-confirm-ready"\)/);
+  assert.match(source, /card\.scrollIntoView/);
   assert.match(css, /data-offers-action="mark-picked-up"\]\[hidden\]/);
-  assert.doesNotMatch(source, /pickup-primary-handover/);
-  assert.doesNotMatch(css, /--pickup-action-label/);
-  assert.match(source, /showReservations: "Zobrazit rezervace"/);
-  assert.match(source, /primary\.classList\.remove\("urgent"\)/);
+  assert.doesNotMatch(source, /showMatchedReservation/);
 });
 
-test("verified PIN renders only the matched reservation in the handoff block", () => {
+test("owner PIN navigation consumes short-lived proof and revalidates it on arrival", () => {
   const source = read(UI);
-  const css = read(CSS);
-  assert.match(source, /#offersList \[data-offers-action="mark-picked-up"\]\[data-reservation-id=/);
-  assert.match(source, /CSS\.escape\(reservationId\)/);
-  assert.match(source, /sourceRow\.cloneNode\(true\)/);
-  assert.match(source, /sourceOffer\.cloneNode\(true\)/);
-  assert.match(source, /card\.classList\.contains\("owner-reservation-card"\)/);
-  assert.match(source, /row\.classList\.add\("pickup-handoff-owner-row"\)/);
-  assert.match(css, /pickup-handoff-match-row\.pickup-handoff-owner-row/);
-  assert.match(source, /elements\.match\.replaceChildren\(row\)/);
-  assert.match(source, /elements\.match\.hidden = false/);
-  assert.match(source, /elements\.form\.hidden = true/);
-  assert.match(source, /text\(isVerified \? "matched" : "handoffText"\)/);
-  assert.match(css, /\.pickup-handoff-match\s*\{[\s\S]*flex:\s*0 0 auto;[\s\S]*width:\s*100%;/);
-  assert.doesNotMatch(source, /panel\.classList\.add\("open"\)/);
-  assert.match(css, /pickup-handoff-match-row/);
-  assert.match(css, /simple-offer-record \.request-card/);
+  assert.match(source, /HANDOFF_SESSION_TTL_MS = 90 \* 1000/);
+  assert.match(source, /consumeOwnerHandoff\(\)/);
+  assert.match(source, /window\.location\.hash !== "#handoff-" \+ session\.reservationId/);
+  assert.match(source, /user\.id !== session\.ownerId/);
+  assert.match(source, /invoke\("resolve-pickup-pin", \{ pin: session\.pin \}\)/);
+  assert.match(source, /checked\.data\.reservation_id !== session\.reservationId/);
+  assert.doesNotMatch(source, /window\.location\.assign\([^\n]*pin[:=]/);
+  assert.match(source, /verifiedReservationId = session\.reservationId/);
 });
 
 test("mobile pickup handoff copy does not keep the desktop flex basis as vertical height", () => {
@@ -176,13 +167,12 @@ test("pickup UI supports all five languages", () => {
   }
 });
 
-test("offers pickup refresh is coalesced and idempotent so DOM updates cannot loop", () => {
+test("offers pickup refresh remains coalesced and idempotent", () => {
   const source = read(UI);
   assert.match(source, /let ownerPickupRefreshScheduled = false/);
   assert.match(source, /if \(ownerPickupRefreshScheduled\) return/);
   assert.match(source, /window\.requestAnimationFrame\(function \(\) \{/);
-  assert.match(source, /if \(primary\.textContent !== label\) primary\.textContent = label/);
-  assert.match(source, /if \(button\.textContent !== label\) button\.textContent = label/);
+  assert.match(source, /if \(button\.textContent !== text\("confirmAction"\)\)/);
   assert.match(source, /new MutationObserver\(scheduleOwnerPickupRefresh\)/);
   assert.doesNotMatch(source, /attributeFilter:\s*\["class"\]/);
 });

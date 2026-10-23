@@ -630,3 +630,16 @@
     width: 100%;
   }
 }
+
+/* Agreed pickup time is visible without expanding a reservation. */
+.owner-reservation-term .owner-pickup-time {
+  display: block;
+  margin-top: 3px;
+  color: #667a70;
+  font-size: 11px;
+  font-weight: 650;
+}
+.owner-reservation-card.owner-pin-target {
+  border-color: #00835a !important;
+  box-shadow: 0 0 0 2px rgba(0, 131, 90, .12) !important;
+}
