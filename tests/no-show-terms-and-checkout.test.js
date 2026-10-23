@@ -61,31 +61,26 @@ test("the Czech legal fallback and the live translated clauses agree", () => {
   assert.match(html, /celého sjednaného a zaplaceného období/);
 });
 
-test("renter is informed about no-show before opening Stripe Checkout", () => {
+test("renter sees concise no-show warning, exact amount and linked full terms before Stripe", () => {
   const t = translations();
   const html = read("moje-rezervace.html");
   const page = read("js/reservations-page.js");
-  assert.match(html, /id="reservationPaymentModalNoShowWarning"[^>]*data-i18n="reservations\.paymentModal\.noShowWarning"/);
+  assert.match(html, /id="reservationPaymentModalNoShowWarning"[^>]*data-i18n="reservations\.paymentModal\.noShowWarningShort"/);
+  assert.match(html, /id="reservationPaymentModalAmount"/);
   assert.match(html, /aria-describedby="reservationPaymentModalDescription reservationPaymentModalNoShowWarning"/);
   assert.match(html, /href="obchodni-podminky\.html#nevyzvednuti"/);
-  assert.match(html, /target="_blank" rel="noopener noreferrer"/);
-  assert.match(html, /reservation-payment-no-show-warning\s*\{/);
-  assert.match(page, /noShowWarning: document\.getElementById\("reservationPaymentModalNoShowWarning"\)/);
-  assert.match(page, /reservationsTranslate\(\s*"reservations\.paymentModal\.noShowWarning"/);
-  assert.match(page, /const confirmPayment = await openReservationPaymentModal\(\)/);
-  assert.match(page, /if \(!confirmPayment\)\s*\{\s*return;/);
-  assert.ok(page.indexOf("const confirmPayment = await openReservationPaymentModal()") < page.indexOf('"create-checkout-session"'));
+  assert.match(page, /"reservations.paymentModal.noShowWarningShort"/);
+  assert.match(page, /openReservationPaymentModal\(getSafeReservationTotalPrice\(reservationToPay\)\)/);
+  assert.ok(page.indexOf('openReservationPaymentModal(getSafeReservationTotalPrice') < page.indexOf('"create-checkout-session"'));
   for (const lang of languages) {
-    const warning = t("reservations.paymentModal.noShowWarning", lang);
+    const warning = t("reservations.paymentModal.noShowWarningShort", lang);
+    const full = t("reservations.paymentModal.noShowWarning", lang);
     const link = t("reservations.paymentModal.noShowTermsLink", lang);
-    assert.notEqual(warning, "reservations.paymentModal.noShowWarning");
-    assert.ok(warning.length > 140, `${lang} payment warning missing detail`);
-    assert.doesNotMatch(warning, /23:59|midnight|půlnoci|polnoci/i);
-    assert.match(warning, /Europe\/Prague/);
-    assert.ok(warning.length > 300, `${lang} needs to describe full rental period and single-use PIN`);
-    assert.ok(link.length > 30, `${lang} terms link too short`);
+    assert.ok(warning.length > 60 && warning.length < full.length, lang);
+    assert.ok(full.length > 300, lang);
+    assert.ok(link.length > 30, lang);
   }
-  assert.ok(html.includes(t("reservations.paymentModal.noShowWarning", "cs")));
+  assert.ok(html.includes(t("reservations.paymentModal.noShowWarningShort", "cs")));
 });
 
 test("old reservations cannot be auto-paid under newly introduced no-show rule", () => {

@@ -82,7 +82,7 @@ test("wrong-day pickup is rejected and a successful pickup also never initiates 
 test("owner sees a helpful wrong-day PIN message in all five languages", () => {
   assert.equal((pickup.match(/wrongDay: "/g) || []).length, 5);
   assert.match(pickup, /data\.code === "pickup_wrong_day"/);
-  assert.match(pickup, /elements\.feedback\.textContent = text\("wrongDay"\)/);
+  assert.match(pickup, /e\.feedback\.textContent = text\("wrongDay"\)/);
   assert.match(pickup, /setOwnerMessage\(text\("wrongDay"\), "error"\)/);
   assert.match(pickup, /wrongDay: "PIN lze pou/);
 });

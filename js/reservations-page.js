@@ -239,6 +239,7 @@ function reservationsExpirationText(reason) {
       }
       notice.textContent = stripeReturnText(key);
       notice.classList.toggle("error", isError);
+      notice.classList.toggle("processing", !isError);
       notice.setAttribute("role", isError ? "alert" : "status");
       notice.hidden = false;
     }
@@ -323,6 +324,7 @@ function reservationsExpirationText(reason) {
 
       notice.textContent = message;
       notice.classList.toggle("error", isError);
+      notice.classList.toggle("processing", false);
       notice.setAttribute("role", isError ? "alert" : "status");
       notice.hidden = false;
       reservationsNoticeTimer = window.setTimeout(function () {
@@ -925,6 +927,7 @@ return (
       });
     }
 
+    let reservationPaymentModalAmount = null;
     let reservationPaymentModalResolve = null;
     let reservationPaymentModalReturnFocus = null;
 
@@ -934,6 +937,7 @@ return (
         title: document.getElementById("reservationPaymentModalTitle"),
         description: document.getElementById("reservationPaymentModalDescription"),
         noShowWarning: document.getElementById("reservationPaymentModalNoShowWarning"),
+        amount: document.getElementById("reservationPaymentModalAmount"),
         noShowTermsLink: document.getElementById("reservationPaymentModalTermsLink"),
         cancelButton: document.querySelector('[data-reservations-payment-modal-action="cancel"]'),
         confirmButton: document.querySelector('[data-reservations-payment-modal-action="confirm"]')
@@ -957,10 +961,15 @@ return (
         );
       }
 
+      if (elements.amount) {
+        elements.amount.textContent = reservationPaymentModalAmount === null ? "" :
+          formatReservationsMoney(reservationPaymentModalAmount);
+      }
+
       if (elements.noShowWarning) {
         elements.noShowWarning.textContent = reservationsTranslate(
-          "reservations.paymentModal.noShowWarning",
-          "Důležité: PIN lze použít už 2 hodiny před sjednaným převzetím, nejpozději však do sjednaného času vrácení (český čas). Po předání se PIN zneplatní. Nepotvrzené převzetí se po sjednaném čase vrácení uzavře jako nevyzvednuté; platba se automaticky nevrací. Případný oprávněný problém s předáním můžete reklamovat."
+          "reservations.paymentModal.noShowWarningShort",
+          "PIN lze použít 2 hodiny před převzetím až do sjednaného vrácení. Při nevyzvednutí se platba automaticky nevrací; oprávněný problém můžete reklamovat."
         );
       }
 
@@ -1024,7 +1033,8 @@ return (
       }
     }
 
-    function openReservationPaymentModal() {
+    function openReservationPaymentModal(amount) {
+      reservationPaymentModalAmount = amount;
       const elements = getReservationPaymentModalElements();
 
       if (!elements.overlay) {
@@ -1270,7 +1280,14 @@ return (
         return;
       }
 
-      const confirmPayment = await openReservationPaymentModal();
+      const reservationToPay = supabaseReservations.find(function (item) {
+        return String(item.id || item.reservationId) === String(reservationId);
+      });
+      if (!reservationToPay) {
+        showReservationsNotice(reservationsTranslate("reservations.error.notFound", "Rezervace nebyla nalezena."), "error");
+        return;
+      }
+      const confirmPayment = await openReservationPaymentModal(getSafeReservationTotalPrice(reservationToPay));
 
       if (!confirmPayment) {
         return;
@@ -1477,22 +1494,7 @@ return (
       const explanation = getReservationCancellationCutoffText();
 
       if (cutoff && !isReservationCancellationWindowOpen(reservation)) {
-        return `
-          <div class="reservation-cancel-action-stack reservation-cancel-action-stack-locked">
-            <button
-              class="reservation-primary-action reservation-cancel-action reservation-cancel-locked"
-              type="button"
-              disabled
-              aria-disabled="true"
-              title="${escapeHtml(explanation)}"
-            >
-              ${escapeHtml(label)}
-            </button>
-            <div class="reservation-cancel-cutoff-note">
-              ${escapeHtml(explanation)}
-            </div>
-          </div>
-        `;
+        return ""; // No action is available; explain the rule in the reservation detail.
       }
 
       const cutoffAttribute = cutoff
@@ -1656,13 +1658,14 @@ return (
 
     <div class="simple-reservation-date">
       ${escapeHtml(formatReservationsDate(startDate))} – ${escapeHtml(formatReservationsDate(endDate))}
+        ${reservation.pickupTime ? `<small class="reservation-pickup-time">${escapeHtml(reservationsTranslate("reservations.pickupTimeShort", "Převzetí"))}: ${escapeHtml(formatReservationsTime(reservation.pickupTime))}</small>` : ""}
     </div>
 
     <div class="simple-reservation-price">
       ${escapeHtml(formatReservationsMoney(totalPrice))}
     </div>
 
-    <div class="simple-reservation-status status-${escapeHtml(String(normalizedStatus).toLowerCase())}">
+    <div class="simple-reservation-status status-${escapeHtml(waitingForStripe ? "processing" : String(normalizedStatus).toLowerCase())}">
       ${escapeHtml(statusText)}
     </div>
 

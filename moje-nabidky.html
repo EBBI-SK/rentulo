@@ -276,32 +276,6 @@
 
     <section class="owner-debts-section" id="ownerDebtsSection" aria-live="polite" hidden></section>
 
-    <section class="pickup-handoff-entry" id="pickupHandoffEntry" aria-labelledby="pickupHandoffTitle" hidden>
-      <div class="pickup-handoff-copy">
-        <h2 id="pickupHandoffTitle">Předáváte věc nájemci?</h2>
-        <p id="pickupHandoffDescription">Zadejte 6místný PIN od nájemce. Rentulo najde správnou rezervaci za vás.</p>
-        <p class="pickup-handoff-feedback" id="pickupHandoffFeedback" role="status" aria-live="polite"></p>
-      </div>
-
-      <button type="button" class="pickup-handoff-open" id="pickupHandoffOpen">Zadat PIN</button>
-
-      <form class="pickup-handoff-form" id="pickupHandoffForm" novalidate hidden>
-        <input
-          class="pickup-handoff-input"
-          id="pickupHandoffPin"
-          type="text"
-          inputmode="numeric"
-          autocomplete="one-time-code"
-          maxlength="6"
-          pattern="[0-9]{6}"
-          aria-label="6místný PIN"
-        />
-      </form>
-
-      <section class="pickup-handoff-match" id="pickupHandoffMatch" aria-live="polite" hidden></section>
-      <button type="button" class="pickup-handoff-change" id="pickupHandoffChange" hidden>Zadat jiný PIN</button>
-    </section>
-
     <section class="account-list" id="offersList"></section>
 
     <div

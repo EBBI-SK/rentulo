@@ -33,7 +33,7 @@ function renderHeader(page, loggedIn) {
     navGetCurrentUser() { return loggedIn ? { id: "owner-1" } : null; },
     navTranslate(key, fallback) { return fallback; },
     navMobileProfileSummary() { return "<div>Mobile account menu</div>"; },
-    navPinLink() { desktopPin = true; return '<a href="moje-nabidky.html#pickupHandoffEntry">Zadat PIN</a>'; },
+    navPinLink() { desktopPin = true; return '<button data-home-pin-open="true">Zadat PIN</button>'; },
     navProfileControl() { return "<button>Account</button>"; },
     navMobileAccountMenu() { return "<div>Account links</div>"; },
     navLanguageControl() { return "<button>Language</button>"; },
@@ -60,8 +60,9 @@ test("all pages share the simplified header; the existing PIN and account contro
       assert.match(result.html, />Language<\/button>/, page);
       assert.equal(result.mobilePin, true, page);
       if (loggedIn) {
-        assert.equal(result.desktopPin, true, page);
-        assert.match(result.html, /href="moje-nabidky\.html#pickupHandoffEntry"/);
+        assert.equal(result.desktopPin, page === "uvod", page);
+        if (page === "uvod") assert.match(result.html, /data-home-pin-open="true"/);
+        else assert.doesNotMatch(result.html, /data-home-pin-open="true"/);
         assert.match(result.html, />Account<\/button>/);
       } else {
         assert.equal(result.desktopPin, false, page);

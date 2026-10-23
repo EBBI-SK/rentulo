@@ -97,7 +97,7 @@ test("owner's ordinary cancellation is locked at cutoff, without automatic excep
   assert.doesNotMatch(owner, /extraordinary\s*=\s*cutoff/);
   assert.doesNotMatch(owner, /exceptionalReason\s*=\s*!ordinaryWindowOpen/);
   assert.match(owner, /renderOwnerReservationCancellationAction/);
-  assert.match(owner, /reservation-cancel-locked/);
+  assert.match(owner, /if \(cutoff && !isReservationCancellationWindowOpen\(reservation\)\) \{\s*return "";/);
   assert.match(owner, /isReservationCancellationWindowOpen/);
   assert.match(renter, /renderRenterReservationCancellationAction/);
   assert.match(renter, /isReservationCancellationWindowOpen/);

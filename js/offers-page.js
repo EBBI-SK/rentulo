@@ -1819,25 +1819,7 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
 
 
     function disableOwnerReservationCancellationButton(button) {
-      if (!button || button.disabled) {
-        return;
-      }
-
-      const explanation = getReservationCancellationCutoffText();
-      button.disabled = true;
-      button.classList.add("reservation-cancel-locked");
-      button.setAttribute("aria-disabled", "true");
-      button.setAttribute("title", explanation);
-      button.removeAttribute("data-offers-action");
-
-      const actions = button.closest(".row-actions");
-
-      if (actions && !actions.querySelector(".reservation-cancel-cutoff-note")) {
-        const note = document.createElement("div");
-        note.className = "reservation-cancel-cutoff-note";
-        note.textContent = explanation;
-        actions.appendChild(note);
-      }
+      if (button && button.isConnected) button.remove();
     }
 
     function scheduleOwnerReservationCancellationCutoff(button) {
@@ -1897,16 +1879,7 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
       const explanation = getReservationCancellationCutoffText();
 
       if (cutoff && !isReservationCancellationWindowOpen(reservation)) {
-        return [
-          '<button class="small-button light reservation-cancel-action reservation-cancel-locked" type="button" disabled aria-disabled="true" title="',
-          escapeHtml(explanation),
-          '">',
-          escapeHtml(label),
-          '</button>',
-          '<div class="reservation-cancel-cutoff-note">',
-          escapeHtml(explanation),
-          '</div>'
-        ].join("");
+        return ""; // Cutoff enforced by the database; no inactive control in the row.
       }
 
       const cutoffAttribute = cutoff
@@ -2088,6 +2061,7 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
 
             <div class="request-date">
               ${escapeHtml(formatOffersDate(startDate))} – ${escapeHtml(formatOffersDate(endDate))}
+              ${reservation.pickupTime ? `<small class="owner-pickup-time">${escapeHtml(offersTranslate("reservations.pickupTimeShort", "Převzetí"))}: ${escapeHtml(String(reservation.pickupTime).slice(0, 5))}</small>` : ""}
             </div>
 
             <span class="request-status ${getRequestStatusClass(status)}">${escapeHtml(statusText)}</span>

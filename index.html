@@ -6,6 +6,7 @@
 
   <title data-i18n="home.documentTitle">Rentulo - půjčovna věcí</title>
   <link rel="icon" type="image/png" href="assets/rentulo-logo-mark.png" />
+  <link rel="stylesheet" href="css/pickup-security.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-gesture-handling@1.2.2/dist/leaflet-gesture-handling.min.css" />
 
@@ -1552,6 +1553,25 @@
     </section>
   </main>
 
+  <!-- One PIN entry point: homepage only. The PIN never appears in a URL. -->
+  <div class="home-pin-overlay" id="homePinModal" aria-hidden="true" hidden>
+    <section class="home-pin-dialog" role="dialog" aria-modal="true"
+      aria-labelledby="homePinTitle" aria-describedby="homePinDescription">
+      <h2 id="homePinTitle">Zadat PIN</h2>
+      <p id="homePinDescription">Zadejte 6místný PIN od nájemce. Po ověření otevřeme správnou rezervaci.</p>
+      <form id="homePinForm" novalidate>
+        <label id="homePinInputLabel" for="homePinInput">PIN pro předání</label>
+        <input id="homePinInput" type="text" inputmode="numeric" autocomplete="one-time-code"
+          maxlength="6" pattern="[0-9]{6}" required aria-describedby="homePinFeedback" />
+        <p class="home-pin-feedback" id="homePinFeedback" role="status" aria-live="polite"></p>
+        <div class="home-pin-actions">
+          <button type="button" id="homePinClose" class="home-pin-cancel">Zpět</button>
+          <button type="submit" id="homePinSubmit" class="home-pin-confirm">Ověřit PIN</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet-gesture-handling@1.2.2/dist/leaflet-gesture-handling.min.js"></script>
@@ -1561,5 +1581,6 @@
   <script src="js/navigation.js"></script>
   <script src="js/nearby-location.js"></script>
   <script src="js/home-page.js"></script>
+  <script src="js/pickup-security.js"></script>
 </body>
 </html>

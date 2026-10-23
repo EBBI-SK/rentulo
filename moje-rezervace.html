@@ -517,6 +517,30 @@
       font-weight: 700;
       text-decoration: underline;
     }
+    .simple-reservation-date .reservation-pickup-time {
+      display: block;
+      margin-top: 4px;
+      color: #667a70;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .reservation-payment-amount {
+      margin: 7px 0 12px;
+      color: #173f35;
+      font-size: 24px;
+      font-weight: 850;
+    }
+    .reservation-page-notice.processing {
+      background: #f4f8f7 !important;
+      border-color: #cfdfd8 !important;
+      color: #3f5b51 !important;
+    }
+    .reservation-page-notice.processing::before { content: "…" !important; color: #547265 !important; }
+    .simple-reservation-status.status-processing {
+      background: #edf2f1 !important;
+      border: 1px solid #d8e4df !important;
+      color: #526d60 !important;
+    }
   </style>
 </head>
 <body data-navigation-page="moje-rezervace">
@@ -605,11 +629,12 @@
         aria-describedby="reservationPaymentModalDescription reservationPaymentModalNoShowWarning"
       >
         <h2 id="reservationPaymentModalTitle">Potvrdit testovací platbu?</h2>
+        <p id="reservationPaymentModalAmount" class="reservation-payment-amount" aria-live="polite"></p>
         <p id="reservationPaymentModalDescription">
-          Po potvrzení budete přesměrováni na zabezpečenou platební stránku Stripe. Rezervace se označí jako zaplacená až po úspěšném potvrzení platby.
+          Po potvrzení budete přesměrováni na Stripe. Rezervace bude zaplacena až po potvrzení platby.
         </p>
-        <p id="reservationPaymentModalNoShowWarning" class="reservation-payment-no-show-warning" data-i18n="reservations.paymentModal.noShowWarning">
-          Důležité: Jednorázový PIN lze k předání použít už 2 hodiny před sjednaným časem převzetí až do sjednaného času vrácení, tedy poslední den ve stejnou hodinu (Europe/Prague). Po potvrzení předání PIN okamžitě zaniká a konec pronájmu se neposouvá. Pokud si věc do sjednaného času vrácení nevyzvednete, PIN vyprší, rezervace se při nejbližším automatickém zpracování uzavře a Stripe obdrží pokyn k výplatě majiteli. Platba se automaticky nevrací; oprávněný problém s předáním můžete reklamovat.
+        <p id="reservationPaymentModalNoShowWarning" class="reservation-payment-no-show-warning" data-i18n="reservations.paymentModal.noShowWarningShort">
+          PIN lze použít od 2 hodin před převzetím do sjednaného vrácení. Při nevyzvednutí se platba automaticky nevrací; oprávněný problém můžete reklamovat.
         </p>
         <p class="reservation-payment-no-show-terms">
           <a id="reservationPaymentModalTermsLink" href="obchodni-podminky.html#nevyzvednuti" target="_blank" rel="noopener noreferrer" data-i18n="reservations.paymentModal.noShowTermsLink">Podrobnosti: nevyzvednutí věci v obchodních podmínkách</a>

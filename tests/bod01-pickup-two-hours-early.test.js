@@ -116,5 +116,5 @@ test("all five UI locales explain early pickup and the unchanged return deadline
   const terms = read("obchodni-podminky.html");
   const reservation = read("moje-rezervace.html");
   assert.match(terms, /2 hodiny před sjednaným/);
-  assert.match(reservation, /2 hodiny před sjednaným/);
+  assert.match(reservation, /2 hodin před převzetím/);
 });

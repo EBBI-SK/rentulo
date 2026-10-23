@@ -281,17 +281,17 @@ test("My offers gates contact block on existing payment-verified visibility rule
   assert.match(injection, /x&amp;y/);
 });
 
-test("My offers retains original PIN verify -> matched reservation -> explicit handover flow", () => {
+test("My offers shows one action in the matched reservation after homepage PIN verification", () => {
   const flow = read(FLOW);
   const page = read(OFFERS_PAGE);
   const pickup = read(path.join(ROOT, "js", "pickup-security.js"));
-  assert.match(flow, /data-owner-open-pickup/);
-  assert.match(flow, /const open = document\.getElementById\("pickupHandoffOpen"\)/);
-  assert.match(flow, /open\.click\(\)/);
-  assert.match(page, /data-offers-action="mark-picked-up" data-reservation-id="\$\{escapeHtml\(reservationId\)\}"/);
-  assert.match(pickup, /showMatchedReservation\(verifiedReservationId\)/);
-  assert.match(pickup, /row\.querySelectorAll\("\.row-actions button"\)/);
-  assert.match(pickup, /if \(button\.dataset\.offersAction !== "mark-picked-up"\) button\.remove\(\)/);
+  const ownerHtml = read(path.join(ROOT, "moje-nabidky.html"));
+  assert.doesNotMatch(flow, /data-owner-open-pickup/);
+  assert.doesNotMatch(ownerHtml, /id="pickupHandoffEntry"/);
+  assert.match(page, /hidden data-offers-action="mark-picked-up" data-reservation-id="\$\{escapeHtml\(reservationId\)\}"/);
+  assert.match(pickup, /consumeOwnerHandoff\(\)/);
+  assert.match(pickup, /card\.scrollIntoView/);
+  assert.match(pickup, /reservationId === verifiedReservationId/);
   assert.match(pickup, /confirmVerifiedPickup\(button\)/);
   assert.match(pickup, /invoke\("confirm-pickup", \{/);
   assert.doesNotMatch(flow, /invoke\("confirm-pickup"/);
