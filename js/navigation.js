@@ -796,7 +796,7 @@ function navInjectStyles() {
     }
 
     /* Desktop account dropdown trigger: initials and chevron in one shared frame.
-       The mobile/tablet trigger at <=1100px remains unchanged. */
+       The mobile/tablet trigger receives the same shape below. */
     @media (min-width: 1101px) {
       .nav-profile-button {
         height: 43px;
@@ -1035,17 +1035,17 @@ function navInjectStyles() {
 
       .shared-mobile-menu-button.is-profile-trigger {
         position: relative;
-        gap: 4px;
-        min-height: 50px;
-        padding: 1px 2px;
-        border: 0;
-        border-radius: 999px;
-        background: transparent;
+        gap: 6px;
+        min-height: 42px;
+        padding: 0 10px;
+        border: 1px solid #91cbb4;
+        border-radius: 12px;
+        background: rgba(232, 247, 239, .88);
         box-shadow: none;
       }
 
       .shared-mobile-menu-button.is-profile-trigger:hover {
-        background: #edf5f1;
+        background: #dcefe4;
       }
 
       html[data-focus-input="pointer"] .shared-mobile-menu-button.is-profile-trigger:focus,
@@ -1055,14 +1055,20 @@ function navInjectStyles() {
       }
 
       .shared-mobile-menu-button.is-profile-trigger .nav-profile-button-initials {
-        width: 48px;
-        height: 48px;
-        flex-basis: 48px;
+        width: auto;
+        height: auto;
+        flex: 0 0 auto;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        color: #173f35;
+        box-shadow: none;
       }
 
       .shared-mobile-menu-button.is-profile-trigger .nav-notification-badge {
-        top: -3px;
-        left: 37px;
+        top: -6px;
+        right: -6px;
+        left: auto;
       }
 
       .header #mainNav,
