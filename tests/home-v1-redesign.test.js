@@ -46,6 +46,20 @@ test("full headline and map previews are localized in all five Rentulo languages
   }
 });
 
+test("approved homepage layout keeps original assets and search functionality", () => {
+  const search = html.indexOf('<form class="search-box" id="homeSearchForm">');
+  const mapCard = html.indexOf('<aside class="home-map-card">');
+  const map = html.indexOf('id="homeOffersMap"');
+  assert.ok(mapCard < search && search < map, "the search must appear above the map");
+  assert.match(html, /data-i18n="home\.heroSupportingText"/);
+  assert.match(html, /home-copy \.home-text/);
+  assert.match(html, /justify-content: space-between/);
+  assert.match(html, /home-map-previews \{ margin-top: auto; \}/);
+  assert.match(html, /home-copy,\s*body\[data-navigation-page="uvod"\] \.home-map-card \{ display: contents; \}/);
+  const locales = languageSource.match(/"home\.heroSupportingText"/g) || [];
+  assert.equal(locales.length, 5, "the supporting copy is localized in all five languages");
+});
+
 test("desktop and mobile PIN shortcuts open the original owner PIN entry", () => {
   assert.match(navigation, /function navPinLink\(\)/);
   assert.match(navigation, /function navEnsureMobilePinShortcut\(nav\)/);
