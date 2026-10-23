@@ -524,10 +524,10 @@
   justify-content: center;
   min-height: 30px;
   padding: 6px 9px;
-  border: 1px solid #efbd8e;
+  border: 1px solid #f0b2bb;
   border-radius: 999px;
-  background: #fff3e8;
-  color: #8a4b16;
+  background: #fff0f1;
+  color: #9d2634;
   font-size: 11px;
   line-height: 1.15;
   font-weight: 900;
@@ -546,7 +546,7 @@
   padding: 8px 14px;
   border: 0;
   border-radius: 10px;
-  background: #ff6a00;
+  background: #00835a;
   color: #fff;
   font: inherit;
   font-size: 12px;
@@ -556,7 +556,7 @@
 }
 
 .owner-debt-pay:hover {
-  background: #e85f00;
+  background: #006846;
 }
 
 .owner-debt-pay:disabled {
@@ -567,15 +567,15 @@
 .owner-debt-overdue-warning {
   margin: 0 0 12px;
   padding: 10px 12px;
-  border: 1px solid rgba(180, 83, 9, 0.28);
+  border: 1px solid rgba(220, 53, 69, 0.27);
   border-radius: 10px;
-  background: rgba(255, 247, 237, 0.9);
+  background: rgba(255, 240, 241, 0.94);
   font-size: 14px;
   line-height: 1.45;
 }
 
 .owner-debt-row.is-overdue {
-  border-color: rgba(180, 83, 9, 0.28);
+  border-color: rgba(220, 53, 69, 0.27);
 }
 
 .owner-debt-status.is-overdue {

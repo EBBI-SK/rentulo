@@ -38,7 +38,7 @@
     }
 
     .back-link {
-      color: #3f8f2d !important;
+      color: #176747 !important;
     }
 
     .account-page-header {
@@ -59,13 +59,13 @@
       top: 50% !important;
       right: 0 !important;
       transform: translateY(-50%);
-      background: #ff6a00 !important;
+      background: #00835a !important;
       color: #ffffff !important;
       box-shadow: none !important;
     }
 
     .top-action-button:hover {
-      background: #e85f00 !important;
+      background: #006846 !important;
     }
 
     .reservation-page-notice {
@@ -143,18 +143,23 @@
       border: 1px solid transparent;
     }
 
-    .status-pending,
+    .status-pending {
+      background: #eef1f2 !important;
+      border-color: #dae2df !important;
+      color: #42564e !important;
+    }
+
     .status-approved {
-      background: #fff3e8 !important;
-      border-color: #f2c79f !important;
-      color: #8a4b16 !important;
+      background: #fff0f1 !important;
+      border-color: #f0b2bb !important;
+      color: #9d2634 !important;
     }
 
     .status-paid,
     .status-picked_up {
       background: #eef8e9 !important;
       border-color: #c9e2d6 !important;
-      color: #4f9f2f !important;
+      color: #176747 !important;
     }
 
     .status-returned,
@@ -232,28 +237,28 @@
       gap: 10px;
     }
 
-    /* Payment needs the renter's attention, so it follows the shared orange action semantics. */
+    /* Payment action uses Rentulo green; the pending-payment status uses attention red. */
     .simple-reservation-actions .reservation-primary-action.orange {
-      background: #ff6a00 !important;
+      background: #00835a !important;
       color: #ffffff !important;
-      border: 1px solid #ff6a00 !important;
+      border: 1px solid #00835a !important;
     }
 
     .simple-reservation-actions .reservation-primary-action.orange:hover {
-      background: #e85f00 !important;
-      border-color: #e85f00 !important;
+      background: #006846 !important;
+      border-color: #006846 !important;
     }
 
-    /* The payment confirmation keeps the same orange attention hierarchy. */
+    /* Payment confirmation uses the same green action palette. */
     .reservation-modal-pay {
-      background: #ff6a00 !important;
-      border-color: #ff6a00 !important;
+      background: #00835a !important;
+      border-color: #00835a !important;
       color: #ffffff !important;
     }
 
     .reservation-modal-pay:hover {
-      background: #e85f00 !important;
-      border-color: #e85f00 !important;
+      background: #006846 !important;
+      border-color: #006846 !important;
     }
 
     /* Expanded reservation: one calm block, without repeating the whole row visually. */
@@ -317,9 +322,9 @@
     }
 
     .payment-box.waiting {
-      background: #fff3e8 !important;
-      border-color: #f2c79f !important;
-      color: #8a4b16 !important;
+      background: #fff0f1 !important;
+      border-color: #f0b2bb !important;
+      color: #9d2634 !important;
     }
 
     .contact-box.hidden {

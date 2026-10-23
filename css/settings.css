@@ -11,7 +11,7 @@
 .back-link {
   display: inline-block;
   margin-bottom: 8px;
-  color: #3f8e28;
+  color: #176747;
   font-size: 14px;
   font-weight: 800;
   text-decoration: none;
@@ -262,12 +262,12 @@ html[data-focus-input="pointer"] .field select:focus {
 
 .primary-button {
   border: 0;
-  background: #FF6A00;
+  background: #00835a;
   color: #fff;
 }
 
 .primary-button:hover {
-  background: #E85F00;
+  background: #006846;
 }
 
 .primary-button:disabled {
@@ -307,7 +307,7 @@ html[data-focus-input="pointer"] .field select:focus {
 
 .message.success {
   display: block;
-  color: #3f8e28;
+  color: #176747;
 }
 
 .message.error {
