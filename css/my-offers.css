@@ -94,7 +94,7 @@ button {
 .back-link {
   display: inline-block;
   margin-bottom: 8px;
-  color: #4f9f2f;
+  color: #176747;
   font-size: 14px;
   font-weight: 800;
 }
@@ -134,7 +134,7 @@ h1 {
   position: absolute;
   right: 0;
   top: 14px;
-  background: #FF6A00;
+  background: #00835a;
   color: white;
   padding: 10px 18px;
   border-radius: 12px;
@@ -143,7 +143,7 @@ h1 {
 }
 
 .top-action-button:hover {
-  background: #E85F00;
+  background: #006846;
 }
 
 .account-message {
@@ -166,7 +166,7 @@ h1 {
 .account-message strong {
   display: block;
   margin-bottom: 3px;
-  color: #4f9f2f;
+  color: #176747;
   font-size: 14px;
 }
 
@@ -229,8 +229,8 @@ h1 {
   justify-content: center;
   width: fit-content;
   border-radius: 999px;
-  background: #fff3e8;
-  color: #8a4b16;
+  background: #fff0f1;
+  color: #9d2634;
   padding: 5px 9px;
   font-size: 12px;
   font-weight: 900;
@@ -240,7 +240,7 @@ h1 {
 .request-status.paid,
 .request-status.active {
   background: #eef8e9;
-  color: #4f9f2f;
+  color: #176747;
 }
 
 .request-status.finished {
@@ -297,12 +297,12 @@ h1 {
 }
 
 .small-button.orange {
-  background: #FF6A00;
+  background: #00835a;
   color: white;
 }
 
 .small-button.orange:hover {
-  background: #E85F00;
+  background: #006846;
 }
 
 .small-button:disabled {
@@ -456,16 +456,16 @@ h1 {
 .request-note {
   margin: 0;
   border-radius: 11px;
-  background: #fff3e8;
+  background: #eef1f2;
   padding: 8px 10px;
   font-size: 13px;
   font-weight: 800;
-  color: #8a4b16;
+  color: #42564e;
 }
 
 .request-note.success {
   background: #eef8e9;
-  color: #4f9f2f;
+  color: #176747;
 }
 
 .request-contact-box {
@@ -513,7 +513,7 @@ h1 {
 
 .account-empty-state a {
   display: inline-flex;
-  background: #FF6A00;
+  background: #00835a;
   color: white;
   border-radius: 12px;
   padding: 11px 18px;
@@ -612,12 +612,12 @@ h1 {
 
 .offer-primary-button.urgent,
 .offer-primary-button.orange {
-  background: #FF6A00;
+  background: #00835a;
 }
 
 .offer-primary-button.urgent:hover,
 .offer-primary-button.orange:hover {
-  background: #E85F00;
+  background: #006846;
 }
 
 .offer-primary-button.secondary {
@@ -771,8 +771,8 @@ body.offers-modal-open {
   align-items: center;
   padding: 7px 10px;
   border-radius: 9px;
-  background: #fff3e8;
-  color: #884819;
+  background: #fff0f1;
+  color: #9d2634;
   font-size: 13px;
   font-weight: 700;
 }

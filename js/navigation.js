@@ -1085,14 +1085,14 @@ function navInjectStyles() {
         min-height: 42px;
         padding: 0 14px;
         border-radius: 10px;
-        background: #FF6A00 !important;
+        background: #00835a !important;
         color: #ffffff !important;
         font-weight: 800 !important;
-        box-shadow: 0 10px 24px rgba(255, 106, 0, 0.16) !important;
+        box-shadow: 0 10px 24px rgba(0, 112, 75, 0.14) !important;
       }
 
       #mainNav .btn-register:hover {
-        background: #E85F00 !important;
+        background: #006846 !important;
         color: #ffffff !important;
       }
 

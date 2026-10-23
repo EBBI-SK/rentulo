@@ -94,7 +94,7 @@
   padding: 9px 16px;
   border: 0;
   border-radius: 11px;
-  background: #ff6a00;
+  background: #00835a;
   color: #fff;
   font: inherit;
   font-weight: 900;
@@ -102,7 +102,7 @@
 }
 
 .pickup-handoff-open:hover {
-  background: #e85f00;
+  background: #006846;
 }
 
 .pickup-handoff-form {
@@ -142,7 +142,7 @@
 }
 
 .pickup-handoff-feedback.success {
-  color: #3f8f2d;
+  color: #176747;
 }
 
 .pickup-handoff-match {
@@ -192,12 +192,12 @@
 }
 
 .pickup-confirm-ready {
-  background: #ff6a00 !important;
+  background: #00835a !important;
   color: #fff !important;
 }
 
 .pickup-confirm-ready:hover {
-  background: #e85f00 !important;
+  background: #006846 !important;
 }
 
 body[data-navigation-page="moje-nabidky"] .simple-offer-record > .request-panel {

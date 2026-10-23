@@ -11,7 +11,7 @@
 .back-link {
   display: inline-block;
   margin-bottom: 8px;
-  color: #3f8e28;
+  color: #176747;
   font-size: 14px;
   font-weight: 800;
   text-decoration: none;
@@ -35,10 +35,10 @@
   min-height: 28px;
   margin-bottom: 10px;
   padding: 5px 10px;
-  border: 1px solid #f0c6a5;
+  border: 1px solid #dae2df;
   border-radius: 999px;
-  background: #fff4eb;
-  color: #8a4b16;
+  background: #eef1f2;
+  color: #42564e;
   font-size: 12px;
   font-weight: 800;
   line-height: 1;
@@ -63,10 +63,10 @@
 .privacy-warning {
   margin: 14px 0;
   padding: 14px 16px;
-  border: 1px solid #f0c6a5;
+  border: 1px solid #dae2df;
   border-radius: 13px;
-  background: #fff8f2;
-  color: #8a4b16;
+  background: #eef1f2;
+  color: #42564e;
   font-size: 13px;
   font-weight: 700;
   line-height: 1.5;

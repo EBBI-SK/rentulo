@@ -9,8 +9,6 @@
   --rentulo-green: #176747;
   --rentulo-green-dark: #0e5037;
   --rentulo-green-soft: #e9f4ee;
-  --rentulo-orange: #ff6a00;
-  --rentulo-orange-hover: #e85f00;
   --rentulo-line: #e5e9e5;
   --rentulo-font: "Manrope", Arial, sans-serif;
 }
@@ -231,19 +229,19 @@ textarea {
     padding: 0 20px !important;
     border: 0 !important;
     border-radius: 14px !important;
-    background: var(--rentulo-orange) !important;
+    background: var(--rentulo-action-green) !important;
     color: #ffffff !important;
     font-size: 14px !important;
     font-weight: 800 !important;
     line-height: 1 !important;
     text-decoration: none !important;
-    box-shadow: 0 10px 24px rgba(255, 106, 0, 0.16) !important;
+    box-shadow: 0 10px 24px rgba(0, 112, 75, 0.14) !important;
     transition: transform 0.16s ease, background 0.16s ease !important;
   }
 
   .btn-register:hover,
   .logout-link:hover {
-    background: var(--rentulo-orange-hover) !important;
+    background: var(--rentulo-action-green-hover) !important;
     color: #ffffff !important;
     transform: translateY(-1px);
   }
@@ -259,8 +257,8 @@ textarea {
 }
 
 /* Shared action-color semantics for My offers / My reservations.
-   Orange = attention/action required, green = positive state change,
-   soft mint = neutral navigation/detail action. */
+   Green = action, red = action required or error, neutral gray = passive,
+   soft mint = navigation/detail or positive action. */
 .simple-reservation-actions
   .reservation-primary-action[data-reservations-action="toggle-detail"],
 .simple-offer-record:has(> .request-panel.open)
@@ -530,7 +528,8 @@ body[data-navigation-page="uvod"] .home-map-zoom-controls {
 }
 
 /* V1 visual consistency: action buttons use the same green as "Nabidnout cokoli".
-   Deliberately exclude orange map pins, notifications, and status/warning badges. */
+   Warnings and unread notification counters use the red attention palette;
+   the map pins use green. */
 :root {
   --rentulo-action-green: #00835a;
   --rentulo-action-green-hover: #006846;
