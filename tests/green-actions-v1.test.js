@@ -6,8 +6,11 @@ const load = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 const theme = load('css/rentulo-theme.css');
 const home = load('index.html');
 const offer = load('nabidnout.html');
+const navigation = load('js/navigation.js');
+const myOffers = load('css/my-offers.css');
+const howItWorks = load('jak-to-funguje.html');
 
-test('orange CTA buttons use brand green without altering map markers or alerts', () => {
+test('action buttons use the approved Rentulo green', () => {
   assert.match(theme, /--rentulo-action-green: #00835a;/);
   for (const control of ['.btn-register', '.search-button', '#results-search-button', '.btn-primary',
     '.owner-debt-pay', '.pickup-confirm-ready', '.reservation-primary-action.orange',
@@ -15,8 +18,34 @@ test('orange CTA buttons use brand green without altering map markers or alerts'
     assert.ok(theme.includes(control), `${control} has a sitewide action-color rule`);
   }
   assert.match(theme, /body \.search-button:hover/);
-  assert.match(home, /\.home-map-marker[\s\S]*?background: var\(--orange\)/);
-  assert.match(theme, /\.nav-notification-badge[\s\S]*?var\(--rentulo-orange\)/);
+});
+
+test('map markers are green and header/menu notification counters are red on all pages', () => {
+  assert.match(home, /\.home-map-marker\s*\{[^}]*background: #00835a;/);
+  for (const file of [home, theme, myOffers, navigation]) {
+    assert.match(file, /\.nav-notification-badge\s*\{[^}]*background: #DC3545(?: !important)?;/);
+  }
+  for (const file of [home, theme, myOffers]) {
+    assert.match(file, /\.nav-account-link:hover \.nav-notification-badge\s*\{[^}]*background: #DC3545(?: !important)?;/);
+  }
+  assert.match(navigation, /\.nav-menu-notification-badge\s*\{[^}]*background: #DC3545;/);
+  assert.match(howItWorks, /\.nav-notification-badge\s*\{[^}]*background: #DC3545 !important;/);
+  assert.match(theme, /body \.nav-menu-notification-badge,[\s\S]*?--rentulo-attention-red/);
+});
+
+test('orange visual states are semantic on offers and reservations', () => {
+  assert.match(theme, /--rentulo-attention-red: #DC3545;/);
+  assert.match(theme, /--rentulo-attention-soft: #FFF0F1;/);
+  assert.match(theme, /--rentulo-passive-bg: #EEF1F2;/);
+  for (const selector of [
+    'body[data-navigation-page="moje-rezervace"] .status-pending',
+    'body[data-navigation-page="moje-rezervace"] .status-approved',
+    'body[data-navigation-page="moje-rezervace"] .payment-box.waiting',
+    'body[data-navigation-page="moje-rezervace"] .reservation-page-notice.error',
+    'body[data-navigation-page="moje-nabidky"] .request-status:not(.paid):not(.active):not(.finished)',
+    'body[data-navigation-page="moje-nabidky"] .owner-debt-status:not(.is-paid):not(.is-waived)',
+    'body[data-navigation-page="moje-nabidky"] .request-note',
+  ]) assert.ok(theme.includes(selector), `${selector} gets semantic attention or neutral palette`);
 });
 
 test('mobile search and offer CTAs match; transport checkbox has pickup checkbox dimensions', () => {

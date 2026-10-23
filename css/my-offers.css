@@ -729,12 +729,12 @@ body.offers-modal-open {
 }
 
 .nav-notification-badge {
-  background: #FF6A00 !important;
+  background: #DC3545 !important;
   color: white !important;
 }
 
 .nav-account-link:hover .nav-notification-badge {
-  background: #E85F00 !important;
+  background: #DC3545 !important;
 }
 
 /* Return issue: deliberately separate from ordinary cancellation or no-show. */
