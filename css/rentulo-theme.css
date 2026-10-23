@@ -249,12 +249,12 @@ textarea {
   }
 
   .nav-notification-badge {
-    background: var(--rentulo-orange) !important;
+    background: #DC3545 !important;
     color: #ffffff !important;
   }
 
   .nav-account-link:hover .nav-notification-badge {
-    background: var(--rentulo-orange-hover) !important;
+    background: #DC3545 !important;
   }
 }
 
@@ -606,4 +606,94 @@ body .result-button,
 body .empty-results-button,
 body .btn-primary {
   box-shadow: 0 10px 24px rgba(0, 112, 75, 0.14) !important;
+}
+
+/* V1 color semantics: green actions/map, red action-required alerts, neutral passive states.
+   This is deliberately visual only: no status, event, PIN, or layout logic changes. */
+:root {
+  --rentulo-attention-red: #DC3545;
+  --rentulo-attention-soft: #FFF0F1;
+  --rentulo-attention-border: #F0B2BB;
+  --rentulo-attention-ink: #9D2634;
+  --rentulo-passive-bg: #EEF1F2;
+  --rentulo-passive-border: #DAE2DF;
+  --rentulo-passive-ink: #42564E;
+}
+
+/* Unread counters in header and inside the account menu, including mobile. */
+body .nav-notification-badge,
+body .nav-menu-notification-badge,
+body .nav-account-link:hover .nav-notification-badge {
+  background: var(--rentulo-attention-red) !important;
+  color: #fff !important;
+}
+
+/* Waiting for an owner is informational; approved-but-unpaid needs a renter action. */
+body[data-navigation-page="moje-rezervace"] .status-pending,
+body[data-navigation-page="moje-rezervace"] .contact-box.hidden {
+  background: var(--rentulo-passive-bg) !important;
+  border-color: var(--rentulo-passive-border) !important;
+  color: var(--rentulo-passive-ink) !important;
+}
+body[data-navigation-page="moje-rezervace"] .contact-box.hidden strong {
+  color: var(--rentulo-passive-ink) !important;
+}
+body[data-navigation-page="moje-rezervace"] .status-approved,
+body[data-navigation-page="moje-rezervace"] .payment-box.waiting,
+body[data-navigation-page="moje-rezervace"] .reservation-state-box.rejected,
+body[data-navigation-page="moje-rezervace"] .reservation-page-notice.error {
+  background: var(--rentulo-attention-soft) !important;
+  border-color: var(--rentulo-attention-border) !important;
+  color: var(--rentulo-attention-ink) !important;
+}
+body[data-navigation-page="moje-rezervace"] .payment-box.waiting strong,
+body[data-navigation-page="moje-rezervace"] .reservation-state-box.rejected strong,
+body[data-navigation-page="moje-rezervace"] .reservation-page-notice.error::before {
+  color: var(--rentulo-attention-ink) !important;
+}
+
+/* Owner requests and open debts need attention; simple request notes remain passive. */
+body[data-navigation-page="moje-nabidky"] .request-status:not(.paid):not(.active):not(.finished),
+body[data-navigation-page="moje-nabidky"] .owner-debt-status:not(.is-paid):not(.is-waived) {
+  background: var(--rentulo-attention-soft) !important;
+  border-color: var(--rentulo-attention-border) !important;
+  color: var(--rentulo-attention-ink) !important;
+}
+body[data-navigation-page="moje-nabidky"] .request-note {
+  background: var(--rentulo-passive-bg) !important;
+  border-color: var(--rentulo-passive-border) !important;
+  color: var(--rentulo-passive-ink) !important;
+}
+
+/* Read-only booking states and warnings on other pages use the same semantics. */
+body .status-pending,
+body .status-draft,
+body[data-navigation-page="detail"] .badge.draft,
+body[data-navigation-page="detail"] .privacy-box {
+  background: var(--rentulo-passive-bg) !important;
+  border-color: var(--rentulo-passive-border) !important;
+  color: var(--rentulo-passive-ink) !important;
+}
+body[data-navigation-page="detail"] .privacy-box strong {
+  color: var(--rentulo-passive-ink) !important;
+}
+body .status-approved,
+body[data-navigation-page="detail"] .badge.unavailable,
+body[data-navigation-page="detail"] .availability-panel.unavailable,
+body[data-navigation-page="detail"] .availability-box.unavailable,
+body[data-navigation-page="detail"] .gps-note.missing,
+body[data-navigation-page="detail"] .message-card.warning,
+body[data-navigation-page="detail"] .primary-button.date-conflict,
+body[data-navigation-page="historie"] .history-success-notice[role="alert"],
+body[data-navigation-page="vysledky"] .nearby-results-banner.warning,
+body[data-navigation-page="edit-nabidka"] .edit-price-lock-notice {
+  background: var(--rentulo-attention-soft) !important;
+  border-color: var(--rentulo-attention-border) !important;
+  color: var(--rentulo-attention-ink) !important;
+}
+body[data-navigation-page="detail"] .availability-panel.unavailable strong,
+body[data-navigation-page="detail"] .availability-box.unavailable strong,
+body[data-navigation-page="detail"] .message-card.warning strong,
+body[data-navigation-page="vysledky"] .nearby-results-banner.warning span {
+  color: var(--rentulo-attention-ink) !important;
 }

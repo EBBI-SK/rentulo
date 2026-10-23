@@ -808,7 +808,7 @@ function navInjectStyles() {
       padding: 0 5px;
       border: 2px solid var(--rentulo-page, #f5f8f6);
       border-radius: 999px;
-      background: #FF6A00;
+      background: #DC3545;
       color: #ffffff;
       font-size: 10px;
       line-height: 1;
@@ -826,7 +826,7 @@ function navInjectStyles() {
       justify-content: center;
       padding: 0 5px;
       border-radius: 999px;
-      background: #FF6A00;
+      background: #DC3545;
       color: #ffffff;
       font-size: 10px;
       line-height: 1;
