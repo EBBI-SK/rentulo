@@ -32,7 +32,7 @@
   font-weight: 800;
 }
 
-/* Reservation search and status selector keep their values across re-render/i18n. */
+/* Reservation search is shown only when there are more than five active reservations. */
 .owner-reservations-section {
   display: grid;
   gap: 11px;
@@ -41,12 +41,11 @@
 .owner-reservations-toolbar[hidden] { display: none !important; }
 .owner-reservations-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 320px) minmax(0, 180px);
+  grid-template-columns: minmax(0, 320px);
   align-items: center;
   gap: 9px;
 }
-.owner-reservation-search,
-.owner-reservation-filter {
+.owner-reservation-search {
   width: 100%;
   min-width: 0;
   min-height: 42px;
@@ -61,11 +60,9 @@
   box-shadow: 0 4px 12px rgba(23, 63, 53, .025);
 }
 .owner-reservation-search:focus-visible,
-.owner-reservation-filter:focus-visible,
 .owner-offer-manage-summary:focus-visible,
 .owner-offer-manage-panel a:focus-visible,
 .owner-offer-manage-panel button:focus-visible,
-.owner-completed-link:focus-visible,
 .owner-offer-detail-link:focus-visible {
   outline: 2px solid #176747;
   outline-offset: 2px;
@@ -108,13 +105,6 @@
   background: #fff;
   color: #66736e;
   font-size: 13px;
-}
-.owner-completed-link {
-  color: #176747;
-  font-size: 13px;
-  font-weight: 800;
-  text-decoration: underline;
-  text-underline-offset: 3px;
 }
 
 /* Keep listing actions in the existing management dropdown. */
@@ -408,7 +398,7 @@
 @media (max-width: 560px) {
   .owner-section-header h2 { font-size: 17px; }
   .owner-reservations-toolbar { grid-template-columns: 1fr; }
-  .owner-reservation-search, .owner-reservation-filter { min-height: 40px; }
+  .owner-reservation-search { min-height: 40px; }
   .owner-offer-row { grid-template-columns: 1fr auto !important; gap: 6px 9px !important; }
   .owner-offer-row .simple-offer-main { grid-column: 1 / -1; }
   .owner-offer-row .simple-offer-actions { grid-column: 1 / -1; justify-content: flex-end !important; }

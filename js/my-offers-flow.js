@@ -65,57 +65,54 @@
       activeReservations: "Aktivní rezervace",
       attention: "K vy\u0159\u00edzen\u00ed", waiting: "Ostatn\u00ed aktivn\u00ed",
       search: "Hledat \u010d\u00edslo, p\u0159edm\u011bt nebo n\u00e1jemce",
-      filter: "Stav rezervace", all: "V\u0161echny stavy",
       pending: "\u010cek\u00e1 na potvrzen\u00ed", approved: "\u010cek\u00e1 na platbu",
       paid: "Zaplaceno", picked_up: "P\u0159ed\u00e1no",
-      noMatches: "\u017d\u00e1dn\u00e9 rezervace neodpov\u00eddaj\u00ed hled\u00e1n\u00ed nebo filtru.",
+      noMatches: "\u017d\u00e1dn\u00e9 rezervace neodpov\u00eddaj\u00ed hled\u00e1n\u00ed.",
       handover: "Předat věc", receiveBack: "Převzít zpět",
-      completed: "Dokon\u010den\u00e9 rezervace", history: "Otev\u0159\u00edt historii"
+      completed: "Dokon\u010den\u00e9 rezervace"
     },
     sk: {
       activeReservations: "Aktívne rezervácie",
       attention: "Na vybavenie", waiting: "Ostatn\u00e9 akt\u00edvne",
       search: "H\u013eada\u0165 \u010d\u00edslo, predmet alebo n\u00e1jomcu",
-      filter: "Stav rezerv\u00e1cie", all: "V\u0161etky stavy",
       pending: "\u010cak\u00e1 na potvrdenie", approved: "\u010cak\u00e1 na platbu",
       paid: "Zaplaten\u00e9", picked_up: "Odovzdan\u00e9",
-      noMatches: "\u017diadne rezerv\u00e1cie nezodpovedaj\u00fa h\u013eadaniu alebo filtru.",
+      noMatches: "\u017diadne rezerv\u00e1cie nezodpovedaj\u00fa h\u013eadaniu.",
       handover: "Odovzdať vec", receiveBack: "Prevziať späť",
-      completed: "Dokon\u010den\u00e9 rezerv\u00e1cie", history: "Otvori\u0165 hist\u00f3riu"
+      completed: "Dokon\u010den\u00e9 rezerv\u00e1cie"
     },
     en: {
       activeReservations: "Active reservations",
       attention: "Needs attention", waiting: "Other active reservations",
-      search: "Search number, item or renter", filter: "Reservation status", all: "All statuses",
+      search: "Search number, item or renter",
       pending: "Awaiting approval", approved: "Awaiting payment", paid: "Paid", picked_up: "Handed over",
-      noMatches: "No reservations match your search or filter.",
+      noMatches: "No reservations match your search.",
       handover: "Hand over item", receiveBack: "Receive item back",
-      completed: "Completed reservations", history: "Open history"
+      completed: "Completed reservations"
     },
     de: {
       activeReservations: "Aktive Reservierungen",
       attention: "Zu erledigen", waiting: "Weitere aktive Reservierungen",
-      search: "Nummer, Gegenstand oder Mieter suchen", filter: "Reservierungsstatus",
-      all: "Alle Status", pending: "Wartet auf Best\u00e4tigung",
+      search: "Nummer, Gegenstand oder Mieter suchen",
+      pending: "Wartet auf Best\u00e4tigung",
       approved: "Wartet auf Zahlung", paid: "Bezahlt", picked_up: "\u00dcbergeben",
-      noMatches: "Keine Reservierungen entsprechen der Suche oder dem Filter.",
+      noMatches: "Keine Reservierungen entsprechen der Suche.",
       handover: "Gegenstand übergeben", receiveBack: "Gegenstand zurücknehmen",
-      completed: "Abgeschlossene Reservierungen", history: "Verlauf \u00f6ffnen"
+      completed: "Abgeschlossene Reservierungen"
     },
     pl: {
       activeReservations: "Aktywne rezerwacje",
       attention: "Do za\u0142atwienia", waiting: "Pozosta\u0142e aktywne rezerwacje",
-      search: "Szukaj numeru, przedmiotu lub najemcy", filter: "Status rezerwacji",
-      all: "Wszystkie statusy", pending: "Czeka na zatwierdzenie",
+      search: "Szukaj numeru, przedmiotu lub najemcy",
+      pending: "Czeka na zatwierdzenie",
       approved: "Czeka na p\u0142atno\u015b\u0107", paid: "Op\u0142acona", picked_up: "Przekazana",
-      noMatches: "Brak rezerwacji pasuj\u0105cych do wyszukiwania lub filtra.",
+      noMatches: "Brak rezerwacji pasuj\u0105cych do wyszukiwania.",
       handover: "Przekaż przedmiot", receiveBack: "Odbierz przedmiot z powrotem",
-      completed: "Zako\u0144czone rezerwacje", history: "Otw\u00f3rz histori\u0119"
+      completed: "Zako\u0144czone rezerwacje"
     }
   };
 
   const ATTENTION_STATUSES = new Set(["pending", "picked_up", "paid"]);
-  const FILTER_STATUSES = ["all", "pending", "approved", "paid", "picked_up"];
 
   function normalizeSearch(value) {
     return String(value || "").normalize("NFD")
@@ -140,8 +137,7 @@
     return String(first.number || "").localeCompare(String(second.number || ""));
   }
 
-  function matchesReservation(data, query, statusFilter) {
-    if (statusFilter && statusFilter !== "all" && data.status !== statusFilter) return false;
+  function matchesReservation(data, query) {
     const search = normalizeSearch(query);
     if (!search) return true;
     return normalizeSearch([
@@ -156,7 +152,6 @@
   if (typeof document === "undefined") return;
 
   let searchQuery = "";
-  let statusFilter = "all";
   let scheduled = false;
   let applying = false;
 
@@ -384,21 +379,13 @@
     });
 
     const search = root.querySelector("#ownerReservationSearch");
-    const filter = root.querySelector("#ownerReservationStatus");
     if (search) {
       search.placeholder = label("search");
       search.setAttribute("aria-label", label("search"));
     }
-    if (filter) {
-      filter.setAttribute("aria-label", label("filter"));
-      Array.from(filter.options).forEach(function (option) {
-        setText(option, label(option.value));
-      });
-    }
     root.querySelectorAll(".owner-reservation-group-title").forEach(function (heading) {
       setText(heading, label(heading.dataset.groupLabel));
     });
-    setText(root.querySelector(".owner-completed-link"), label("history"));
   }
 
   function readReservationData(card) {
@@ -423,19 +410,7 @@
     input.value = searchQuery;
     input.placeholder = label("search");
     input.setAttribute("aria-label", label("search"));
-    const select = document.createElement("select");
-    select.id = "ownerReservationStatus";
-    select.className = "owner-reservation-filter";
-    select.setAttribute("aria-label", label("filter"));
-    FILTER_STATUSES.forEach(function (status) {
-      const option = document.createElement("option");
-      option.value = status;
-      option.textContent = label(status);
-      select.appendChild(option);
-    });
-    select.value = statusFilter;
     toolbar.appendChild(input);
-    toolbar.appendChild(select);
     return toolbar;
   }
 
@@ -457,20 +432,27 @@
   function applyReservationFilters(root) {
     const section = root.querySelector(":scope > .owner-reservations-section");
     if (!section) return;
+    const total = section.querySelectorAll(".owner-reservation-card").length;
+    // Search is useful only for more than five active reservations. If the
+    // count drops to five, clear the old query so no row stays invisibly filtered.
+    const canSearch = total > 5;
+    const toolbar = section.querySelector(".owner-reservations-toolbar");
+    if (toolbar) toolbar.hidden = !canSearch;
+    if (!canSearch && searchQuery) {
+      searchQuery = "";
+      const searchInput = section.querySelector("#ownerReservationSearch");
+      if (searchInput) searchInput.value = "";
+    }
     let shown = 0;
-    let total = 0;
     section.querySelectorAll(".owner-reservation-group").forEach(function (group) {
       let groupShown = 0;
       group.querySelectorAll(".owner-reservation-card").forEach(function (card) {
-        total++;
-        const matches = matchesReservation(readReservationData(card), searchQuery, statusFilter);
+        const matches = matchesReservation(readReservationData(card), searchQuery);
         card.hidden = !matches;
         if (matches) { groupShown++; shown++; }
       });
       group.hidden = groupShown === 0;
     });
-    const toolbar = section.querySelector(".owner-reservations-toolbar");
-    if (toolbar) toolbar.hidden = total === 0;
     const empty = section.querySelector(".owner-reservations-empty");
     if (empty) {
       empty.hidden = shown > 0;
@@ -570,14 +552,9 @@
       count.textContent = String(reservationCards.length);
       headingWithCount.appendChild(count);
       header.appendChild(headingWithCount);
-      const historyLink = document.createElement("a");
-      historyLink.className = "owner-completed-link";
-      historyLink.href = "historie.html";
-      historyLink.textContent = label("history");
-      header.appendChild(historyLink);
       section.appendChild(header);
       const toolbar = createReservationToolbar();
-      toolbar.hidden = reservationCards.length === 0;
+      toolbar.hidden = reservationCards.length <= 5;
       section.appendChild(toolbar);
       section.appendChild(createReservationGroup("attention", attention));
       section.appendChild(createReservationGroup("waiting", waiting));
@@ -632,12 +609,6 @@
     root.addEventListener("input", function (event) {
       if (event.target && event.target.id === "ownerReservationSearch") {
         searchQuery = event.target.value;
-        applyReservationFilters(root);
-      }
-    });
-    root.addEventListener("change", function (event) {
-      if (event.target && event.target.id === "ownerReservationStatus") {
-        statusFilter = FILTER_STATUSES.includes(event.target.value) ? event.target.value : "all";
         applyReservationFilters(root);
       }
     });
