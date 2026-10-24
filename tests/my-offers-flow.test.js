@@ -79,14 +79,13 @@ test("My offers search matches reservation number, offer number, renter and name
     offer: "Test Pila", renter: "Ji\u0159\u00ed \u010Cern\u00fd"
   };
   for (const query of ["R-000040", "r-000040", "N-000001", "test pila", "jiri cerny"]) {
-    assert.equal(matchesReservation(item, query, "all"), true, `Expected match for ${query}`);
+    assert.equal(matchesReservation(item, query), true, `Expected match for ${query}`);
   }
-  assert.equal(matchesReservation(item, "R-000040", "paid"), false);
-  assert.equal(matchesReservation(item, "unknown", "pending"), false);
-  assert.equal(matchesReservation(item, "", "pending"), true);
+  assert.equal(matchesReservation(item, "unknown"), false);
+  assert.equal(matchesReservation(item, ""), true);
 });
 
-test("My offers renders action-first rows, a five-language filter and a separate history link", () => {
+test("My offers renders action-first rows, search only and no duplicate history link", () => {
   const flow = read(FLOW);
   const page = read(OFFERS_PAGE);
   const css = read(CSS);
@@ -94,9 +93,8 @@ test("My offers renders action-first rows, a five-language filter and a separate
   assert.match(flow, /ATTENTION_STATUSES = new Set\(\["pending", "picked_up", "paid"\]\)/);
   assert.match(flow, /createReservationToolbar\(/);
   assert.match(flow, /ownerReservationSearch/);
-  assert.match(flow, /ownerReservationStatus/);
-  assert.match(flow, /statusFilter = FILTER_STATUSES\.includes/);
-  assert.match(flow, /historyLink\.href = "historie\.html"/);
+  assert.doesNotMatch(flow, /ownerReservationStatus|FILTER_STATUSES|statusFilter/);
+  assert.doesNotMatch(flow, /historyLink|owner-completed-link/);
   assert.match(flow, /owner-reservation-card/);
   assert.match(page, /data-owner-status="\$\{escapeHtml\(normalizeReservationStatus\(status\)\)\}"/);
   assert.match(page, /data-owner-number="\$\{escapeHtml\(reservation\.reservationNumber \|\| ""\)\}"/);
@@ -147,16 +145,19 @@ test("My offers shows listings first unless an existing reservation needs owner 
   assert.match(flow, /root\.insertBefore\(section, offersList\.nextSibling\)/);
 });
 
-test("My offers hides zero-reservation search and filter, with a compact empty message and history link", () => {
+test("My offers hides search until six active reservations and keeps empty state compact", () => {
   const flow = read(FLOW);
   const css = read(CSS);
 
-  assert.match(flow, /toolbar\.hidden = reservationCards\.length === 0/);
-  assert.match(flow, /if \(toolbar\) toolbar\.hidden = total === 0/);
+  assert.match(flow, /toolbar\.hidden = reservationCards\.length <= 5/);
+  assert.match(flow, /const canSearch = total > 5/);
+  assert.match(flow, /if \(toolbar\) toolbar\.hidden = !canSearch/);
+  assert.match(flow, /if \(!canSearch && searchQuery\) \{/);
   assert.match(css, /\.owner-reservations-toolbar\[hidden\] \{ display: none !important; \}/);
   assert.match(flow, /Zatím nemáte žádné aktivní rezervace/);
   assert.match(flow, /Aktivní rezervace/);
-  assert.match(flow, /header\.appendChild\(historyLink\)/);
+  assert.doesNotMatch(flow, /header\.appendChild\(historyLink\)/);
+  assert.doesNotMatch(flow, /ownerReservationStatus|Otev\\u0159\\u00edt historii/);
   assert.doesNotMatch(flow, /completedTitle = document\.createElement/);
   for (const language of ["cs", "sk", "en", "de", "pl"]) {
     const entry = flow.match(new RegExp(`\\b${language}: \\{\\n\\s+activeReservations:`));
@@ -181,9 +182,10 @@ test("My offers opens existing public detail from the active offer photo and nam
 });
 
 
-test("My offers reservation toolbar is compact on desktop and full-width on mobile", () => {
+test("My offers search is compact on desktop and full-width on mobile", () => {
   const css = read(CSS);
-  assert.match(css, /\.owner-reservations-toolbar \{\s*display: grid;\s*grid-template-columns: minmax\(0, 320px\) minmax\(0, 180px\);/);
+  assert.match(css, /\.owner-reservations-toolbar \{\s*display: grid;\s*grid-template-columns: minmax\(0, 320px\);/);
+  assert.doesNotMatch(css, /owner-reservation-filter|owner-completed-link/);
   assert.match(css, /@media \(max-width: 560px\) \{[\s\S]*?\.owner-reservations-toolbar \{ grid-template-columns: 1fr; \}/);
 });
 

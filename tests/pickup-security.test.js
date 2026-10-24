@@ -4,6 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const vm = require("node:vm");
 
 const ROOT = path.resolve(__dirname, "..");
 const GET_PIN = path.join(ROOT, "supabase", "functions", "get-pickup-pin", "index.ts");
@@ -125,7 +126,8 @@ test("owner enters PIN on homepage only, with a single accessible modal", () => 
 test("paid handover button is enabled only for the verified matching owner row", () => {
   const source = read(UI);
   const css = read(CSS);
-  assert.match(source, /const isVerified = Boolean\(card && verifiedPin && reservationId === verifiedReservationId\)/);
+  assert.match(source, /const isVerified = Boolean\(card && verifiedPin && activeOwnerHandoff &&/);
+  assert.match(source, /reservationId === verifiedReservationId && !ownerIsOffline\(\)/);
   assert.match(source, /button\.hidden = !isVerified/);
   assert.match(source, /button\.classList\.add\("pickup-confirm-ready"\)/);
   assert.match(source, /card\.scrollIntoView/);
@@ -140,7 +142,7 @@ test("owner PIN navigation consumes short-lived proof and revalidates it on arri
   assert.match(source, /window\.location\.hash !== "#handoff-" \+ session\.reservationId/);
   assert.match(source, /user\.id !== session\.ownerId/);
   assert.match(source, /invoke\("resolve-pickup-pin", \{ pin: session\.pin \}\)/);
-  assert.match(source, /checked\.data\.reservation_id !== session\.reservationId/);
+  assert.match(source, /checked\.data\.reservation_id === session\.reservationId/);
   assert.doesNotMatch(source, /window\.location\.assign\([^\n]*pin[:=]/);
   assert.match(source, /verifiedReservationId = session\.reservationId/);
 });
@@ -175,4 +177,147 @@ test("offers pickup refresh remains coalesced and idempotent", () => {
   assert.match(source, /if \(button\.textContent !== text\("confirmAction"\)\)/);
   assert.match(source, /new MutationObserver\(scheduleOwnerPickupRefresh\)/);
   assert.doesNotMatch(source, /attributeFilter:\s*\["class"\]/);
+});
+
+
+test("verified owner PIN survives refresh, reconnects safely and clears after handover", async () => {
+  const reservationId = "11111111-1111-4111-8111-111111111111";
+  const ownerId = "22222222-2222-4222-8222-222222222222";
+  const pin = "123456";
+  const time = { now: Date.parse("2026-10-24T14:00:00Z") };
+  const sessionStorage = new Map([
+    ["rentuloVerifiedPickupHandoff", JSON.stringify({
+      reservationId, ownerId, pin, createdAt: time.now
+    })]
+  ]);
+  const serverCalls = [];
+
+  function makePage(online = true) {
+    const handlers = { window: {}, document: {} };
+    const frames = [];
+    const timers = new Map();
+    let timerCounter = 0;
+    const classList = { add() {}, remove() {}, toggle() {} };
+    const card = { classList, scrollIntoView() {} };
+    const button = {
+      hidden: true, isConnected: true, disabled: false, textContent: "",
+      dataset: { reservationId }, classList, focus() {},
+      closest(selector) { return selector === ".owner-reservation-card" ? card : null; }
+    };
+    const message = { textContent: "", classList };
+    const offersList = {};
+    const window = {
+      navigator: { onLine: online },
+      location: { hash: "#handoff-" + reservationId, replace() {} },
+      getRentuloLanguage() { return "cs"; },
+      getSupabaseClient() {
+        return { functions: { async invoke(name, { body }) {
+          serverCalls.push({ name, body });
+          return { error: null, data: name === "confirm-pickup"
+            ? { status: "picked_up" }
+            : { status: "verified", reservation_id: reservationId } };
+        } } };
+      },
+      sessionStorage: {
+        getItem(key) { return sessionStorage.get(key) ?? null; },
+        setItem(key, value) { sessionStorage.set(key, value); },
+        removeItem(key) { sessionStorage.delete(key); }
+      },
+      addEventListener(name, listener) {
+        (handlers.window[name] ||= []).push(listener);
+      },
+      requestAnimationFrame(callback) { frames.push(callback); },
+      setTimeout(callback) { const id = ++timerCounter; timers.set(id, callback); return id; },
+      clearTimeout(id) { timers.delete(id); }
+    };
+    const document = {
+      hidden: false, documentElement: { lang: "cs" },
+      getElementById(id) {
+        return id === "offersList" ? offersList : id === "accountMessage" ? message : null;
+      },
+      querySelectorAll(selector) {
+        return selector === '[data-offers-action="mark-picked-up"]' ? [button] : [];
+      },
+      addEventListener(name, listener) {
+        (handlers.document[name] ||= []).push(listener);
+      }
+    };
+    const FakeDate = class extends Date { static now() { return time.now; } };
+    vm.runInNewContext(read(UI), {
+      document, window, Date: FakeDate,
+      getCurrentSupabaseUser: async () => ({ id: ownerId }),
+      MutationObserver: class { observe() {} }
+    });
+    (handlers.document.DOMContentLoaded || []).forEach((callback) => callback());
+
+    return {
+      window, document, button, message,
+      fire(name, event = {}) {
+        for (const callback of handlers.window[name] || []) callback(event);
+      },
+      async flush() {
+        for (let i = 0; i < 5; i++) {
+          await new Promise((resolve) => setImmediate(resolve));
+          while (frames.length) frames.shift()();
+        }
+      },
+      clickHandover() {
+        const event = {
+          target: { closest(selector) {
+            return selector === '[data-offers-action="mark-picked-up"]' ? button : null;
+          } },
+          preventDefault() {}, stopImmediatePropagation() {}
+        };
+        (handlers.document.click || []).forEach((callback) => callback(event));
+      },
+      runExpiry() {
+        for (const callback of [...timers.values()]) callback();
+      }
+    };
+  }
+
+  const firstPage = makePage();
+  await firstPage.flush();
+  assert.equal(firstPage.button.hidden, false, "first arrival must unlock the matching paid row");
+  assert.equal(sessionStorage.has("rentuloVerifiedPickupHandoff"), false);
+  assert.equal(sessionStorage.has("rentuloOwnerPickupResume"), true);
+  assert.equal(serverCalls.filter((call) => call.name === "resolve-pickup-pin").length, 1);
+
+  const refreshed = makePage();
+  assert.equal(refreshed.button.hidden, true, "refresh must not trust sessionStorage before server recheck");
+  await refreshed.flush();
+  assert.equal(refreshed.button.hidden, false, "server recheck restores action after refresh");
+  assert.equal(serverCalls.filter((call) => call.name === "resolve-pickup-pin").length, 2);
+
+  refreshed.window.navigator.onLine = false;
+  refreshed.fire("offline");
+  await refreshed.flush();
+  assert.equal(refreshed.button.hidden, true);
+  assert.match(refreshed.message.textContent, /Připojení se přerušilo/);
+  assert.equal(sessionStorage.has("rentuloOwnerPickupResume"), true);
+
+  refreshed.window.navigator.onLine = true;
+  refreshed.fire("online");
+  await refreshed.flush();
+  assert.equal(refreshed.button.hidden, false, "server must verify again after reconnect");
+  assert.equal(serverCalls.filter((call) => call.name === "resolve-pickup-pin").length, 3);
+
+  refreshed.clickHandover();
+  await refreshed.flush();
+  assert.equal(serverCalls.filter((call) => call.name === "confirm-pickup").length, 1);
+  assert.equal(sessionStorage.has("rentuloOwnerPickupResume"), false,
+    "successful handover must clear the transient PIN");
+});
+
+test("a resumed PIN cannot stay active beyond 30 minutes", async () => {
+  const source = read(UI);
+  assert.match(source, /OWNER_RESUME_TTL_MS = 30 \* 60 \* 1000/);
+  assert.match(source, /validOwnerHandoff\(activeOwnerHandoff, OWNER_RESUME_TTL_MS\)/);
+  assert.match(source, /ownerExpiryTimer = window\.setTimeout/);
+  assert.match(source, /window\.sessionStorage\.setItem\(OWNER_RESUME_KEY/);
+  assert.match(source, /window\.sessionStorage\.removeItem\(OWNER_RESUME_KEY/);
+  assert.match(source, /window\.addEventListener\("online"/);
+  assert.match(source, /window\.addEventListener\("offline"/);
+  assert.doesNotMatch(source, /window\.localStorage\.setItem\(OWNER_RESUME_KEY/);
+  assert.match(source, /forgetOwnerHandoff\(\);[\s\S]*?window\.setTimeout\(function \(\) \{ window\.location\.replace/);
 });

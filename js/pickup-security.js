@@ -30,7 +30,9 @@
       success: "Předáno. Rezervace pokračuje až do vrácení věci.",
       wrongDay: "PIN lze použít nejdříve 2 hodiny před sjednaným převzetím a nejpozději do sjednaného času vrácení (český čas).",
       tooEarly: "Předání lze potvrdit nejdříve 2 hodiny před sjednaným časem převzetí.",
-      genericError: "Předání se nepodařilo potvrdit. Zkuste to prosím znovu."
+      genericError: "Předání se nepodařilo potvrdit. Zkuste to prosím znovu.",
+      restoreOffline: "Připojení se přerušilo. Po jeho obnovení Rentulo znovu ověří PIN.",
+      restoreExpired: "Ověření PIN vypršelo. Zadejte PIN znovu na úvodní stránce."
     },
     sk: {
       pinTitle: "PIN na prevzatie",
@@ -60,7 +62,9 @@
       success: "Odovzdané. Rezervácia pokračuje až do vrátenia veci.",
       wrongDay: "PIN možno použiť najskôr 2 hodiny pred dohodnutým prevzatím a najneskôr do dohodnutého času vrátenia (český čas).",
       tooEarly: "Odovzdanie možno potvrdiť najskôr 2 hodiny pred dohodnutým časom prevzatia.",
-      genericError: "Odovzdanie sa nepodarilo potvrdiť. Skúste to prosím znova."
+      genericError: "Odovzdanie sa nepodarilo potvrdiť. Skúste to prosím znova.",
+      restoreOffline: "Pripojenie sa prerušilo. Po jeho obnovení Rentulo znova overí PIN.",
+      restoreExpired: "Overenie PIN vypršalo. Zadajte PIN znova na úvodnej stránke."
     },
     en: {
       pinTitle: "Pickup PIN",
@@ -90,7 +94,9 @@
       success: "Handed over. The reservation now continues until the item is returned.",
       wrongDay: "The PIN can be used from 2 hours before scheduled pickup until the scheduled return time (Czech time).",
       tooEarly: "Handover can be confirmed no earlier than 2 hours before scheduled pickup.",
-      genericError: "Handover could not be confirmed. Please try again."
+      genericError: "Handover could not be confirmed. Please try again.",
+      restoreOffline: "Connection interrupted. Rentulo will verify the PIN again when you reconnect.",
+      restoreExpired: "PIN verification expired. Enter the PIN again on the homepage."
     },
     de: {
       pinTitle: "PIN für die Übergabe",
@@ -120,7 +126,9 @@
       success: "Übergeben. Die Reservierung läuft nun bis zur Rückgabe weiter.",
       wrongDay: "Die PIN kann ab 2 Stunden vor der vereinbarten Abholzeit bis zur vereinbarten Rückgabezeit verwendet werden (tschechische Zeit).",
       tooEarly: "Die Übergabe kann frühestens 2 Stunden vor der vereinbarten Abholzeit bestätigt werden.",
-      genericError: "Die Übergabe konnte nicht bestätigt werden. Bitte versuchen Sie es erneut."
+      genericError: "Die Übergabe konnte nicht bestätigt werden. Bitte versuchen Sie es erneut.",
+      restoreOffline: "Verbindung unterbrochen. Rentulo prüft die PIN erneut, sobald die Verbindung wiederhergestellt ist.",
+      restoreExpired: "Die PIN-Prüfung ist abgelaufen. Geben Sie die PIN erneut auf der Startseite ein."
     },
     pl: {
       pinTitle: "PIN odbioru",
@@ -150,7 +158,9 @@
       success: "Przekazano. Rezerwacja trwa teraz do momentu zwrotu przedmiotu.",
       wrongDay: "PIN można wykorzystać od 2 godzin przed uzgodnioną godziną odbioru do uzgodnionej godziny zwrotu (czas czeski).",
       tooEarly: "Przekazanie można potwierdzić najwcześniej 2 godziny przed uzgodnioną godziną odbioru.",
-      genericError: "Nie udało się potwierdzić przekazania. Spróbuj ponownie."
+      genericError: "Nie udało się potwierdzić przekazania. Spróbuj ponownie.",
+      restoreOffline: "Połączenie zostało przerwane. Rentulo ponownie zweryfikuje PIN po przywróceniu połączenia.",
+      restoreExpired: "Weryfikacja PIN wygasła. Wpisz PIN ponownie na stronie głównej."
     }
   };
 
@@ -160,6 +170,11 @@
   let focusedOwnerReservation = false;
   const HANDOFF_SESSION_KEY = "rentuloVerifiedPickupHandoff";
   const HANDOFF_SESSION_TTL_MS = 90 * 1000;
+  const OWNER_RESUME_KEY = "rentuloOwnerPickupResume";
+  const OWNER_RESUME_TTL_MS = 30 * 60 * 1000;
+  let activeOwnerHandoff = null;
+  let ownerRestoreInFlight = false;
+  let ownerExpiryTimer = null;
 
   function language() {
     const value = typeof window.getRentuloLanguage === "function"
@@ -311,30 +326,95 @@
     }
   }
 
+  function validOwnerHandoff(session, maxAge) {
+    const age = Date.now() - Number(session && session.createdAt);
+    return Boolean(session &&
+      /^[a-f0-9-]{36}$/i.test(String(session.reservationId || "")) &&
+      /^\d{6}$/.test(String(session.pin || "")) &&
+      /^[a-f0-9-]{36}$/i.test(String(session.ownerId || "")) &&
+      Number.isFinite(session.createdAt) && age >= 0 && age <= maxAge);
+  }
+
   function consumeOwnerHandoff() {
     try {
       const raw = window.sessionStorage.getItem(HANDOFF_SESSION_KEY);
       window.sessionStorage.removeItem(HANDOFF_SESSION_KEY);
       if (!raw) return null;
-      const candidate = JSON.parse(raw);
-      if (!candidate || !/^[a-f0-9-]{36}$/i.test(String(candidate.reservationId || "")) ||
-          !/^\d{6}$/.test(String(candidate.pin || "")) ||
-          !/^[a-f0-9-]{36}$/i.test(String(candidate.ownerId || "")) ||
-          !Number.isFinite(candidate.createdAt) ||
-          Date.now() - candidate.createdAt < 0 ||
-          Date.now() - candidate.createdAt > HANDOFF_SESSION_TTL_MS) return null;
-      return candidate;
+      const session = JSON.parse(raw);
+      return validOwnerHandoff(session, HANDOFF_SESSION_TTL_MS) ? session : null;
     } catch (_) {
       return null;
     }
   }
 
+  function clearOwnerResume() {
+    try { window.sessionStorage.removeItem(OWNER_RESUME_KEY); } catch (_) { /* storage blocked */ }
+    if (ownerExpiryTimer !== null) {
+      window.clearTimeout(ownerExpiryTimer);
+      ownerExpiryTimer = null;
+    }
+  }
+
+  function readOwnerResume() {
+    try {
+      const raw = window.sessionStorage.getItem(OWNER_RESUME_KEY);
+      if (!raw) return null;
+      const session = JSON.parse(raw);
+      if (validOwnerHandoff(session, OWNER_RESUME_TTL_MS)) return session;
+    } catch (_) { /* expired or invalid storage */ }
+    clearOwnerResume();
+    return null;
+  }
+
+  function saveOwnerResume(session) {
+    if (!validOwnerHandoff(session, OWNER_RESUME_TTL_MS)) return false;
+    try {
+      window.sessionStorage.setItem(OWNER_RESUME_KEY, JSON.stringify(session));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function resetOwnerVerification() {
+    verifiedReservationId = "";
+    verifiedPin = "";
+    activeOwnerHandoff = null;
+    scheduleOwnerPickupRefresh();
+  }
+
+  function forgetOwnerHandoff() {
+    clearOwnerResume();
+    resetOwnerVerification();
+  }
+
+  function scheduleOwnerExpiry(session) {
+    if (ownerExpiryTimer !== null) window.clearTimeout(ownerExpiryTimer);
+    const remaining = Math.max(0, session.createdAt + OWNER_RESUME_TTL_MS - Date.now());
+    ownerExpiryTimer = window.setTimeout(function () {
+      if (!readOwnerResume() || (activeOwnerHandoff &&
+          !validOwnerHandoff(activeOwnerHandoff, OWNER_RESUME_TTL_MS))) {
+        forgetOwnerHandoff();
+        setOwnerMessage(text("restoreExpired"), "error");
+      }
+    }, remaining + 5);
+  }
+
+  function ownerIsOffline() {
+    return Boolean(window.navigator && window.navigator.onLine === false);
+  }
+
   function updateOwnerPickupButtons() {
+    if (activeOwnerHandoff && !validOwnerHandoff(activeOwnerHandoff, OWNER_RESUME_TTL_MS)) {
+      forgetOwnerHandoff();
+      setOwnerMessage(text("restoreExpired"), "error");
+    }
     const buttons = document.querySelectorAll('[data-offers-action="mark-picked-up"]');
     buttons.forEach(function (button) {
       const reservationId = button.dataset.reservationId || "";
       const card = button.closest(".owner-reservation-card");
-      const isVerified = Boolean(card && verifiedPin && reservationId === verifiedReservationId);
+      const isVerified = Boolean(card && verifiedPin && activeOwnerHandoff &&
+        reservationId === verifiedReservationId && !ownerIsOffline());
       if (button.hidden === isVerified) button.hidden = !isVerified;
       if (isVerified) {
         if (button.textContent !== text("confirmAction")) button.textContent = text("confirmAction");
@@ -359,6 +439,17 @@
     if (confirmingPickup) return;
     const reservationId = button.dataset.reservationId || "";
     if (!reservationId || reservationId !== verifiedReservationId || !/^\d{6}$/.test(verifiedPin)) return;
+    if (!activeOwnerHandoff || activeOwnerHandoff.reservationId !== reservationId ||
+        !validOwnerHandoff(activeOwnerHandoff, OWNER_RESUME_TTL_MS)) {
+      forgetOwnerHandoff();
+      setOwnerMessage(text("restoreExpired"), "error");
+      return;
+    }
+    if (ownerIsOffline()) {
+      resetOwnerVerification();
+      setOwnerMessage(text("restoreOffline"), "error");
+      return;
+    }
 
     confirmingPickup = true;
     button.disabled = true;
@@ -371,8 +462,7 @@
       });
 
       if (result.ok && result.data && result.data.status === "picked_up") {
-        verifiedPin = "";
-        verifiedReservationId = "";
+        forgetOwnerHandoff();
         setOwnerMessage(text("success"), "success");
         window.setTimeout(function () { window.location.replace("moje-nabidky.html"); }, 500);
         return;
@@ -386,9 +476,13 @@
       } else if (data.code === "locked") {
         const time = formatLockTime(data.locked_until);
         setOwnerMessage(time ? text("locked") + " " + text("lockedUntil", { time: time }) : text("locked"), "error");
+      } else if (result.status === 0 || result.status >= 500 || ownerIsOffline()) {
+        setOwnerMessage(text("restoreOffline"), "error");
       } else {
         setOwnerMessage(text("genericError"), "error");
       }
+    } catch (_) {
+      setOwnerMessage(text("restoreOffline"), "error");
     } finally {
       confirmingPickup = false;
       if (button.isConnected) {
@@ -626,27 +720,81 @@
     });
   }
 
-  async function initializeOwnerHandoff() {
-    if (!document.getElementById("offersList")) return;
-    const session = consumeOwnerHandoff();
+  async function restoreOwnerHandoff() {
+    if (ownerRestoreInFlight || !document.getElementById("offersList")) return;
+    const session = readOwnerResume();
     if (!session || window.location.hash !== "#handoff-" + session.reservationId) return;
-    const user = typeof getCurrentSupabaseUser === "function"
-      ? await getCurrentSupabaseUser() : null;
-    if (!user || user.id !== session.ownerId) return;
-
-    // A sessionStorage value alone is not authorization. Reverify against the
-    // authenticated owner's actual Stripe-paid reservation before enabling UI.
-    const checked = await invoke("resolve-pickup-pin", { pin: session.pin });
-    if (!checked.ok || !checked.data || checked.data.status !== "verified" ||
-        checked.data.reservation_id !== session.reservationId) {
-      setOwnerMessage(text("genericError"), "error");
+    if (ownerIsOffline()) {
+      resetOwnerVerification();
+      setOwnerMessage(text("restoreOffline"), "error");
       return;
     }
-    verifiedReservationId = session.reservationId;
-    verifiedPin = session.pin;
-    focusedOwnerReservation = false;
-    setOwnerMessage(text("matched"), "success");
-    scheduleOwnerPickupRefresh();
+
+    ownerRestoreInFlight = true;
+    try {
+      const user = typeof getCurrentSupabaseUser === "function"
+        ? await getCurrentSupabaseUser() : null;
+      if (ownerIsOffline()) {
+        resetOwnerVerification();
+        setOwnerMessage(text("restoreOffline"), "error");
+        return;
+      }
+      if (!user) {
+        // The auth user lookup may fail during a network interruption.
+        // Keep the proof but never enable the button without an authenticated owner.
+        resetOwnerVerification();
+        setOwnerMessage(text("restoreOffline"), "error");
+        return;
+      }
+      if (user.id !== session.ownerId) {
+        forgetOwnerHandoff();
+        setOwnerMessage(text("genericError"), "error");
+        return;
+      }
+
+      // sessionStorage alone never unlocks handover: the server must still
+      // confirm the owner's paid reservation and the same valid PIN.
+      const checked = await invoke("resolve-pickup-pin", { pin: session.pin });
+      if (!validOwnerHandoff(session, OWNER_RESUME_TTL_MS)) {
+        forgetOwnerHandoff();
+        setOwnerMessage(text("restoreExpired"), "error");
+      } else if (checked.ok && checked.data && checked.data.status === "verified" &&
+          checked.data.reservation_id === session.reservationId && !ownerIsOffline()) {
+        activeOwnerHandoff = session;
+        verifiedReservationId = session.reservationId;
+        verifiedPin = session.pin;
+        focusedOwnerReservation = false;
+        setOwnerMessage(text("matched"), "success");
+      } else if (checked.status === 0 || checked.status >= 500 || ownerIsOffline()) {
+        resetOwnerVerification();
+        setOwnerMessage(text("restoreOffline"), "error");
+      } else {
+        forgetOwnerHandoff();
+        setOwnerMessage(text("genericError"), "error");
+      }
+    } catch (_) {
+      resetOwnerVerification();
+      setOwnerMessage(text("restoreOffline"), "error");
+    } finally {
+      ownerRestoreInFlight = false;
+      scheduleOwnerPickupRefresh();
+    }
+  }
+
+  function initializeOwnerHandoff() {
+    if (!document.getElementById("offersList")) return;
+    const incoming = consumeOwnerHandoff();
+    const session = incoming || readOwnerResume();
+    if (!session || window.location.hash !== "#handoff-" + session.reservationId) {
+      clearOwnerResume();
+      if (!session && window.location.hash.startsWith("#handoff-")) {
+        setOwnerMessage(text("restoreExpired"), "error");
+      }
+      return;
+    }
+    if (incoming) saveOwnerResume(incoming);
+    scheduleOwnerExpiry(session);
+    void restoreOwnerHandoff();
   }
 
   let ownerPickupRefreshScheduled = false;
@@ -658,6 +806,23 @@
       updateOwnerPickupButtons();
     });
   }
+
+  window.addEventListener("offline", function () {
+    if (!document.getElementById("offersList") || !readOwnerResume()) return;
+    resetOwnerVerification();
+    setOwnerMessage(text("restoreOffline"), "error");
+  });
+  window.addEventListener("online", function () {
+    if (document.getElementById("offersList")) void restoreOwnerHandoff();
+  });
+  window.addEventListener("focus", function () {
+    if (document.getElementById("offersList") && !verifiedPin) void restoreOwnerHandoff();
+  });
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden && document.getElementById("offersList") && !verifiedPin) {
+      void restoreOwnerHandoff();
+    }
+  });
 
   document.addEventListener("click", interceptOwnerPickup, true);
   document.addEventListener("rentuloLanguageChanged", function () {
