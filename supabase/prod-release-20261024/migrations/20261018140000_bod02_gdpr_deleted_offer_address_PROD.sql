@@ -52,7 +52,7 @@ $prod_project$;
 -- Original: CHECK (char_length(trim(city)) BETWEEN 1 AND 100).
 -- Active and draft offers remain subject to the same original rule.
 alter table public.offers
-  drop constraint offers_city_length_check;
+  drop constraint if exists offers_city_length_check;
 alter table public.offers
   add constraint offers_city_length_check
   check (
@@ -63,7 +63,7 @@ alter table public.offers
 -- Original: CHECK (char_length(trim(postal_code)) BETWEEN 1 AND 20).
 -- A deleted offer may clear the field; non-deleted offers cannot.
 alter table public.offers
-  drop constraint offers_postal_code_length_check;
+  drop constraint if exists offers_postal_code_length_check;
 alter table public.offers
   add constraint offers_postal_code_length_check
   check (
