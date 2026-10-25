@@ -91,7 +91,7 @@
     },
     {
       "file": "20261011103000_guard_pickup_and_remove_test_payment.sql",
-      "sha256": "4f71f80579447fd90de4218d9632a441aa6667f347fc5150df33ec6c1065f435"
+      "sha256": "98c62a7c1da7466981d72e28db58a928d7c446da0a71ed2b9467ad22340268f5"
     },
     {
       "file": "20261011170000_limit_pickup_pin_to_pickup_day.sql",
