@@ -1,32 +1,39 @@
 # Rentulo V1 – BOD 2: riadené nasadenie SQL do Supabase PROD
 
 **Vypracované:** 25. 10. 2026  
-**Stav:** **PRIPRAVENÝ POSTUP. PROD SQL NEBOLO NASADENÉ. SAMOSTATNÝ SÚHLAS POVINNÝ.**  
-**GitHub `main`:** `e4be9fbfd0e18fb15473984bf0a883d72c35bfa2` (PR #59)  
+**Stav 25. 10. 2026:** **76 migrácií v PROD; 1 z 38 nových nasadená, druhá zlyhala na REVOKE neexistujúcej funkcie. Opravené SQL pripravené; zostáva 37 migrácií. Ďalší PROD push len po novom dry-run a kontrole.**  
+**GitHub `main` pred opravou:** `55e34da87d8c084f6d727ba1264db338b123515c` (PR #60); pôvodný SQL release zdroj bol zmrazený na `e4be9fbfd0e18fb15473984bf0a883d72c35bfa2`.  
 **GitHub `production`:** `a79d3bb93bbf37a7d36c35484fadcdeb461419ea` (bez zmeny)  
 **Supabase TEST:** `vspposovhdgvbeukoivh` – nepripájať ani neupravovať.  
 **Supabase PROD:** `tfvgxrdjrpicgtvovehl` – zatiaľ neverejné.
 
 ## 1. Presný rozsah
 
-Tento balík pridáva iba **štyri súbory** do projektu:
+Pôvodný prípravný balík (PR #60) pridal tieto **štyri súbory** do projektu:
 
 1. `supabase/prod-release-20261024/deploy-manifest.json` – zmrazený inventár 75 + 38 SQL a SHA-256 každej PROD SQL.
 2. `scripts/prepare-prod-sql-release.mjs` – iba lokálna príprava oddeleného pracovného priestoru. **Nepripája sa** k Supabase.
 3. `tests/prod-sql-deploy-preparation.test.mjs` – jeden cielený offline test.
 4. `docs/BOD2_SUPABASE_PROD_SQL_NASADENIE_20261025.md` – tento postup.
 
-Existujúcich **38 produkčných SQL** zostáva nezmenených v `supabase/prod-release-20261024/migrations/`. Existujúce TEST migrácie `supabase/migrations/` tiež zostávajú nezmenené. Nevytvárame ďalšie Edge Functions, cron joby ani API kľúče.
+**Oprava po čiastočnom nasadení:** mení sa iba druhé PROD SQL `20261011103000_guard_pickup_and_remove_test_payment.sql` (odstránenie neplatného `REVOKE`), jeho SHA-256 v manifeste, tento postup a jediný cielený test. Prvú už vykonanú migráciu `20261009130000` nemeníme. TEST migrácie `supabase/migrations/` zostávajú nezmenené. Nevytvárame ďalšie Edge Functions, cron joby ani API kľúče.
+
+## Opravná poznámka po chybe druhej migrácie (25. 10. 2026)
+
+- Skutočný PROD výsledok SQL Editoru: `pocet_migracii=76`, `posledna_migracia=20261009130000`, `prva_zapisana=true`, `druha_zapisana=false`, `testovacia_funkcia_existuje=false`.
+- `prod_final_guard` už predtým odstránil `public.mark_my_reservation_paid_test(uuid)`; preto následné `REVOKE ALL ON FUNCTION` zlyhalo. Oprava tento jeden `REVOKE` odstránila, ale ponechala `DROP FUNCTION IF EXISTS`, ktorý toleruje oba stavy a odstráni prípadnú funkciu aj s jej oprávneniami.
+- Druhá migrácia obsahuje `BEGIN` a zlyhala na druhom SQL príkaze; nebola zaznamenaná ako vykonaná. **Nepoužívať `migration repair`, neopakovať prvú migráciu, nemazať zoznam migrácií ani nevykonávať restore.**
+- Pokračovanie je povolené iba po **novom** prípravnom priečinku z aktualizovaného manifestu, read-only kontrole 76 verzií a novom `db push --dry-run` s presne 37 pending. Ostatné SQL súbory zostávajú nezmenené.
 
 ## 2. Overený stav PROD pred prípravou
 
 - Supabase Pro: aktívne, databáza PROD: `Healthy`.
 - Zálohy: 24. a 25. 10. 2026 v Dashboarde viditeľné *Physical* backupy. Pred skutočným SQL zásahom **znovu overiť aktuálny obnoviteľný bod** a možnosť obnovy; fyzická záloha neznamená otestovaný restore a nezahŕňa obsah Storage objektov.
-- `supabase_migrations.schema_migrations`: **75 verzií**, posledná `20261008120000`, kontrolný odtlačok `a30b4b2c515cf6a02d8831be001c297f`.
+- Pred prvým nasadením: **75 verzií**, posledná `20261008120000`, odtlačok `a30b4b2c515cf6a02d8831be001c297f`. **Potvrdený stav po zastavení: 76 verzií**, posledná `20261009130000`, odtlačok verzií očakávaný `4d28b674443cbf0fcbec10b6d681fa19` (overiť read-only dotazom pred ďalším push). Druhá verzia `20261011103000` nie je zapísaná.
 - Zo 75 verzií: **73** korešponduje s pôvodným GitHub `production`; dve PROD-only: `20260721100000_prod_fresh_project_guard`, `20261008120000_prod_final_guard`.
 - `rentulo_prod_release_target = tfvgxrdjrpicgtvovehl` v PROD Vault: vytvorený a overený používateľom.
 - `rentulo_project_url`: `UNCONFIGURED` (overené); žiadne aktívne ani neaktívne `rentulo-%` crony vo výpise (overené).
-- Nové migrácie: **38**, začínajú `20261009130000` a končia `20261024150000`.
+- Nové migrácie v balíku: **38**; prvá `20261009130000` už bola úspešne nasadená, **37 zostáva pending**, posledná `20261024150000`.
 
 ## 3. Bezpečná lokálna príprava (teraz povolené)
 
@@ -38,6 +45,8 @@ node scripts/prepare-prod-sql-release.mjs
 ```
 
 Test a príprava **nepristupujú na internet, do TEST ani PROD databázy**. Druhý príkaz vytvorí v systémovom dočasnom adresári nový izolovaný priečinok a vypíše jeho presnú cestu.
+
+Nový manifest má nový SHA-256, a preto prípravný skript vytvorí **nový izolovaný priečinok**; starý staging z neúspešného pokusu sa nesmie používať. Lokálny skript môže stále vypísať 38 SQL súborov; **počet skutočne čakajúcich migrácií určuje `migration list` a `--dry-run`: musí byť presne 37**.
 
 V izolovanom priečinku je:
 
@@ -61,7 +70,7 @@ select count(*) as pocet_migracii,
 from supabase_migrations.schema_migrations;
 ```
 
-Pred SQL vyžadovať **75**, `20261008120000`, `a30b4b2c515cf6a02d8831be001c297f`. Odchýlka = **STOP**, bez `migration repair`.
+Pred pokračovaním vyžadovať **76**, `20261009130000`, `4d28b674443cbf0fcbec10b6d681fa19`. Záznam `20261011103000` musí chýbať. Odchýlka = **STOP**, bez `migration repair`. Prvá už vykonaná migrácia sa nesmie opakovať.
 
 **C.** Samostatne, bez vypísania akýchkoľvek tajných hodnôt:
 
@@ -83,13 +92,13 @@ Vyžadovať `OK`, `OK`, `0`. Overiť **použiteľnú aktualizovanú zálohu** a 
 
 **D.** Supabase CLI sa musí spustiť **len z izolovaného pracovného priestoru** (alebo s presným globálnym `--workdir` naň). Na pripojenie slúži iba **PROD** Postgres *session pooler*, ideálne port 5432; zvolenú adresu treba ručne skontrolovať podľa PROD Dashboardu. URL neukladať do Gitu, súborov ani neodosielať do chatu. Pripravená Node funkcia `validateProdDbUrl()` rozpoznáva PROD hostiteľa/pooler a odmieta TEST, no **sama databázu neotvára**.
 
-**E.** Supabase CLI má zdokumentované read-only/predbežné príkazy `migration list --db-url` a `db push --db-url --dry-run`. Príkazy budú zadané **samostatne až po ďalšom schválení a kontrole cieľovej URL**. Výpis musí ukázať presne 75 už vykonaných a **38 pending** migračných verzií, bez akýchkoľvek ďalších. Nesúlad = **STOP**, nikdy nevykonávať `migration repair`, `db reset`, `db push --include-all` naslepo ani `supabase link` na hlavnom TEST workspaci.
+**E.** Supabase CLI má zdokumentované read-only/predbežné príkazy `migration list --db-url` a `db push --db-url --dry-run`. Príkazy budú zadané **samostatne až po ďalšom schválení a kontrole cieľovej URL**. Výpis musí ukázať presne **76 už vykonaných** (75 pôvodných + prvá nová) a **37 pending** migračných verzií, bez akýchkoľvek ďalších. Nesúlad = **STOP**, nikdy nevykonávať `migration repair`, `db reset`, `db push --include-all` naslepo ani `supabase link` na hlavnom TEST workspaci.
 
 Oficiálna dokumentácia Supabase: https://supabase.com/docs/reference/cli/supabase-db-push a https://supabase.com/docs/guides/deployment/database-migrations .
 
-## 5. Skutočné vykonanie 38 migrácií – momentálne ZAKÁZANÉ
+## 5. Pokračovanie zostávajúcich 37 migrácií – iba po opätovnom preflighte
 
-**Nie je súčasťou dnešnej autorizácie.** Po oddelenom výslovnom súhlase a bezchybnom preflighte bude operátor používať oficiálny **Supabase CLI `db push` s explicitným `--db-url` výhradne pre PROD a s izolovaným `--workdir`**, nikdy root projektu. Supabase CLI štandardne po úspešnom vykonaní jednotlivých migrácií zapisuje ich verzie do `supabase_migrations.schema_migrations`; starých 75 sa nesmie vykonať znova.
+**Pôvodný `db push` bol autorizovaný, ale zastavil sa na druhej migrácii; žiadny ďalší push sa nemá spúšťať, kým oprava nie je zlúčená do `main` a opätovný preflight nevypíše 37 pending.** Po potvrdení rozsahu a bezchybnom preflighte bude operátor používať oficiálny **Supabase CLI `db push` s explicitným `--db-url` výhradne pre PROD a s izolovaným `--workdir`**, nikdy root projektu. Supabase CLI štandardne po úspešnom vykonaní jednotlivých migrácií zapisuje ich verzie do `supabase_migrations.schema_migrations`; starých 75 sa nesmie vykonať znova.
 
 Počas SQL migračnej fázy nesmie byť aktivované LIVE Stripe, email/SMS worker ani produkčné crony. `rentulo_project_url` musí zostať `UNCONFIGURED`. Ak nastane chyba, príkaz okamžite zastaviť; **automatické opakovanie alebo oprava migračnej histórie sú zakázané**. Pokračovať iba podľa skutočne poslednej vykonanej migrácie a nového schváleného postupu. Jedna migrácia môže obsahovať SQL, ktoré nemožno univerzálne vrátiť jednoduchým revertnutím Git commitu (napríklad `ALTER TYPE ... ADD VALUE`).
 

@@ -25,6 +25,16 @@ test('BOD 2: only 75 guarded baseline + 38 pinned PROD SQL in isolated staging; 
     assert.equal(prepareStage(root, output).reused, true);
     const oneBaseline = join(output, 'supabase', 'migrations', '20261008120000_prod_final_guard.sql');
     assert.match(readFileSync(oneBaseline, 'utf8'), /RAISE EXCEPTION/);
+    // PROD bootstrap already dropped the test payment RPC. Migration 2 must tolerate its absence.
+    const secondProdSql = join(root, 'supabase', 'prod-release-20261024', 'migrations',
+      '20261011103000_guard_pickup_and_remove_test_payment.sql');
+    const secondStagedSql = join(output, 'supabase', 'migrations',
+      '20261011103000_guard_pickup_and_remove_test_payment.sql');
+    for (const path of [secondProdSql, secondStagedSql]) {
+      const sql = readFileSync(path, 'utf8');
+      assert.doesNotMatch(sql, /revoke\s+all\s+on\s+function\s+public\.mark_my_reservation_paid_test\s*\(/i);
+      assert.match(sql, /drop\s+function\s+if\s+exists\s+public\.mark_my_reservation_paid_test\s*\(uuid\)/i);
+    }
     const onePending = join(output, 'supabase', 'migrations', '20261024150000_returned_booking_actual_return_buffer_PROD.sql');
     assert.match(readFileSync(onePending, 'utf8'), /rentulo_prod_release_target/);
     assert.doesNotMatch(readFileSync(onePending, 'utf8'), /vspposovhdgvbeukoivh/);

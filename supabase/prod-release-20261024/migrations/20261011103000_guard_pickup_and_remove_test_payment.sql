@@ -31,7 +31,6 @@ $rentulo_prod_release_guard$;
 
 
 -- Legacy browser-callable test payment RPC must not survive the release.
-revoke all on function public.mark_my_reservation_paid_test(uuid) from public, anon, authenticated;
 drop function if exists public.mark_my_reservation_paid_test(uuid);
 
 -- No public access to the old allowlist; retain its data for audit/history.
