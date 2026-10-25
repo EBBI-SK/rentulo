@@ -35,6 +35,20 @@ test('BOD 2: only 75 guarded baseline + 38 pinned PROD SQL in isolated staging; 
       assert.doesNotMatch(sql, /revoke\s+all\s+on\s+function\s+public\.mark_my_reservation_paid_test\s*\(/i);
       assert.match(sql, /drop\s+function\s+if\s+exists\s+public\.mark_my_reservation_paid_test\s*\(uuid\)/i);
     }
+    // PROD confirms 100 applied versions; the 26th new migration must work when
+    // its two old CHECK constraints are absent, while installing the checks.
+    const gdprOfferConstraintSql = '20261018140000_bod02_gdpr_deleted_offer_address_PROD.sql';
+    for (const path of [
+      join(root, 'supabase', 'prod-release-20261024', 'migrations', gdprOfferConstraintSql),
+      join(output, 'supabase', 'migrations', gdprOfferConstraintSql),
+    ]) {
+      const sql = readFileSync(path, 'utf8');
+      for (const name of ['offers_city_length_check', 'offers_postal_code_length_check']) {
+        assert.match(sql, new RegExp(`drop\\s+constraint\\s+if\\s+exists\\s+${name}\\s*;`, 'i'));
+        assert.match(sql, new RegExp(`add\\s+constraint\\s+${name}\\s+check\\s*\\(`, 'i'));
+        assert.doesNotMatch(sql, new RegExp(`drop\\s+constraint\\s+${name}\\s*;`, 'i'));
+      }
+    }
     const onePending = join(output, 'supabase', 'migrations', '20261024150000_returned_booking_actual_return_buffer_PROD.sql');
     assert.match(readFileSync(onePending, 'utf8'), /rentulo_prod_release_target/);
     assert.doesNotMatch(readFileSync(onePending, 'utf8'), /vspposovhdgvbeukoivh/);
