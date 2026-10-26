@@ -74,6 +74,7 @@ test("create validation blocks vehicles before any attempted upload", () => {
   assert.ok(start >= 0 && end > start);
   const inputs = {
     toolName: "Jízdní kolo", toolCategory: "Hobby", toolPrice: "250", toolDescription: "Zachovalé",
+    toolMinRentalDays: "1",
     pickupUseCustom: { checked: false }, offerTransportConfirmation: { checked: true }
   };
   const messages = [];
@@ -168,16 +169,16 @@ test("V1 public legal copy stays clear without mentioning future V2 availability
   assert.doesNotMatch(read("js/i18n.js"), /"offer\.transportRule":/);
 });
 
-test("private-party disclosure remains in the terms while visitors can report a listing", () => {
+test("private-party disclosure remains in terms; illegal content reports stay in Contact", () => {
   const detail = read("js/detail-page.js");
   const terms = read("obchodni-podminky.html");
+  const contact = read("kontakt.html");
   assert.doesNotMatch(detail, /detail\.privateListingNote/);
   assert.match(terms, /data-i18n="terms\.section3\.item2"/);
   assert.match(terms, /data-i18n="terms\.section3\.item3"/);
-  assert.match(detail, /!isOwner \? `<p/);
-  assert.match(detail, /detail\.reportOffer/);
-  assert.match(detail, /mailto:rentulo@rentulo\.com/);
-  assert.match(detail, /offer\.offerNumber \|\| offer\.id/);
+  assert.doesNotMatch(detail, /detail\.reportOffer|mailto:rentulo@rentulo\.com/);
+  assert.match(contact, /id="nahlaseni-obsahu"/);
+  assert.match(contact, /rentulo@rentulo\.com/);
 });
 
 test("registration captures exact displayed TEST legal version and locale", () => {

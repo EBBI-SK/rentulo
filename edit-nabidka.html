@@ -71,8 +71,7 @@
       }
 
       .edit-basics-grid > .form-group:nth-child(3) {
-        grid-column: 1 / -1;
-        max-width: 280px;
+        grid-column: 1 / 2;
       }
 
       .edit-card-body > .form-group.full {
@@ -180,6 +179,11 @@
               <label for="edit-price" data-i18n="editOffer.pricePerDay">Cena za den (Kč)</label>
               <input id="edit-price" type="text" placeholder="např. 250 Kč" data-i18n-placeholder="editOffer.pricePlaceholder" aria-describedby="editCommissionInfo" />
               <p class="offer-commission-note" id="editCommissionInfo" data-i18n="offer.commissionNote">Provize Rentulo je 10 % z půjčovného za zaplacenou rezervaci, minimálně 70 Kč za rezervaci.</p>
+            </div>
+            <div class="form-group">
+              <label for="edit-min-rental-days" data-i18n="offer.minRentalDays">Minimální délka pronájmu (dní)</label>
+              <input id="edit-min-rental-days" type="number" min="1" max="365" step="1" value="1" required aria-describedby="editMinRentalDaysHint" />
+              <p class="offer-commission-note" id="editMinRentalDaysHint" data-i18n="offer.minRentalDaysHint">1 až 365 dní. Platí pro nové rezervace.</p>
             </div>
           </div>
 

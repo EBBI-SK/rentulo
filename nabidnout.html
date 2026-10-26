@@ -404,7 +404,7 @@
     }
 
     .offer-basics-grid {
-      grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) minmax(170px, 0.65fr);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .form-group {
@@ -857,6 +857,11 @@
               <input id="toolPrice" type="text" placeholder="např. 250 Kč" data-i18n-placeholder="offer.pricePlaceholder" aria-describedby="toolPriceError offerCommissionInfo" />
               <p class="field-error-message" id="toolPriceError" data-i18n="offer.priceValidationPositive" hidden>Minimální cena je 100 Kč za den.</p>
               <p class="offer-commission-note" id="offerCommissionInfo" data-i18n="offer.commissionNote">Provize Rentulo je 10 % z půjčovného za zaplacenou rezervaci, minimálně 70 Kč za rezervaci.</p>
+            </div>
+            <div class="form-group">
+              <label for="toolMinRentalDays" data-i18n="offer.minRentalDays">Minimální délka pronájmu (dní)</label>
+              <input id="toolMinRentalDays" type="number" min="1" max="365" step="1" value="1" required aria-describedby="toolMinRentalDaysHint" />
+              <p class="offer-commission-note" id="toolMinRentalDaysHint" data-i18n="offer.minRentalDaysHint">1 až 365 dní. Platí pro nové rezervace.</p>
             </div>
           </div>
           </div>
