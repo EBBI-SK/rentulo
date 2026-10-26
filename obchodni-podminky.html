@@ -81,6 +81,7 @@
         <p data-i18n="terms.section3.item2">
           Na nájem mezi dvěma skutečně nepodnikajícími soukromými osobami se zpravidla neuplatní spotřebitelská ochrana jako při smlouvě podnikatele se spotřebitelem. Spotřebitelská práva vůči EBBI s. r. o. za její vlastní služby tím nejsou dotčena. Uživatel odpovídá za své případné daňové povinnosti.
         </p>
+        <p data-i18n="terms.section3.item3">Postavení majitele jako soukromé osoby vychází z jeho prohlášení; Rentulo je automaticky neověřuje jako podnikatele. Pokud někdo ve skutečnosti jedná podnikatelsky, zákonnou spotřebitelskou ochranu nelze vyloučit pouhým prohlášením a jeho nabídka může být pozastavena.</p>
       </section>
 
       <section class="terms-section">
@@ -98,6 +99,8 @@
           <li data-i18n="terms.section4.item4">
           Zakázáno je nabízet věci, jejichž pronájem porušuje zákon, práva třetích osob nebo bezpečnostní pravidla platformy.
         </li>
+        <li data-i18n="terms.section4.item5">Ve verzi V1 se nesmějí nabízet dopravní prostředky, zejména osobní a nákladní auta, motocykly, mopedy, skútry, jízdní a elektrická kola, koloběžky, lodě, čluny, kajaky, obytné vozy a přívěsy.</li>
+        <li data-i18n="terms.section4.item6">Zakázané jsou také zbraně, výbušniny, nebezpečné chemikálie, drogy, léky na předpis, kradené či padělané věci a věci, které nelze bezpečně nebo zákonně pronajímat. Automatická kontrola názvu nenahrazuje posouzení nabídky a nahlášení závadného obsahu.</li>
         </ul>
       </section>
 
@@ -117,16 +120,15 @@
       <section class="terms-section">
         <h2 data-i18n="terms.section6.title">6. Cena, platba a poplatek platformy</h2>
         <p data-i18n="terms.section6.item1">
-          Celková cena se vypočítá z ceny za den a počtu účtovaných dnů. Nájemce hradí cenu uvedenou před platbou. Poplatek Rentula činí 10 % z ceny rezervace, minimálně však 50 Kč za rezervaci, a odečítá se z částky určené majiteli.
+          Celková cena se vypočítá z ceny za den a počtu účtovaných dnů. Nájemce hradí cenu uvedenou před platbou. Poplatek Rentula činí 10 % z ceny rezervace, minimálně však 70 Kč za rezervaci, a odečítá se z částky určené majiteli.
         </p>
         <p data-i18n="terms.section6.item2">
           Platby a refundy zpracovává Stripe. Rentulo samo neposkytuje platební služby a neukládá úplné údaje platebních karet. Pro příjem výplat může majitel potřebovat nastavení Stripe Connect a ověření totožnosti či bankovního účtu přímo u Stripe.
         </p>
-        <p data-i18n="terms.section6.item3">
-          Po potvrzení skutečného předání věci jednorázovým PINem zadá Rentulo bez zbytečného odkladu Stripe pokyn k uvolnění výplaty majiteli. Rentulo výplatu záměrně neodkládá do vrácení věci.
-        </p>
+        <p data-i18n="terms.section6.item3">Při běžném převzetí věci zadá Rentulo Stripe pokyn k převodu výplaty majiteli až po skutečném vrácení věci a jeho potvrzení majitelem v Rentulu. Potvrzení předání PINem samo o sobě výplatu nespouští. Výjimkou je automatické vypořádání zaplacené nevyzvednuté rezervace podle článku 8. Převod se zpracuje při nejbližším automatickém běhu a při dočasných chybách se bezpečně opakuje. Ve výjimečném zdokumentovaném sporu po uplynutí sjednaného času vrácení smí provozovatel na základě písemné dohody obou stran nebo závazného právního podkladu schválit buď celý obvyklý podíl majiteli, nebo vrátit nájemci celou původní platbu. Obě varianty se vylučují a vypořádání neznamená potvrzení skutečného vrácení věci.</p>
         <p data-i18n="terms.section6.item4">Převod a připsání na bankovní účet následně zajišťují Stripe a banky. Zejména první výplata může trvat několik dní; okamžité připsání nelze zaručit.</p>
         <p data-i18n="terms.section6.item5">Při dočasném technickém selhání převodu se Rentulo pokouší výplatu bezpečně zpracovat opakovaně.</p>
+        <p data-i18n="terms.section6.item6">EBBI s. r. o. je provozovatelem zprostředkující platformy; v platebním modelu Stripe Connect může zároveň vystupovat jako obchodník vůči Stripe (merchant of record) a nést odpovědnost za platební poplatky, refundy a spory z plateb. To samo o sobě z EBBI nedělá pronajímatele věci. Konkrétní platební postup podléhá podmínkám Stripe a příslušnému právu.</p>
       </section>
 
       <section class="terms-section">
@@ -137,18 +139,31 @@
         <p data-i18n="terms.section7.item2">
           Kontaktní údaje smějí účastníci použít jen pro vyřízení dané rezervace, nikoli je bez oprávnění zveřejňovat nebo využívat jinak.
         </p>
-        <p data-i18n="terms.section7.item3">Po zaplacení se nájemci zobrazí jednorázový šestimístný PIN. Majiteli jej sdělí až při skutečném předání věci.</p>
+        <p data-i18n="terms.section7.item3">
+          Po zaplacení se nájemci zobrazí jednorázový šestimístný PIN. K potvrzení předání jej lze použít už 2 hodiny před sjednaným datem a časem převzetí až do sjednaného data a času vrácení (v časovém pásmu Europe/Prague); čas vrácení je poslední den stejný jako čas převzetí. Nájemce sdělí PIN majiteli až při skutečném předání. Po potvrzení „Předat věc“ PIN okamžitě zanikne a nelze jej znovu použít.
+        </p>
       </section>
 
       <section class="terms-section">
         <h2 data-i18n="terms.section8.title">8. Předání, používání a vrácení věci</h2>
-        <p data-i18n="terms.section8.item1">
-          Majitel při osobním předání zadá PIN od nájemce, zkontroluje správnou rezervaci a potvrdí „Předat věc“. Potvrzení změní stav rezervace a spustí uvolnění výplaty podle článku 6. Obě strany by měly zkontrolovat a případně zdokumentovat stav věci.
-        </p>
+        <p data-i18n="terms.section8.item1">Majitel při osobním předání zadá PIN od nájemce, zkontroluje správnou rezervaci a potvrdí „Předat věc“. Úspěšné potvrzení ihned zneplatní PIN a změní stav rezervace na převzatou, ale nespouští výplatu. Tu systém zahájí až po potvrzení skutečného vrácení podle článku 6. Obě strany by měly zkontrolovat a případně zdokumentovat stav věci.</p>
         <p data-i18n="terms.section8.item2">
           Nájemce věc používá řádně a bezpečně, respektuje pokyny majitele a vrátí ji včas ve stavu odpovídajícím převzetí s přihlédnutím k běžnému opotřebení.
         </p>
         <p data-i18n="terms.section8.item3">Po vrácení majitel potvrdí vrácení v Rentulu. Dokončená rezervace se zobrazí v Historii.</p>
+        <h3 id="nevyzvednuti" data-i18n="terms.section8.noShowTitle">Nevyzvednutí věci (no-show)</h3>
+        <p data-i18n="terms.section8.item4">
+          Zaplacená rezervace umožňuje po dohodě s majitelem převzetí už 2 hodiny před sjednaným časem převzetí až do sjednaného času vrácení (v časovém pásmu Europe/Prague). Věc se vrací poslední den ve stejný čas, který byl sjednán pro převzetí. Pokud nájemce nepřevezme věc v původně plánovaný čas, může si ji po dohodě s majitelem převzít později během zaplaceného období pomocí dosud nepoužitého PINu; čas vrácení se tím nemění. Nebude-li předání potvrzeno před sjednaným časem vrácení, PIN v tento okamžik zanikne a systém při nejbližším automatickém zpracování označí rezervaci jako „Nevyzvednuto“, ukončí ji, uvolní termín a oznámí to e-mailem oběma stranám.
+        </p>
+        <p data-i18n="terms.section8.item5">
+          Po uplynutí celého sjednaného a zaplaceného období bez potvrzeného předání zadá Rentulo Stripe pokyn k převodu nájemného majiteli po odečtení poplatku platformy. Nájemci se platba automaticky nevrací. Tím však není vyloučen případný oprávněný nárok na vrácení celé platby nebo její části, zejména pokud majitel věc řádně neposkytl.
+        </p>
+        <p data-i18n="terms.section8.item6">
+          Majitel musí věc skutečně připravit k předání v dohodnutém místě a čase a poskytnout potřebnou součinnost. Samotná absence potvrzení PINem neprokazuje, že majitel své povinnosti splnil nebo že nevyzvednutí zavinil nájemce. Pokud věc nebyla dostupná nebo vznikl jiný oprávněný problém s předáním, může nájemce spor oznámit na rentulo@rentulo.com; případné finanční vypořádání se posoudí podle okolností, smlouvy a příslušných právních předpisů.
+        </p>
+        <p data-i18n="terms.section8.item7">
+          Toto pravidlo se uplatní jen na rezervace vytvořené po jeho aktivaci a zpřístupnění uživatelům. Dříve vytvořené rezervace se řídí podmínkami platnými při jejich vytvoření. Zákonná práva žádné ze stran tím nejsou dotčena.
+        </p>
       </section>
 
       <section class="terms-section">
@@ -159,20 +174,21 @@
         <p data-i18n="terms.section9.item2">
           Rentulo neposkytuje automatické pojištění věcí ani nezaručuje náhradu škody mezi uživateli. Může poskytnout zákonně přípustnou součinnost a záznamy o rezervaci; vlastní zákonná odpovědnost provozovatele zůstává zachována.
         </p>
+        <p data-i18n="terms.section9.item3">Při převzetí a vrácení doporučujeme pořídit fotografie a krátký zápis o stavu věci. Poškození nebo nevrácení oznamte druhé straně bez zbytečného odkladu a uveďte číslo rezervace podpoře, chcete-li zprostředkovat součinnost. Rentulo automaticky nestrhává sankce ani neurčuje náhradu škody.</p>
       </section>
 
       <section class="terms-section">
         <h2 data-i18n="terms.section10.title">10. Zrušení a odmítnutí</h2>
         <p data-i18n="terms.section10.item1">
-          Běžné storno je dostupné jen před hranicí šesti hodin před plánovaným časem převzetí uvedeným v rezervaci. Po dosažení této hranice jej aplikace neumožní.
+          U rezervací vytvořených po zavedení nových pravidel je běžné storno možné pouze více než 24 hodin před plánovaným převzetím. Dříve vytvořené rezervace mají původní šestihodinovou lhůtu; konkrétní čas je uveden v detailu rezervace.
         </p>
         <p data-i18n="terms.section10.item2">
           Před zaplacením může nájemce zrušit čekající i schválenou rezervaci; majitel může čekající žádost odmítnout a schválenou rezervaci ve stanovené lhůtě zrušit.
         </p>
         <p data-i18n="terms.section10.item3">Zruší-li nájemce v povolené lhůtě již zaplacenou rezervaci, vrací se mu zaplacená částka snížená jen o prokazatelné externí náklady platebního zpracování, které Stripe nevrací. Výpočet se zobrazí před potvrzením storna.</p>
-        <p data-i18n="terms.section10.item4">Zruší-li ve stejné lhůtě zaplacenou rezervaci majitel, nájemce obdrží celou zaplacenou částku. Prokazatelné externí náklady tohoto storna hradí majitel; Rentulo mu částku vyúčtuje.</p>
+        <p data-i18n="terms.section10.item4">Pokud majitel v příslušné lhůtě zruší zaplacenou rezervaci, nájemce dostane plnou platbu zpět. Nemůže-li majitel věc předat ani po uplynutí lhůty, může před sjednaným časem vrácení výjimečně potvrdit nedostupnost nepředané věci a spustit plný refund. Prokazatelné externí náklady obou situací hradí majitel.</p>
         <p data-i18n="terms.section10.item5">Majitel musí vyúčtované externí náklady uhradit do sedmi dnů. Pokud je včas neuhradí, Rentulo mu do zaplacení zablokuje schvalování dalších rezervací.</p>
-        <p data-i18n="terms.section10.item6">Po šestihodinové hranici nebo po převzetí věci není běžné automatické storno dostupné. Mimořádné situace lze oznámit podpoře; tím nejsou dotčena neodvolatelná zákonná práva.</p>
+        <p data-i18n="terms.section10.item6">Po příslušné hranici nebo po skutečném převzetí věci není běžné automatické storno dostupné. Výjimku pro nemožnost předání smí potvrdit pouze majitel nepředané zaplacené rezervace; důvod se zaznamená. Po sjednaném čase vrácení tato automatická výjimka není dostupná. Další spory lze oznámit podpoře; povinná zákonná práva zůstávají zachována.</p>
         <p data-i18n="terms.section10.item7">Refund zpracovává Stripe. Doba připsání vrácených peněz závisí na Stripe, bance a použité platební metodě.</p>
       </section>
 
@@ -197,6 +213,8 @@
         <p data-i18n="terms.section12.item3">
           Protiprávní obsah lze nahlásit na rentulo@rentulo.com s odkazem a vysvětlením. O zásazích a možnostech námitek informujeme v rozsahu vyžadovaném právními předpisy; námitku lze podat na stejnou adresu.
         </p>
+        <p data-i18n="terms.section12.item4">Oznámení konkrétního nezákonného obsahu zašlete na rentulo@rentulo.com. Uveďte odkaz nebo číslo nabídky, zdůvodnění nezákonnosti, kontaktní e-mail (nestanoví-li zákon výjimku) a prohlášení o dobré víře. Přijetí a výsledek posouzení oznámíme elektronicky, pokud máme kontakt a zákon to vyžaduje.</p>
+        <p data-i18n="terms.section12.item5">Při omezení nebo odstranění nabídky poskytneme dotčenému uživateli odůvodnění a informace o dostupné námitce či opravných prostředcích, vyžaduje-li to právo. Námitky proti rozhodnutí o obsahu lze poslat zdarma na stejný kontakt; vyřizujeme je individuálně a nestranně.</p>
       </section>
 
       <section class="terms-section">
@@ -218,10 +236,27 @@
         <p data-i18n="terms.section14.item2">
           Stížnost na službu provozovatele posoudíme v přiměřené nebo zákonné lhůtě. Tím není dotčeno právo obrátit se na příslušný soud, dozorový orgán nebo využít dostupné mimosoudní řešení spotřebitelského sporu.
         </p>
+        <p data-i18n="terms.section14.item3">Stížnost na vlastní službu Rentula (účet, poplatek, platba, součinnost) řeší EBBI. Spor z nájmu věci uzavřeného mezi dvěma soukromými osobami řeší účastníci; Rentulo může v mezích zákona pomoci. U služeb EBBI případná spotřebitelská práva a zákonné možnosti mimosoudního řešení zůstávají zachovány.</p>
       </section>
 
       <section class="terms-section">
-        <h2 data-i18n="terms.section15.title">15. Provozovatel, kontakt a účinnost</h2>
+        <h2 data-i18n="terms.tax.title">15. Daně a zákonné oznamování údajů (DAC7)</h2>
+        <p data-i18n="terms.tax.item1">
+          Uživatel, který prostřednictvím Rentula získá příjem z pronájmu, odpovídá za splnění svých případných daňových povinností. Rentulo nepodává daňová přiznání za uživatele ani za ně neplatí daně.
+        </p>
+        <p data-i18n="terms.tax.item2">
+          EBBI s. r. o. jako provozovatel platformy plní oznamovací povinnosti podle směrnice Rady (EU) 2021/514 (DAC7) a slovenského zákona č. 442/2012 Z. z., pokud se vztahují na činnost uskutečněnou přes platformu. Samotný pronájem běžného nářadí není činností výslovně uvedenou v DAC7; u jiných činností, například pronájmu dopravních prostředků, může oznamovací povinnost vzniknout.
+        </p>
+        <p data-i18n="terms.tax.item3">
+          Pokud to vyžaduje zákon, Rentulo si vyžádá potřebné identifikační a daňové údaje a poskytne příslušným finančním orgánům zákonem požadované informace o uživatelích, transakcích, vyplacených částkách a poplatcích. Dotčení uživatelé poskytnou pravdivé a aktuální údaje a nezbytnou součinnost.
+        </p>
+        <p data-i18n="terms.tax.item4">
+          Oznamovací povinnost závisí na druhu činnosti a zákonných podmínkách; částka 2 000 EUR není všeobecnou hranicí pro hlášení všech pronájmů. Podrobnosti o zpracování údajů uvádí dokument Ochrana osobních údajů.
+        </p>
+      </section>
+
+      <section class="terms-section">
+        <h2 data-i18n="terms.section15.title">16. Provozovatel, kontakt a účinnost</h2>
         <p data-i18n="terms.section15.item1">
           Provozovatel: EBBI s. r. o., Rybničná 11, 831 07 Bratislava, Slovenská republika; IČO: 46 306 374. Zápis: Obchodní rejstřík Městského soudu Bratislava III, oddíl Sro, vložka 75181/B.
         </p>

@@ -147,6 +147,7 @@
   }
 
   let savedProfileValues = null;
+  let savedSmsEnabled = false;
 
   function profileValuesEqual(left, right) {
     if (!left || !right) {
@@ -226,7 +227,7 @@
       const response = await client
         .from("profiles")
         .select(
-          "full_name, email, phone, street, city, postal_code, preferred_language"
+          "full_name, email, phone, street, city, postal_code, preferred_language, sms_notifications"
         )
         .eq("id", user.id)
         .maybeSingle();
@@ -238,6 +239,31 @@
     }
 
     if (error || !data) {
+      // After a Storage failure the backend has already deactivated the profile,
+      // and profile RLS hides it. Keep the existing cancellation UI available so
+      // the user can retry the same protected operation after reloading the page.
+      try {
+        const { data: statusData, error: statusError } = await client.rpc(
+          "get_my_account_deactivation_status_v2"
+        );
+        const status = !statusError ? firstResultRow(statusData) : null;
+        if (status && status.account_status === "deactivated") {
+          const content = document.getElementById("settingsContent");
+          if (content) {
+            content.querySelectorAll(".settings-card").forEach(function (section) {
+              if (section.id !== "accountCancellationSection") {
+                section.hidden = true;
+                section.style.display = "none";
+              }
+            });
+          }
+          setLoadState("ready");
+          await checkAccountCancellation(client);
+          return true;
+        }
+      } catch (retryError) {
+        console.warn("Unable to load account-deactivation retry state", retryError);
+      }
       console.error(error);
       setLoadState("error");
       return false;
@@ -268,13 +294,16 @@
     }
 
     setProfileFields(profile, user);
+    savedSmsEnabled = profile?.sms_notifications === true;
+    const smsCheck = document.getElementById("settingsSmsEnabled");
+    if (smsCheck) smsCheck.checked = savedSmsEnabled;
 
     const pendingEmail = normalizeEmail(user && user.new_email);
     if (pendingEmail && pendingEmail !== authEmail) {
       setTranslatedMessage(
         profileMessage,
         "settings.emailConfirmationPending",
-        "Změna e-mailu na {email} čeká na potvrzení. Do potvrzení zůstává aktivní původní e-mail.",
+        "Změna e-mailu na {email} čeká na potvrzení odkazů v původní i nové e-mailové schránce. Do té doby zůstává aktivní původní adresa.",
         "success",
         { email: pendingEmail }
       );
@@ -313,6 +342,7 @@
       city: city,
       postalCode: postalCode
     };
+    const phoneChanged = savedProfileValues && savedProfileValues.phone !== phone;
 
     if (button && button.disabled) {
       return user;
@@ -445,17 +475,29 @@
         };
 
       savedProfileValues = { ...profileValues };
+      // The DB trigger atomically removes SMS opt-in when the stored phone changes.
+      // Reflect that in the form only after the profile write succeeds.
+      if (phoneChanged) {
+        savedSmsEnabled = false;
+        const smsCheck = document.getElementById("settingsSmsEnabled");
+        if (smsCheck) smsCheck.checked = false;
+      }
 
-      setTranslatedMessage(
-        message,
-        emailConfirmationRequired
+      const savedKey = phoneChanged
+        ? emailConfirmationRequired
+          ? "settings.profileSavedEmailConfirmationSmsReset"
+          : "settings.profileSavedSmsReset"
+        : emailConfirmationRequired
           ? "settings.profileSavedEmailConfirmation"
-          : "settings.profileSaved",
-        emailConfirmationRequired
-          ? "Osobní údaje byly uloženy. Změnu e-mailu potvrďte odkazem zaslaným na novou adresu."
-          : "Osobní údaje byly uloženy.",
-        "success"
-      );
+          : "settings.profileSaved";
+      const savedFallback = phoneChanged
+        ? emailConfirmationRequired
+          ? "Osobní údaje byly uloženy. Pro změnu e-mailu potvrďte oba odkazy. SMS upozornění byla kvůli změně telefonu vypnuta."
+          : "Osobní údaje byly uloženy. Kvůli změně telefonu byla SMS upozornění vypnuta. Můžete je znovu zapnout v nastavení SMS."
+        : emailConfirmationRequired
+          ? "Osobní údaje byly uloženy. Pro změnu e-mailu potvrďte odkazy ve zprávách zaslaných na původní i novou adresu."
+          : "Osobní údaje byly uloženy.";
+      setTranslatedMessage(message, savedKey, savedFallback, "success");
       return updatedUser;
     } catch (error) {
       console.error(error);
@@ -466,6 +508,67 @@
         "error"
       );
       return user;
+    } finally {
+      setButtonLoading(button, false);
+    }
+  }
+
+  function phoneEligibleForSms(value) {
+    const phone = normalizeText(value).replace(/[\s()\-]/g, "");
+    return /^\d{9}$/.test(phone) || /^\+[1-9]\d{7,14}$/.test(phone) || /^00[1-9]\d{7,14}$/.test(phone);
+  }
+
+  async function saveSmsPreference(client, user) {
+    const checkbox = document.getElementById("settingsSmsEnabled");
+    const phoneInput = document.getElementById("profilePhone");
+    const button = document.getElementById("settingsSaveSmsButton");
+    const message = document.getElementById("settingsSmsMessage");
+    if (!checkbox || (button && button.disabled)) return;
+    const smsEnabled = checkbox.checked;
+    const phone = normalizeText(phoneInput && phoneInput.value);
+    if (smsEnabled && !phoneEligibleForSms(phone)) {
+      checkbox.checked = savedSmsEnabled;
+      setTranslatedMessage(message, "settings.smsInvalidPhone",
+        "Pro SMS uložte platné telefonní číslo v osobních údajích.", "error");
+      return;
+    }
+    if (smsEnabled && (!savedProfileValues || savedProfileValues.phone !== phone)) {
+      checkbox.checked = savedSmsEnabled;
+      setTranslatedMessage(message, "settings.smsUnsavedPhone",
+        "Nejprve uložte změněné telefonní číslo v osobních údajích.", "error");
+      return;
+    }
+
+    setButtonLoading(button, true);
+    setMessage(message, "", "");
+    try {
+      // Conditional UPDATE protects against a stale profile or concurrent phone edit.
+      // Deactivating SMS is always allowed, even with unsaved form changes.
+      let query = client.from("profiles")
+        .update({ sms_notifications: smsEnabled, updated_at: new Date().toISOString() })
+        .eq("id", user.id);
+      if (smsEnabled) query = query.eq("phone", phone);
+      const { data, error } = await query.select("id").maybeSingle();
+      if (error) throw error;
+      if (!data) {
+        // A stale phone can mean another session already changed it and reset
+        // SMS opt-in. Do not keep showing an outdated enabled checkbox.
+        if (smsEnabled) savedSmsEnabled = false;
+        checkbox.checked = savedSmsEnabled;
+        setTranslatedMessage(message,
+          smsEnabled ? "settings.smsUnsavedPhone" : "settings.smsSaveError",
+          smsEnabled
+            ? "Telefonní číslo v profilu se změnilo. Obnovte nastavení a uložte číslo před zapnutím SMS."
+            : "SMS nastavení se nepodařilo uložit.", "error");
+        return;
+      }
+      savedSmsEnabled = smsEnabled;
+      setTranslatedMessage(message, "settings.smsSaved", "SMS nastavení bylo uloženo.", "success");
+    } catch (error) {
+      console.error(error);
+      checkbox.checked = savedSmsEnabled;
+      setTranslatedMessage(message, "settings.smsSaveError",
+        "SMS nastavení se nepodařilo uložit.", "error");
     } finally {
       setButtonLoading(button, false);
     }
@@ -1017,6 +1120,7 @@
 
     const profileForm = document.getElementById("profileForm");
     const passwordForm = document.getElementById("passwordForm");
+    const saveSmsButton = document.getElementById("settingsSaveSmsButton");
     const retryButton = document.getElementById("settingsRetryButton");
     const checkAccountCancellationButton = document.getElementById("checkAccountCancellationButton");
     const cancelAccountButton = document.getElementById("cancelAccountButton");
@@ -1028,6 +1132,12 @@
       profileForm.addEventListener("submit", async function (event) {
         event.preventDefault();
         currentUser = await saveProfile(client, currentUser);
+      });
+    }
+
+    if (saveSmsButton) {
+      saveSmsButton.addEventListener("click", function () {
+        saveSmsPreference(client, currentUser);
       });
     }
 

@@ -48,7 +48,7 @@ document.addEventListener("DOMContentLoaded", async function () {
   initializeEditOfferPage(supabaseUser);
 });
 
-function editShowMessage(message, type = "error") {
+function editShowMessage(message, type = "error", translationKey = "") {
   let messageBox = document.querySelector(".site-message");
 
   if (!messageBox) {
@@ -59,10 +59,16 @@ function editShowMessage(message, type = "error") {
 
   messageBox.textContent = message;
   messageBox.className = "site-message " + type;
+  messageBox.dataset.dynamicI18nKey = translationKey;
+  messageBox.dataset.dynamicI18nFallback = message;
 
   setTimeout(function () {
     messageBox.className = "site-message";
   }, 3500);
+}
+
+function editShowTranslatedMessage(key, fallback, type = "error") {
+  editShowMessage(editT(key, fallback), type, key);
 }
 
 function editMarkError(input) {
@@ -295,16 +301,11 @@ function setupEditPickupAddressAutocomplete() {
     const city = cityInput.value.trim();
     const postalCode = postalCodeInput.value.trim();
 
-    editAddressRequestId += 1;
+    // Don't leave proposals for the previous input visible or accept a late response.
+    closeEditAddressSuggestions();
     const requestId = editAddressRequestId;
 
-    if (editAddressTimer) {
-      window.clearTimeout(editAddressTimer);
-      editAddressTimer = null;
-    }
-
     if (query.length < EDIT_ADDRESS_SUGGESTION_MIN_LENGTH) {
-      closeEditAddressSuggestions();
       return;
     }
 
@@ -651,11 +652,11 @@ function showEditOfferNotFound() {
 
   editPage.innerHTML = `
     <section class="login-required-box">
-      <p class="eyebrow">${editT("editOffer.notFoundEyebrow", "Nabídka nenalezena")}</p>
-      <h1>${editT("editOffer.notFoundTitle", "Tuto nabídku se nepodařilo najít.")}</h1>
-      <p>${editT("editOffer.notFoundDescription", "Nabídka mohla být smazána nebo odkaz není správný.")}</p>
+      <p class="eyebrow" data-i18n="editOffer.notFoundEyebrow">${editT("editOffer.notFoundEyebrow", "Nabídka nenalezena")}</p>
+      <h1 data-i18n="editOffer.notFoundTitle">${editT("editOffer.notFoundTitle", "Tuto nabídku se nepodařilo najít.")}</h1>
+      <p data-i18n="editOffer.notFoundDescription">${editT("editOffer.notFoundDescription", "Nabídka mohla být smazána nebo odkaz není správný.")}</p>
       <div class="login-required-actions">
-        <a href="moje-nabidky.html">${editT("editOffer.backToListings", "Zpět na moje nabídky")}</a>
+        <a href="moje-nabidky.html" data-i18n="editOffer.backToListings">${editT("editOffer.backToListings", "Zpět na moje nabídky")}</a>
       </div>
     </section>
   `;
@@ -670,11 +671,11 @@ function showEditOfferForbidden() {
 
   editPage.innerHTML = `
     <section class="login-required-box">
-      <p class="eyebrow">${editT("editOffer.forbiddenEyebrow", "Nemáte oprávnění")}</p>
-      <h1>${editT("editOffer.forbiddenTitle", "Tuto nabídku nemůžete upravovat.")}</h1>
-      <p>${editT("editOffer.forbiddenDescription", "Upravovat můžete pouze nabídky, které jste sami vytvořili.")}</p>
+      <p class="eyebrow" data-i18n="editOffer.forbiddenEyebrow">${editT("editOffer.forbiddenEyebrow", "Nemáte oprávnění")}</p>
+      <h1 data-i18n="editOffer.forbiddenTitle">${editT("editOffer.forbiddenTitle", "Tuto nabídku nemůžete upravovat.")}</h1>
+      <p data-i18n="editOffer.forbiddenDescription">${editT("editOffer.forbiddenDescription", "Upravovat můžete pouze nabídky, které jste sami vytvořili.")}</p>
       <div class="login-required-actions">
-        <a href="moje-nabidky.html">${editT("editOffer.backToListings", "Zpět na moje nabídky")}</a>
+        <a href="moje-nabidky.html" data-i18n="editOffer.backToListings">${editT("editOffer.backToListings", "Zpět na moje nabídky")}</a>
       </div>
     </section>
   `;
@@ -776,6 +777,7 @@ function editLockPriceFields(hasBlockingReservation) {
 
   const notice = document.createElement("p");
   notice.className = "edit-price-lock-notice";
+  notice.dataset.i18n = "editOffer.priceLocked";
   notice.textContent =
     editT("editOffer.priceLocked", "Cena je zamčená, protože nabídka má aktivní rezervaci.");
 
@@ -903,7 +905,7 @@ function fillEditForm(offer) {
     !priceInput ||
     !descriptionInput
   ) {
-    editShowMessage(editT("editOffer.formLoadFailed", "Formulář pro úpravu nabídky se nepodařilo načíst."));
+    editShowTranslatedMessage("editOffer.formLoadFailed", "Formulář pro úpravu nabídky se nepodařilo načíst.");
     return;
   }
 
@@ -1089,7 +1091,7 @@ async function initializeEditOfferPage(supabaseUser) {
   const supabaseClient = getSupabaseClient();
 
   if (!supabaseClient) {
-    editShowMessage(editT("editOffer.supabaseMissing", "Služba je dočasně nedostupná. Obnovte stránku."));
+    editShowTranslatedMessage("editOffer.supabaseMissing", "Služba je dočasně nedostupná. Obnovte stránku.");
     return;
   }
 
@@ -1137,7 +1139,7 @@ function setupEditOfferSave() {
     editClearErrors();
 
     if (!editCurrentOffer) {
-      editShowMessage(editT("editOffer.offerLoadFailed", "Nabídku se nepodařilo načíst."));
+      editShowTranslatedMessage("editOffer.offerLoadFailed", "Nabídku se nepodařilo načíst.");
       return;
     }
 
@@ -1145,12 +1147,12 @@ function setupEditOfferSave() {
     const supabaseUser = await getCurrentSupabaseUser();
 
     if (!supabaseClient || !supabaseUser) {
-      editShowMessage(editT("editOffer.sessionMissing", "Vaše přihlášení vypršelo. Přihlaste se prosím znovu."));
+      editShowTranslatedMessage("editOffer.sessionMissing", "Vaše přihlášení vypršelo. Přihlaste se prosím znovu.");
       return;
     }
 
     if (String(editCurrentOffer.owner_id) !== String(supabaseUser.id)) {
-      editShowMessage(editT("editOffer.cannotEdit", "Tuto nabídku nemůžete upravovat."));
+      editShowTranslatedMessage("editOffer.cannotEdit", "Tuto nabídku nemůžete upravovat.");
       return;
     }
 
@@ -1175,7 +1177,7 @@ function setupEditOfferSave() {
       !priceInput ||
       !descriptionInput
     ) {
-      editShowMessage(editT("editOffer.formLoadFailed", "Formulář pro úpravu nabídky se nepodařilo načíst."));
+      editShowTranslatedMessage("editOffer.formLoadFailed", "Formulář pro úpravu nabídky se nepodařilo načíst.");
       return;
     }
 
@@ -1201,10 +1203,10 @@ function setupEditOfferSave() {
         }
       });
     } else if (!editOwnerProfile.street || !editOwnerProfile.city || !editOwnerProfile.postalCode) {
-      editShowMessage(editT(
+      editShowTranslatedMessage(
         "offer.profilePickupMissing",
         "Ve vašem profilu chybí úplná adresa pro vyzvednutí. Doplňte ji v Nastavení nebo zvolte jiné místo vyzvednutí."
-      ));
+      );
       return;
     }
 
@@ -1224,16 +1226,32 @@ function setupEditOfferSave() {
       }
     }
 
+    const transportAttestation = document.getElementById("editTransportConfirmation");
+    if (!window.rentuloOfferPolicy || typeof window.rentuloOfferPolicy.isTransportOffer !== "function") {
+      editShowTranslatedMessage("offer.transportNotAllowed", "Kontrola pravidel nabídky není dostupná.");
+      return;
+    }
+    if (window.rentuloOfferPolicy.isTransportOffer(nameInput.value, categorySelect.value)) {
+      editMarkError(nameInput);
+      editShowTranslatedMessage("offer.transportNotAllowed", "Dopravní prostředky nelze v Rentulu V1 nabízet.");
+      return;
+    }
+    if (!transportAttestation || !transportAttestation.checked) {
+      editMarkError(transportAttestation);
+      editShowTranslatedMessage("offer.transportMustConfirm", "Potvrďte prosím pravidla Rentula V1.");
+      return;
+    }
+
     if (hasError) {
-      editShowMessage(editT("editOffer.validation", "Vyplňte prosím všechna povinná pole. Cena musí být alespoň 100 Kč za den."));
+      editShowTranslatedMessage("editOffer.validation", "Vyplňte prosím všechna povinná pole. Cena musí být alespoň 100 Kč za den.");
       return;
     }
 
     if (editOfferPhotoProcessing) {
-      editShowMessage(editT(
+      editShowTranslatedMessage(
         "offer.photoProcessingWait",
         "Počkejte prosím, až se dokončí zpracování fotky."
-      ));
+      );
       return;
     }
 
@@ -1300,9 +1318,9 @@ function setupEditOfferSave() {
       }
 
       if (editHasBlockingReservation) {
-        editShowMessage(editT("editOffer.savedPriceLocked", "Změny byly uloženy. Cena zůstala stejná, protože nabídka má aktivní rezervaci."), "success");
+        editShowTranslatedMessage("editOffer.savedPriceLocked", "Změny byly uloženy. Cena zůstala stejná, protože nabídka má aktivní rezervaci.", "success");
       } else {
-        editShowMessage(editT("editOffer.saved", "Změny byly uloženy."), "success");
+        editShowTranslatedMessage("editOffer.saved", "Změny byly uloženy.", "success");
       }
 
       setTimeout(function () {
@@ -1313,27 +1331,63 @@ function setupEditOfferSave() {
         await removeEditedOfferPhotoFromStorage(supabaseClient, newlyUploadedPhotoPath);
       }
 
+      if (error && String(error.message || "").toLowerCase().includes("rentulo_v1_transport_not_allowed")) {
+        editSaveInProgress = false;
+        setEditSavingState(false);
+        editShowTranslatedMessage("offer.transportNotAllowed", "Dopravní prostředky nelze v Rentulu V1 nabízet.");
+        return;
+      }
+
       console.error(error);
       editSaveInProgress = false;
       setEditSavingState(false);
 
       if (error && error.code === "PICKUP_GEOCODING_NOT_FOUND") {
-        editShowMessage(editT(
+        editShowTranslatedMessage(
           "offer.geocodeNotFound",
           "Místo vyzvednutí se nepodařilo najít na mapě. Zkontrolujte ulici, město a PSČ."
-        ));
+        );
         return;
       }
 
       if (error && error.code === "PICKUP_GEOCODING_UNAVAILABLE") {
-        editShowMessage(editT(
+        editShowTranslatedMessage(
           "offer.geocodeUnavailable",
           "Polohu místa vyzvednutí se teď nepodařilo ověřit. Zkuste to prosím znovu."
-        ));
+        );
         return;
       }
 
-      editShowMessage(editT("editOffer.saveFailed", "Změny se nepodařilo uložit. Zkuste to prosím znovu."));
+      editShowTranslatedMessage("editOffer.saveFailed", "Změny se nepodařilo uložit. Zkuste to prosím znovu.");
     }
   });
 }
+
+function refreshEditOfferDynamicTranslations() {
+  if (editCurrentOffer) {
+    const preview = document.querySelector("#editPhotoPreview");
+    if (preview) {
+      const image = preview.querySelector("img");
+      if (image) {
+        image.alt = editT("editOffer.photoTitle", "Fotka věci");
+      } else {
+        preview.textContent = editT("editOffer.noPhoto", "Bez fotky");
+      }
+    }
+
+    updateEditPhotoControlState(editOfferPhotoState, editOfferSelectedPhotoFileName);
+    document.title = editT("editOffer.title", "Upravit nabídku") + " - " +
+      (editCurrentOffer.name || editT("editOffer.offerFallback", "Nabídka"));
+    setEditSavingState(editSaveInProgress);
+  }
+
+  const messageBox = document.querySelector(".site-message");
+  if (messageBox && messageBox.dataset.dynamicI18nKey) {
+    messageBox.textContent = editT(
+      messageBox.dataset.dynamicI18nKey,
+      messageBox.dataset.dynamicI18nFallback || ""
+    );
+  }
+}
+
+document.addEventListener("rentuloLanguageChanged", refreshEditOfferDynamicTranslations);

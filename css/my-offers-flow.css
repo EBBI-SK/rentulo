@@ -1,8 +1,7 @@
-/* Simple owner workflow: offers stay compact, reservations are always separate rows below. */
-
+/* Owner V1 layout: action-first reservations, compact listings, unchanged business rules. */
 #offersList {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .owner-section-header {
@@ -10,16 +9,14 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 8px;
+  margin-top: 10px;
 }
-
 .owner-section-header h2 {
   margin: 0;
   color: #173f35;
-  font-size: 18px;
-  line-height: 1.2;
+  font-size: 19px;
+  line-height: 1.25;
 }
-
 .owner-section-count {
   display: inline-flex;
   align-items: center;
@@ -32,89 +29,150 @@
   background: #fff;
   color: #173f35;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 800;
 }
 
-.owner-offers-list,
-.owner-reservations-list {
+/* Reservation search is shown only when there are more than five active reservations. */
+.owner-reservations-section {
+  display: grid;
+  gap: 11px;
+  margin-bottom: 12px;
+}
+.owner-reservations-toolbar[hidden] { display: none !important; }
+.owner-reservations-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 320px);
+  align-items: center;
+  gap: 9px;
+}
+.owner-reservation-search {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  border: 1px solid #cfe3da;
+  border-radius: 11px;
+  padding: 10px 12px;
+  color: #173f35;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.2;
+  box-shadow: 0 4px 12px rgba(23, 63, 53, .025);
+}
+.owner-reservation-search:focus-visible,
+.owner-offer-manage-summary:focus-visible,
+.owner-offer-manage-panel a:focus-visible,
+.owner-offer-manage-panel button:focus-visible,
+.owner-offer-detail-link:focus-visible {
+  outline: 2px solid #176747;
+  outline-offset: 2px;
+}
+.owner-reservations-section-header { flex-wrap: wrap; }
+.owner-reservations-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.owner-reservation-group {
   display: grid;
   gap: 8px;
 }
-
-.simple-offer-record {
-  margin: 0 !important;
+.owner-reservation-group-title {
+  margin: 5px 0 0;
+  font-size: 13px;
+  line-height: 1.3;
+  color: #64766e;
+  font-weight: 800;
 }
-
-.owner-offer-row {
-  grid-template-columns: minmax(0, 1.7fr) 150px 110px minmax(190px, auto) !important;
-  gap: 14px !important;
-  min-height: 70px !important;
-  margin: 0 !important;
-  padding: 10px 14px !important;
+.owner-reservation-group-attention .owner-reservation-group-title {
+  color: #176747;
 }
-
-.owner-offer-request-summary {
+.owner-reservations-list,
+.owner-offers-list {
+  display: grid;
+  gap: 7px;
+}
+.owner-reservation-group[hidden],
+.owner-reservation-card[hidden],
+.owner-reservations-empty[hidden] {
   display: none !important;
 }
+.owner-reservations-empty {
+  padding: 14px;
+  border: 1px solid #cfe3da;
+  border-radius: 12px;
+  background: #fff;
+  color: #66736e;
+  font-size: 13px;
+}
 
+/* Keep listing actions in the existing management dropdown. */
+.simple-offer-record { margin: 0 !important; }
+.owner-offer-row {
+  grid-template-columns: minmax(0, 1.8fr) 130px 110px minmax(180px, auto) !important;
+  align-items: center !important;
+  min-height: 61px !important;
+  gap: 10px !important;
+  margin: 0 !important;
+  padding: 8px 12px !important;
+}
+.owner-offer-request-summary { display: none !important; }
+.owner-offer-detail-link {
+  color: inherit;
+  text-decoration: none;
+}
+.owner-offer-photo-link {
+  display: inline-flex;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+}
+.owner-offer-title-link {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+}
+.owner-offer-title-link:hover .simple-offer-name { text-decoration: underline; text-underline-offset: 2px; }
+.owner-offer-photo-link:hover .tool-image { border-color: #176747 !important; }
 .owner-offer-row .simple-offer-actions {
   justify-content: flex-end !important;
-  gap: 8px !important;
+  gap: 7px !important;
   flex-wrap: nowrap !important;
 }
-
-.owner-offer-manage {
-  position: relative;
-  flex: 0 0 auto;
-}
-
+.owner-offer-manage { position: relative; flex: 0 0 auto; }
 .owner-offer-manage-summary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 38px;
+  min-height: 36px;
   padding: 8px 12px;
-  border-radius: 10px;
+  border-radius: 9px;
   background: #edf5f1;
   color: #173f35;
   font-size: 12px;
   line-height: 1.15;
-  font-weight: 900;
+  font-weight: 800;
   cursor: pointer;
   list-style: none;
   white-space: nowrap;
 }
-
-.owner-offer-manage-summary::-webkit-details-marker {
-  display: none;
-}
-
-.owner-offer-manage-summary::after {
-  content: "⌄";
-  margin-left: 7px;
-}
-
-.owner-offer-manage[open] .owner-offer-manage-summary {
-  background: #e2efe9;
-}
-
-.owner-offer-manage[open] .owner-offer-manage-summary::after {
-  content: "⌃";
-}
-
+.owner-offer-manage-summary::-webkit-details-marker { display: none; }
+.owner-offer-manage-summary::after { content: "\2304"; margin-left: 7px; }
+.owner-offer-manage[open] .owner-offer-manage-summary { background: #e2efe9; }
+.owner-offer-manage[open] .owner-offer-manage-summary::after { content: "\2303"; }
 .owner-offer-manage-panel {
   position: absolute;
   z-index: 50;
-  top: calc(100% + 6px);
+  top: calc(100% + 5px);
   right: 0;
   width: 220px;
   padding: 7px;
   border: 1px solid #cfe3da;
   border-radius: 12px;
   background: #fff;
-  box-shadow: 0 16px 40px rgba(23, 63, 53, 0.16);
+  box-shadow: 0 16px 40px rgba(23, 63, 53, .16);
 }
-
 .owner-offer-manage-panel a,
 .owner-offer-manage-panel button {
   display: flex !important;
@@ -134,264 +192,231 @@
   text-align: left !important;
   box-shadow: none !important;
 }
-
 .owner-offer-manage-panel a:hover,
-.owner-offer-manage-panel button:hover {
-  background: #f3f8f5 !important;
-}
+.owner-offer-manage-panel button:hover { background: #f3f8f5 !important; }
+.owner-offer-manage-panel .danger { color: #a43b2f !important; }
+.owner-offer-manage-panel .danger:hover { background: #fff3f0 !important; }
 
-.owner-offer-manage-panel .danger {
-  color: #a43b2f !important;
-}
-
-.owner-offer-manage-panel .danger:hover {
-  background: #fff3f0 !important;
-}
-
-.owner-reservations-section {
-  display: grid;
-  gap: 10px;
-  margin-top: 8px;
-}
-
+/* Each active reservation has a compact row, with contact details after payment. */
 .owner-reservation-card {
   overflow: hidden;
   border: 1px solid #cfe3da !important;
-  border-radius: 14px;
+  border-radius: 12px;
   background: #fff;
-  box-shadow: 0 8px 22px rgba(23, 63, 53, 0.04);
+  box-shadow: 0 5px 15px rgba(23, 63, 53, .035);
 }
-
-.owner-reservation-card:has([data-offers-action="approve-reservation"]) {
-  border-color: #efc69f !important;
+.owner-reservation-card[data-owner-status="pending"] {
+  border-color: #e7c69e !important;
 }
-
 .owner-reservation-card > .request-row {
-  grid-template-columns: minmax(220px, 1.35fr) 190px 105px minmax(145px, auto) minmax(220px, auto) !important;
-  gap: 12px !important;
-  align-items: end !important;
-  min-height: 78px !important;
-  padding: 12px 14px !important;
+  display: grid;
+  grid-template-columns: minmax(235px, 1.6fr) minmax(160px, 180px) minmax(110px, 130px) minmax(185px, auto) !important;
+  gap: 9px !important;
+  align-items: center !important;
+  min-height: 60px !important;
+  padding: 9px 12px !important;
 }
-
-.owner-reservation-field {
+.owner-reservation-field { min-width: 0; }
+.owner-reservation-field::before { display: none; }
+.owner-reservation-party {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 8px;
+  row-gap: 3px;
+  align-content: center;
   min-width: 0;
 }
-
-.owner-reservation-field::before {
-  content: attr(data-owner-label);
-  display: block;
-  margin-bottom: 5px;
-  color: #6a7973;
-  font-size: 10px;
-  line-height: 1;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.035em;
-}
-
 .owner-reservation-offer {
   display: block;
-  margin-bottom: 3px;
+  grid-column: 1 / -1;
+  margin: 0;
   color: #173f35;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.2;
-  font-weight: 900;
+  font-weight: 850;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-
 .owner-reservation-card .request-name {
-  font-size: 13px !important;
+  grid-column: 1;
+  font-size: 12px !important;
+  font-weight: 750 !important;
 }
-
-.owner-reservation-card .request-email {
-  margin-top: 2px !important;
-  white-space: normal !important;
-  overflow: visible !important;
-  text-overflow: clip !important;
-  line-height: 1.3 !important;
+.owner-reservation-card .owner-reservation-contact-preview { display: none !important; }
+.owner-reservation-card .owner-reservation-reference {
+  grid-column: 2;
+  margin: 0 !important;
+  color: #68776e;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  white-space: nowrap;
 }
-
+.owner-reservation-reference-prefix {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.owner-reservation-party .reservation-expiration-note {
+  grid-column: 1 / -1;
+  margin: 1px 0 0;
+}
 .owner-reservation-card .request-date,
 .owner-reservation-card .table-value {
   color: #173f35 !important;
+  font-size: 12px !important;
   font-weight: 800 !important;
 }
-
-.owner-reservation-status-field .request-status {
+.owner-reservation-card .owner-reservation-price {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  line-height: 1.25;
+}
+.owner-reservation-payout-label {
+  color: #697970;
+  font-size: 11px;
+  font-weight: 650;
+}
+.owner-reservation-card .owner-reservation-price strong {
+  color: #173f35;
+  font-size: 13px;
+  font-weight: 800;
+}
+.owner-reservation-card .request-status {
   max-width: 100%;
   white-space: normal !important;
   text-align: center;
   line-height: 1.2 !important;
 }
-
 .owner-reservation-actions {
   display: flex !important;
   flex-wrap: wrap !important;
-  justify-content: flex-start !important;
-  gap: 7px !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  gap: 6px !important;
 }
-
-.owner-reservation-actions::before {
-  flex: 1 0 100%;
-  width: 100%;
-}
-
+.owner-reservation-actions::before { display: none; }
 .owner-reservation-actions .small-button,
 .owner-reservation-actions .history-toggle-button {
   min-height: 34px !important;
   padding: 8px 11px !important;
+  margin: 0 !important;
+  font-size: 12px !important;
 }
-
 .owner-reservation-actions .small-button:first-of-type {
   background: #73d64f !important;
   color: #173a22 !important;
 }
-
+.owner-reservation-actions .small-button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
 .owner-reservation-actions .small-button.light,
 .owner-reservation-actions .history-toggle-button {
   background: #edf5f1 !important;
   color: #173f35 !important;
 }
-
+.owner-reservation-actions .small-button.owner-handover-launch {
+  background: #73d64f !important;
+  color: #173a22 !important;
+}
+.owner-reservation-card > .owner-reservation-contacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  align-items: center;
+  margin: 0 !important;
+  padding: 10px 12px !important;
+  border: 0 !important;
+  border-top: 1px solid #e0eee6 !important;
+  border-radius: 0 !important;
+  background: #f7fbf9 !important;
+  color: #526b5d;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.owner-reservation-contacts span { min-width: 0; overflow-wrap: anywhere; }
+.owner-reservation-contacts strong { display: inline; margin: 0; color: #173f35; font-size: inherit; font-weight: 800; }
 .owner-reservation-card .request-detail {
-  padding: 0 14px 14px !important;
+  padding: 0 12px 12px !important;
   background: #f7fbf9 !important;
 }
-
-.owner-reservations-empty {
-  padding: 16px;
-  border: 1px solid #cfe3da;
-  border-radius: 14px;
-  background: #fff;
-  color: #66736e;
-  font-size: 13px;
-  font-weight: 700;
+/* Replaces three tall money boxes with one short row INSIDE Detail. */
+.owner-payment-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  padding: 9px 0;
+  border-bottom: 1px solid #dde9e2;
 }
-
-.owner-offer-manage-summary:focus-visible,
-.owner-offer-manage-panel a:focus-visible,
-.owner-offer-manage-panel button:focus-visible {
-  outline: 1px solid rgba(64, 127, 101, 0.52);
-  outline-offset: 2px;
+.owner-payment-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #63746b;
 }
+.owner-payment-item strong { color: #173f35; font-weight: 800; }
+.owner-fee-minimum-note { color: #64766e; font-size: 11px; font-weight: 600; white-space: nowrap; }
 
-@media (max-width: 1000px) {
+@media (max-width: 1050px) {
   .owner-offer-row {
-    grid-template-columns: minmax(0, 1fr) 125px 100px minmax(170px, auto) !important;
+    grid-template-columns: minmax(0, 1fr) 110px 95px minmax(165px, auto) !important;
   }
-
   .owner-reservation-card > .request-row {
-    grid-template-columns: minmax(180px, 1fr) 165px 95px minmax(135px, auto) minmax(200px, auto) !important;
-    gap: 9px !important;
+    grid-template-columns: minmax(185px, 1.5fr) minmax(145px, 160px) minmax(106px, 120px) minmax(155px, auto) !important;
   }
 }
-
-@media (max-width: 900px) {
-  .owner-offer-row {
-    grid-template-columns: minmax(0, 1fr) auto !important;
-    gap: 8px 12px !important;
-    padding: 10px 12px !important;
-  }
-
-  .owner-offer-row .simple-offer-main {
-    grid-column: 1 / -1 !important;
-  }
-
+@media (max-width: 920px) {
+  .owner-offer-row { grid-template-columns: minmax(0, 1fr) auto !important; }
+  .owner-offer-row .simple-offer-main { grid-column: 1 / -1; }
   .owner-offer-row .simple-offer-actions {
-    grid-column: 1 / -1 !important;
-    justify-content: flex-start !important;
+    grid-column: 1 / -1;
+    justify-content: flex-end !important;
     flex-wrap: wrap !important;
   }
-
-  .owner-offer-manage {
-    flex: 1 1 auto;
-  }
-
-  .owner-offer-manage-summary {
-    width: 100%;
-  }
-
   .owner-reservation-card > .request-row {
-    grid-template-columns: 1fr 1fr !important;
-    gap: 12px !important;
-    align-items: start !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, auto) !important;
+    gap: 6px 12px !important;
   }
-
-  .owner-reservation-party,
-  .owner-reservation-status-field,
-  .owner-reservation-actions {
-    grid-column: 1 / -1;
-  }
-
-  .owner-reservation-term {
-    grid-column: 1;
-  }
-
-  .owner-reservation-price {
-    grid-column: 2;
-  }
+  .owner-reservation-party { grid-column: 1 / -1; }
+  .owner-reservation-term { grid-column: 1; }
+  .owner-reservation-price { grid-column: 2; text-align: right; align-items: flex-end !important; }
+  .owner-reservation-status-field { grid-column: 1; }
+  .owner-reservation-actions { grid-column: 2; }
 }
-
 @media (max-width: 560px) {
-  .owner-section-header h2 {
-    font-size: 16px;
-  }
-
-  .owner-offer-row {
-    grid-template-columns: 1fr 1fr !important;
-  }
-
-  .owner-offer-row .simple-offer-main,
-  .owner-offer-row .simple-offer-actions {
-    grid-column: 1 / -1 !important;
-  }
-
-  .owner-offer-row .simple-offer-actions > .offer-primary-button,
-  .owner-offer-manage {
-    flex: 1 1 100%;
-    width: 100%;
-  }
-
-  .owner-offer-manage-summary {
-    width: 100%;
-  }
-
-  .owner-offer-manage-panel {
-    right: 0;
-    width: min(270px, calc(100vw - 54px));
-  }
-
-  .owner-reservation-card > .request-row {
-    grid-template-columns: 1fr !important;
-    padding: 12px !important;
-  }
-
-  .owner-reservation-party,
-  .owner-reservation-term,
-  .owner-reservation-price,
-  .owner-reservation-status-field,
+  .owner-section-header h2 { font-size: 17px; }
+  .owner-reservations-toolbar { grid-template-columns: 1fr; }
+  .owner-reservation-search { min-height: 40px; }
+  .owner-offer-row { grid-template-columns: 1fr auto !important; gap: 6px 9px !important; }
+  .owner-offer-row .simple-offer-main { grid-column: 1 / -1; }
+  .owner-offer-row .simple-offer-actions { grid-column: 1 / -1; justify-content: flex-end !important; }
+  .owner-offer-row .simple-offer-actions > .offer-primary-button { flex: 0 1 auto; }
+  .owner-offer-manage { flex: 0 1 auto; }
+  .owner-offer-manage-panel { right: 0; width: min(245px, calc(100vw - 48px)); }
+  .owner-reservation-card > .request-row { padding: 9px !important; }
+  .owner-reservation-party { column-gap: 6px; }
+  .owner-reservation-offer { font-size: 13px; }
   .owner-reservation-actions {
-    grid-column: 1;
-  }
-
-  .owner-reservation-actions {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr;
-    width: 100%;
-  }
-
-  .owner-reservation-actions::before {
     grid-column: 1 / -1;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: flex-end !important;
   }
-
   .owner-reservation-actions .small-button,
-  .owner-reservation-actions .history-toggle-button {
-    width: 100% !important;
-  }
-
-  .owner-reservation-actions .history-toggle-button {
-    grid-column: 1 / -1;
-  }
+  .owner-reservation-actions .history-toggle-button { width: auto !important; max-width: 100%; }
+  .owner-payment-summary { gap: 5px 12px; }
 }
 
 /* Owner cancellation debt payment summary. Enforcement is added separately. */
@@ -489,10 +514,10 @@
   justify-content: center;
   min-height: 30px;
   padding: 6px 9px;
-  border: 1px solid #efbd8e;
+  border: 1px solid #f0b2bb;
   border-radius: 999px;
-  background: #fff3e8;
-  color: #8a4b16;
+  background: #fff0f1;
+  color: #9d2634;
   font-size: 11px;
   line-height: 1.15;
   font-weight: 900;
@@ -511,7 +536,7 @@
   padding: 8px 14px;
   border: 0;
   border-radius: 10px;
-  background: #ff6a00;
+  background: #00835a;
   color: #fff;
   font: inherit;
   font-size: 12px;
@@ -521,7 +546,7 @@
 }
 
 .owner-debt-pay:hover {
-  background: #e85f00;
+  background: #006846;
 }
 
 .owner-debt-pay:disabled {
@@ -532,15 +557,15 @@
 .owner-debt-overdue-warning {
   margin: 0 0 12px;
   padding: 10px 12px;
-  border: 1px solid rgba(180, 83, 9, 0.28);
+  border: 1px solid rgba(220, 53, 69, 0.27);
   border-radius: 10px;
-  background: rgba(255, 247, 237, 0.9);
+  background: rgba(255, 240, 241, 0.94);
   font-size: 14px;
   line-height: 1.45;
 }
 
 .owner-debt-row.is-overdue {
-  border-color: rgba(180, 83, 9, 0.28);
+  border-color: rgba(220, 53, 69, 0.27);
 }
 
 .owner-debt-status.is-overdue {
@@ -594,4 +619,17 @@
   .owner-debt-status {
     width: 100%;
   }
+}
+
+/* Agreed pickup time is visible without expanding a reservation. */
+.owner-reservation-term .owner-pickup-time {
+  display: block;
+  margin-top: 3px;
+  color: #667a70;
+  font-size: 11px;
+  font-weight: 650;
+}
+.owner-reservation-card.owner-pin-target {
+  border-color: #00835a !important;
+  box-shadow: 0 0 0 2px rgba(0, 131, 90, .12) !important;
 }

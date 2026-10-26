@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { normalizeStripeCheckoutLocale } from "../_shared/stripe-checkout-language.mjs";
 
 type RentuloDenoRuntime = {
   serve(handler: (request: Request) => Response | Promise<Response>): void;
@@ -11,6 +12,13 @@ type CheckoutSessionResponse = {
   id?: string;
   url?: string | null;
   payment_intent?: string | { id?: string } | null;
+  status?: "open" | "complete" | "expired";
+  payment_status?: string;
+  mode?: string;
+  currency?: string;
+  amount_total?: number;
+  client_reference_id?: string;
+  metadata?: { reservation_id?: string; payment_id?: string };
   error?: {
     message?: string;
     type?: string;
@@ -112,7 +120,7 @@ denoRuntime.serve(async (req) => {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
 
-  let payload: { reservation_id?: string };
+  let payload: { reservation_id?: string; locale?: unknown };
   try {
     payload = await req.json();
   } catch {
@@ -246,8 +254,124 @@ denoRuntime.serve(async (req) => {
     return jsonResponse({ error: "Payment is not in a payable state" }, 409);
   }
 
+  // Atomic compare-and-set on a service-role-only payment row pins the locale
+  // for every Stripe POST sharing this payment's idempotency key. A later browser
+  // language change must never change an already selected Checkout locale.
+  const requestedLocale = normalizeStripeCheckoutLocale(payload.locale);
+  const localePin = await admin
+    .from("payments")
+    .update({ stripe_checkout_locale: requestedLocale })
+    .eq("id", payment.id)
+    .eq("payer_id", actor.id)
+    .eq("status", "pending")
+    .is("stripe_checkout_locale", null)
+    .select("stripe_checkout_locale")
+    .maybeSingle();
+  if (localePin.error) {
+    console.error("create-checkout-session: locale pin failed", localePin.error.message);
+    return jsonResponse({ error: "Unable to prepare payment language" }, 503);
+  }
+
+  let checkoutLocale = localePin.data?.stripe_checkout_locale;
+  if (!checkoutLocale) {
+    const existingLocale = await admin
+      .from("payments")
+      .select("stripe_checkout_locale, status")
+      .eq("id", payment.id)
+      .eq("payer_id", actor.id)
+      .single();
+    if (existingLocale.error || existingLocale.data?.status !== "pending" ||
+        !existingLocale.data?.stripe_checkout_locale) {
+      return jsonResponse({ error: "Payment language could not be verified" }, 503);
+    }
+    checkoutLocale = existingLocale.data.stripe_checkout_locale;
+  }
+
+  // The database guards the expiry race before ANY Stripe request. Persist an
+  // ambiguous checkout-creation attempt so Cron never releases its dates when
+  // Stripe may have created a session that has not yet been saved locally.
+  const checkoutClaim = await admin.rpc("mark_reservation_checkout_started", {
+    p_payment_id: payment.id,
+    p_renter_id: actor.id,
+  });
+  if (checkoutClaim.error) {
+    console.error("create-checkout-session: cannot claim safe checkout", checkoutClaim.error.message);
+    return jsonResponse({ error: "Unable to authorize payment" }, 503);
+  }
+  if (checkoutClaim.data !== true) {
+    return jsonResponse({ error: "Reservation payment deadline has expired" }, 409);
+  }
+
+  const checkoutPaymentId = payment.id;
+  const checkoutRenterId = actor.id;
+
+  async function finishCheckoutAttempt(sessionId: string): Promise<boolean> {
+    const result = await admin.rpc("finish_reservation_checkout_attempt", {
+      p_payment_id: checkoutPaymentId,
+      p_renter_id: checkoutRenterId,
+      p_session_id: sessionId,
+    });
+    if (result.error || result.data !== true) {
+      console.error(
+        "create-checkout-session: could not finalize checkout attempt",
+        checkoutPaymentId,
+      );
+      return false;
+    }
+    return true;
+  }
+
+  // Reuse the existing hosted Checkout session. The fixed idempotency key
+  // must not be replayed with new parameters (such as the newly pinned locale),
+  // otherwise Stripe correctly rejects it as an idempotency-key mismatch.
+  let checkoutIdempotencyKey = `rentulo-checkout-${payment.id}`;
+  const previousSessionId = String(payment.provider_payment_id || "").trim();
+  if (previousSessionId) {
+    if (!/^cs_(test_|live_)[A-Za-z0-9]+$/.test(previousSessionId)) {
+      console.error("create-checkout-session: stored session identifier is invalid", payment.id);
+      return jsonResponse({ error: "Stored payment session is invalid" }, 409);
+    }
+
+    const previousResponse = await fetch(
+      `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(previousSessionId)}`,
+      { headers: { Authorization: `Bearer ${stripeSecretKey}` } },
+    );
+    const previous = (await previousResponse.json().catch(() => ({}))) as CheckoutSessionResponse;
+    if (!previousResponse.ok) {
+      console.error("create-checkout-session: previous Stripe session lookup failed", previousResponse.status);
+      return jsonResponse({ error: "Existing payment session could not be verified" }, 502);
+    }
+    if (
+      previous.id !== previousSessionId ||
+      previous.mode !== "payment" ||
+      previous.currency !== "czk" ||
+      previous.amount_total !== stripeAmountTotalMinor ||
+      previous.client_reference_id !== reservation.id ||
+      previous.metadata?.reservation_id !== reservation.id ||
+      previous.metadata?.payment_id !== payment.id
+    ) {
+      console.error("create-checkout-session: previous Stripe session does not match reservation", payment.id);
+      return jsonResponse({ error: "Existing payment session does not match reservation" }, 409);
+    }
+
+    if (previous.status === "open" && previous.url && previous.payment_status === "unpaid") {
+      if (!(await finishCheckoutAttempt(previousSessionId))) {
+        return jsonResponse({ error: "Payment session could not be finalized" }, 503);
+      }
+      return jsonResponse({ url: previous.url });
+    }
+    if (previous.status !== "expired") {
+      return jsonResponse({ error: "Payment is already processing or cannot be restarted" }, 409);
+    }
+
+    // The old session cannot be charged again after expiry. Generate exactly
+    // one replacement per expired session, including under concurrent retries.
+    checkoutIdempotencyKey = `rentulo-checkout-${payment.id}-after-${previousSessionId}`;
+  }
+
   const checkoutParams = new URLSearchParams();
   checkoutParams.set("mode", "payment");
+  checkoutParams.set("locale", checkoutLocale);
   checkoutParams.set("success_url", `${siteUrl}/moje-rezervace.html?payment=success`);
   checkoutParams.set("cancel_url", `${siteUrl}/moje-rezervace.html?payment=cancelled`);
   checkoutParams.set("client_reference_id", reservation.id);
@@ -283,7 +407,7 @@ denoRuntime.serve(async (req) => {
     headers: {
       Authorization: `Bearer ${stripeSecretKey}`,
       "Content-Type": "application/x-www-form-urlencoded",
-      "Idempotency-Key": `rentulo-checkout-${payment.id}`,
+      "Idempotency-Key": checkoutIdempotencyKey,
     },
     body: checkoutParams,
   });
@@ -327,5 +451,8 @@ denoRuntime.serve(async (req) => {
     return jsonResponse({ error: "Payment session could not be saved" }, 500);
   }
 
+  if (!(await finishCheckoutAttempt(checkoutSession.id))) {
+    return jsonResponse({ error: "Payment session could not be finalized" }, 503);
+  }
   return jsonResponse({ url: checkoutSession.url });
 });

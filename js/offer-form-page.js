@@ -55,6 +55,7 @@ let offerSaveInProgress = false;
 
       offerAddressSuggestions = [];
       offerAddressActiveIndex = -1;
+      offerAddressRequestId += 1; // Invalidate any older in-flight response.
 
       if (offerAddressTimer) {
         window.clearTimeout(offerAddressTimer);
@@ -240,16 +241,11 @@ let offerSaveInProgress = false;
         const city = cityInput.value.trim();
         const postalCode = postalCodeInput.value.trim();
 
-        offerAddressRequestId += 1;
+        // Don't leave proposals for the previous input visible or accept a late response.
+        closeOfferAddressSuggestions();
         const requestId = offerAddressRequestId;
 
-        if (offerAddressTimer) {
-          window.clearTimeout(offerAddressTimer);
-          offerAddressTimer = null;
-        }
-
         if (query.length < OFFER_ADDRESS_SUGGESTION_MIN_LENGTH) {
-          closeOfferAddressSuggestions();
           return;
         }
 
@@ -729,6 +725,22 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
         }
       }
 
+      const transportAttestation = document.getElementById("offerTransportConfirmation");
+      if (!window.rentuloOfferPolicy || typeof window.rentuloOfferPolicy.isTransportOffer !== "function") {
+        showOfferTranslatedFormMessage("offer.transportNotAllowed", "Kontrola pravidel nabídky není dostupná.", "error");
+        return false;
+      }
+      if (window.rentuloOfferPolicy.isTransportOffer(getInputValue("toolName"), getInputValue("toolCategory"))) {
+        markOfferFormError("toolName");
+        showOfferTranslatedFormMessage("offer.transportNotAllowed", "Dopravní prostředky nelze v Rentulu V1 nabízet.", "error");
+        return false;
+      }
+      if (!transportAttestation || !transportAttestation.checked) {
+        if (transportAttestation) markOfferFormError("offerTransportConfirmation");
+        showOfferTranslatedFormMessage("offer.transportMustConfirm", "Potvrďte prosím pravidla Rentula V1.", "error");
+        return false;
+      }
+
       if (hasError) {
         if (hasInvalidPrice) {
           showOfferTranslatedFormMessage("offer.validationCorrectFields", "Opravte prosím označená pole.", "error");
@@ -991,6 +1003,11 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
             "Polohu místa vyzvednutí se teď nepodařilo ověřit. Zkuste to prosím znovu.",
             "error"
           );
+          return;
+        }
+
+        if (message.includes("rentulo_v1_transport_not_allowed")) {
+          showOfferTranslatedFormMessage("offer.transportNotAllowed", "Dopravní prostředky nelze v Rentulu V1 nabízet.", "error");
           return;
         }
 

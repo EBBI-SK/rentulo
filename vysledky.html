@@ -7,9 +7,6 @@
   <title>Výsledky vyhledávání - Rentulo</title>
 
   <link rel="icon" type="image/png" href="assets/rentulo-logo-mark.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link id="rentuloSharedTheme" rel="stylesheet" href="css/rentulo-theme.css" />
 
   <style>
@@ -72,7 +69,7 @@
       margin: 0;
       min-height: 100vh;
       color: var(--rentulo-ink, #102019);
-      font-family: var(--rentulo-font, "Manrope", Arial, sans-serif);
+      font-family: var(--rentulo-font, system-ui, -apple-system, "Segoe UI", Arial, sans-serif);
     }
 
     button,
@@ -146,13 +143,13 @@
     }
 
     .nearby-results-banner.warning {
-      border-color: #f2c79f;
-      background: #fff3e8;
-      color: #8a4b16;
+      border-color: #f0b2bb;
+      background: #fff0f1;
+      color: #9d2634;
     }
 
     .nearby-results-banner.warning span {
-      color: #8a4b16;
+      color: #9d2634;
     }
 
     .results-layout {
@@ -236,12 +233,12 @@
       padding: 0 18px;
       border: 0;
       border-radius: 14px;
-      background: var(--rentulo-orange, #ff6a00);
+      background: var(--rentulo-action-green, #00835a);
       color: #ffffff;
       font-size: 13px;
       font-weight: 800;
       cursor: pointer;
-      box-shadow: 0 9px 20px rgba(255, 106, 0, 0.15);
+      box-shadow: 0 9px 20px rgba(0, 112, 75, 0.14);
       transition: background 0.16s ease, transform 0.16s ease;
     }
 
@@ -254,7 +251,7 @@
     }
 
     #results-search-button:hover {
-      background: var(--rentulo-orange-hover, #e85f00);
+      background: var(--rentulo-action-green-hover, #006846);
       transform: translateY(-1px);
     }
 
@@ -417,20 +414,20 @@
       padding: 0 19px;
       border: 0;
       border-radius: 14px;
-      background: var(--rentulo-orange, #ff6a00);
+      background: var(--rentulo-action-green, #00835a);
       color: #ffffff;
       font-size: 13px;
       font-weight: 800;
       line-height: 1.2;
       text-decoration: none;
       cursor: pointer;
-      box-shadow: 0 9px 20px rgba(255, 106, 0, 0.15);
+      box-shadow: 0 9px 20px rgba(0, 112, 75, 0.14);
       transition: background 0.16s ease, transform 0.16s ease;
     }
 
     .result-button:hover,
     .empty-results-button:hover {
-      background: var(--rentulo-orange-hover, #e85f00);
+      background: var(--rentulo-action-green-hover, #006846);
       color: #ffffff;
       transform: translateY(-1px);
     }
@@ -786,6 +783,7 @@
   <script src="js/offer-utils.js"></script>
   <script src="js/i18n.js"></script>
   <script src="js/navigation.js"></script>
+  <script src="js/nearby-location.js"></script>
   <script src="js/results-page.js"></script>
 </body>
 </html>

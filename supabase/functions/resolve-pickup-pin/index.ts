@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { rentalHandoverOpen } from "../_shared/prague-rental-window.mjs";
 
 type RentuloDenoRuntime = {
   serve(handler: (request: Request) => Response | Promise<Response>): void;
@@ -10,6 +11,9 @@ type ReservationRow = {
   renter_id: string;
   owner_id: string;
   status: string;
+  start_date: string;
+  end_date: string;
+  pickup_time: string | null;
 };
 
 type PaymentRow = {
@@ -169,7 +173,7 @@ denoRuntime.serve(async (req) => {
 
   const { data: reservations, error: reservationsError } = await admin
     .from("reservations")
-    .select("id, renter_id, owner_id, status")
+    .select("id, renter_id, owner_id, status, start_date, end_date, pickup_time")
     .eq("owner_id", actor.id)
     .eq("status", "paid");
 
@@ -199,11 +203,17 @@ denoRuntime.serve(async (req) => {
   for (const payment of payments) paymentByReservation.set(payment.reservation_id, payment);
 
   const matches: string[] = [];
+  let matchedOutsideRentalPeriod = false;
   for (const reservation of ownerReservations) {
     const payment = paymentByReservation.get(reservation.id);
     if (!payment || !isEligiblePayment(payment, reservation)) continue;
     const expectedPin = await createPickupPin(pickupPinSecret, reservation.id, payment.id);
-    if (timingSafeTextEqual(pin, expectedPin)) matches.push(reservation.id);
+    if (!timingSafeTextEqual(pin, expectedPin)) continue;
+    if (rentalHandoverOpen(reservation.start_date, reservation.end_date, reservation.pickup_time)) {
+      matches.push(reservation.id);
+    } else {
+      matchedOutsideRentalPeriod = true;
+    }
   }
 
   if (matches.length === 1) {
@@ -240,12 +250,28 @@ denoRuntime.serve(async (req) => {
       return jsonResponse({ error: "PIN could not be verified" }, 500);
     }
 
+    // The PIN may expire while this request awaits the security reset.
+    // Never return a verified match after its exact Prague-local deadline.
+    const matched = ownerReservations.find((reservation) => reservation.id === matches[0]);
+    if (!matched || !rentalHandoverOpen(matched.start_date, matched.end_date, matched.pickup_time)) {
+      return jsonResponse({
+        error: "The PIN can be used from two hours before scheduled pickup until scheduled return",
+        code: "pickup_wrong_day",
+      }, 409);
+    }
     return jsonResponse({ reservation_id: matches[0], status: "verified" });
   }
 
   if (matches.length > 1) {
     console.error("resolve-pickup-pin: ambiguous PIN collision for owner", actor.id);
     return jsonResponse({ error: "PIN is ambiguous", code: "ambiguous_pin" }, 409);
+  }
+
+  if (matchedOutsideRentalPeriod) {
+    return jsonResponse({
+      error: "The PIN can be used from two hours before scheduled pickup until scheduled return",
+      code: "pickup_wrong_day",
+    }, 409);
   }
 
   const attemptResult = await admin.rpc("register_failed_owner_pickup_pin", {

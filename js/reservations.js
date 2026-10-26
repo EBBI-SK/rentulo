@@ -93,8 +93,16 @@ function getReservationContactVisible(status) {
   );
 }
 
+function isReservationDeadlineOpen(reservation) {
+  const deadline = reservation && (reservation.expiresAt || reservation.expires_at);
+  if (!deadline) return true; // existing TEST reservations remain grandfathered
+  const ms = new Date(deadline).getTime();
+  return Number.isFinite(ms) && ms > Date.now();
+}
+
 function canOwnerApproveReservation(reservation) {
-  return getReservationStatus(reservation) === RESERVATION_STATUS_PENDING;
+  return getReservationStatus(reservation) === RESERVATION_STATUS_PENDING &&
+    isReservationDeadlineOpen(reservation);
 }
 
 function canOwnerRejectReservation(reservation) {
@@ -102,7 +110,8 @@ function canOwnerRejectReservation(reservation) {
 }
 
 function canRenterPayReservation(reservation) {
-  return getReservationStatus(reservation) === RESERVATION_STATUS_APPROVED;
+  return getReservationStatus(reservation) === RESERVATION_STATUS_APPROVED &&
+    isReservationDeadlineOpen(reservation);
 }
 
 function canRenterCancelReservation(reservation) {
@@ -133,11 +142,11 @@ function canOwnerConfirmReturnedReservation(reservation) {
 }
 
 const RESERVATION_CANCEL_CUTOFF_COPY = {
-  cs: "Rezervaci lze zrušit pouze více než 6 hodin před převzetím.",
-  sk: "Rezerváciu možno zrušiť iba viac ako 6 hodín pred prevzatím.",
-  en: "This reservation can only be cancelled more than 6 hours before pickup.",
-  de: "Diese Reservierung kann nur mehr als 6 Stunden vor der Abholung storniert werden.",
-  pl: "Rezerwację można anulować tylko ponad 6 godzin przed odbiorem."
+  cs: "Běžné storno je možné pouze více než 24 hodin před převzetím. U starších rezervací platí termín uvedený v detailu.",
+  sk: "Bežné storno je možné iba viac ako 24 hodín pred prevzatím. Pri starších rezerváciách platí termín v detaile.",
+  en: "Ordinary cancellation is possible only more than 24 hours before pickup. Earlier bookings retain the cutoff shown in their details.",
+  de: "Reguläre Stornierung ist nur mehr als 24 Stunden vor der Abholung möglich. Für ältere Buchungen gilt die angezeigte Frist.",
+  pl: "Zwykłe anulowanie jest możliwe ponad 24 godziny przed odbiorem. Dla wcześniejszych rezerwacji obowiązuje widoczny termin."
 };
 
 function getReservationCancellationCutoffAt(reservation) {
@@ -165,6 +174,12 @@ function isReservationCancellationWindowOpen(reservation, nowValue) {
     !canOwnerCancelReservation(reservation)
   ) {
     return false;
+  }
+
+  // An unapproved request can be withdrawn before any rental is confirmed.
+  // This is not ordinary cancellation of an approved/paid rental.
+  if (getReservationStatus(reservation) === RESERVATION_STATUS_PENDING) {
+    return true;
   }
 
   const cutoff = getReservationCancellationCutoffAt(reservation);
@@ -223,7 +238,8 @@ function formatPaidCancellationMinorMoney(value) {
 async function requestPaidReservationCancellation(
   supabaseClient,
   reservationId,
-  action
+  action,
+  exceptionalReason = null
 ) {
   if (
     !supabaseClient ||
@@ -241,7 +257,8 @@ async function requestPaidReservationCancellation(
       {
         body: {
           reservation_id: reservationId,
-          action: action
+          action: action,
+          ...(exceptionalReason === "owner_unavailable" ? { exceptional_reason: exceptionalReason } : {})
         }
       }
     );
@@ -394,6 +411,10 @@ function installReservationCancellationCutoffUi() {
 
     window.renderReservationDetailActions = function (reservation, status) {
       if (!canRenterCancelReservation(reservation)) {
+        return originalRenderReservationDetailActions(reservation, status);
+      }
+
+      if (getReservationStatus(reservation) === RESERVATION_STATUS_PENDING) {
         return originalRenderReservationDetailActions(reservation, status);
       }
 

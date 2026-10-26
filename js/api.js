@@ -1,40 +1,13 @@
 /*
-  Rentulo API / Supabase pomocná vrstva.
+  BOD 13: Reservation notifications are generated transactionally in Supabase
+  and processed by the central worker. No email/SMS is sent from the browser.
 
-  Obsahuje zdieľanú frontendovú funkciu pre odosielanie
-  rezervačných e-mailov cez Supabase Edge Function.
-
-  Tento súbor je aktívnou súčasťou aplikácie Rentulo.
+  Compatibility shim for older TEST page bundles that still call the former
+  helper after a reservation transition. The database outbox is the source of
+  truth; this shim does not issue a network request or mutate a reservation.
 */
-
-async function apiSendReservationEmail(reservationId, eventType) {
-  const supabaseClient = getSupabaseClient();
-
-  if (!supabaseClient || !reservationId || !eventType) {
-    return { ok: false, skipped: true };
-  }
-
-  try {
-    const { data, error } = await supabaseClient.functions.invoke(
-      "send-reservation-email",
-      {
-        body: {
-          reservation_id: reservationId,
-          event: eventType
-        }
-      }
-    );
-
-    if (error) {
-      console.warn("E-mailové upozornění se nepodařilo odeslat:", error);
-      return { ok: false, error: error };
-    }
-
-    return data || { ok: true };
-  } catch (error) {
-    console.warn("E-mailové upozornění se nepodařilo odeslat:", error);
-    return { ok: false, error: error };
-  }
+async function apiSendReservationEmail() {
+  return { ok: true, queued: true };
 }
 
 window.apiSendReservationEmail = apiSendReservationEmail;

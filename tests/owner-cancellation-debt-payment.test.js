@@ -56,7 +56,7 @@ test("owner debt Checkout authenticates the signed-in owner and accepts only an 
   assert.match(checkoutSource, /STRIPE_SECRET_KEY/);
   assert.match(checkoutSource, /SITE_URL/);
   assert.match(checkoutSource, /getUser\(accessToken\)/);
-  assert.match(checkoutSource, /let payload: \{ debt_id\?: string \}/);
+  assert.match(checkoutSource, /let payload: \{ debt_id\?: string; locale\?: unknown \}/);
   assert.match(checkoutSource, /\.from\("owner_cancellation_debts"\)/);
   assert.match(checkoutSource, /actor\.id !== debt\.owner_id/);
   assert.match(checkoutSource, /debt\.status !== "open"/);
@@ -86,7 +86,7 @@ test("owner debt Checkout correlates Stripe objects with one debt and uses an id
   );
   assert.match(
     checkoutSource,
-    /"Idempotency-Key": `rentulo-owner-debt-checkout-\$\{debt\.id\}`/
+    /"Idempotency-Key": checkoutIdempotencyKey/
   );
   assert.match(checkoutSource, /stripe_checkout_session_id: checkoutSession\.id/);
   assert.match(checkoutSource, /payment_requested_at: new Date\(\)\.toISOString\(\)/);

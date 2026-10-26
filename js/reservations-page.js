@@ -109,10 +109,205 @@ function formatReservationScheduleValue(dateValue, timeValue) {
   return dateText + " " + getReservationScheduleCopy().at + " " + timeText;
 }
 
+function reservationsExpirationText(reason) {
+  if (reason === "owner_no_response") {
+    return reservationsTranslate("reservations.expiration.ownerExpired", "Majitel žádost nepotvrdil včas.");
+  }
+  if (reason === "payment_timeout") {
+    return reservationsTranslate("reservations.expiration.paymentExpired", "Platbu jste nedokončili včas.");
+  }
+  return reservationsTranslate("reservations.expiration.unknown", "Lhůta vypršela. Důvod není k dispozici.");
+}
+
   const PLATFORM_FEE_PERCENT = 10;
     let supabaseReservations = [];
     let reservationsLoadState = "idle";
     let reservationsNoticeTimer = null;
+
+    // Stripe's return URL is not proof of payment. Only the server's reservation
+    // status (updated by the trusted Stripe webhook) can confirm a payment.
+    const STRIPE_CHECKOUT_PENDING_KEY = "rentuloPendingStripeCheckout";
+    const STRIPE_RETURN_POLL_DELAY_MS = 2000;
+    const STRIPE_RETURN_MAX_POLLS = 30;
+    const STRIPE_RETURN_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+    const STRIPE_RETURN_TEXT = {
+      cs: {
+        checking: "Ověřujeme dokončení platby. Prosím, neplaťte znovu.",
+        checkingShort: "Ověřujeme platbu",
+        confirmed: "Platba byla potvrzena. Rezervace je zaplacená.",
+        delayed: "Potvrzení platby trvá déle. Neplaťte znovu. Zkuste později zkontrolovat stav nebo kontaktujte podporu.",
+        unavailable: "Stav platby se nepodařilo potvrdit. Neplaťte znovu a kontaktujte podporu."
+      },
+      sk: {
+        checking: "Overujeme dokončenie platby. Prosím, neplaťte znova.",
+        checkingShort: "Overujeme platbu",
+        confirmed: "Platba bola potvrdená. Rezervácia je zaplatená.",
+        delayed: "Potvrdenie platby trvá dlhšie. Neplaťte znova. Skontrolujte stav neskôr alebo kontaktujte podporu.",
+        unavailable: "Stav platby sa nepodarilo potvrdiť. Neplaťte znova a kontaktujte podporu."
+      },
+      en: {
+        checking: "We are verifying your payment. Please do not pay again.",
+        checkingShort: "Verifying payment",
+        confirmed: "Payment confirmed. Your booking is paid.",
+        delayed: "Payment confirmation is taking longer. Do not pay again. Check later or contact support.",
+        unavailable: "We could not verify the payment status. Do not pay again; contact support."
+      },
+      de: {
+        checking: "Wir prüfen Ihre Zahlung. Bitte zahlen Sie nicht erneut.",
+        checkingShort: "Zahlung wird geprüft",
+        confirmed: "Zahlung bestätigt. Die Buchung ist bezahlt.",
+        delayed: "Die Zahlungsbestätigung dauert länger. Bitte zahlen Sie nicht erneut. Prüfen Sie den Status später oder kontaktieren Sie den Support.",
+        unavailable: "Der Zahlungsstatus konnte nicht bestätigt werden. Bitte zahlen Sie nicht erneut und kontaktieren Sie den Support."
+      },
+      pl: {
+        checking: "Sprawdzamy płatność. Nie płać ponownie.",
+        checkingShort: "Sprawdzamy płatność",
+        confirmed: "Płatność potwierdzona. Rezerwacja jest opłacona.",
+        delayed: "Potwierdzenie płatności trwa dłużej. Nie płać ponownie. Sprawdź stan później lub skontaktuj się z pomocą.",
+        unavailable: "Nie udało się potwierdzić płatności. Nie płać ponownie i skontaktuj się z pomocą."
+      }
+    };
+    let stripeReturnVerification = null;
+
+    function stripeReturnText(key) {
+      const language = typeof window.getRentuloLanguage === "function"
+        ? window.getRentuloLanguage()
+        : "cs";
+      return (STRIPE_RETURN_TEXT[language] || STRIPE_RETURN_TEXT.cs)[key];
+    }
+
+    function clearStripePendingCheckout() {
+      try {
+        window.sessionStorage.removeItem(STRIPE_CHECKOUT_PENDING_KEY);
+      } catch (_) {
+        // Browsers may disable sessionStorage; the confirmation flow still stays safe.
+      }
+    }
+
+    function storeStripePendingCheckout(reservationId, userId) {
+      try {
+        window.sessionStorage.setItem(STRIPE_CHECKOUT_PENDING_KEY, JSON.stringify({
+          reservationId: String(reservationId),
+          userId: String(userId),
+          startedAt: Date.now()
+        }));
+      } catch (_) {
+        // A blocked storage API must never prevent Stripe Checkout.
+      }
+    }
+
+    function readStripeReturnVerification(verifiedUser) {
+      const params = new URLSearchParams(window.location.search);
+      const paymentResult = params.get("payment");
+      if (paymentResult === "cancelled") {
+        clearStripePendingCheckout();
+        return null;
+      }
+      if (paymentResult !== "success") {
+        return null;
+      }
+
+      let reservationId = null;
+      try {
+        const pending = JSON.parse(window.sessionStorage.getItem(STRIPE_CHECKOUT_PENDING_KEY) || "null");
+        const age = Date.now() - Number(pending && pending.startedAt);
+        if (pending && pending.userId === verifiedUser.id &&
+            typeof pending.reservationId === "string" &&
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pending.reservationId) &&
+            age >= 0 && age < STRIPE_RETURN_MAX_AGE_MS) {
+          reservationId = pending.reservationId;
+        }
+      } catch (_) {
+        // Unknown checkout: refresh all reservations, but never claim payment success.
+      }
+      return { reservationId: reservationId, polls: 0 };
+    }
+
+    function stripeReturnBlocksAction(reservationId) {
+      return Boolean(stripeReturnVerification && (
+        !stripeReturnVerification.reservationId ||
+        String(stripeReturnVerification.reservationId) === String(reservationId)
+      ));
+    }
+
+    function showStripeReturnNotice(key, isError = false) {
+      const notice = document.getElementById("reservationsNotice");
+      if (!notice) return;
+      if (reservationsNoticeTimer) {
+        window.clearTimeout(reservationsNoticeTimer);
+        reservationsNoticeTimer = null;
+      }
+      notice.textContent = stripeReturnText(key);
+      notice.classList.toggle("error", isError);
+      notice.classList.toggle("processing", !isError);
+      notice.setAttribute("role", isError ? "alert" : "status");
+      notice.hidden = false;
+    }
+
+    function removeStripeReturnQuery() {
+      if (!window.history || typeof window.history.replaceState !== "function") return;
+      const url = new URL(window.location.href);
+      url.searchParams.delete("payment");
+      window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+    }
+
+    function getVerifiedStripeReturnStatus() {
+      if (!stripeReturnVerification || !stripeReturnVerification.reservationId) return "unknown";
+      const reservation = supabaseReservations.find(function (item) {
+        return String(item.id || item.reservationId) === stripeReturnVerification.reservationId;
+      });
+      if (!reservation) return "unknown";
+      const status = normalizeReservationStatus(getSafeReservationStatus(reservation));
+      if ([RESERVATION_STATUS_PAID, RESERVATION_STATUS_PICKED_UP,
+           RESERVATION_STATUS_RETURNED, RESERVATION_STATUS_NO_SHOW].includes(status)) return "confirmed";
+      if ([RESERVATION_STATUS_CANCELLED, RESERVATION_STATUS_EXPIRED,
+           RESERVATION_STATUS_REJECTED].includes(status)) return "unavailable";
+      return "pending";
+    }
+
+    function finishStripeReturnVerification(result) {
+      stripeReturnVerification = null;
+      clearStripePendingCheckout();
+      removeStripeReturnQuery();
+      renderReservations();
+      if (result === "confirmed") {
+        showReservationsNotice(stripeReturnText("confirmed"));
+      } else {
+        showStripeReturnNotice("unavailable", true);
+      }
+    }
+
+    function scheduleStripeReturnPoll(verifiedUser) {
+      if (!stripeReturnVerification) return;
+      if (stripeReturnVerification.polls >= STRIPE_RETURN_MAX_POLLS) {
+        // Keep the Pay action blocked: the webhook may still be processing.
+        showStripeReturnNotice("delayed", true);
+        return;
+      }
+      window.setTimeout(function () {
+        void pollStripeReturnVerification(verifiedUser);
+      }, STRIPE_RETURN_POLL_DELAY_MS);
+    }
+
+    async function pollStripeReturnVerification(verifiedUser) {
+      if (!stripeReturnVerification) return;
+      stripeReturnVerification.polls += 1;
+      if (typeof window.invalidateRentuloReservationsData === "function") {
+        window.invalidateRentuloReservationsData();
+      }
+      const refreshed = await loadMyReservationsFromSupabase(verifiedUser);
+      if (!stripeReturnVerification) return;
+      if (reservationsLoadState === "ready") {
+        supabaseReservations = refreshed;
+        const status = getVerifiedStripeReturnStatus();
+        if (status === "confirmed" || status === "unavailable") {
+          finishStripeReturnVerification(status);
+          return;
+        }
+        renderReservations();
+      }
+      scheduleStripeReturnPoll(verifiedUser);
+    }
 
     function showReservationsNotice(message, type = "success") {
       const notice = document.getElementById("reservationsNotice");
@@ -129,48 +324,13 @@ function formatReservationScheduleValue(dateValue, timeValue) {
 
       notice.textContent = message;
       notice.classList.toggle("error", isError);
+      notice.classList.toggle("processing", false);
       notice.setAttribute("role", isError ? "alert" : "status");
       notice.hidden = false;
       reservationsNoticeTimer = window.setTimeout(function () {
         notice.hidden = true;
         reservationsNoticeTimer = null;
       }, 4500);
-    }
-
-    async function sendReservationEmailSafely(reservationId, eventType) {
-      if (!reservationId || !eventType) {
-        return;
-      }
-
-      if (typeof window.apiSendReservationEmail === "function") {
-        await window.apiSendReservationEmail(reservationId, eventType);
-        return;
-      }
-
-      const supabaseClient = getSupabaseClient();
-
-      if (!supabaseClient) {
-        console.warn("E-mailové upozornění nebylo odesláno: Supabase není dostupný.");
-        return;
-      }
-
-      try {
-        const { error } = await supabaseClient.functions.invoke(
-          "send-reservation-email",
-          {
-            body: {
-              reservation_id: reservationId,
-              event: eventType
-            }
-          }
-        );
-
-        if (error) {
-          console.warn("E-mailové upozornění se nepodařilo odeslat:", error);
-        }
-      } catch (error) {
-        console.warn("E-mailové upozornění se nepodařilo odeslat:", error);
-      }
     }
 
     function getSafeReservationStatusText(status) {
@@ -223,6 +383,8 @@ function formatReservationScheduleValue(dateValue, timeValue) {
       return {
         id: row.id,
         reservationId: row.id,
+        reservationNumber: row.reservation_number || "",
+        offerNumber: row.offer_number || "",
 
         offerId: row.offer_id,
         toolId: row.offer_id,
@@ -282,6 +444,10 @@ pickupLongitude:
     : null,
         status: row.status || "pending",
         statusText: getSafeReservationStatusText(row.status || "pending"),
+        expiresAt: row.expires_at || "",
+        approvedAt: row.approved_at || "",
+        expiredAt: row.expired_at || "",
+        expiryReason: row.expiry_reason || "",
 
         contactVisibleAfterPayment: Boolean(row.contact_visible_after_payment),
 
@@ -574,7 +740,9 @@ return (
       );
 
       if (elements.title) {
-        elements.title.textContent = isPaidCancellation
+        elements.title.textContent = normalizedStatus === RESERVATION_STATUS_PENDING
+          ? reservationsTranslate("reservations.pendingWithdraw.title", "Vzít žádost zpět?")
+          : isPaidCancellation
           ? reservationsTranslate(
               "reservations.cancelPaid.title",
               "Zrušit zaplacenou rezervaci?"
@@ -586,7 +754,9 @@ return (
       }
 
       if (elements.description) {
-        elements.description.textContent = isPaidCancellation
+        elements.description.textContent = normalizedStatus === RESERVATION_STATUS_PENDING
+          ? reservationsTranslate("reservations.pendingWithdraw.description", "Žádost dosud nebyla schválena ani zaplacena. Po jejím stažení se termín znovu uvolní.")
+          : isPaidCancellation
           ? reservationsTranslate(
               "reservations.cancelPaid.renterDescription",
               "Zaplaceno: {paymentAmount}. Skutečné náklady Stripe: {externalCost}. Vrátíme vám: {refundAmount} na původní platební metodu. Rentulo si za storno neúčtuje vlastní poplatek; odečte se pouze skutečný externí náklad Stripe.",
@@ -617,7 +787,9 @@ return (
       }
 
       if (elements.confirmButton) {
-        elements.confirmButton.textContent = isPaidCancellation
+        elements.confirmButton.textContent = normalizedStatus === RESERVATION_STATUS_PENDING
+          ? reservationsTranslate("reservations.pendingWithdraw.action", "Vzít žádost zpět")
+          : isPaidCancellation
           ? reservationsTranslate(
               "reservations.cancelPaid.confirm",
               "Zrušit a vrátit platbu"
@@ -755,6 +927,7 @@ return (
       });
     }
 
+    let reservationPaymentModalAmount = null;
     let reservationPaymentModalResolve = null;
     let reservationPaymentModalReturnFocus = null;
 
@@ -763,6 +936,9 @@ return (
         overlay: document.getElementById("reservationPaymentModal"),
         title: document.getElementById("reservationPaymentModalTitle"),
         description: document.getElementById("reservationPaymentModalDescription"),
+        noShowWarning: document.getElementById("reservationPaymentModalNoShowWarning"),
+        amount: document.getElementById("reservationPaymentModalAmount"),
+        noShowTermsLink: document.getElementById("reservationPaymentModalTermsLink"),
         cancelButton: document.querySelector('[data-reservations-payment-modal-action="cancel"]'),
         confirmButton: document.querySelector('[data-reservations-payment-modal-action="confirm"]')
       };
@@ -782,6 +958,25 @@ return (
         elements.description.textContent = reservationsTranslate(
           "reservations.paymentModal.description",
           "Jde o testovac\u00ed platbu. Po potvrzen\u00ed bude rezervace ozna\u010dena jako zaplacen\u00e1."
+        );
+      }
+
+      if (elements.amount) {
+        elements.amount.textContent = reservationPaymentModalAmount === null ? "" :
+          formatReservationsMoney(reservationPaymentModalAmount);
+      }
+
+      if (elements.noShowWarning) {
+        elements.noShowWarning.textContent = reservationsTranslate(
+          "reservations.paymentModal.noShowWarningShort",
+          "PIN lze použít 2 hodiny před převzetím až do sjednaného vrácení. Při nevyzvednutí se platba automaticky nevrací; oprávněný problém můžete reklamovat."
+        );
+      }
+
+      if (elements.noShowTermsLink) {
+        elements.noShowTermsLink.textContent = reservationsTranslate(
+          "reservations.paymentModal.noShowTermsLink",
+          "Podrobnosti: nevyzvednutí věci v obchodních podmínkách"
         );
       }
 
@@ -838,7 +1033,8 @@ return (
       }
     }
 
-    function openReservationPaymentModal() {
+    function openReservationPaymentModal(amount) {
+      reservationPaymentModalAmount = amount;
       const elements = getReservationPaymentModalElements();
 
       if (!elements.overlay) {
@@ -1058,7 +1254,6 @@ return (
         return;
       }
 
-      await sendReservationEmailSafely(reservationId, "cancelled");
       await retryLoadReservations();
 
       showReservationsNotice(
@@ -1085,7 +1280,14 @@ return (
         return;
       }
 
-      const confirmPayment = await openReservationPaymentModal();
+      const reservationToPay = supabaseReservations.find(function (item) {
+        return String(item.id || item.reservationId) === String(reservationId);
+      });
+      if (!reservationToPay) {
+        showReservationsNotice(reservationsTranslate("reservations.error.notFound", "Rezervace nebyla nalezena."), "error");
+        return;
+      }
+      const confirmPayment = await openReservationPaymentModal(getSafeReservationTotalPrice(reservationToPay));
 
       if (!confirmPayment) {
         return;
@@ -1095,7 +1297,10 @@ return (
         "create-checkout-session",
         {
           body: {
-            reservation_id: reservationId
+            reservation_id: reservationId,
+            locale: typeof window.getRentuloLanguage === "function"
+              ? window.getRentuloLanguage()
+              : "cs"
           }
         }
       );
@@ -1116,6 +1321,7 @@ return (
         return;
       }
 
+      storeStripePendingCheckout(reservationId, supabaseUser.id);
       window.location.href = checkoutUrl;
     }
 
@@ -1271,32 +1477,24 @@ return (
     }
 
     function renderRenterReservationCancellationAction(reservation) {
+      if (stripeReturnBlocksAction(reservation.id || reservation.reservationId) &&
+          normalizeReservationStatus(getSafeReservationStatus(reservation)) === RESERVATION_STATUS_APPROVED) {
+        return "";
+      }
       if (!canRenterCancelReservation(reservation)) {
         return "";
       }
 
       const reservationId = reservation.id || reservation.reservationId;
-      const label = reservationsTranslate("reservations.cancel", "Zrušit rezervaci");
-      const cutoff = getReservationCancellationCutoffAt(reservation);
+      const isPending = normalizeReservationStatus(getSafeReservationStatus(reservation)) === RESERVATION_STATUS_PENDING;
+      const label = isPending
+        ? reservationsTranslate("reservations.pendingWithdraw.action", "Vzít žádost zpět")
+        : reservationsTranslate("reservations.cancel", "Zrušit rezervaci");
+      const cutoff = isPending ? null : getReservationCancellationCutoffAt(reservation);
       const explanation = getReservationCancellationCutoffText();
 
       if (cutoff && !isReservationCancellationWindowOpen(reservation)) {
-        return `
-          <div class="reservation-cancel-action-stack reservation-cancel-action-stack-locked">
-            <button
-              class="reservation-primary-action reservation-cancel-action reservation-cancel-locked"
-              type="button"
-              disabled
-              aria-disabled="true"
-              title="${escapeHtml(explanation)}"
-            >
-              ${escapeHtml(label)}
-            </button>
-            <div class="reservation-cancel-cutoff-note">
-              ${escapeHtml(explanation)}
-            </div>
-          </div>
-        `;
+        return ""; // No action is available; explain the rule in the reservation detail.
       }
 
       const cutoffAttribute = cutoff
@@ -1317,6 +1515,34 @@ return (
       `;
     }
 
+    function formatReservationExpiry(value) {
+      if (!value) return "";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+      const lang = typeof window.getRentuloLanguage === "function"
+        ? window.getRentuloLanguage() : "cs";
+      const locales = { cs: "cs-CZ", sk: "sk-SK", en: "en-GB", de: "de-DE", pl: "pl-PL" };
+      return new Intl.DateTimeFormat(locales[lang] || "cs-CZ", {
+        dateStyle: "short", timeStyle: "short", timeZone: "Europe/Prague"
+      }).format(date);
+    }
+
+    function renderReservationDeadline(reservation, status) {
+      const normalized = normalizeReservationStatus(status);
+      if (normalized !== RESERVATION_STATUS_PENDING &&
+          normalized !== RESERVATION_STATUS_APPROVED) return "";
+      if (!reservation.expiresAt) return ""; // grandfathered TEST reservations
+      const deadlineText = formatReservationExpiry(reservation.expiresAt);
+      if (!deadlineText) return "";
+      const passed = new Date(reservation.expiresAt).getTime() <= Date.now();
+      const key = passed ? "reservations.expiration.review" :
+        normalized === RESERVATION_STATUS_PENDING
+          ? "reservations.expiration.ownerDeadline" : "reservations.expiration.paymentDeadline";
+      const label = passed ? "Lhůta uplynula – ověřujeme stav" :
+        normalized === RESERVATION_STATUS_PENDING ? "Schválit do" : "Zaplatit do";
+      return `<small class="reservation-expiration-note">${escapeHtml(reservationsTranslate(key, label))}: ${escapeHtml(deadlineText)}</small>`;
+    }
+
     function renderReservationDetailPanel(reservation) {
       const status = getSafeReservationStatus(reservation);
 
@@ -1327,6 +1553,7 @@ return (
         : normalizedStatus === RESERVATION_STATUS_APPROVED
           ? reservationsTranslate("reservations.payment.waitingLower", "čeká na platbu")
           : reservationsTranslate("reservations.payment.pendingLower", "dostupná po schválení");
+      const deadlineNote = renderReservationDeadline(reservation, normalizedStatus);
       const scheduleCopy = getReservationScheduleCopy();
       const pickupSchedule = formatReservationScheduleValue(
         getSafeReservationDateFrom(reservation),
@@ -1363,8 +1590,12 @@ return (
               <span>${escapeHtml(scheduleCopy.return)}</span>
               <strong>${escapeHtml(returnSchedule)}</strong>
             </div>
+            ${reservation.reservationNumber ? `<div class="info-box"><span>${escapeHtml(reservationsTranslate("reference.reservation", "Číslo rezervace"))}</span><strong>${escapeHtml(reservation.reservationNumber)}</strong></div>` : ""}
+            ${reservation.offerNumber ? `<div class="info-box"><span>${escapeHtml(reservationsTranslate("reference.offer", "Číslo nabídky"))}</span><strong>${escapeHtml(reservation.offerNumber)}</strong></div>` : ""}
           </div>
 
+          ${deadlineNote ? `<p class="reservation-expiration-note">${deadlineNote}</p>` : ""}
+          ${normalizedStatus === RESERVATION_STATUS_EXPIRED ? `<p class="reservation-expiration-note">${escapeHtml(reservationsExpirationText(reservation.expiryReason))}</p>` : ""}
           ${renderReservationStateBox(reservation, status)}
 
           ${renderPaymentBox(reservation, status)}
@@ -1377,7 +1608,12 @@ return (
     function renderReservationCard(reservation) {
       const status = getSafeReservationStatus(reservation);
       const normalizedStatus = normalizeReservationStatus(status);
-      const statusText = getSafeReservationStatusText(status);
+      const reservationId = reservation.id || reservation.reservationId;
+      const waitingForStripe = normalizedStatus === RESERVATION_STATUS_APPROVED &&
+        stripeReturnBlocksAction(reservationId);
+      const statusText = waitingForStripe
+        ? stripeReturnText("checkingShort")
+        : getSafeReservationStatusText(status);
 
       const toolName = getSafeReservationToolName(reservation);
       const city = getPickupCity(reservation);
@@ -1385,16 +1621,14 @@ return (
       const startDate = getSafeReservationDateFrom(reservation);
       const endDate = getSafeReservationDateTo(reservation);
       const totalPrice = getSafeReservationTotalPrice(reservation);
-      const reservationId = reservation.id || reservation.reservationId;
-      const offerId = getSafeReservationOfferId(reservation);
-      const isPaymentRequired = normalizedStatus === RESERVATION_STATUS_APPROVED;
+      const isPaymentRequired = canRenterPayReservation(reservation);
       const isPriority = (
         isPaymentRequired ||
         normalizedStatus === RESERVATION_STATUS_PAID ||
         normalizedStatus === RESERVATION_STATUS_PICKED_UP
       );
 
-      const paymentAction = isPaymentRequired
+      const paymentAction = isPaymentRequired && !waitingForStripe
         ? `
           <button class="reservation-primary-action orange" type="button" data-reservations-action="pay" data-reservation-id="${escapeHtml(reservationId)}">
             ${escapeHtml(reservationsTranslate("reservations.pay", "Zaplatit"))}
@@ -1410,34 +1644,28 @@ return (
         </button>
       `;
 
-      const offerDetailAction = offerId
-        ? `
-          <a class="reservation-primary-action offer-detail-link" href="detail.html?id=${encodeURIComponent(offerId)}">
-            ${escapeHtml(reservationsTranslate("reservations.offerDetail", "Detail nabídky"))}
-          </a>
-        `
-        : "";
-
       return `
-  <article class="simple-reservation-row ${isPriority ? "priority" : ""}">
+  <article class="simple-reservation-row ${isPriority ? "priority" : ""}" data-pickup-date="${escapeHtml(startDate)}" data-pickup-end-date="${escapeHtml(endDate)}" data-pickup-time="${escapeHtml(reservation.pickupTime || '')}">
     <div class="simple-reservation-main">
       ${renderToolThumb(reservation)}
 
       <div class="simple-reservation-info">
         <strong>${escapeHtml(toolName)}</strong>
-        <span>${escapeHtml(city)}</span>
+        <span>${escapeHtml(city)}${reservation.reservationNumber ? ` · ${escapeHtml(reservationsTranslate("reference.reservation", "Číslo rezervace"))}: ${escapeHtml(reservation.reservationNumber)}` : ""}</span>
+        ${renderReservationDeadline(reservation, normalizedStatus)}
       </div>
     </div>
 
     <div class="simple-reservation-date">
       ${escapeHtml(formatReservationsDate(startDate))} – ${escapeHtml(formatReservationsDate(endDate))}
+        ${reservation.pickupTime ? `<small class="reservation-pickup-time">${escapeHtml(reservationsTranslate("reservations.pickupTimeShort", "Převzetí"))}: ${escapeHtml(formatReservationsTime(reservation.pickupTime))}</small>` : ""}
     </div>
 
     <div class="simple-reservation-price">
       ${escapeHtml(formatReservationsMoney(totalPrice))}
     </div>
 
-    <div class="simple-reservation-status status-${escapeHtml(String(normalizedStatus).toLowerCase())}">
+    <div class="simple-reservation-status status-${escapeHtml(waitingForStripe ? "processing" : String(normalizedStatus).toLowerCase())}">
       ${escapeHtml(statusText)}
     </div>
 
@@ -1446,7 +1674,6 @@ return (
       ${cancellationAction}
       <div class="reservation-detail-action-group">
         ${detailAction}
-        ${offerDetailAction}
       </div>
     </div>
 
@@ -1512,15 +1739,33 @@ return (
         return;
       }
 
+      stripeReturnVerification = readStripeReturnVerification(verifiedUser);
+      if (stripeReturnVerification) {
+        showStripeReturnNotice("checking");
+        // Shared navigation may have prefetched stale reservations before return.
+        if (typeof window.invalidateRentuloReservationsData === "function") {
+          window.invalidateRentuloReservationsData();
+        }
+      }
       renderLoadingState();
       reservationsLoadState = "loading";
 
       supabaseReservations = await loadMyReservationsFromSupabase(verifiedUser);
 
       if (reservationsLoadState === "ready") {
+        if (stripeReturnVerification) {
+          const status = getVerifiedStripeReturnStatus();
+          if (status === "confirmed" || status === "unavailable") {
+            finishStripeReturnVerification(status);
+            return;
+          }
+        }
         renderReservations();
       } else if (reservationsLoadState === "error") {
         renderLoadErrorState();
+      }
+      if (stripeReturnVerification) {
+        scheduleStripeReturnPoll(verifiedUser);
       }
     }
 
@@ -1611,6 +1856,10 @@ return (
 
       try {
         if (action === "pay") {
+          if (stripeReturnBlocksAction(reservationId)) {
+            showStripeReturnNotice("checking");
+            return;
+          }
           await payReservation(reservationId);
           return;
         }

@@ -79,10 +79,14 @@
 }
 
 .status-pending,
-.status-approved,
 .status-draft {
-  background: #fff3e8 !important;
-  color: #8a4b16 !important;
+  background: #eef1f2 !important;
+  color: #42564e !important;
+}
+
+.status-approved {
+  background: #fff0f1 !important;
+  color: #9d2634 !important;
 }
 
 .status-paid,
@@ -142,7 +146,7 @@
 
 .simple-offer-actions .urgent,
 .reservation-primary-action.orange {
-  background: #FF6A00 !important;
+  background: #00835a !important;
 }
 
 .offer-primary-button:focus,
@@ -213,3 +217,14 @@ html[data-focus-input="pointer"] .reservation-primary-action:focus {
     flex: 1 1 auto;
   }
 }
+
+/* BOD 12: show deadlines without widening compact reservation rows. */
+.reservation-expiration-note {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  color: #6c4930;
+  font-weight: 500;
+}
+.status-expired { background: #f0f1ef; color: #53665e; }

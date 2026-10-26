@@ -41,11 +41,11 @@ test("owner transfer endpoint is internal-only and not callable with a normal us
   assert.doesNotMatch(source, /Access-Control-Allow-Origin/);
 });
 
-test("owner transfer validates paid pickup state, Connect readiness and refund state", () => {
+test("owner transfer validates confirmed return or no-show, Connect readiness and refund state", () => {
   const source = readFunction();
 
   assert.match(source, /payment\.status !== "paid"/);
-  assert.match(source, /\["picked_up", "returned"\]\.includes\(reservation\.status\)/);
+  assert.match(source, /\["returned", "no_show"\]\.includes\(reservation\.status\)/);
   assert.match(source, /stripe_connect_status !== "ready"/);
   assert.match(source, /stripe_connect_transfers_enabled !== true/);
   assert.match(source, /account\.capabilities\?\.transfers !== "active"/);

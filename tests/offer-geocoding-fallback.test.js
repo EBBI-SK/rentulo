@@ -29,12 +29,13 @@ function loadAsyncFunction(source, startMarker, endMarker, functionName) {
   return sandbox.fn;
 }
 
-test("address suggestions preserve Photon coordinates", () => {
+test("address suggestions preserve Geoapify coordinates", () => {
   assert.match(ADDRESS_SOURCE, /latitude:\s*number;/);
   assert.match(ADDRESS_SOURCE, /longitude:\s*number;/);
-  assert.match(ADDRESS_SOURCE, /const longitude = Number\(coordinates\[0\]\);/);
-  assert.match(ADDRESS_SOURCE, /const latitude = Number\(coordinates\[1\]\);/);
-  assert.match(ADDRESS_SOURCE, /suggestions\.push\(\{[\s\S]*latitude,[\s\S]*longitude,/);
+  assert.match(ADDRESS_SOURCE, /const longitude = Number\(properties\.lon\);/);
+  assert.match(ADDRESS_SOURCE, /const latitude = Number\(properties\.lat\);/);
+  assert.match(ADDRESS_SOURCE, /results\.push\(\{[\s\S]*latitude,[\s\S]*longitude,/);
+  assert.match(ADDRESS_SOURCE, /suggestions\.push\(item\)/);
 });
 
 test("create offer reuses selected suggestion coordinates and invalidates them after manual edits", () => {

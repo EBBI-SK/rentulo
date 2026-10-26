@@ -1,0 +1,46 @@
+name: Rentulo TEST notification monitor
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rentulo-test-notification-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    name: Manual TEST notification monitor diagnostic
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    # Manual diagnostics only on main. The scheduled TEST monitor runs
+    # independently via cron-job.org; this workflow has no scheduled trigger.
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Verify TEST monitor configuration
+        shell: bash
+        env:
+          MONITOR_SECRET: ${{ secrets.RENTULO_TEST_MONITOR_SECRET }}
+        run: |
+          set -euo pipefail
+          if [[ ${#MONITOR_SECRET} -lt 64 ]]; then
+            echo '::error::Missing/short RENTULO_TEST_MONITOR_SECRET; set in GitHub Secrets and matching Supabase TEST Edge Function secret.'
+            exit 1
+          fi
+
+      - name: Check TEST health and deliver deduplicated alerts
+        shell: bash
+        env:
+          MONITOR_SECRET: ${{ secrets.RENTULO_TEST_MONITOR_SECRET }}
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error \
+            --retry 2 --retry-all-errors --retry-delay 2 \
+            --max-time 55 \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --header "x-rentulo-monitor-secret: ${MONITOR_SECRET}" \
+            --data '{}' \
+            'https://vspposovhdgvbeukoivh.supabase.co/functions/v1/monitor-reservation-notifications'

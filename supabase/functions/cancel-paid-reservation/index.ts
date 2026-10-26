@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { validateExistingCancellationRefundList } from "../_shared/paid-cancellation-refund-recovery.mjs";
 
 type RentuloDenoRuntime = {
   serve(handler: (request: Request) => Response | Promise<Response>): void;
@@ -309,45 +310,6 @@ function publicQuote(context: CancellationContext, quote: Quote) {
   };
 }
 
-async function sendPaidCancellationEmail(
-  supabaseUrl: string,
-  serviceRoleKey: string,
-  reservationId: string,
-): Promise<"sent" | "failed"> {
-  try {
-    const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-reservation-email`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${serviceRoleKey}`,
-        apikey: serviceRoleKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        reservation_id: reservationId,
-        event: "paid_cancelled",
-      }),
-    });
-
-    const emailBody = await emailResponse.json().catch(() => ({}));
-    if (!emailResponse.ok) {
-      console.error(
-        "cancel-paid-reservation: paid cancellation email failed",
-        emailResponse.status,
-        emailBody?.error || "unknown_error",
-      );
-      return "failed";
-    }
-
-    return "sent";
-  } catch (error) {
-    console.error(
-      "cancel-paid-reservation: paid cancellation email request failed",
-      error instanceof Error ? error.message : String(error),
-    );
-    return "failed";
-  }
-}
-
 denoRuntime.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
@@ -378,7 +340,7 @@ denoRuntime.serve(async (req) => {
   const actor = userData.user;
   if (userError || !actor) return jsonResponse({ error: "Unauthorized" }, 401);
 
-  let payload: { reservation_id?: string; action?: CancellationAction };
+  let payload: { reservation_id?: string; action?: CancellationAction; exceptional_reason?: string };
   try {
     payload = await req.json();
   } catch {
@@ -405,6 +367,26 @@ denoRuntime.serve(async (req) => {
   }
 
   const context = contextResult.data[0] as CancellationContext;
+
+  // Only a genuine owner may attest that the booked item cannot be handed
+  // over after the applicable (per-reservation) ordinary-cancellation cutoff.
+  // The refund still uses the existing full-renter-refund Stripe path.
+  // Retries of an already begun cancellation reuse its saved financial state.
+  if (!context.cancellation_id) {
+    const cutoffMs = Date.parse(context.cancellation_cutoff_at || "");
+    if (!Number.isFinite(cutoffMs)) {
+      return jsonResponse({ error: "Reservation cancellation deadline is unavailable" }, 409);
+    }
+    const afterCutoff = Date.now() >= cutoffMs;
+    if (afterCutoff && (
+      context.actor_role !== "owner" || payload.exceptional_reason !== "owner_unavailable"
+    )) {
+      return jsonResponse({ error: "Ordinary cancellation deadline has passed" }, 409);
+    }
+    if (!afterCutoff && payload.exceptional_reason) {
+      return jsonResponse({ error: "An exceptional cancellation reason is not needed yet" }, 400);
+    }
+  }
 
   if (action === "preview" && context.cancellation_id) {
     return jsonResponse({ error: "Reservation cancellation is already in progress" }, 409);
@@ -439,11 +421,8 @@ denoRuntime.serve(async (req) => {
       return jsonResponse({ ...existingResponse, error: "Stripe refund did not complete" }, 502);
     }
 
-    const emailStatus = context.refund_status === "succeeded"
-      ? await sendPaidCancellationEmail(supabaseUrl, serviceRoleKey, context.reservation_id)
-      : "awaiting_refund";
-
-    return jsonResponse({ ...existingResponse, email_status: emailStatus });
+    // Delivery is handled by the same server-side outbox as normal events.
+    return jsonResponse(existingResponse);
   }
 
   const quoteResult = await loadQuote(stripeSecretKey, context);
@@ -496,6 +475,44 @@ denoRuntime.serve(async (req) => {
       );
       return jsonResponse({ error: "Existing Stripe refund could not be loaded" }, 502);
     }
+  } else if (context.cancellation_id) {
+    // Recovery after an earlier Stripe refund succeeded but its DB finalization failed.
+    // Never POST another refund for an already-started cancellation with no saved refund id:
+    // Stripe's idempotency-key retention is not guaranteed after 24 hours.
+    const existingRefundsResponse = await fetch(
+      `https://api.stripe.com/v1/refunds?charge=${encodeURIComponent(context.stripe_charge_id)}&limit=100`,
+      { headers: { Authorization: `Bearer ${stripeSecretKey}` } },
+    );
+    const existingRefunds = await existingRefundsResponse.json().catch(() => ({}));
+
+    if (!existingRefundsResponse.ok) {
+      console.error(
+        "cancel-paid-reservation: refund recovery lookup failed",
+        existingRefundsResponse.status,
+      );
+      return jsonResponse({ error: "Existing Stripe refund could not be checked" }, 502);
+    }
+
+    const recovery = validateExistingCancellationRefundList(existingRefunds, {
+      cancellationId,
+      paymentId: context.payment_id,
+      reservationId: context.reservation_id,
+      actorRole: context.actor_role,
+      paymentIntentId: context.stripe_payment_intent_id,
+      chargeId: context.stripe_charge_id,
+      amountMinor: quote.refundAmountMinor,
+    });
+
+    if (!recovery.refund) {
+      console.error(
+        "cancel-paid-reservation: refund recovery blocked",
+        recovery.error || "unrecognized_refund",
+      );
+      return jsonResponse({ error: "Existing refund requires manual reconciliation" }, 409);
+    }
+
+    refund = recovery.refund as StripeRefundResponse;
+    refundResponseStatus = existingRefundsResponse.status;
   } else {
     const refundParams = new URLSearchParams();
     refundParams.set("charge", context.stripe_charge_id);
@@ -586,9 +603,7 @@ denoRuntime.serve(async (req) => {
     return jsonResponse({ ...responseBody, error: "Stripe refund did not complete" }, 502);
   }
 
-  const emailStatus = refundStatus === "succeeded" && finalized.financials_finalized_at
-    ? await sendPaidCancellationEmail(supabaseUrl, serviceRoleKey, context.reservation_id)
-    : "awaiting_refund";
-
-  return jsonResponse({ ...responseBody, email_status: emailStatus });
+  // A refund is only announced after both payment and financial records
+  // confirm success; the database outbox triggers handle either completion order.
+  return jsonResponse(responseBody);
 });

@@ -106,11 +106,11 @@ test("reservations page integration stores the server cutoff and renders a disab
   }
 
   for (const fragment of [
-    "více než 6 hodin",
-    "viac ako 6 hodín",
-    "more than 6 hours",
-    "mehr als 6 Stunden",
-    "ponad 6 godzin"
+    "více než 24 hodin",
+    "viac ako 24 hodín",
+    "more than 24 hours",
+    "mehr als 24 Stunden",
+    "ponad 24 godziny"
   ]) {
     assert.match(source, new RegExp(fragment));
   }

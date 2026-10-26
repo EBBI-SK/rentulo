@@ -7,9 +7,6 @@
   <title data-i18n="offer.pageTitle">Nabídnout cokoli - Rentulo</title>
 
   <link rel="icon" type="image/png" href="assets/rentulo-logo-mark.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link id="rentuloSharedTheme" rel="stylesheet" href="css/rentulo-theme.css" />
   <style>
     * {
@@ -32,7 +29,7 @@
       margin: 0;
       min-height: 100vh;
       color: var(--rentulo-ink, #102019);
-      font-family: var(--rentulo-font, "Manrope", Arial, sans-serif);
+      font-family: var(--rentulo-font, system-ui, -apple-system, "Segoe UI", Arial, sans-serif);
     }
 
     /* Structural header host. Shared navigation.js and rentulo-theme.css control the navigation UI. */
@@ -194,6 +191,16 @@
       }
     }
 
+    .offer-commission-note {
+      margin: 9px 0 0;
+      padding-left: 10px;
+      border-left: 3px solid var(--rentulo-green, #176747);
+      color: var(--rentulo-muted, #64706b);
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.5;
+    }
+
     .form-message {
       display: none;
       margin: 0;
@@ -209,9 +216,9 @@
     }
 
     .form-message.error {
-      background: #fff3e8;
-      border: 1px solid #f2c79f;
-      color: #8a4b16;
+      background: #fff0f1;
+      border: 1px solid #f0b2bb;
+      color: #9d2634;
     }
 
     .photo-upload-box {
@@ -387,7 +394,7 @@
     }
 
     .photo-upload-status.error {
-      color: #a9551b;
+      color: #9d2634;
     }
 
     .form-grid {
@@ -529,13 +536,13 @@
     }
 
     .input-error {
-      border-color: #c9783b !important;
-      box-shadow: 0 0 0 3px rgba(201, 120, 59, 0.14) !important;
+      border-color: #dc3545 !important;
+      box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.14) !important;
     }
 
     .field-error-message {
       margin: 0;
-      color: #8a4b16;
+      color: #9d2634;
       font-size: 12px;
       font-weight: 800;
       line-height: 1.35;
@@ -629,15 +636,15 @@
     }
 
     .btn-primary {
-      border: 1px solid var(--rentulo-orange, #ff6a00);
-      background: var(--rentulo-orange, #ff6a00);
+      border: 1px solid var(--rentulo-action-green, #00835a);
+      background: var(--rentulo-action-green, #00835a);
       color: #ffffff;
-      box-shadow: 0 10px 22px rgba(255, 106, 0, 0.14);
+      box-shadow: 0 10px 22px rgba(0, 112, 75, 0.14);
     }
 
     .btn-primary:hover {
-      border-color: var(--rentulo-orange-hover, #e85f00);
-      background: var(--rentulo-orange-hover, #e85f00);
+      border-color: var(--rentulo-action-green-hover, #006846);
+      background: var(--rentulo-action-green-hover, #006846);
     }
 
     .btn-secondary {
@@ -757,6 +764,13 @@
         padding-right: 16px;
       }
     }
+    /* Match the other pickup checkbox; .form-group input otherwise adds min-height: 48px. */
+    #offerTransportConfirmation {
+      min-height: 18px;
+      height: 18px;
+      width: 18px;
+      background: transparent;
+    }
   </style>
 </head>
 
@@ -839,9 +853,10 @@
             </div>
 
             <div class="form-group price-group">
-              <label for="toolPrice" data-i18n="offer.priceLabel">Cena za den</label>
-              <input id="toolPrice" type="text" placeholder="např. 250 Kč" data-i18n-placeholder="offer.pricePlaceholder" aria-describedby="toolPriceError" />
+              <label for="toolPrice" data-i18n="offer.priceLabel">Cena za den (Kč)</label>
+              <input id="toolPrice" type="text" placeholder="např. 250 Kč" data-i18n-placeholder="offer.pricePlaceholder" aria-describedby="toolPriceError offerCommissionInfo" />
               <p class="field-error-message" id="toolPriceError" data-i18n="offer.priceValidationPositive" hidden>Minimální cena je 100 Kč za den.</p>
+              <p class="offer-commission-note" id="offerCommissionInfo" data-i18n="offer.commissionNote">Provize Rentulo je 10 % z půjčovného za zaplacenou rezervaci, minimálně 70 Kč za rezervaci.</p>
             </div>
           </div>
           </div>
@@ -912,7 +927,14 @@
             </div>
           </section>
 
-          <p class="offer-action-note" data-i18n="offer.helpDescription">Po zveřejnění se nabídka zobrazí ve výsledcích vyhledávání. Žádosti vyřídíte v Moje nabídky. Rentulo si z úspěšné platby ponechá 10 % z půjčovného, minimálně 50 Kč za rezervaci.</p>
+          <div class="form-group full" style="margin-top: 14px;">
+            <label class="pickup-checkbox" for="offerTransportConfirmation">
+              <input type="checkbox" id="offerTransportConfirmation" required />
+              <span data-i18n="offer.transportConfirmation">Potvrzuji, že nenabízím dopravní prostředek ani věc zakázanou podmínkami Rentula V1.</span>
+            </label>
+          </div>
+
+          <p class="offer-action-note" data-i18n="offer.helpDescription">Po zveřejnění se nabídka zobrazí ve výsledcích vyhledávání. Žádosti vyřídíte v Moje nabídky.</p>
 
           <div class="form-actions">
             <button type="button" class="btn-secondary" id="saveDraftButton" data-i18n="offer.saveDraft">Uložit bez zveřejnění</button>
@@ -933,6 +955,7 @@
 <script src="js/i18n.js"></script>
 <script src="js/navigation.js"></script>
 <script src="js/auth-guard.js"></script>
+<script src="js/offer-policy.js"></script>
 <script src="js/offer-form-page.js"></script>
 </body>
 </html>

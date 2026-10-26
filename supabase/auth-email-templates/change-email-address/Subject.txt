@@ -1,0 +1,1 @@
+{{$l:=.Data.preferred_language}}{{if eq $l "cs"}}Potvrďte nový e-mail{{else if eq $l "sk"}}Potvrďte nový e-mail{{else if eq $l "de"}}Neue E-Mail bestätigen{{else if eq $l "pl"}}Potwierdź nowy e-mail{{else}}Confirm new email{{end}} – Rentulo

@@ -87,7 +87,7 @@ button {
 .back-link {
   display: inline-block;
   margin-bottom: 5px;
-  color: #4f9f2f;
+  color: #176747;
   font-size: 14px;
   font-weight: 800;
 }
@@ -126,7 +126,7 @@ h1 {
   position: absolute;
   right: 0;
   top: 14px;
-  background: #FF6A00;
+  background: #00835a;
   color: #ffffff;
   padding: 10px 18px;
   border-radius: 12px;
@@ -135,7 +135,7 @@ h1 {
 }
 
 .top-action-button:hover {
-  background: #E85F00;
+  background: #006846;
 }
 
 .reservation-page-notice {
@@ -157,19 +157,19 @@ h1 {
 .reservation-page-notice::before {
   content: "✓";
   margin-right: 7px;
-  color: #4f9f2f;
+  color: #176747;
   font-weight: 900;
 }
 
 .reservation-page-notice.error {
-  border-color: #f2c79f;
-  background: #fff3e8;
-  color: #8a4b16;
+  border-color: #f0b2bb;
+  background: #fff0f1;
+  color: #9d2634;
 }
 
 .reservation-page-notice.error::before {
   content: "!";
-  color: #8a4b16;
+  color: #9d2634;
 }
 
 .account-list {
@@ -297,9 +297,9 @@ h1 {
 }
 
 .payment-box.waiting {
-  background: #fff3e8;
-  border: 1px solid #f2c79f;
-  color: #8a4b16;
+  background: #fff0f1;
+  border: 1px solid #f0b2bb;
+  color: #9d2634;
 }
 
 .payment-box.paid {
@@ -321,9 +321,9 @@ h1 {
 }
 
 .reservation-state-box.rejected {
-  background: #fff3e8;
-  border: 1px solid #f2c79f;
-  color: #8a4b16;
+  background: #fff0f1;
+  border: 1px solid #f0b2bb;
+  color: #9d2634;
 }
 
 .review-box {
@@ -343,7 +343,7 @@ h1 {
 
 .payment-box.waiting strong,
 .reservation-state-box.rejected strong {
-  color: #8a4b16;
+  color: #9d2634;
 }
 
 .payment-lines,
@@ -359,9 +359,9 @@ h1 {
 }
 
 .contact-box.hidden {
-  background: #fff3e8;
-  border: 1px solid #f2c79f;
-  color: #8a4b16;
+  background: #eef1f2;
+  border: 1px solid #dae2df;
+  color: #42564e;
 }
 
 .contact-box.visible {
@@ -371,7 +371,7 @@ h1 {
 }
 
 .contact-box.hidden strong {
-  color: #8a4b16;
+  color: #42564e;
 }
 
 .contact-map-link {
@@ -484,7 +484,7 @@ body.reservation-modal-open {
 }
 
 .reservation-modal-button:focus-visible {
-  outline: 3px solid rgba(255, 106, 0, 0.28);
+  outline: 3px solid rgba(0, 131, 90, 0.35);
   outline-offset: 2px;
 }
 
@@ -535,15 +535,8 @@ body.reservation-modal-open {
 }
 
 .reservation-primary-action.orange {
-  background: #FF6A00;
+  background: #00835a;
   color: #ffffff;
-}
-
-.reservation-primary-action.offer-detail-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  text-decoration: none;
 }
 
 .detail-row .reservation-detail-panel {

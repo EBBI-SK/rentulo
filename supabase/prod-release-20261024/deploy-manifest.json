@@ -1,0 +1,243 @@
+{
+  "release_id": "rentulo-v1-prod-sql-20261025",
+  "repo": "EBBI-SK/rentulo",
+  "github_main_at_preparation": "e4be9fbfd0e18fb15473984bf0a883d72c35bfa2",
+  "github_production_at_preparation": "a79d3bb93bbf37a7d36c35484fadcdeb461419ea",
+  "prod_ref": "tfvgxrdjrpicgtvovehl",
+  "test_ref": "vspposovhdgvbeukoivh",
+  "baseline_migrations": [
+    "20260721100000_prod_fresh_project_guard.sql",
+    "20260721134927_initial_remote_schema.sql",
+    "20260722090000_protect_reservation_owner_email.sql",
+    "20260722100000_restrict_public_view_permissions.sql",
+    "20260722110000_protect_review_id.sql",
+    "20260722120000_add_safe_reservation_reader.sql",
+    "20260722130000_add_safe_availability_reader.sql",
+    "20260722140000_add_safe_reservation_status_writer.sql",
+    "20260722150000_add_safe_test_payment_writer.sql",
+    "20260722160000_fix_reservation_immutable_fields.sql",
+    "20260722170000_fix_prepare_reservation_insert.sql",
+    "20260722180000_harden_prepare_payment_insert.sql",
+    "20260722190000_fix_payment_provider_defaults.sql",
+    "20260723070000_add_safe_blocked_offer_ids_function.sql",
+    "20260723080000_restrict_get_blocking_reservations.sql",
+    "20260723100000_restrict_payments_reservations_grants.sql",
+    "20260723110000_restrict_test_payment_to_allowlist.sql",
+    "20260723120000_protect_paid_status_transition.sql",
+    "20260723130000_fix_reservation_pickup_full_address.sql",
+    "20260723140000_fix_mark_my_reservation_paid_test.sql",
+    "20260723150000_revoke_dangerous_table_privileges.sql",
+    "20260723160000_restrict_anon_table_privileges.sql",
+    "20260723170000_revoke_profile_delete_privilege.sql",
+    "20260723180000_remove_unused_deposit_columns.sql",
+    "20260723190000_restrict_public_blocking_reservations.sql",
+    "20260723192000_protect_notification_id.sql",
+    "20260723200000_restrict_default_privileges.sql",
+    "20260723201000_harden_reservation_contact_and_payment_fields.sql",
+    "20260723202000_add_profile_settings.sql",
+    "20260726112554_add_profile_length_constraints.sql",
+    "20260726130000_sync_profile_email_from_auth.sql",
+    "20260727113000_archive_test_offer.sql",
+    "20260727121500_clear_test_offer_description.sql",
+    "20260727130000_remove_known_test_data.sql",
+    "20260729095500_add_reservation_email_deliveries.sql",
+    "20260729125000_add_public_map_offers.sql",
+    "20260729153000_soft_delete_offers.sql",
+    "20260729160500_prepare_account_deactivation.sql",
+    "20260730144500_enforce_final_security_permissions.sql",
+    "20260730161000_add_offer_photo_to_my_reservations.sql",
+    "20260803125000_restore_can_create_reservation_execute.sql",
+    "20260803150000_add_polish_language_support.sql",
+    "20260807151500_add_reservation_pickup_coordinate_snapshot.sql",
+    "20260807170500_add_pickup_coordinates_to_get_my_reservations.sql",
+    "20260808141500_guard_deactivated_accounts.sql",
+    "20260808145500_add_account_deactivation_check.sql",
+    "20260808151000_add_account_deactivation_finalize.sql",
+    "20260812143500_sync_preferred_language_metadata.sql",
+    "20260826090000_hide_reservation_names_until_payment.sql",
+    "20260827143000_add_slovak_language_support.sql",
+    "20260923093000_add_reservation_pickup_time.sql",
+    "20260924090000_add_stripe_payment_foundation.sql",
+    "20260924093000_enforce_minimum_price_and_platform_fee.sql",
+    "20260924110000_enforce_six_hour_cancellation_cutoff.sql",
+    "20260924132000_complete_stripe_payments_from_webhook.sql",
+    "20260925210000_add_stripe_connect_owner_onboarding.sql",
+    "20260926090000_add_stripe_owner_transfer_foundation.sql",
+    "20260926120000_add_secure_pickup_pin_flow.sql",
+    "20260926143000_add_owner_pickup_pin_lookup_security.sql",
+    "20260926170000_restore_reservation_status_transition_guards.sql",
+    "20260928090000_support_settlement_currency_owner_transfers.sql",
+    "20260928143000_add_paid_cancellation_foundation.sql",
+    "20260928160000_add_paid_cancellation_refund_backend.sql",
+    "20260928170000_add_paid_cancellation_refund_webhook.sql",
+    "20260928190000_add_paid_cancellation_email_event.sql",
+    "20261007070000_add_owner_debt_payment_checkout.sql",
+    "20261007080000_expose_owner_debts_to_owner.sql",
+    "20261007100000_block_overdue_owner_debt_approvals.sql",
+    "20261007110000_add_owner_debt_overdue_reminders.sql",
+    "20261007120000_schedule_owner_debt_reminders.sql",
+    "20261007130000_add_owner_transfer_retry_state.sql",
+    "20261007140000_integrate_owner_transfer_retry.sql",
+    "20261007150000_schedule_owner_transfer_retries.sql",
+    "20261008100000_guard_account_deactivation_financials.sql",
+    "20261008120000_prod_final_guard.sql"
+  ],
+  "baseline_md5_versions": "a30b4b2c515cf6a02d8831be001c297f",
+  "expected_after_md5_versions": "949655b5e6ecb1e50920894efd269930",
+  "new_migrations": [
+    {
+      "file": "20261009130000_add_offer_and_reservation_numbers.sql",
+      "sha256": "cf18cd5d8aba1d6cfd2c1aac04c15c0aeb154d313b0ed2b4ca9619f902cbfc3d"
+    },
+    {
+      "file": "20261011103000_guard_pickup_and_remove_test_payment.sql",
+      "sha256": "98c62a7c1da7466981d72e28db58a928d7c446da0a71ed2b9467ad22340268f5"
+    },
+    {
+      "file": "20261011170000_limit_pickup_pin_to_pickup_day.sql",
+      "sha256": "16bfd1ead85a48f928f6e0761b29516fa5c822708eac39bd96549752db2a4c8f"
+    },
+    {
+      "file": "20261012100000_unify_reservation_notification_outbox.sql",
+      "sha256": "bf73e5b51123417c9a29d5e8e17535fce1d5d06010f05f4202ad4f6aad1b06c2"
+    },
+    {
+      "file": "20261012101000_schedule_notification_worker.sql",
+      "sha256": "e21bbd511be00f94b0d27a01a1443e416f5ce22ce1708db54d5f7808f5bab4ad"
+    },
+    {
+      "file": "20261012150000_harden_reservation_notification_worker.sql",
+      "sha256": "70cf14370e64ba6c92f4772538e8a213f9403fe4aa0250f4780112ebf37f49d5"
+    },
+    {
+      "file": "20261012170000_add_expired_reservation_status.sql",
+      "sha256": "35610c4ad34911411f00ff0a3d00a4c540db62fc245c5f8a026de57d380124ae"
+    },
+    {
+      "file": "20261012171000_reservation_expiration_policy.sql",
+      "sha256": "71c2d9451570f9a39bca67624bb907e0899a2ce0c6ae796f1899ead3b5ba29f8"
+    },
+    {
+      "file": "20261012172000_schedule_reservation_expiration.sql",
+      "sha256": "bb850d2308af795ed5fcb096668103cb59de95346fa4d81b65a6baed16008301"
+    },
+    {
+      "file": "20261013090000_reset_sms_opt_in_on_phone_change.sql",
+      "sha256": "da2a8af8d8311cf7957fcb1b531bb3d3b50f9ea4632f4e4e4e10620d9bde1a3d"
+    },
+    {
+      "file": "20261013100000_monitor_reservation_notifications_PROD.sql",
+      "sha256": "ede6e107baf7ae9170c6b2f5c7675fa8a7f65b786d92fb346ee5dc7ea2201604"
+    },
+    {
+      "file": "20261014100000_fix_owner_debt_reminder_claim_ambiguity.sql",
+      "sha256": "92451644e23e019e0ad2cb9216c51b093794e7a4e8ec63f928848cd2bd62f934"
+    },
+    {
+      "file": "20261014110000_pin_stripe_checkout_locale.sql",
+      "sha256": "d7f7f5186bb92dcb893a9303951ae13a985a34514a75f479e3aa06292a9e8294"
+    },
+    {
+      "file": "20261014120000_fix_paid_cancellation_refund_finalization.sql",
+      "sha256": "9285af2d28c62d89a599ec4dfd1bd12ef236fbc13ff785d0f4a6feb56b05ed36"
+    },
+    {
+      "file": "20261015160000_add_paid_no_show_status.sql",
+      "sha256": "5cfd56fc6a1ba310715b1510f10588b4c5edca79929f415a822a1b1146d89082"
+    },
+    {
+      "file": "20261015161000_paid_no_show_settlement_PROD.sql",
+      "sha256": "f4fbadbf9c2c7ca0a638e5f6fc956486c6e1ec7d02742bb919d986f75125ee42"
+    },
+    {
+      "file": "20261017180000_payment_deadline_before_pickup_PROD.sql",
+      "sha256": "3d195d77fa1cc95362c6aedfe126d074941796f14833d4b6fc83ed8aa74160c5"
+    },
+    {
+      "file": "20261017203000_cancellation_cutoff_24h_exception_PROD.sql",
+      "sha256": "c8d05d3e87edaba5b55bf8b161b438acb2e88b7fb68e509280094eeebe449bdc"
+    },
+    {
+      "file": "20261017223000_pending_withdrawal_cutoff_FIX_PROD.sql",
+      "sha256": "2bda9fd6f290ef8a854d8d199d65c73277457f40c6e64efa5e2c235553decbb8"
+    },
+    {
+      "file": "20261017233000_return_followup_incident_PROD.sql",
+      "sha256": "3e58a462da57d3a2b6a6af53f99949aec7fa4a4744e3426828b45b99d36b1575"
+    },
+    {
+      "file": "20261017235500_two_hour_booking_buffer_PROD.sql",
+      "sha256": "11a1e2d701dfd5b01493e5cc32f784bb163cb8786db4a0d2bb1bf9c5a2913bee"
+    },
+    {
+      "file": "20261018001000_transfer_only_after_return_PROD.sql",
+      "sha256": "6c469c7a849278bba923549df9c9d44564a0c7d1502ed2d7ff98ff19a53beed6"
+    },
+    {
+      "file": "20261018090000_pickup_pin_two_hours_early_PROD.sql",
+      "sha256": "3f621ce40f7bda4cdb66567fb01f6a668bb0c38a5980eb71337e286538b47f60"
+    },
+    {
+      "file": "20261018110000_bod02_v1_transport_rule_PROD.sql",
+      "sha256": "2ff327712fc8499a5a4e494265f4d9276ae5a7a4e44d555064c3186e421f6b11"
+    },
+    {
+      "file": "20261018130000_bod02_gdpr_deactivation_cleanup_PROD.sql",
+      "sha256": "c0bf709f2c6ef0e6ccebb92105439afe66acbea1429514bc8add228a008d4600"
+    },
+    {
+      "file": "20261018140000_bod02_gdpr_deleted_offer_address_PROD.sql",
+      "sha256": "be25f899c42e639c4c9eb72e1f47a218a33b1b62c45519fbba4c32640db9b129"
+    },
+    {
+      "file": "20261020120000_bod02_gdpr_reservation_contacts_gate_PROD.sql",
+      "sha256": "c49041be7e440c0a6c0163d06a2f8996fe9041a7ced5e98c6c33a1539178ea72"
+    },
+    {
+      "file": "20261020150000_bod02_gdpr_closed_status_90_days_PROD.sql",
+      "sha256": "21f9aa5d5f789c43a5640100200ebe09238431521795c9c728894b4aba194ceb"
+    },
+    {
+      "file": "20261020170000_bod02_v1_compliance_registry_PROD.sql",
+      "sha256": "74efc9a011a805cd528d258854437f440b08dc062494d3f4bd633d7c3cf0130b"
+    },
+    {
+      "file": "20261020170500_bod02_v1_trusted_finalized_timestamps_PROD.sql",
+      "sha256": "340394d1b5ea463f66c6d2bbac0eb81b2fbdcff35b537989befa35b553a6a06a"
+    },
+    {
+      "file": "20261020171000_bod02_v1_guarded_retention_PROD.sql",
+      "sha256": "7ed98e4b3c0bbee8351ac50b19696c3e51b3bad8b65f3dea9b7cd8cd353c5264"
+    },
+    {
+      "file": "20261020172000_bod02_v1_owner_contacts_legal_hold_PROD.sql",
+      "sha256": "b22bd72ba94b5e9dd9b136551a7782fd0abdc9c73ff811a3a844ad0037006297"
+    },
+    {
+      "file": "20261020173000_bod02_v1_deleted_offer_photo_retention_PROD.sql",
+      "sha256": "db21e39602f35e85c8b9b70569d231bfee2353912f3b872368d6327c79c81986"
+    },
+    {
+      "file": "20261021100000_bod03a_incidents_moderation_PROD.sql",
+      "sha256": "2ecc11c8e2e6650bd7d2470b239a40884a831ddccc25a95ddf58c75f32a61a41"
+    },
+    {
+      "file": "20261021110000_bod03b_exceptional_settlement_PROD.sql",
+      "sha256": "b2b419e9f3dedaf56f03644eec820668a57daf5b9655e76d26659f682db8419a"
+    },
+    {
+      "file": "20261023150000_raise_platform_fee_minimum_to_70.sql",
+      "sha256": "99ee0c4b8f633378e07d592b1ed5536a5b2bc556abf4bafe6bf6cdefb154c750"
+    },
+    {
+      "file": "20261023175000_fix_stripe_payment_immutable_guard_PROD.sql",
+      "sha256": "1ee9282754781b0b7424c389b579fe09faf5ab3f1b1fe56ab2abe1d03130eddb"
+    },
+    {
+      "file": "20261024150000_returned_booking_actual_return_buffer_PROD.sql",
+      "sha256": "44216451993c165fdfdb42ef41018d1e39a9666a1a18979d9dcb603cb16018e5"
+    }
+  ],
+  "source_path": "supabase/prod-release-20261024/migrations",
+  "note": "The 75 baseline files are generated as fail-closed stubs; they represent already-applied remote versions only and are never intended to execute."
+}

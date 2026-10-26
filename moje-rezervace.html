@@ -38,7 +38,7 @@
     }
 
     .back-link {
-      color: #3f8f2d !important;
+      color: #176747 !important;
     }
 
     .account-page-header {
@@ -59,13 +59,13 @@
       top: 50% !important;
       right: 0 !important;
       transform: translateY(-50%);
-      background: #ff6a00 !important;
+      background: #00835a !important;
       color: #ffffff !important;
       box-shadow: none !important;
     }
 
     .top-action-button:hover {
-      background: #e85f00 !important;
+      background: #006846 !important;
     }
 
     .reservation-page-notice {
@@ -143,18 +143,23 @@
       border: 1px solid transparent;
     }
 
-    .status-pending,
+    .status-pending {
+      background: #eef1f2 !important;
+      border-color: #dae2df !important;
+      color: #42564e !important;
+    }
+
     .status-approved {
-      background: #fff3e8 !important;
-      border-color: #f2c79f !important;
-      color: #8a4b16 !important;
+      background: #fff0f1 !important;
+      border-color: #f0b2bb !important;
+      color: #9d2634 !important;
     }
 
     .status-paid,
     .status-picked_up {
       background: #eef8e9 !important;
       border-color: #c9e2d6 !important;
-      color: #4f9f2f !important;
+      color: #176747 !important;
     }
 
     .status-returned,
@@ -183,22 +188,13 @@
       box-shadow: none !important;
     }
 
-    /* Reservation detail is an informational action, so it uses the same quiet mint style as offer detail. */
+    /* Reservation detail is an informational action with a quiet mint style. */
     .simple-reservation-actions [data-reservations-action="toggle-detail"] {
       background: #edf5f1 !important;
       color: #173f35 !important;
     }
 
     .simple-reservation-actions [data-reservations-action="toggle-detail"]:hover {
-      background: #e2f0e9 !important;
-    }
-
-    .simple-reservation-actions .offer-detail-link {
-      background: #edf5f1 !important;
-      color: #173f35 !important;
-    }
-
-    .simple-reservation-actions .offer-detail-link:hover {
       background: #e2f0e9 !important;
     }
 
@@ -241,28 +237,28 @@
       gap: 10px;
     }
 
-    /* Payment needs the renter's attention, so it follows the shared orange action semantics. */
+    /* Payment action uses Rentulo green; the pending-payment status uses attention red. */
     .simple-reservation-actions .reservation-primary-action.orange {
-      background: #ff6a00 !important;
+      background: #00835a !important;
       color: #ffffff !important;
-      border: 1px solid #ff6a00 !important;
+      border: 1px solid #00835a !important;
     }
 
     .simple-reservation-actions .reservation-primary-action.orange:hover {
-      background: #e85f00 !important;
-      border-color: #e85f00 !important;
+      background: #006846 !important;
+      border-color: #006846 !important;
     }
 
-    /* The payment confirmation keeps the same orange attention hierarchy. */
+    /* Payment confirmation uses the same green action palette. */
     .reservation-modal-pay {
-      background: #ff6a00 !important;
-      border-color: #ff6a00 !important;
+      background: #00835a !important;
+      border-color: #00835a !important;
       color: #ffffff !important;
     }
 
     .reservation-modal-pay:hover {
-      background: #e85f00 !important;
-      border-color: #e85f00 !important;
+      background: #006846 !important;
+      border-color: #006846 !important;
     }
 
     /* Expanded reservation: one calm block, without repeating the whole row visually. */
@@ -326,9 +322,9 @@
     }
 
     .payment-box.waiting {
-      background: #fff3e8 !important;
-      border-color: #f2c79f !important;
-      color: #8a4b16 !important;
+      background: #fff0f1 !important;
+      border-color: #f0b2bb !important;
+      color: #9d2634 !important;
     }
 
     .contact-box.hidden {
@@ -459,8 +455,7 @@
         width: 100%;
       }
 
-      .simple-reservation-actions .reservation-primary-action,
-      .simple-reservation-actions .offer-detail-link {
+      .simple-reservation-actions .reservation-primary-action {
         width: 100%;
       }
 
@@ -477,7 +472,7 @@
       .simple-reservation-actions .reservation-detail-action-group {
         display: grid;
         grid-column: 1 / -1;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
         gap: 10px;
         width: 100%;
       }
@@ -493,6 +488,58 @@
       .reservation-detail-actions .reservation-cancel-action {
         width: 100%;
       }
+    }
+    /* Important payment consequence: visible before redirecting to Stripe. */
+    #reservationPaymentModal { overflow-y: auto; }
+    #reservationPaymentModal .reservation-confirm-dialog {
+      max-height: calc(100vh - 40px);
+      overflow-y: auto;
+    }
+    #reservationPaymentModal .reservation-payment-no-show-warning {
+      margin-top: 12px;
+      padding: 11px 13px;
+      background: #fff8ed;
+      border-left: 4px solid #a64719;
+      border-radius: 7px;
+      color: #4c2919;
+      font-size: 13px;
+      line-height: 1.55;
+      font-weight: 650;
+      text-align: left;
+    }
+    #reservationPaymentModal .reservation-payment-no-show-terms {
+      margin-top: 9px;
+      text-align: left;
+      font-size: 13px;
+    }
+    #reservationPaymentModal .reservation-payment-no-show-terms a {
+      color: #175e47;
+      font-weight: 700;
+      text-decoration: underline;
+    }
+    .simple-reservation-date .reservation-pickup-time {
+      display: block;
+      margin-top: 4px;
+      color: #667a70;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .reservation-payment-amount {
+      margin: 7px 0 12px;
+      color: #173f35;
+      font-size: 24px;
+      font-weight: 850;
+    }
+    .reservation-page-notice.processing {
+      background: #f4f8f7 !important;
+      border-color: #cfdfd8 !important;
+      color: #3f5b51 !important;
+    }
+    .reservation-page-notice.processing::before { content: "…" !important; color: #547265 !important; }
+    .simple-reservation-status.status-processing {
+      background: #edf2f1 !important;
+      border: 1px solid #d8e4df !important;
+      color: #526d60 !important;
     }
   </style>
 </head>
@@ -579,11 +626,18 @@
         role="dialog"
         aria-modal="true"
         aria-labelledby="reservationPaymentModalTitle"
-        aria-describedby="reservationPaymentModalDescription"
+        aria-describedby="reservationPaymentModalDescription reservationPaymentModalNoShowWarning"
       >
         <h2 id="reservationPaymentModalTitle">Potvrdit testovací platbu?</h2>
+        <p id="reservationPaymentModalAmount" class="reservation-payment-amount" aria-live="polite"></p>
         <p id="reservationPaymentModalDescription">
-          Jde o testovací platbu. Po potvrzení bude rezervace označena jako zaplacená.
+          Po potvrzení budete přesměrováni na Stripe. Rezervace bude zaplacena až po potvrzení platby.
+        </p>
+        <p id="reservationPaymentModalNoShowWarning" class="reservation-payment-no-show-warning" data-i18n="reservations.paymentModal.noShowWarningShort">
+          PIN lze použít od 2 hodin před převzetím do sjednaného vrácení. Při nevyzvednutí se platba automaticky nevrací; oprávněný problém můžete reklamovat.
+        </p>
+        <p class="reservation-payment-no-show-terms">
+          <a id="reservationPaymentModalTermsLink" href="obchodni-podminky.html#nevyzvednuti" target="_blank" rel="noopener noreferrer" data-i18n="reservations.paymentModal.noShowTermsLink">Podrobnosti: nevyzvednutí věci v obchodních podmínkách</a>
         </p>
         <div class="reservation-confirm-actions">
           <button

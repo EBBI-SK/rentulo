@@ -39,7 +39,7 @@
     }
 
     .back-link {
-      color: #3f8f2d !important;
+      color: #176747 !important;
     }
 
     .account-page-header {
@@ -59,13 +59,13 @@
       top: 50% !important;
       right: 0 !important;
       transform: translateY(-50%);
-      background: #ff6a00 !important;
+      background: #00835a !important;
       color: #fff !important;
       box-shadow: none !important;
     }
 
     .top-action-button:hover {
-      background: #e85f00 !important;
+      background: #006846 !important;
     }
 
     .account-message {
@@ -153,28 +153,33 @@
       color: #334c43 !important;
     }
 
-    .request-status,
+    .request-status {
+      background: #fff0f1 !important;
+      color: #9d2634 !important;
+      border-color: #f0b2bb !important;
+    }
+
     .request-note {
-      background: #fff3e8 !important;
-      color: #8a4b16 !important;
-      border-color: #f2c79f !important;
+      background: #eef1f2 !important;
+      color: #42564e !important;
+      border-color: #dae2df !important;
     }
 
     .request-status.paid {
       background: #eef8e9 !important;
-      color: #4f9f2f !important;
+      color: #176747 !important;
       border-color: #c9e2d6 !important;
     }
 
     .small-button.orange,
     .simple-offer-actions .urgent {
-      background: #ff6a00 !important;
+      background: #00835a !important;
       color: #fff !important;
     }
 
     .small-button.orange:hover,
     .simple-offer-actions .urgent:hover {
-      background: #e85f00 !important;
+      background: #006846 !important;
     }
 
     .request-row {
@@ -209,13 +214,14 @@
     }
 
     .request-row .small-button.orange {
-      background: #fff3e8 !important;
-      color: #8a4b16 !important;
-      border: 1px solid #efbd8e !important;
+      background: #00835a !important;
+      color: #fff !important;
+      border: 1px solid #00835a !important;
     }
 
     .request-row .small-button.orange:hover {
-      background: #ffe8d3 !important;
+      background: #006846 !important;
+      border-color: #006846 !important;
     }
 
     @media (max-width: 820px) {
@@ -269,32 +275,6 @@
     <div class="account-message" id="accountMessage"></div>
 
     <section class="owner-debts-section" id="ownerDebtsSection" aria-live="polite" hidden></section>
-
-    <section class="pickup-handoff-entry" id="pickupHandoffEntry" aria-labelledby="pickupHandoffTitle" hidden>
-      <div class="pickup-handoff-copy">
-        <h2 id="pickupHandoffTitle">Předáváte věc nájemci?</h2>
-        <p id="pickupHandoffDescription">Zadejte 6místný PIN od nájemce. Rentulo najde správnou rezervaci za vás.</p>
-        <p class="pickup-handoff-feedback" id="pickupHandoffFeedback" role="status" aria-live="polite"></p>
-      </div>
-
-      <button type="button" class="pickup-handoff-open" id="pickupHandoffOpen">Zadat PIN</button>
-
-      <form class="pickup-handoff-form" id="pickupHandoffForm" novalidate hidden>
-        <input
-          class="pickup-handoff-input"
-          id="pickupHandoffPin"
-          type="text"
-          inputmode="numeric"
-          autocomplete="one-time-code"
-          maxlength="6"
-          pattern="[0-9]{6}"
-          aria-label="6místný PIN"
-        />
-      </form>
-
-      <section class="pickup-handoff-match" id="pickupHandoffMatch" aria-live="polite" hidden></section>
-      <button type="button" class="pickup-handoff-change" id="pickupHandoffChange" hidden>Zadat jiný PIN</button>
-    </section>
 
     <section class="account-list" id="offersList"></section>
 

@@ -1,5 +1,5 @@
     const PLATFORM_FEE_PERCENT = 10;
-    const PLATFORM_FEE_MINIMUM_CZK = 50;
+    const PLATFORM_FEE_MINIMUM_CZK = 70;
 
     const OFFERS_LOCALES = {
       cs: "cs-CZ",
@@ -60,6 +60,16 @@
         Math.round(total * PLATFORM_FEE_PERCENT / 100),
         PLATFORM_FEE_MINIMUM_CZK
       );
+    }
+
+    function isMinimumPlatformFeeApplied(price, fee, percent) {
+      const total = Number(price);
+      const chargedFee = Number(fee);
+      const feePercent = Number(percent);
+      return Number.isFinite(total) && total > 0 &&
+        Number.isFinite(chargedFee) && chargedFee === PLATFORM_FEE_MINIMUM_CZK &&
+        Number.isFinite(feePercent) && feePercent > 0 &&
+        Math.round(total * feePercent / 100) < PLATFORM_FEE_MINIMUM_CZK;
     }
 
     function formatOffersMoneyPerDay(value) {
@@ -193,6 +203,8 @@
     let ownerOffers = [];
     let ownerReservations = [];
     let ownerCancellationDebts = [];
+    // The backend decides eligibility using the Prague return instant.
+    let ownerReturnFollowupOverview = new Map();
     let ownerCurrentUser = null;
     let ownerOffersLoadState = "idle";
     let ownerDebtsLoadState = "idle";
@@ -504,6 +516,7 @@
     function normalizeOffer(row) {
       return {
         id: row.id,
+        offerNumber: row.offer_number || "",
         ownerId: row.owner_id,
         name: row.name || "",
         category: row.category || "",
@@ -521,6 +534,8 @@
     function normalizeReservation(row) {
       return {
         id: row.id,
+        reservationNumber: row.reservation_number || "",
+        offerNumber: row.offer_number || "",
         offerId: row.offer_id,
         ownerId: row.owner_id,
         renterId: row.renter_id,
@@ -535,6 +550,10 @@
         endDate: row.end_date || row.date_to || "",
         pickupTime: row.pickup_time || "",
         cancellationCutoffAt: row.cancellation_cutoff_at || "",
+        expiresAt: row.expires_at || "",
+        approvedAt: row.approved_at || "",
+        expiredAt: row.expired_at || "",
+        expiryReason: row.expiry_reason || "",
         days: Number(row.total_days || row.days || 0),
         totalPrice: Number(row.total_price || 0),
 
@@ -630,6 +649,26 @@
 
       ownerReservations = ownerReservationRows.map(normalizeReservation);
 
+      // Fail closed if the TEST migration is not installed or the query fails.
+      // Reporting an unreturned item is never enabled by the browser clock.
+      ownerReturnFollowupOverview = new Map();
+      if (ownerReservations.some(function (reservation) {
+        return normalizeReservationStatus(reservation.status) === RESERVATION_STATUS_PICKED_UP;
+      })) {
+        const returnOverviewResult = await supabaseClient.rpc("get_my_return_followup_overview");
+        if (returnOverviewResult.error) {
+          console.error("Return follow-up overview unavailable:", returnOverviewResult.error);
+        } else if (Array.isArray(returnOverviewResult.data)) {
+          returnOverviewResult.data.forEach(function (row) {
+            ownerReturnFollowupOverview.set(String(row.reservation_id), {
+              canReport: row.can_report === true,
+              reportedAt: row.reported_at || "",
+              resolvedAt: row.resolved_at || ""
+            });
+          });
+        }
+      }
+
       ownerOffersLoadState = "ready";
       return true;
     }
@@ -715,7 +754,10 @@ function getOfferStatus(offer) {
         "create-owner-debt-checkout",
         {
           body: {
-            debt_id: debtId
+            debt_id: debtId,
+            locale: typeof window.getRentuloLanguage === "function"
+              ? window.getRentuloLanguage()
+              : "cs"
           }
         }
       );
@@ -822,9 +864,6 @@ const data = Array.isArray(updatedReservations)
   reservationId,
   RESERVATION_STATUS_APPROVED
 );
-      if (updated && typeof window.apiSendReservationEmail === "function") {
-        await window.apiSendReservationEmail(reservationId, "approved");
-      }
       await reloadAndReopen(reservationId, "open");
     }
 
@@ -833,9 +872,6 @@ const data = Array.isArray(updatedReservations)
   reservationId,
   RESERVATION_STATUS_REJECTED
 );
-      if (updated && typeof window.apiSendReservationEmail === "function") {
-        await window.apiSendReservationEmail(reservationId, "rejected");
-      }
       await reloadAndReopen(reservationId, "history");
     }
 
@@ -975,9 +1011,6 @@ const data = Array.isArray(updatedReservations)
         return;
       }
 
-      if (typeof window.apiSendReservationEmail === "function") {
-        await window.apiSendReservationEmail(reservationId, "cancelled");
-      }
 
       setAccountMessage(
         "reservations.state.cancelledTitle",
@@ -994,10 +1027,159 @@ const data = Array.isArray(updatedReservations)
   reservationId,
   RESERVATION_STATUS_PICKED_UP
 );
-      if (updated && typeof window.apiSendReservationEmail === "function") {
-        await window.apiSendReservationEmail(reservationId, "picked_up");
+      await reloadAndReopen(reservationId, "open");
+    }
+
+
+    // This is NOT an automatic no-show or an ordinary cancellation.
+    // Only the owner may explicitly report that a collected item was not returned.
+    let returnIssueModalResolve = null;
+    let returnIssueModalReturnFocus = null;
+
+    function getReturnIssueModalElements() {
+      return {
+        overlay: document.getElementById("returnIssueModal"),
+        title: document.getElementById("returnIssueModalTitle"),
+        description: document.getElementById("returnIssueModalDescription"),
+        label: document.getElementById("returnIssueModalLabel"),
+        input: document.getElementById("returnIssueModalInput"),
+        feedback: document.getElementById("returnIssueModalFeedback"),
+        cancel: document.querySelector('[data-return-issue-modal="cancel"]'),
+        confirm: document.querySelector('[data-return-issue-modal="confirm"]')
+      };
+    }
+
+    function refreshReturnIssueModalText() {
+      const el = getReturnIssueModalElements();
+      if (!el.overlay) return;
+      el.title.textContent = offersTranslate("offers.returnIssue.title", "Nahlásit nevrácení věci?");
+      el.description.textContent = offersTranslate("offers.returnIssue.description", "Nahlaste pouze skutečný problém. Pokud už máte věc zpět, použijte Potvrdit vrácení. Nahlášení automaticky nespouští pokutu ani změnu platby.");
+      el.label.textContent = offersTranslate("offers.returnIssue.label", "Co se stalo? (15–500 znaků)");
+      el.cancel.textContent = offersTranslate("offers.returnIssue.cancel", "Zpět");
+      el.confirm.textContent = offersTranslate("offers.returnIssue.confirm", "Odeslat hlášení");
+    }
+
+    function closeReturnIssueModal(description) {
+      const el = getReturnIssueModalElements();
+      if (!el.overlay || el.overlay.hidden) return;
+      el.overlay.hidden = true;
+      el.overlay.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("offers-modal-open");
+      const resolve = returnIssueModalResolve;
+      const focusTarget = returnIssueModalReturnFocus;
+      returnIssueModalResolve = null;
+      returnIssueModalReturnFocus = null;
+      if (resolve) resolve(description);
+      if (!description && focusTarget && focusTarget.isConnected) {
+        requestAnimationFrame(function () { focusTarget.focus(); });
+      }
+    }
+
+    function initializeReturnIssueModal() {
+      if (document.getElementById("returnIssueModal")) return;
+      const overlay = document.createElement("div");
+      overlay.className = "offers-confirm-modal";
+      overlay.id = "returnIssueModal";
+      overlay.hidden = true;
+      overlay.setAttribute("aria-hidden", "true");
+      overlay.innerHTML = [
+        '<div class="offers-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="returnIssueModalTitle" aria-describedby="returnIssueModalDescription">',
+        '<h2 id="returnIssueModalTitle"></h2>',
+        '<p id="returnIssueModalDescription"></p>',
+        '<label class="return-issue-modal-label" id="returnIssueModalLabel" for="returnIssueModalInput"></label>',
+        '<textarea class="return-issue-modal-input" id="returnIssueModalInput" rows="4" minlength="15" maxlength="500" required></textarea>',
+        '<p class="return-issue-modal-feedback" id="returnIssueModalFeedback" role="alert" aria-live="polite"></p>',
+        '<div class="offers-confirm-actions">',
+        '<button class="offers-modal-button offers-modal-keep" type="button" data-return-issue-modal="cancel"></button>',
+        '<button class="offers-modal-button offers-modal-delete" type="button" data-return-issue-modal="confirm"></button>',
+        '</div></div>'
+      ].join("");
+      document.body.appendChild(overlay);
+      refreshReturnIssueModalText();
+      overlay.addEventListener("click", function (event) {
+        const button = event.target.closest("[data-return-issue-modal]");
+        if (button && button.dataset.returnIssueModal === "cancel") {
+          closeReturnIssueModal(null);
+        } else if (button && button.dataset.returnIssueModal === "confirm") {
+          const el = getReturnIssueModalElements();
+          const value = el.input.value.trim();
+          if (value.length < 15 || value.length > 500) {
+            el.feedback.textContent = offersTranslate("offers.returnIssue.validation", "Popište skutečnou událost alespoň 15 a nejvýše 500 znaky.");
+            el.input.focus();
+            return;
+          }
+          closeReturnIssueModal(value);
+        } else if (event.target === overlay) {
+          closeReturnIssueModal(null);
+        }
+      });
+      document.addEventListener("keydown", function (event) {
+        if (overlay.hidden) return;
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeReturnIssueModal(null);
+        } else if (event.key === "Tab") {
+          const el = getReturnIssueModalElements();
+          const focusable = [el.input, el.cancel, el.confirm];
+          if (event.shiftKey && document.activeElement === focusable[0]) {
+            event.preventDefault();
+            focusable[2].focus();
+          } else if (!event.shiftKey && document.activeElement === focusable[2]) {
+            event.preventDefault();
+            focusable[0].focus();
+          }
+        }
+      });
+    }
+
+    function openReturnIssueModal() {
+      initializeReturnIssueModal();
+      const el = getReturnIssueModalElements();
+      el.input.value = "";
+      el.feedback.textContent = "";
+      refreshReturnIssueModalText();
+      returnIssueModalReturnFocus = document.activeElement;
+      el.overlay.hidden = false;
+      el.overlay.setAttribute("aria-hidden", "false");
+      document.body.classList.add("offers-modal-open");
+      return new Promise(function (resolve) {
+        returnIssueModalResolve = resolve;
+        requestAnimationFrame(function () { el.input.focus(); });
+      });
+    }
+
+    async function reportReservationNotReturned(reservationId) {
+      const reservation = ownerReservations.find(function (row) {
+        return String(row.id) === String(reservationId);
+      });
+      const overview = ownerReturnFollowupOverview.get(String(reservationId));
+      if (!reservation || normalizeReservationStatus(reservation.status) !== RESERVATION_STATUS_PICKED_UP ||
+          !overview || !overview.canReport || overview.reportedAt) {
+        setAccountErrorMessage("offers.returnIssue.unavailable", "Nahlášení zatím není dostupné. Obnovte stránku a ověřte vrácení.");
+        return;
+      }
+      const description = await openReturnIssueModal();
+      if (!description) return;
+      const supabaseClient = getSupabaseClient();
+      if (!supabaseClient) {
+        setAccountErrorMessage("offers.returnIssue.error", "Hlášení se nepodařilo odeslat. Zkuste to znovu.");
+        return;
+      }
+      const result = await supabaseClient.rpc("report_my_reservation_not_returned", {
+        p_reservation_id: reservationId,
+        p_description: description
+      });
+      if (result.error) {
+        console.error("Return incident reporting failed:", result.error);
+        setAccountErrorMessage("offers.returnIssue.error", "Hlášení se nepodařilo odeslat. Zkuste to znovu.");
+        await reloadAndReopen(reservationId, "open");
+        return;
       }
       await reloadAndReopen(reservationId, "open");
+      setAccountMessage(
+        "offers.returnIssue.successTitle", "Nevrácení bylo nahlášeno",
+        "offers.returnIssue.successText", "Hlášení bylo uloženo a nájemce obdrží e-mail. Po skutečném vrácení potvrďte vrácení věci."
+      );
     }
 
     async function markReservationReturned(reservationId) {
@@ -1005,9 +1187,6 @@ const data = Array.isArray(updatedReservations)
   reservationId,
   RESERVATION_STATUS_RETURNED
 );
-      if (updated && typeof window.apiSendReservationEmail === "function") {
-        await window.apiSendReservationEmail(reservationId, "returned");
-      }
       await reloadAndReopen(reservationId, "history");
     }
 
@@ -1595,15 +1774,19 @@ const data = Array.isArray(updatedReservations)
       }
 
       if (normalizeReservationStatus(status) === RESERVATION_STATUS_PICKED_UP) {
-return `<p class="request-note success">${offersTranslate("offers.note.pickedUp", "Výplata byla uvolněna. Rentulo předalo Stripe pokyn k uvolnění vaší výplaty. Peníze nyní zpracovává Stripe a odešle je na váš bankovní účet. První výplata přes Stripe může trvat několik dní. Až věc dostanete zpět, potvrďte vrácení.")}</p>`;
+return `<p class="request-note success">${offersTranslate("offers.note.pickedUp", "Věc byla předána. Po skutečném vrácení potvrďte vrácení v Rentulu; tím se zahájí zpracování výplaty, pokud již neproběhla. PIN už nelze znovu použít.")}</p>`;
       }
 
       if (normalizeReservationStatus(status) === RESERVATION_STATUS_RETURNED) {
-        return `<p class="request-note success">${offersTranslate("offers.note.returned", "Vráceno – půjčení je dokončeno. Už není potřeba žádná další akce.")}</p>`;
+        return `<p class="request-note success">${offersTranslate("offers.note.returned", "Vrácení věci bylo potvrzeno. Rezervace je dokončená. Pokud ještě nebyla provedena výplata, Rentulo ji automaticky předá Stripe ke zpracování; připsání na účet může trvat několik dní.")}</p>`;
       }
 
       if (normalizeReservationStatus(status) === RESERVATION_STATUS_REJECTED) {
         return `<p class="request-note">${offersTranslate("offers.note.rejected", "Žádost byla odmítnuta. Nabídka už touto žádostí není blokovaná.")}</p>`;
+      }
+
+      if (normalizeReservationStatus(status) === RESERVATION_STATUS_EXPIRED) {
+        return `<p class="request-note">${offersTranslate("reservations.expiration.expiredNote", "Lhůta vypršela a termín je znovu volný.")}</p>`;
       }
 
       if (normalizeReservationStatus(status) === RESERVATION_STATUS_CANCELLED) {
@@ -1636,25 +1819,7 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
 
 
     function disableOwnerReservationCancellationButton(button) {
-      if (!button || button.disabled) {
-        return;
-      }
-
-      const explanation = getReservationCancellationCutoffText();
-      button.disabled = true;
-      button.classList.add("reservation-cancel-locked");
-      button.setAttribute("aria-disabled", "true");
-      button.setAttribute("title", explanation);
-      button.removeAttribute("data-offers-action");
-
-      const actions = button.closest(".row-actions");
-
-      if (actions && !actions.querySelector(".reservation-cancel-cutoff-note")) {
-        const note = document.createElement("div");
-        note.className = "reservation-cancel-cutoff-note";
-        note.textContent = explanation;
-        actions.appendChild(note);
-      }
+      if (button && button.isConnected) button.remove();
     }
 
     function scheduleOwnerReservationCancellationCutoff(button) {
@@ -1714,16 +1879,7 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
       const explanation = getReservationCancellationCutoffText();
 
       if (cutoff && !isReservationCancellationWindowOpen(reservation)) {
-        return [
-          '<button class="small-button light reservation-cancel-action reservation-cancel-locked" type="button" disabled aria-disabled="true" title="',
-          escapeHtml(explanation),
-          '">',
-          escapeHtml(label),
-          '</button>',
-          '<div class="reservation-cancel-cutoff-note">',
-          escapeHtml(explanation),
-          '</div>'
-        ].join("");
+        return ""; // Cutoff enforced by the database; no inactive control in the row.
       }
 
       const cutoffAttribute = cutoff
@@ -1771,7 +1927,7 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
 
       if (normalizeReservationStatus(status) === RESERVATION_STATUS_PAID) {
         actions.push(`
-          <button class="small-button orange" type="button" data-offers-action="mark-picked-up" data-reservation-id="${escapeHtml(reservationId)}">
+          <button class="small-button orange" type="button" hidden data-offers-action="mark-picked-up" data-reservation-id="${escapeHtml(reservationId)}">
             ${offersTranslate("offers.action.pickedUp", "Potvrdit předání")}
           </button>
         `);
@@ -1784,37 +1940,34 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
             ${offersTranslate("offers.action.returned", "Potvrdit vrácení")}
           </button>
         `);
+        const followup = ownerReturnFollowupOverview.get(String(reservationId));
+        if (followup && followup.reportedAt && !followup.resolvedAt) {
+          actions.push(`<span class="return-issue-reported">${escapeHtml(offersTranslate("offers.returnIssue.reported", "Nevrácení nahlášeno"))}</span>`);
+        } else if (followup && followup.canReport) {
+          actions.push(`
+            <button class="small-button light" type="button" data-offers-action="report-return-missing" data-reservation-id="${escapeHtml(reservationId)}">
+              ${escapeHtml(offersTranslate("offers.returnIssue.action", "Nahlásit nevrácení"))}
+            </button>
+          `);
+        }
       }
 
       return actions.join("");
     }
 
     function renderReservationContactBlock(reservation) {
+      // Contacts are returned to the owner only after verified payment.
       if (!canShowContact(reservation.status)) {
         return "";
       }
 
-      const renterName = reservation.renterName || offersTranslate("offers.renterFallback", "Zájemce");
       const renterEmail = reservation.renterEmail || offersTranslate("offers.emailMissing", "E-mail není uložen");
       const renterPhone = reservation.renterPhone || offersTranslate("offers.phoneMissing", "Telefon není uložen");
 
-      const contactTitle =
-  normalizeReservationStatus(reservation.status) === RESERVATION_STATUS_RETURNED
-        ? offersTranslate("offers.contact.completedTitle", "Kontakt na zákazníka k dokončené rezervaci")
-        : offersTranslate("offers.contact.renterTitle", "Kontakt na zájemce");
-
-      const returnedNote =
-  normalizeReservationStatus(reservation.status) === RESERVATION_STATUS_RETURNED
-        ? offersTranslate("offers.contact.completedNote", "Rezervace je dokončená, kontakt zůstává dostupný pro případné zpětné dohledání. ")
-        : "";
-
       return `
-        <div class="request-contact-box">
-          <strong>${contactTitle}</strong>
-          ${escapeHtml(returnedNote)}
-          ${offersTranslate("offers.contact.name", "Jméno")}: ${escapeHtml(renterName)}<br>
-          ${offersTranslate("offers.contact.email", "E-mail")}: ${escapeHtml(renterEmail)}<br>
-          ${offersTranslate("offers.contact.phone", "Telefon")}: ${escapeHtml(renterPhone)}
+        <div class="request-contact-box owner-reservation-contacts">
+          <span>${offersTranslate("offers.contact.phone", "Telefon")}: <strong>${escapeHtml(renterPhone)}</strong></span>
+          <span>${offersTranslate("offers.contact.email", "E-mail")}: <strong>${escapeHtml(renterEmail)}</strong></span>
         </div>
       `;
     }
@@ -1822,31 +1975,59 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
       const price = reservation.totalPrice;
       const platformFee = reservation.platformFeeAmount || calculatePlatformFee(price);
       const ownerPayout = reservation.ownerPayout || price - platformFee;
+      const minimumFeeNote = isMinimumPlatformFeeApplied(price, platformFee, reservation.platformFeePercent)
+        ? `<small class="owner-fee-minimum-note">(${escapeHtml(offersTranslate("offers.detail.minimumFee", "minimální provize"))})</small>`
+        : "";
 
       return `
         <div class="request-detail-inner">
-          <div class="request-money">
-            <div class="money-cell">
-              ${offersTranslate("offers.detail.customerPrice", "Cena pro zákazníka")}
+          <div class="owner-payment-summary">
+            <span class="owner-payment-item">
+              <span>${offersTranslate("offers.detail.customerPrice", "Cena pro z\u00e1kazn\u00edka")}</span>
               <strong>${escapeHtml(formatOffersMoney(price))}</strong>
-            </div>
-
-            <div class="money-cell">
-              ${offersTranslate("offers.detail.fee", "Provize Rentulo")}
+            </span>
+            <span class="owner-payment-item">
+              <span>${offersTranslate("offers.detail.fee", "Provize Rentulo")}</span>
               <strong>${escapeHtml(formatOffersMoney(platformFee))}</strong>
-            </div>
-
-            <div class="money-cell">
-              ${offersTranslate("offers.detail.ownerReceives", "Vy dostanete")}
+              ${minimumFeeNote}
+            </span>
+            <span class="owner-payment-item">
+              <span>${offersTranslate("offers.detail.ownerReceives", "Vy dostanete")}</span>
               <strong>${escapeHtml(formatOffersMoney(ownerPayout))}</strong>
-            </div>
+            </span>
           </div>
 
           ${renderReservationContactBlock(reservation)}
 
           ${renderRequestNote(status)}
+          ${(() => {
+            const followup = ownerReturnFollowupOverview.get(String(reservation.id));
+            return followup && followup.reportedAt && !followup.resolvedAt
+              ? `<p class="request-note">${escapeHtml(offersTranslate("offers.returnIssue.reportedNote", "Nevrácení je evidováno. Po skutečném vrácení věci použijte Potvrdit vrácení; tím se hlášení uzavře."))}</p>`
+              : "";
+          })()}
         </div>
       `;
+    }
+
+    function renderOwnerRequestDeadline(reservation) {
+      if (!reservation.expiresAt || ![RESERVATION_STATUS_PENDING, RESERVATION_STATUS_APPROVED]
+        .includes(normalizeReservationStatus(reservation.status))) return "";
+      const date = new Date(reservation.expiresAt);
+      if (Number.isNaN(date.getTime())) return "";
+      const lang = typeof window.getRentuloLanguage === "function"
+        ? window.getRentuloLanguage() : "cs";
+      const locales = { cs: "cs-CZ", sk: "sk-SK", en: "en-GB", de: "de-DE", pl: "pl-PL" };
+      const formatted = new Intl.DateTimeFormat(locales[lang] || "cs-CZ", {
+        dateStyle: "short", timeStyle: "short", timeZone: "Europe/Prague"
+      }).format(date);
+      const pending = normalizeReservationStatus(reservation.status) === RESERVATION_STATUS_PENDING;
+      const expired = date.getTime() <= Date.now();
+      const key = expired ? "reservations.expiration.review"
+        : pending ? "reservations.expiration.ownerDeadline" : "offers.expiration.customerPaymentDeadline";
+      const label = expired ? "Lhůta uplynula – ověřujeme stav"
+        : pending ? "Schválit do" : "Zákazník má zaplatit do";
+      return `<small class="reservation-expiration-note">${escapeHtml(offersTranslate(key, label))}: ${escapeHtml(formatted)}</small>`;
     }
 
     function renderRequest(reservation) {
@@ -1860,40 +2041,37 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
 
       const startDate = reservation.startDate;
       const endDate = reservation.endDate;
-      const price = reservation.totalPrice;
       const reservationId = reservation.id;
 
       const actionButtons = renderRequestActions(reservation, status);
 
       return `
-        <article class="request-card" id="request-card-${escapeHtml(reservationId)}">
+        <article class="request-card" id="request-card-${escapeHtml(reservationId)}"
+          data-owner-status="${escapeHtml(normalizeReservationStatus(status))}"
+          data-owner-number="${escapeHtml(reservation.reservationNumber || "")}"
+          data-owner-date="${escapeHtml(startDate || "")}"
+          data-owner-renter="${escapeHtml(renterName)}">
           <div class="request-row">
             <div class="request-main">
               <span class="request-name">${escapeHtml(renterName)}</span>
               <span class="request-email">${escapeHtml(renterEmail)}</span>
+              ${reservation.reservationNumber ? `<span class="request-email"><span class="owner-reservation-reference-prefix">${escapeHtml(offersTranslate("reference.reservation", "Číslo rezervace"))}: </span>${escapeHtml(reservation.reservationNumber)}</span>` : ""}
+              ${renderOwnerRequestDeadline(reservation)}
             </div>
 
             <div class="request-date">
               ${escapeHtml(formatOffersDate(startDate))} – ${escapeHtml(formatOffersDate(endDate))}
-            </div>
-
-            <div class="table-value hide-tablet">
-              ${escapeHtml(formatOffersMoney(price))}
+              ${reservation.pickupTime ? `<small class="owner-pickup-time">${escapeHtml(offersTranslate("reservations.pickupTimeShort", "Převzetí"))}: ${escapeHtml(String(reservation.pickupTime).slice(0, 5))}</small>` : ""}
             </div>
 
             <span class="request-status ${getRequestStatusClass(status)}">${escapeHtml(statusText)}</span>
 
             <div class="row-actions">
               ${actionButtons}
-              <button class="history-toggle-button" type="button" data-offers-action="toggle-request-detail" data-reservation-id="${escapeHtml(reservationId)}">
-                ${offersTranslate("offers.detail.show", "Detail")}
-              </button>
             </div>
           </div>
 
-          <div class="request-detail" id="request-detail-${escapeHtml(reservationId)}">
-            ${renderRequestDetailContent(reservation, status)}
-          </div>
+          ${renderReservationContactBlock(reservation)}
         </article>
       `;
     }
@@ -2012,14 +2190,14 @@ function renderSimpleOffer(offer, requests) {
   `;
 
   return `
-    <div class="simple-offer-record">
+    <div class="simple-offer-record" data-owner-offer-number="${escapeHtml(offer.offerNumber || "")}">
       <article class="simple-offer-row">
         <div class="simple-offer-main">
           ${renderToolImage(offer)}
 
           <div class="simple-offer-info">
             <strong class="simple-offer-name">${escapeHtml(offerName)}</strong>
-            <span class="simple-offer-meta">${escapeHtml(offerCity)}</span>
+            <span class="simple-offer-meta">${escapeHtml(offerCity)}${offer.offerNumber ? ` · ${escapeHtml(offersTranslate("reference.offer", "Číslo nabídky"))}: ${escapeHtml(offer.offerNumber)}` : ""}</span>
           </div>
         </div>
 
@@ -2195,6 +2373,7 @@ return [
         "cancel-reservation",
         "mark-picked-up",
         "mark-returned",
+        "report-return-missing",
         "publish-offer",
         "activate-offer",
         "deactivate-offer",
@@ -2228,6 +2407,9 @@ return [
             break;
           case "mark-returned":
             await markReservationReturned(reservationId);
+            break;
+          case "report-return-missing":
+            await reportReservationNotReturned(reservationId);
             break;
           case "toggle-request-detail":
             toggleRequestDetail(reservationId, actionButton);
@@ -2291,12 +2473,14 @@ return [
     document.addEventListener("DOMContentLoaded", function () {
       initializeOfferDeleteModal();
       initializeOwnerReservationCancelModal();
+      initializeReturnIssueModal();
       initializeOwnerOffersPage();
     });
 
     document.addEventListener("rentuloLanguageChanged", function () {
       refreshOfferDeleteModalText();
       refreshOwnerReservationCancelModalText();
+      refreshReturnIssueModalText();
 
       if (ownerOffersLoadState === "loading") {
         renderLoadingState();

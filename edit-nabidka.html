@@ -7,13 +7,20 @@
   <title data-i18n="editOffer.pageTitle">Upravit nabídku - Rentulo</title>
 
   <link rel="icon" type="image/png" href="assets/rentulo-logo-mark.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link id="rentuloSharedTheme" rel="stylesheet" href="css/rentulo-theme.css" />
   <link rel="stylesheet" href="css/edit-offer.css" />
 
   <style>
+    .offer-commission-note {
+      margin: 9px 0 0;
+      padding-left: 10px;
+      border-left: 3px solid var(--rentulo-green, #176747);
+      color: var(--rentulo-muted, #64706b);
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.5;
+    }
+
     .edit-photo-title [data-photo-lang] {
       display: none;
     }
@@ -170,8 +177,9 @@
             </div>
 
             <div class="form-group">
-              <label for="edit-price" data-i18n="editOffer.pricePerDay">Cena za den</label>
-              <input id="edit-price" type="text" placeholder="např. 250 Kč" data-i18n-placeholder="editOffer.pricePlaceholder" />
+              <label for="edit-price" data-i18n="editOffer.pricePerDay">Cena za den (Kč)</label>
+              <input id="edit-price" type="text" placeholder="např. 250 Kč" data-i18n-placeholder="editOffer.pricePlaceholder" aria-describedby="editCommissionInfo" />
+              <p class="offer-commission-note" id="editCommissionInfo" data-i18n="offer.commissionNote">Provize Rentulo je 10 % z půjčovného za zaplacenou rezervaci, minimálně 70 Kč za rezervaci.</p>
             </div>
           </div>
 
@@ -246,6 +254,13 @@
             </div>
           </section>
 
+          <div class="form-group full" style="margin-top: 14px;">
+            <label class="pickup-checkbox" for="editTransportConfirmation">
+              <input type="checkbox" id="editTransportConfirmation" required />
+              <span data-i18n="offer.transportConfirmation">Potvrzuji, že nenabízím dopravní prostředek ani věc zakázanou podmínkami Rentula V1.</span>
+            </label>
+          </div>
+
           <div class="form-actions">
             <a href="moje-nabidky.html" class="edit-cancel-button" data-i18n="editOffer.cancel">Zpět bez uložení</a>
             <button type="button" class="btn-primary" id="save-edit-button" data-i18n="editOffer.save">Uložit změny</button>
@@ -263,6 +278,7 @@
   <script src="js/i18n.js"></script>
   <script src="js/navigation.js"></script>
   <script src="js/auth-guard.js"></script>
-  <script src="js/edit-offer.js"></script>
+  <script src="js/offer-policy.js"></script>
+<script src="js/edit-offer.js"></script>
 </body>
 </html>

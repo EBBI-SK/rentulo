@@ -42,7 +42,7 @@ type StripeTransferResponse = {
   source_transaction?: string | { id?: string } | null;
   transfer_group?: string | null;
   metadata?: Record<string, string>;
-  error?: { message?: string; type?: string };
+  error?: { message?: string; type?: string; code?: string };
 };
 
 type StripeTransferListResponse = {
@@ -180,7 +180,7 @@ denoRuntime.serve(async (req) => {
   }
 
   // Internal-only endpoint. It is intentionally not callable with a normal user JWT.
-  // A later trusted pickup-confirmation backend will invoke it after PIN verification.
+  // Only the trusted retry worker can initiate payout after confirmed return or no-show.
   const authHeader = req.headers.get("Authorization") || "";
   const accessToken = authHeader.replace(/^Bearer\s+/i, "").trim();
   if (!accessToken || !timingSafeTextEqual(accessToken, serviceRoleKey)) {
@@ -235,9 +235,24 @@ denoRuntime.serve(async (req) => {
     payment.stripe_payment_intent_status !== "succeeded" ||
     !payment.stripe_payment_intent_id ||
     !payment.stripe_charge_id ||
-    !["picked_up", "returned"].includes(reservation.status)
+    (!["returned", "no_show"].includes(reservation.status) && reservation.status !== "picked_up")
   ) {
     return jsonResponse({ error: "Transfer is not allowed for this reservation" }, 409);
+  }
+
+  // BOD03B: database decides exceptional release. A PIN alone is never enough.
+  // Even a later confirmed return must not override an approved full-refund case.
+  // This RPC must succeed before any Stripe operation or retry claim.
+  const { data: approvedTransfer, error: disputeCheckError } = await admin.rpc(
+    "bod03b_owner_transfer_allowed",
+    {
+      p_reservation_id: reservation.id,
+      p_payment_id: payment.id,
+      p_reservation_status: reservation.status,
+    },
+  );
+  if (disputeCheckError || approvedTransfer !== true) {
+    return jsonResponse({ error: "Transfer is not authorized for this dispute state" }, 409);
   }
 
   if (
@@ -692,7 +707,11 @@ denoRuntime.serve(async (req) => {
       );
       return await failAttempt(
         `Stripe transfer creation failed (${transferResponse.status}): ${createdTransfer.error?.type || "unknown_error"} ${createdTransfer.error?.message || ""}`,
-        isRetryableStripeStatus(transferResponse.status),
+        // Delaying transfer until return can expose depleted platform balance
+        // after Stripe automatic payouts. Retry only the explicit Stripe
+        // balance_insufficient error, never arbitrary 4xx invalid requests.
+        isRetryableStripeStatus(transferResponse.status) ||
+          createdTransfer.error?.code === "balance_insufficient",
         "Owner transfer could not be created",
         502,
       );

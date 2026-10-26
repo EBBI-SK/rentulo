@@ -106,43 +106,28 @@ test("renter cancellation is visible directly in the reservation row like owner 
   );
   assert.match(page, /data-reservations-action="cancel"/);
   assert.match(page, /data-cancel-cutoff=/);
-  assert.match(page, /reservation-cancel-cutoff-note/);
+  assert.match(page, /if \(cutoff && !isReservationCancellationWindowOpen\(reservation\)\) \{\s*return "";/);
   assert.match(shared, /\.reservation-detail-actions, \.simple-reservation-actions/);
   assert.match(shared, /\.reservation-cancel-action\.reservation-cancel-locked/);
 });
 
-test("renter cutoff explanation stays grouped directly below the disabled cancel action", () => {
+test("renter cutoff removes inactive cancel action but keeps detail and security rules", () => {
   const page = read(RENTER_PAGE_PATH);
   const shared = read(RESERVATIONS_SHARED_PATH);
-  const renterHtml = read(RENTER_HTML_PATH);
-
-  assert.match(
-    page,
-    /reservation-cancel-action-stack reservation-cancel-action-stack-locked[\s\S]*reservation-cancel-locked[\s\S]*reservation-cancel-cutoff-note/
-  );
-  assert.match(
-    page,
-    /class="reservation-cancel-action-stack"[\s\S]*data-reservations-action="cancel"/
-  );
-  assert.match(shared, /button\.closest\("\.reservation-cancel-action-stack"\)/);
-  assert.match(shared, /actionStack\.classList\.add\("reservation-cancel-action-stack-locked"\)/);
-  assert.match(
-    renterHtml,
-    /\.simple-reservation-actions \.reservation-cancel-action-stack \{[\s\S]*flex-direction: column;[\s\S]*align-items: flex-end;/
-  );
-  assert.match(
-    renterHtml,
-    /\.reservation-cancel-action-stack \.reservation-cancel-cutoff-note \{[\s\S]*max-width: 180px;[\s\S]*text-align: right;/
-  );
+  assert.match(page, /function renderRenterReservationCancellationAction/);
+  assert.match(page, /if \(cutoff && !isReservationCancellationWindowOpen\(reservation\)\) \{\s*return "";/);
+  assert.match(page, /class="reservation-cancel-action-stack"[\s\S]*data-reservations-action="cancel"/);
+  assert.match(page, /class="reservation-detail-action-group"[\s\S]*\$\{detailAction\}/);
+  assert.match(shared, /getReservationCancellationCutoffAt/);
 });
 
-test("locked renter cancellation keeps both detail actions together beside the cutoff block", () => {
+test("locked renter cancellation keeps reservation detail action beside the cutoff block", () => {
   const page = read(RENTER_PAGE_PATH);
   const renterHtml = read(RENTER_HTML_PATH);
 
   assert.match(
     page,
-    /class="reservation-detail-action-group"[\s\S]*\$\{detailAction\}[\s\S]*\$\{offerDetailAction\}/
+    /class="reservation-detail-action-group"[\s\S]*\$\{detailAction\}/
   );
   assert.match(
     renterHtml,
@@ -154,7 +139,7 @@ test("locked renter cancellation keeps both detail actions together beside the c
   );
   assert.match(
     renterHtml,
-    /@media \(max-width: 560px\)[\s\S]*\.simple-reservation-actions \.reservation-detail-action-group \{[\s\S]*grid-column: 1 \/ -1;[\s\S]*grid-template-columns: 1fr 1fr;/
+    /@media \(max-width: 560px\)[\s\S]*\.simple-reservation-actions \.reservation-detail-action-group \{[\s\S]*grid-column: 1 \/ -1;[\s\S]*grid-template-columns: 1fr;/
   );
 });
 

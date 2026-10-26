@@ -7,9 +7,6 @@
   <title data-i18n="how.documentTitle">Jak to funguje - Rentulo</title>
 
   <link rel="icon" type="image/png" href="assets/rentulo-logo-mark.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     :root {
       --page: #F5F8F6;
@@ -19,8 +16,8 @@
       --green: #176747;
       --green-dark: #0e5037;
       --green-soft: #e9f4ee;
-      --orange: #ff6a00;
-      --orange-hover: #e85f00;
+      --action-green: #00835a;
+      --action-green-hover: #006846;
       --line: #e5e9e5;
       --shadow: 0 22px 60px rgba(16, 32, 25, 0.08);
     }
@@ -36,7 +33,7 @@
     body {
       margin: 0;
       min-height: 100vh;
-      font-family: "Manrope", Arial, sans-serif;
+      font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
       background: var(--page);
       color: var(--ink);
     }
@@ -113,12 +110,12 @@
     }
 
     .nav-notification-badge {
-      background: var(--orange) !important;
+      background: #DC3545 !important;
       color: #ffffff !important;
     }
 
     .nav-account-link:hover .nav-notification-badge {
-      background: var(--orange-hover) !important;
+      background: #DC3545 !important;
     }
 
     .btn-register,
@@ -129,17 +126,17 @@
       min-height: 46px;
       padding: 0 20px;
       border-radius: 14px;
-      background: var(--orange) !important;
+      background: var(--action-green) !important;
       color: #ffffff !important;
       font-weight: 800;
       cursor: pointer;
-      box-shadow: 0 10px 24px rgba(255, 106, 0, 0.16);
+      box-shadow: 0 10px 24px rgba(0, 112, 75, 0.14);
       transition: transform 0.16s ease, background 0.16s ease;
     }
 
     .btn-register:hover,
     .logout-link:hover {
-      background: var(--orange-hover) !important;
+      background: var(--action-green-hover) !important;
       transform: translateY(-1px);
     }
 
@@ -261,16 +258,16 @@
       margin-top: 20px;
       padding: 0 20px;
       border-radius: 14px;
-      background: var(--orange) !important;
+      background: var(--action-green) !important;
       color: #ffffff !important;
       font-size: 14px;
       font-weight: 800;
-      box-shadow: 0 10px 24px rgba(255, 106, 0, 0.16);
+      box-shadow: 0 10px 24px rgba(0, 112, 75, 0.14);
       transition: transform 0.16s ease, background 0.16s ease;
     }
 
     .manual-button:hover {
-      background: var(--orange-hover) !important;
+      background: var(--action-green-hover) !important;
       transform: translateY(-1px);
     }
 
@@ -555,7 +552,7 @@
               <span>6</span>
               <div>
                 <strong data-i18n="how.ownerStep6Title">Výplata, vrácení a hodnocení</strong>
-                <p data-i18n="how.ownerStep6Text">Jakmile po ověření PINu potvrdíte předání věci, Rentulo ihned zadá Stripe pokyn k uvolnění vaší výplaty. Rentulo peníze nezadržuje. Jejich odeslání a připsání na bankovní účet následně zpracovává Stripe a banka, což může zejména při první výplatě trvat několik dní. Po vrácení věci potvrdíte vrácení. Dokončenou rezervaci najdete v Historii, kde můžete nájemce ohodnotit.</p>
+                <p data-i18n="how.ownerStep6Text">Po předání věci potvrďte převzetí PINem, který se ihned zneplatní. Když vám nájemce věc skutečně vrátí, potvrďte vrácení v Rentulu. Teprve poté Rentulo předá Stripe pokyn k výplatě. Stripe a banka výplatu následně zpracují; první převod může trvat několik dní. Pro nevyzvednutou věc platí zvláštní pravidla.</p>
               </div>
             </div>
 

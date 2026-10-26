@@ -1,5 +1,5 @@
     const PLATFORM_FEE_PERCENT = 10;
-    const PLATFORM_FEE_MINIMUM_CZK = 50;
+    const PLATFORM_FEE_MINIMUM_CZK = 70;
     let currentOffer = null;
     let detailPageState = "idle";
     let detailBookingMessage = "";
@@ -9,7 +9,7 @@
         pickupTime: "Čas převzetí",
         pickupHour: "Hodina",
         pickupMinute: "Minuty",
-        pickupTimeHelp: "Vrácení bude v poslední den rezervace ve stejný čas.",
+        pickupTimeHelp: "Vrácení bude v poslední den rezervace ve stejný čas. Mezi dvěma pronájmy musí být alespoň 2 hodiny.",
         selectTime: "Vyberte čas převzetí.",
         invalidTime: "Vyberte platný čas převzetí."
       },
@@ -17,7 +17,7 @@
         pickupTime: "Čas prevzatia",
         pickupHour: "Hodina",
         pickupMinute: "Minúty",
-        pickupTimeHelp: "Vrátenie bude v posledný deň rezervácie v rovnakom čase.",
+        pickupTimeHelp: "Vrátenie bude v posledný deň rezervácie v rovnakom čase. Medzi dvoma prenájmami musia byť aspoň 2 hodiny.",
         selectTime: "Vyberte čas prevzatia.",
         invalidTime: "Vyberte platný čas prevzatia."
       },
@@ -25,7 +25,7 @@
         pickupTime: "Pickup time",
         pickupHour: "Hour",
         pickupMinute: "Minutes",
-        pickupTimeHelp: "Return is due at the same time on the last day of the reservation.",
+        pickupTimeHelp: "Return is due at the same time on the last day. A minimum two-hour gap is required between rentals.",
         selectTime: "Choose a pickup time.",
         invalidTime: "Choose a valid pickup time."
       },
@@ -33,7 +33,7 @@
         pickupTime: "Abholzeit",
         pickupHour: "Stunde",
         pickupMinute: "Minuten",
-        pickupTimeHelp: "Die Rückgabe erfolgt am letzten Reservierungstag zur gleichen Uhrzeit.",
+        pickupTimeHelp: "Die Rückgabe erfolgt am letzten Reservierungstag zur gleichen Uhrzeit. Zwischen Vermietungen sind mindestens zwei Stunden Abstand erforderlich.",
         selectTime: "Wählen Sie eine Abholzeit.",
         invalidTime: "Wählen Sie eine gültige Abholzeit."
       },
@@ -41,7 +41,7 @@
         pickupTime: "Godzina odbioru",
         pickupHour: "Godzina",
         pickupMinute: "Minuty",
-        pickupTimeHelp: "Zwrot następuje o tej samej godzinie w ostatnim dniu rezerwacji.",
+        pickupTimeHelp: "Zwrot następuje o tej samej godzinie w ostatnim dniu rezerwacji. Między wynajmami wymagany jest odstęp co najmniej 2 godzin.",
         selectTime: "Wybierz godzinę odbioru.",
         invalidTime: "Wybierz prawidłową godzinę odbioru."
       }
@@ -191,8 +191,60 @@
     }
 
     function getOfferIdFromUrl() {
-      const params = new URLSearchParams(window.location.search);
-      return params.get("id");
+      // A public SEO URL takes precedence over any additional query parameters.
+      const match = window.location.pathname.match(
+        /^\/nabidka\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i
+      );
+      if (match) return match[1];
+      return new URLSearchParams(window.location.search).get("id");
+    }
+
+    function showCanonicalOfferUrl(offer) {
+      // Old bookmarks continue to load. After an active offer is confirmed,
+      // display the SEO URL so copying the browser address shares its photo.
+      const id = String(offer?.id || "");
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return;
+      if (!/^https?:$/.test(window.location.protocol)) return;
+      if (!/\/detail\.html$/i.test(window.location.pathname)) return;
+      if (window.history && typeof window.history.replaceState === "function") {
+        window.history.replaceState(window.history.state, "", "/nabidka/" + id.toLowerCase());
+      }
+    }
+
+    function getOfferLoginReturnTo() {
+      // The login allowlist already accepts this legacy UUID URL. Keep it so
+      // logging in from a public SEO link cannot break reservation checkout.
+      const offerId = getOfferIdFromUrl();
+      return offerId ? "detail.html?id=" + encodeURIComponent(offerId) : "detail.html";
+    }
+
+    function updateOfferBrowserMetadata(offer) {
+      const name = String(getOfferName(offer) || "").replace(/\s+/g, " ").trim();
+      const city = String(getOfferCity(offer) || "").replace(/\s+/g, " ").trim();
+      const price = getOfferPrice(offer);
+      const locale = typeof getRentuloLanguage === "function"
+        ? getRentuloLanguage() : "cs";
+      const place = city && city !== "-" ? city : "";
+      const title = `${name.slice(0, 72)}${place ? ` – ${place.slice(0, 40)}` : ""} | Rentulo`;
+      const amount = Number(price).toLocaleString(getDetailLocale());
+      const descriptions = {
+        cs: `Půjčte si ${name}${place ? ` v lokalitě ${place}` : ""} za ${amount} Kč/den. Rezervujte jednoduše na Rentulo.`,
+        sk: `Požičajte si ${name}${place ? ` v lokalite ${place}` : ""} za ${amount} Kč/deň. Rezervujte jednoducho na Rentulo.`,
+        en: `Rent ${name}${place ? ` in ${place}` : ""} for ${amount} CZK/day. Book easily on Rentulo.`,
+        de: `Mieten Sie ${name}${place ? ` in ${place}` : ""} für ${amount} CZK pro Tag. Einfach auf Rentulo reservieren.`,
+        pl: `Wypożycz ${name}${place ? ` w ${place}` : ""} za ${amount} CZK/dzień. Zarezerwuj na Rentulo.`
+      };
+      document.title = title;
+      const description = (descriptions[locale] || descriptions.cs).slice(0, 200);
+      const descriptionMeta = document.querySelector('meta[name="description"]');
+      if (descriptionMeta) descriptionMeta.setAttribute("content", description);
+      const ogTitle = document.querySelector('meta[property="og:title"]');
+      if (ogTitle) ogTitle.setAttribute("content", title);
+      const ogDescription = document.querySelector('meta[property="og:description"]');
+      if (ogDescription) ogDescription.setAttribute("content", description);
+      const ogLocale = document.querySelector('meta[property="og:locale"]');
+      const locales = { cs: "cs_CZ", sk: "sk_SK", en: "en_GB", de: "de_DE", pl: "pl_PL" };
+      if (ogLocale) ogLocale.setAttribute("content", locales[locale] || locales.cs);
     }
 
     function getDaysBetween(startDate, endDate) {
@@ -228,6 +280,7 @@
     function normalizeSupabaseOffer(row) {
       return {
         id: row.id,
+        offerNumber: row.offer_number || "",
 ownerId: row.owner_id,
 owner_id: row.owner_id,
         name: row.name,
@@ -340,9 +393,15 @@ function renderDetailImage(offer) {
       }
 
       return `
-        <div class="image-box">
-          <div class="image-icon">⌁</div>
-          <div class="image-label">${escapeHtml(offerName)}</div>
+        <div class="image-box no-photo">
+          <div class="image-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="3"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <path d="m4 18 5-5 3 3 3-4 5 6"></path>
+            </svg>
+          </div>
+          <div class="image-label">${escapeHtml(detailTranslate("offer.noPhoto"))}</div>
         </div>
       `;
     }
@@ -477,12 +536,13 @@ function renderDetailImage(offer) {
       }
     }
 
-    function renderSidebarMessage(type, title, text, buttonHref, buttonText) {
+    function renderSidebarMessage(type, title, text, buttonHref, buttonText, price) {
       return `
         <div class="message-card ${type === "warning" ? "warning" : ""}">
-          <strong>${escapeHtml(title)}</strong><br>
-          ${escapeHtml(text)}
-          <br>
+          <div class="price">${escapeHtml(formatDetailNumber(price))}</div>
+          <div class="price-small">${escapeHtml(detailTranslate("detail.currencyPerDay"))}</div>
+          ${title ? `<strong>${escapeHtml(title)}</strong><br>` : ""}
+          ${text ? `${escapeHtml(text)}<br>` : ""}
           <a href="${escapeHtml(buttonHref)}" class="primary-button">${escapeHtml(buttonText)}</a>
         </div>
       `;
@@ -641,33 +701,30 @@ function renderDetailImage(offer) {
       `;
     }
 
-    async function hasReservationDateConflict(offerId, startDate, endDate) {
+    async function hasReservationDateConflict(offerId, startDate, endDate, pickupTime) {
       const supabaseClient = getSupabaseClient();
 
-      if (!supabaseClient || !offerId || !startDate || !endDate) {
-        return false;
+      // Invalid values must never render a slot as available.
+      if (!supabaseClient || !offerId || !startDate || !endDate || !isValidPickupTime(pickupTime)) {
+        throw new Error("Availability request is incomplete");
       }
 
-      const { data: blockingReservations, error } = await supabaseClient
-  .rpc("get_blocking_reservations", {
-    p_offer_id: offerId
-  });
-
-const data = Array.isArray(blockingReservations)
-  ? blockingReservations.filter(function (reservation) {
-      return (
-        reservation.start_date < endDate &&
-        reservation.end_date > startDate
+      const { data: hasConflict, error } = await supabaseClient.rpc(
+        "has_offer_reservation_time_conflict",
+        {
+          p_offer_id: offerId,
+          p_start_date: startDate,
+          p_end_date: endDate,
+          p_pickup_time: pickupTime
+        }
       );
-    }).slice(0, 1)
-  : [];
 
-      if (error) {
+      if (error || typeof hasConflict !== "boolean") {
         console.warn("Dostupnost termínu se nepodařilo ověřit.", error);
-        throw error;
+        throw error || new Error("Availability check returned an invalid result");
       }
 
-      return Array.isArray(data) && data.length > 0;
+      return hasConflict;
     }
 
     async function renderDetail(offer) {
@@ -687,6 +744,7 @@ const data = Array.isArray(blockingReservations)
       const offerCity = getOfferCity(offer);
 
       const price = getOfferPrice(offer);
+      updateOfferBrowserMetadata(offer);
 
       const currentUserId = currentUser ? String(currentUser.id || "") : "";
 const ownerId = String(offer.ownerId || offer.owner_id || "");
@@ -702,7 +760,7 @@ const hasGps = offerHasGpsLocation(offer);
 
       if (isOwner && isActive) {
         availabilityText = detailTranslate("detail.ownerOfferActiveTitle");
-        availabilityPanelText = detailTranslate("detail.ownerOfferActiveText");
+        availabilityPanelText = "";
       } else if (!isActive) {
         availabilityText = detailTranslate("detail.inactive");
         availabilityPanelText = detailTranslate("detail.availabilityPanelInactive");
@@ -716,17 +774,19 @@ const hasGps = offerHasGpsLocation(offer);
     detailTranslate("detail.loginRequiredTitle"),
     detailTranslate("detail.loginRequiredText"),
     `prihlaseni.html?returnTo=${encodeURIComponent(
-  window.location.pathname.split("/").pop() + window.location.search
+  getOfferLoginReturnTo()
 )}`,
-    detailTranslate("nav.login")
+    detailTranslate("nav.login"),
+    price
   );
 } else if (isOwner) {
   sidebarContent = renderSidebarMessage(
     "",
-    detailTranslate("detail.ownItemTitle"),
-    detailTranslate("detail.ownItemText"),
+    "",
+    "",
     "moje-nabidky.html",
-    detailTranslate("account.myListingsTitle")
+    detailTranslate("account.myListingsTitle"),
+    price
   );
 } else if (!isActive) {
         sidebarContent = renderUnavailableSidebar(
@@ -748,7 +808,7 @@ const hasGps = offerHasGpsLocation(offer);
                 <h1>${escapeHtml(offerName)}</h1>
 
                 <div class="category-line">
-                  ${escapeHtml(offerCategory)}
+                  ${escapeHtml(offerCategory)}${offer.offerNumber ? ` · ${escapeHtml(detailTranslate("reference.offer"))}: ${escapeHtml(offer.offerNumber)}` : ""}
                 </div>
 
                 <div class="badges">
@@ -769,6 +829,8 @@ const hasGps = offerHasGpsLocation(offer);
                   <p class="description">${escapeHtml(offer.description)}</p>
                 </section>
               ` : ""}
+
+              ${!isOwner ? `<p style="margin: 8px 0 16px;"><a href="mailto:rentulo@rentulo.com?subject=${encodeURIComponent("Rentulo - ohlášení nabídky " + (offer.offerNumber || offer.id || ""))}">${escapeHtml(detailTranslate("detail.reportOffer"))}</a></p>` : ""}
 
               <div class="info-grid">
                 <div class="section">
@@ -868,7 +930,7 @@ const hasGps = offerHasGpsLocation(offer);
         showDetailBookingMessage(detailTranslate("detail.error.loginAgain"));
         window.location.href =
   `prihlaseni.html?returnTo=${encodeURIComponent(
-    window.location.pathname.split("/").pop() + window.location.search
+    getOfferLoginReturnTo()
   )}`;
         return false;
       }
@@ -924,13 +986,6 @@ const hasGps = offerHasGpsLocation(offer);
           console.warn("ID nové rezervace se nepodařilo uložit do sessionStorage.", storageError);
         }
 
-        if (typeof window.apiSendReservationEmail === "function") {
-          try {
-            await window.apiSendReservationEmail(data.id, "new_request");
-          } catch (emailError) {
-            console.warn("E-mail o nové rezervaci se nepodařilo odeslat.", emailError);
-          }
-        }
       }
 
       window.location.href = "moje-rezervace.html";
@@ -1091,7 +1146,8 @@ const hasGps = offerHasGpsLocation(offer);
           const hasConflict = await hasReservationDateConflict(
             offer.id,
             activeStartDate,
-            activeEndDate
+            activeEndDate,
+            pickupTime
           );
 
           if (checkVersion !== availabilityCheckVersion) {
@@ -1179,7 +1235,7 @@ const hasGps = offerHasGpsLocation(offer);
         rentButton.textContent = detailTranslate("detail.checkingDates");
 
         try {
-          const hasConflict = await hasReservationDateConflict(offer.id, startDate, endDate);
+          const hasConflict = await hasReservationDateConflict(offer.id, startDate, endDate, pickupTime);
 
           if (hasConflict) {
             await updateCalculation();
@@ -1242,6 +1298,7 @@ const hasGps = offerHasGpsLocation(offer);
 
         detailPageState = "ready";
         await renderDetail(offer);
+        showCanonicalOfferUrl(offer);
       } catch (error) {
         console.error(error);
         detailPageState = "error";

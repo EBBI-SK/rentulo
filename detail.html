@@ -103,7 +103,7 @@
       margin-bottom: 8px;
       font-size: 14px;
       font-weight: 800;
-      color: #4f9b35;
+      color: #176747;
     }
 
     .back-link:hover {
@@ -220,7 +220,7 @@
     }
 
     .category-line strong {
-      color: #ff6a00;
+      color: #176747;
     }
 
     h1 {
@@ -251,7 +251,7 @@
 
     .badge.available {
       background: #f0faea;
-      color: #4f9b35;
+      color: #176747;
     }
 
     .description-section {
@@ -296,7 +296,7 @@
     }
 
     .availability-panel.available strong {
-      color: #4f9b35;
+      color: #176747;
     }
 
     .info-grid {
@@ -389,9 +389,9 @@
     }
 
     .gps-note.missing {
-      background: #fff3e8;
-      border-color: #f2c79f;
-      color: #8a4b16;
+      background: #fff0f1;
+      border-color: #f0b2bb;
+      color: #9d2634;
     }
 
     .sidebar {
@@ -404,7 +404,7 @@
     .price {
       font-size: 31px;
       font-weight: 900;
-      color: #4f9b35;
+      color: #176747;
       line-height: 1;
       margin-bottom: 1px;
     }
@@ -452,21 +452,21 @@
     }
 
     .privacy-box {
-      background: #fff3e8;
-      border: 1px solid #f2c79f;
+      background: #eef1f2;
+      border: 1px solid #dae2df;
       border-radius: 12px;
       padding: 9px;
       margin-bottom: 9px;
       font-size: 12px;
       line-height: 1.35;
-      color: #8a4b16;
+      color: #42564e;
       font-weight: 700;
     }
 
     .privacy-box strong {
       display: block;
       margin-bottom: 3px;
-      color: #8a4b16;
+      color: #42564e;
       font-size: 13px;
     }
 
@@ -486,9 +486,9 @@
     }
 
     .availability-box.unavailable {
-      background: #fff3e8;
-      border: 1px solid #f2c79f;
-      color: #8a4b16;
+      background: #fff0f1;
+      border: 1px solid #f0b2bb;
+      color: #9d2634;
     }
 
     .availability-box strong {
@@ -498,11 +498,11 @@
     }
 
     .availability-box.available strong {
-      color: #4f9b35;
+      color: #176747;
     }
 
     .availability-box.unavailable strong {
-      color: #8a4b16;
+      color: #9d2634;
     }
 
     .booking-box {
@@ -652,11 +652,11 @@
     }
 
     .message-card strong {
-      color: #4f9b35;
+      color: #176747;
     }
 
     .message-card.warning strong {
-      color: #8a4b16;
+      color: #9d2634;
     }
 
     .message-card .primary-button {
@@ -866,7 +866,7 @@
     }
 
     .category-line strong {
-      color: #4f9b35 !important;
+      color: #176747 !important;
     }
 
     .badge {
@@ -876,20 +876,20 @@
 
     .badge.available {
       background: #eaf8e4 !important;
-      color: #4f9b35 !important;
+      color: #176747 !important;
     }
 
     .badge.unavailable,
     .message-card.warning {
-      background: #fff3e8 !important;
-      border-color: #f2c79f !important;
-      color: #8a4b16 !important;
+      background: #fff0f1 !important;
+      border-color: #f0b2bb !important;
+      color: #9d2634 !important;
     }
 
     .badge.draft {
-      background: #fff3e8 !important;
-      border-color: #f2c79f !important;
-      color: #8a4b16 !important;
+      background: #eef1f2 !important;
+      border-color: #dae2df !important;
+      color: #42564e !important;
     }
 
     .availability-panel {
@@ -898,13 +898,13 @@
     }
 
     .availability-panel.unavailable {
-      background: #fff3e8 !important;
-      border-color: #f2c79f !important;
-      color: #8a4b16 !important;
+      background: #fff0f1 !important;
+      border-color: #f0b2bb !important;
+      color: #9d2634 !important;
     }
 
     .availability-panel.unavailable strong {
-      color: #8a4b16 !important;
+      color: #9d2634 !important;
     }
 
     .primary-button {
@@ -922,9 +922,9 @@
     }
 
     .primary-button.date-conflict {
-      background: #fff3e8 !important;
-      color: #8a4b16 !important;
-      border: 1px solid #f2c79f !important;
+      background: #fff0f1 !important;
+      color: #9d2634 !important;
+      border: 1px solid #f0b2bb !important;
       cursor: not-allowed;
     }
 
@@ -967,6 +967,35 @@
       .logo-icon { width: 48px !important; height: 48px !important; }
       .logo-title { font-size: 25px !important; }
       .detail-main-card, .sidebar, .message-card { border-radius: 16px !important; }
+    }
+
+
+    /* Compact, clearly explained image placeholder for offers without photos. */
+    .image-box.no-photo {
+      height: 150px !important;
+      max-height: 150px !important;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    .image-box.no-photo .image-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 13px;
+      background: #d7ede2 !important;
+      color: #266b4e;
+    }
+
+    .image-box.no-photo .image-icon svg {
+      width: 27px;
+      height: 27px;
+    }
+
+    .image-box.no-photo .image-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 800;
+      color: #3e6555;
     }
 
   </style>

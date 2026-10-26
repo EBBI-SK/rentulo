@@ -119,8 +119,8 @@ input {
 }
 
 .form-group input.input-error {
-  border-color: #d95c45;
-  box-shadow: 0 0 0 3px rgba(217, 92, 69, 0.1);
+  border-color: #dc3545;
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.12);
 }
 
 .auth-error-message,
@@ -140,9 +140,9 @@ input {
 
 .auth-error-message,
 .status-message.error {
-  color: #884321;
-  background: #fff6ef;
-  border: 1px solid #f5c6a6;
+  color: #9d2634;
+  background: #fff0f1;
+  border: 1px solid #f0b2bb;
 }
 
 .status-message.success {

@@ -28,7 +28,7 @@ test("Stripe Checkout authenticates the renter and only accepts approved reserva
   assert.match(SOURCE, /getUser\(accessToken\)/);
   assert.match(SOURCE, /actor\.id !== reservation\.renter_id/);
   assert.match(SOURCE, /reservation\.status !== "approved"/);
-  assert.match(SOURCE, /let payload: \{ reservation_id\?: string \}/);
+  assert.match(SOURCE, /let payload: \{ reservation_id\?: string; locale\?: unknown \}/);
   assert.doesNotMatch(
     SOURCE,
     /payload\.(?:amount|amount_total|total_price|platform_fee_amount|owner_payout|currency)/i
@@ -73,7 +73,8 @@ test("Stripe Checkout correlates Checkout and PaymentIntent objects with interna
   assert.match(SOURCE, /"metadata\[payment_id\]", payment\.id/);
   assert.match(SOURCE, /"payment_intent_data\[metadata\]\[reservation_id\]", reservation\.id/);
   assert.match(SOURCE, /"payment_intent_data\[metadata\]\[payment_id\]", payment\.id/);
-  assert.match(SOURCE, /"Idempotency-Key": `rentulo-checkout-\$\{payment\.id\}`/);
+  assert.match(SOURCE, /let checkoutIdempotencyKey = `rentulo-checkout-\$\{payment\.id\}`/);
+  assert.match(SOURCE, /"Idempotency-Key": checkoutIdempotencyKey/);
   assert.match(SOURCE, /provider_payment_id: checkoutSession\.id/);
   assert.match(SOURCE, /paymentUpdate\.stripe_payment_intent_id = intentId/);
 });

@@ -13,11 +13,11 @@ const sourcePath = path.join(
 );
 const source = fs.readFileSync(sourcePath, "utf8");
 
-test("reservation email links follow the recipient account role", () => {
+test("active reservation email links follow the recipient account role", () => {
   assert.match(source, /const recipientIsOwner = profile\.id === reservation\.owner_id;/);
   assert.match(
     source,
-    /const detailUrl = `\$\{siteUrl\}\/\$\{recipientIsOwner \? "moje-nabidky\.html" : "moje-rezervace\.html"\}`;/
+    /const detailUrl = `\$\{siteUrl\}\/\$\{isExpirationNotice \? "historie\.html" : recipientIsOwner \? "moje-nabidky\.html" : "moje-rezervace\.html"\}`;/
   );
 });
 
@@ -26,4 +26,9 @@ test("reservation email link is not hard-coded to renter reservations", () => {
     source,
     /const detailUrl = `\$\{siteUrl\}\/moje-rezervace\.html`;/
   );
+});
+
+test("expired email links go to History, not an active reservations page", () => {
+  assert.match(source, /const isExpirationNotice = event === "expired_pending" \|\| event === "expired_approved" \|\| event === "no_show";/);
+  assert.match(source, /isExpirationNotice \? "historie\.html"/);
 });

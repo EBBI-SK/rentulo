@@ -103,6 +103,7 @@ function navProfileText(key) {
       user: "Uživatel",
       reservations: "Moje rezervace",
       offers: "Moje nabídky",
+      pin: "Zadat PIN",
       history: "Historie",
       settings: "Nastavení",
       contact: "Kontakt",
@@ -116,6 +117,7 @@ function navProfileText(key) {
       user: "Používateľ",
       reservations: "Moje rezervácie",
       offers: "Moje ponuky",
+      pin: "Zadať PIN",
       history: "História",
       settings: "Nastavenia",
       contact: "Kontakt",
@@ -129,6 +131,7 @@ function navProfileText(key) {
       user: "User",
       reservations: "My reservations",
       offers: "My listings",
+      pin: "Enter PIN",
       history: "History",
       settings: "Settings",
       contact: "Contact",
@@ -142,6 +145,7 @@ function navProfileText(key) {
       user: "Benutzer",
       reservations: "Meine Reservierungen",
       offers: "Meine Angebote",
+      pin: "PIN eingeben",
       history: "Verlauf",
       settings: "Einstellungen",
       contact: "Kontakt",
@@ -155,6 +159,7 @@ function navProfileText(key) {
       user: "Użytkownik",
       reservations: "Moje rezerwacje",
       offers: "Moje oferty",
+      pin: "Wpisz PIN",
       history: "Historia",
       settings: "Ustawienia",
       contact: "Kontakt",
@@ -660,6 +665,62 @@ function navInjectStyles() {
   const style = document.createElement("style");
   style.id = "sharedNavigationStyles";
   style.textContent = `
+    #mainNav > .nav-pin-shortcut {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-height: 43px;
+      padding: 8px 14px !important;
+      border: 1px solid #91cbb4 !important;
+      border-radius: 12px;
+      background: rgba(232, 247, 239, .88);
+      color: #006746;
+      font-size: 14px;
+      font-weight: 800;
+      line-height: 1.1;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    #mainNav > .nav-pin-shortcut:hover { background: #dcefe4; border-color: #559e7b !important; }
+    .nav-pin-shortcut svg, .nav-mobile-pin-shortcut svg {
+      flex: 0 0 auto;
+      width: 17px;
+      height: 17px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.25;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .nav-mobile-pin-shortcut { display: none; }
+    @media (max-width: 1100px) {
+      /* A single visible PIN action on mobile: the header shortcut. */
+      #mainNav > .nav-pin-shortcut { display: none !important; }
+      .nav-mobile-pin-shortcut {
+        display: inline-flex;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        min-height: 42px;
+        margin-left: auto;
+        padding: 0 10px;
+        border: 1px solid #8ac6ac;
+        border-radius: 11px;
+        background: rgba(232, 247, 239, .92);
+        color: #006746;
+        font-size: 13px;
+        font-weight: 800;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      .nav-mobile-pin-shortcut + .shared-mobile-menu-button { margin-left: 0 !important; }
+    }
+    @media (max-width: 360px) {
+      .nav-mobile-pin-shortcut { min-height: 39px; padding: 0 7px; font-size: 12px; }
+      .nav-mobile-pin-shortcut svg { width: 14px; height: 14px; }
+    }
     .nav-profile-control {
       position: relative;
       display: inline-flex;
@@ -737,6 +798,38 @@ function navInjectStyles() {
       opacity: 0.9;
     }
 
+    /* Desktop account dropdown trigger: initials and chevron in one shared frame.
+       The mobile/tablet trigger receives the same shape below. */
+    @media (min-width: 1101px) {
+      .nav-profile-button {
+        height: 43px;
+        gap: 8px;
+        padding: 0 14px;
+        border: 1px solid #91cbb4;
+        border-radius: 12px;
+        background: rgba(232, 247, 239, .88);
+      }
+      .nav-profile-button:hover,
+      .nav-profile-button.is-active {
+        background: #dcefe4;
+      }
+      .nav-profile-button-initials {
+        width: auto;
+        height: auto;
+        flex: 0 0 auto;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        color: #173f35;
+        box-shadow: none;
+      }
+      .nav-profile-button .nav-notification-badge {
+        top: -6px;
+        right: -6px;
+        left: auto;
+      }
+    }
+
     .nav-notification-badge {
       position: absolute;
       top: -4px;
@@ -750,7 +843,7 @@ function navInjectStyles() {
       padding: 0 5px;
       border: 2px solid var(--rentulo-page, #f5f8f6);
       border-radius: 999px;
-      background: #FF6A00;
+      background: #DC3545;
       color: #ffffff;
       font-size: 10px;
       line-height: 1;
@@ -768,7 +861,7 @@ function navInjectStyles() {
       justify-content: center;
       padding: 0 5px;
       border-radius: 999px;
-      background: #FF6A00;
+      background: #DC3545;
       color: #ffffff;
       font-size: 10px;
       line-height: 1;
@@ -945,17 +1038,17 @@ function navInjectStyles() {
 
       .shared-mobile-menu-button.is-profile-trigger {
         position: relative;
-        gap: 4px;
-        min-height: 50px;
-        padding: 1px 2px;
-        border: 0;
-        border-radius: 999px;
-        background: transparent;
+        gap: 6px;
+        min-height: 42px;
+        padding: 0 10px;
+        border: 1px solid #91cbb4;
+        border-radius: 12px;
+        background: rgba(232, 247, 239, .88);
         box-shadow: none;
       }
 
       .shared-mobile-menu-button.is-profile-trigger:hover {
-        background: #edf5f1;
+        background: #dcefe4;
       }
 
       html[data-focus-input="pointer"] .shared-mobile-menu-button.is-profile-trigger:focus,
@@ -965,14 +1058,20 @@ function navInjectStyles() {
       }
 
       .shared-mobile-menu-button.is-profile-trigger .nav-profile-button-initials {
-        width: 48px;
-        height: 48px;
-        flex-basis: 48px;
+        width: auto;
+        height: auto;
+        flex: 0 0 auto;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        color: #173f35;
+        box-shadow: none;
       }
 
       .shared-mobile-menu-button.is-profile-trigger .nav-notification-badge {
-        top: -3px;
-        left: 37px;
+        top: -6px;
+        right: -6px;
+        left: auto;
       }
 
       .header #mainNav,
@@ -1027,14 +1126,14 @@ function navInjectStyles() {
         min-height: 42px;
         padding: 0 14px;
         border-radius: 10px;
-        background: #FF6A00 !important;
+        background: #00835a !important;
         color: #ffffff !important;
         font-weight: 800 !important;
-        box-shadow: 0 10px 24px rgba(255, 106, 0, 0.16) !important;
+        box-shadow: 0 10px 24px rgba(0, 112, 75, 0.14) !important;
       }
 
       #mainNav .btn-register:hover {
-        background: #E85F00 !important;
+        background: #006846 !important;
         color: #ffffff !important;
       }
 
@@ -1709,6 +1808,7 @@ function navProfileControl(notificationCount) {
             <small id="sharedProfileRating">${profileRating}</small>
           </div>
         </div>
+        <a href="vysledky.html" role="menuitem">${navEscapeHtml(navTranslate("nav.browse", "Prohlédnout nabídky"))}</a>
         <a href="moje-rezervace.html" role="menuitem">
           <span>${navProfileText("reservations")}</span>
           ${navMenuNotificationBadge(accountNotificationCounts.reservations)}
@@ -1725,6 +1825,35 @@ function navProfileControl(notificationCount) {
       </div>
     </div>
   `;
+}
+
+function navPinIcon() {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9 2 2-9 9M16 7l2 2"/></svg>`;
+}
+
+function navPinLink() {
+  const label = navEscapeHtml(navProfileText("pin"));
+  return `<button class="nav-pin-shortcut" type="button" data-home-pin-open="true" title="${label}">${navPinIcon()}<span>${label}</span></button>`;
+}
+
+function navEnsureMobilePinShortcut(nav) {
+  const header = nav.closest(".header, .header-inner");
+  if (!header) return;
+  const menu = header.querySelector(".shared-mobile-menu-button");
+  let link = header.querySelector(".nav-mobile-pin-shortcut");
+  if (!navGetCurrentUser() || !menu || document.body.dataset.navigationPage !== "uvod") {
+    if (link) link.remove();
+    return;
+  }
+  if (!link) {
+    link = document.createElement("button");
+    link.type = "button";
+    link.className = "nav-mobile-pin-shortcut";
+    link.dataset.homePinOpen = "true";
+    header.insertBefore(link, menu);
+  }
+  link.setAttribute("aria-label", navProfileText("pin"));
+  link.innerHTML = navPinIcon() + "<span>PIN</span>";
 }
 
 function navMobileProfileSummary() {
@@ -1750,6 +1879,7 @@ function navMobileAccountMenu() {
 
   return `
     <div class="nav-profile-menu nav-mobile-account-menu">
+      <a href="vysledky.html">${navEscapeHtml(navTranslate("nav.browse", "Prohlédnout nabídky"))}</a>
       <a href="moje-rezervace.html">
         <span>${navProfileText("reservations")}</span>
         ${navMenuNotificationBadge(accountNotificationCounts.reservations)}
@@ -1793,14 +1923,10 @@ function renderSharedNavigation(activePage) {
   const notificationCount = Number.isFinite(storedNotificationCount) ? storedNotificationCount : 0;
 
   const isHowActive = activePage === "jak-to-funguje" ? "active-link" : "";
-  const isResultsActive = activePage === "vysledky" ? "active-link" : "";
-  const isOfferActive = activePage === "nabidnout" ? "active-link" : "";
   const isLoginActive = activePage === "prihlaseni" ? "active-link" : "";
   const isRegisterActive = activePage === "registrace" ? "active-link" : "";
 
   const howItWorksText = navTranslate("nav.howItWorks", "Jak to funguje");
-  const browseText = navTranslate("nav.browse", "Prohlédnout nabídky");
-  const offerText = navTranslate("nav.offer", "Nabídnout cokoli");
   const loginText = navTranslate("nav.login", "Přihlásit se");
   const registerText = navTranslate("nav.register", "Registrovat se");
 
@@ -1808,8 +1934,7 @@ function renderSharedNavigation(activePage) {
     nav.innerHTML = `
       ${navMobileProfileSummary()}
       <a href="jak-to-funguje.html" class="${isHowActive}">${howItWorksText}</a>
-      <a href="vysledky.html" class="${isResultsActive}">${browseText}</a>
-      <a href="nabidnout.html" class="${isOfferActive}">${offerText}</a>
+      ${activePage === "uvod" ? navPinLink() : ""}
       ${navProfileControl(notificationCount)}
       ${navMobileAccountMenu()}
       ${navLanguageControl()}
@@ -1818,8 +1943,6 @@ function renderSharedNavigation(activePage) {
   } else {
     nav.innerHTML = `
       <a href="jak-to-funguje.html" class="${isHowActive}">${howItWorksText}</a>
-      <a href="vysledky.html" class="${isResultsActive}">${browseText}</a>
-      <a href="nabidnout.html" class="${isOfferActive}">${offerText}</a>
       <a href="prihlaseni.html" class="${isLoginActive}">${loginText}</a>
       <a href="registrace.html" class="btn-register ${isRegisterActive}">${registerText}</a>
       ${navLanguageControl()}
@@ -1827,6 +1950,7 @@ function renderSharedNavigation(activePage) {
   }
 
   navSetupSharedMobileNavigation(nav);
+  navEnsureMobilePinShortcut(nav);
 
   const profileButton = document.getElementById("sharedProfileButton");
   const profileMenu = document.getElementById("sharedProfileMenu");

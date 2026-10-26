@@ -235,6 +235,18 @@ denoRuntime.serve(async (req) => {
 
   if (pickupResult.error) {
     const message = pickupResult.error.message || "";
+    if (message.includes("PICKUP_WRONG_DAY")) {
+      return jsonResponse({
+        error: "The PIN can be used from two hours before scheduled pickup until scheduled return",
+        code: "pickup_wrong_day",
+      }, 409);
+    }
+    if (message.includes("PICKUP_NOT_STARTED")) {
+      return jsonResponse({
+        error: "Pickup cannot be confirmed earlier than two hours before scheduled pickup",
+        code: "pickup_not_started",
+      }, 409);
+    }
     if (/temporarily locked/i.test(message)) {
       const latestState = await admin
         .from("reservation_pickup_security")
@@ -260,39 +272,13 @@ denoRuntime.serve(async (req) => {
     return jsonResponse({ error: "Pickup could not be confirmed" }, 500);
   }
 
-  let transferStatus = "pending";
-  try {
-    const transferResponse = await fetch(`${supabaseUrl}/functions/v1/create-owner-transfer`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${serviceRoleKey}`,
-        apikey: serviceRoleKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ reservation_id: reservation.id }),
-    });
-
-    const transferBody = await transferResponse.json().catch(() => ({}));
-    if (transferResponse.ok && transferBody?.status === "succeeded") {
-      transferStatus = "succeeded";
-    } else {
-      console.error(
-        "confirm-pickup: owner transfer will require retry",
-        transferResponse.status,
-        transferBody?.error || "unknown_error",
-      );
-    }
-  } catch (error) {
-    console.error(
-      "confirm-pickup: owner transfer request failed and will require retry",
-      error instanceof Error ? error.message : String(error),
-    );
-  }
-
+  // PIN handover is NOT a financial release event. The owner transfer is
+  // picked up by the existing retry worker only after a confirmed return
+  // (or the separate paid no-show settlement). No Stripe call is made here.
   return jsonResponse({
     reservation_id: reservation.id,
     status: "picked_up",
     pin_consumed: true,
-    transfer_status: transferStatus,
+    transfer_status: "not_created",
   });
 });

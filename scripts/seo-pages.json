@@ -1,0 +1,68 @@
+{
+  "public": {
+    "index.html": {
+      "path": "/",
+      "translations": {
+        "cs": {"title": "Půjčovna věcí od lidí v okolí | Rentulo", "description": "Půjčte si nářadí, vybavení na oslavy i další věci od lidí ve svém okolí. Najděte nabídky a rezervujte jednoduše online."},
+        "sk": {"title": "Požičovňa vecí od ľudí v okolí | Rentulo", "description": "Požičajte si náradie, vybavenie na oslavy aj ďalšie veci od ľudí vo svojom okolí. Nájdite ponuky a jednoducho si ich rezervujte online."},
+        "en": {"title": "Rent Things from People Nearby | Rentulo", "description": "Rent tools, party equipment and other useful items from people nearby. Browse local offers and make reservations online with Rentulo."},
+        "de": {"title": "Dinge von Menschen in deiner Nähe mieten | Rentulo", "description": "Miete Werkzeuge, Partyzubehör und weitere Dinge von Menschen in deiner Nähe. Entdecke Angebote und reserviere einfach online."},
+        "pl": {"title": "Wypożyczaj rzeczy od osób w okolicy | Rentulo", "description": "Wypożycz narzędzia, sprzęt na imprezy i inne rzeczy od osób w swojej okolicy. Znajdź oferty i zarezerwuj je wygodnie online."}
+      }
+    },
+    "jak-to-funguje.html": {
+      "path": "/jak-to-funguje.html",
+      "translations": {
+        "cs": {"title": "Jak funguje půjčování věcí | Rentulo", "description": "Zjistěte, jak na Rentulu najít věc, vytvořit rezervaci, zaplatit a potvrdit předání pomocí jednorázového PINu."},
+        "sk": {"title": "Ako funguje požičiavanie vecí | Rentulo", "description": "Zistite, ako na Rentule nájsť vec, vytvoriť rezerváciu, zaplatiť a potvrdiť odovzdanie pomocou jednorazového PINu."},
+        "en": {"title": "How Renting Works | Rentulo", "description": "Learn how to find an item on Rentulo, book and pay for it, and confirm handover using a one-time PIN."},
+        "de": {"title": "So funktioniert das Mieten | Rentulo", "description": "Erfahre, wie du bei Rentulo einen Artikel findest, reservierst, bezahlst und die Übergabe mit einer einmaligen PIN bestätigst."},
+        "pl": {"title": "Jak działa wypożyczanie | Rentulo", "description": "Dowiedz się, jak znaleźć przedmiot w Rentulo, zarezerwować go, zapłacić i potwierdzić przekazanie jednorazowym kodem PIN."}
+      }
+    },
+    "kontakt.html": {
+      "path": "/kontakt.html",
+      "translations": {
+        "cs": {"title": "Kontakt a podpora | Rentulo", "description": "Potřebujete poradit s nabídkou, rezervací nebo účtem? Kontaktujte Rentulo a najděte důležité informace pro uživatele."},
+        "sk": {"title": "Kontakt a podpora | Rentulo", "description": "Potrebujete poradiť s ponukou, rezerváciou alebo účtom? Kontaktujte Rentulo a nájdite dôležité informácie pre používateľov."},
+        "en": {"title": "Contact and Support | Rentulo", "description": "Need help with a listing, reservation or account? Contact Rentulo and find helpful information for users."},
+        "de": {"title": "Kontakt und Support | Rentulo", "description": "Fragen zu einem Angebot, einer Reservierung oder deinem Konto? Kontaktiere Rentulo und finde hilfreiche Informationen."},
+        "pl": {"title": "Kontakt i pomoc | Rentulo", "description": "Potrzebujesz pomocy z ofertą, rezerwacją lub kontem? Skontaktuj się z Rentulo i znajdź ważne informacje dla użytkowników."}
+      }
+    },
+    "obchodni-podminky.html": {
+      "path": "/obchodni-podminky.html",
+      "translations": {
+        "cs": {"title": "Obchodní podmínky | Rentulo", "description": "Přečtěte si obchodní podmínky platformy Rentulo pro půjčování věcí mezi uživateli v České republice."},
+        "sk": {"title": "Obchodné podmienky | Rentulo", "description": "Prečítajte si obchodné podmienky platformy Rentulo pre požičiavanie vecí medzi používateľmi v Českej republike."},
+        "en": {"title": "Terms and Conditions | Rentulo", "description": "Read the terms and conditions of Rentulo, a platform for renting items between users in the Czech Republic."},
+        "de": {"title": "Allgemeine Geschäftsbedingungen | Rentulo", "description": "Lies die Geschäftsbedingungen von Rentulo, der Plattform zum Mieten von Gegenständen zwischen Nutzern in Tschechien."},
+        "pl": {"title": "Regulamin | Rentulo", "description": "Zapoznaj się z regulaminem Rentulo, platformy do wypożyczania przedmiotów między użytkownikami w Czechach."}
+      }
+    },
+    "ochrana-osobnich-udaju.html": {
+      "path": "/ochrana-osobnich-udaju.html",
+      "translations": {
+        "cs": {"title": "Ochrana osobních údajů | Rentulo", "description": "Zjistěte, jak Rentulo zpracovává osobní údaje, jaká máte práva a jak nás můžete kontaktovat ohledně ochrany soukromí."},
+        "sk": {"title": "Ochrana osobných údajov | Rentulo", "description": "Zistite, ako Rentulo spracúva osobné údaje, aké máte práva a ako nás môžete kontaktovať v otázkach ochrany súkromia."},
+        "en": {"title": "Privacy Policy | Rentulo", "description": "Learn how Rentulo handles personal data, what rights you have and how to contact us about privacy."},
+        "de": {"title": "Datenschutzerklärung | Rentulo", "description": "Erfahre, wie Rentulo personenbezogene Daten verarbeitet, welche Rechte du hast und wie du uns zum Datenschutz erreichst."},
+        "pl": {"title": "Ochrona danych osobowych | Rentulo", "description": "Sprawdź, jak Rentulo przetwarza dane osobowe, jakie masz prawa i jak skontaktować się z nami w sprawach prywatności."}
+      }
+    }
+  },
+  "private": {
+    "vysledky.html": {"cs": "Výsledky vyhledávání věcí k půjčení na Rentulu.", "sk": "Výsledky vyhľadávania vecí na požičanie na Rentule.", "en": "Search results for items available to rent on Rentulo.", "de": "Suchergebnisse für Mietangebote auf Rentulo.", "pl": "Wyniki wyszukiwania przedmiotów do wypożyczenia w Rentulo."},
+    "detail.html": {"cs": "Detail nabídky věci k půjčení na Rentulu.", "sk": "Detail ponuky veci na požičanie na Rentule.", "en": "Details of an item listed for rent on Rentulo.", "de": "Details zu einem Mietangebot auf Rentulo.", "pl": "Szczegóły przedmiotu do wypożyczenia w Rentulo."},
+    "nabidnout.html": {"cs": "Vytvořte nabídku věci k půjčení na Rentulu.", "sk": "Vytvorte ponuku veci na požičanie na Rentule.", "en": "Create a listing for an item on Rentulo.", "de": "Erstelle ein Mietangebot auf Rentulo.", "pl": "Utwórz ofertę wypożyczenia przedmiotu w Rentulo."},
+    "edit-nabidka.html": {"cs": "Upravte vlastní nabídku na Rentulu.", "sk": "Upravte vlastnú ponuku na Rentule.", "en": "Edit your listing on Rentulo.", "de": "Bearbeite dein Mietangebot auf Rentulo.", "pl": "Edytuj swoją ofertę w Rentulo."},
+    "moje-nabidky.html": {"cs": "Spravujte své nabídky na Rentulu.", "sk": "Spravujte svoje ponuky na Rentule.", "en": "Manage your listings on Rentulo.", "de": "Verwalte deine Angebote auf Rentulo.", "pl": "Zarządzaj swoimi ofertami w Rentulo."},
+    "moje-rezervace.html": {"cs": "Přehled vašich rezervací na Rentulu.", "sk": "Prehľad vašich rezervácií na Rentule.", "en": "View your reservations on Rentulo.", "de": "Sieh dir deine Reservierungen auf Rentulo an.", "pl": "Przeglądaj swoje rezerwacje w Rentulo."},
+    "historie.html": {"cs": "Historie vašich rezervací na Rentulu.", "sk": "História vašich rezervácií na Rentule.", "en": "Your reservation history on Rentulo.", "de": "Deine Reservierungshistorie auf Rentulo.", "pl": "Historia Twoich rezerwacji w Rentulo."},
+    "nastaveni.html": {"cs": "Nastavení vašeho účtu na Rentulu.", "sk": "Nastavenia vášho účtu na Rentule.", "en": "Manage your Rentulo account settings.", "de": "Verwalte deine Kontoeinstellungen auf Rentulo.", "pl": "Zarządzaj ustawieniami konta Rentulo."},
+    "prihlaseni.html": {"cs": "Přihlaste se ke svému účtu Rentulo.", "sk": "Prihláste sa do svojho účtu Rentulo.", "en": "Sign in to your Rentulo account.", "de": "Melde dich bei deinem Rentulo-Konto an.", "pl": "Zaloguj się na swoje konto Rentulo."},
+    "registrace.html": {"cs": "Vytvořte si uživatelský účet na Rentulu.", "sk": "Vytvorte si používateľský účet na Rentule.", "en": "Create your Rentulo account.", "de": "Erstelle dein Rentulo-Konto.", "pl": "Utwórz konto w Rentulo."},
+    "obnova-hesla.html": {"cs": "Obnovte přístup ke svému účtu Rentulo.", "sk": "Obnovte prístup do svojho účtu Rentulo.", "en": "Restore access to your Rentulo account.", "de": "Stelle den Zugang zu deinem Rentulo-Konto wieder her.", "pl": "Przywróć dostęp do konta Rentulo."},
+    "ucet-vytvoren.html": {"cs": "Pokyny k potvrzení nového účtu Rentulo.", "sk": "Pokyny na potvrdenie nového účtu Rentulo.", "en": "Instructions for confirming your new Rentulo account.", "de": "Hinweise zur Bestätigung deines neuen Rentulo-Kontos.", "pl": "Instrukcje potwierdzenia nowego konta Rentulo."}
+  }
+}

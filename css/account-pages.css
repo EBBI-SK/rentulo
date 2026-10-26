@@ -27,7 +27,7 @@
   top: 12px;
   height: 50px;
   border-radius: 16px;
-  background: #ff6a00;
+  background: #00835a;
   color: white;
   padding: 0 22px;
   text-decoration: none;
@@ -38,7 +38,7 @@
 }
 
 .top-action-button:hover {
-  background: #e85f00;
+  background: #006846;
 }
 
 .account-list {
@@ -59,8 +59,8 @@
 }
 
 .status-waiting {
-  background: #fff3e8;
-  color: #8a4b16;
+  background: #eef1f2;
+  color: #42564e;
 }
 
 .status-approved {
@@ -120,7 +120,7 @@
 .account-empty-state a {
   height: 50px;
   border-radius: 16px;
-  background: #ff6a00;
+  background: #00835a;
   color: white;
   padding: 0 22px;
   text-decoration: none;
@@ -132,11 +132,11 @@
 }
 
 .account-empty-state a:hover {
-  background: #e85f00;
+  background: #006846;
 }
 .status-payment {
-  background: #fff3e8;
-  color: #8a4b16;
+  background: #fff0f1;
+  color: #9d2634;
 }
 
 .simple-offer-row {
