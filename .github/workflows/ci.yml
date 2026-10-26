@@ -138,4 +138,4 @@ jobs:
             echo "::error::No Edge Function entrypoints were found."
             exit 1
           fi
-          deno check "${functions[@]}"
+          deno check --node-modules-dir=auto "${functions[@]}"
