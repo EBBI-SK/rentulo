@@ -25,6 +25,18 @@ test('create, edit and detail all enforce the configured number of days', () => 
   assert.match(detail, /getEarliestReturnDate\(startDate, minimumDays\)/);
 });
 
+test('public offer detail receives the minimum rental days through the restricted public view', () => {
+  const sql = read('supabase/migrations/20261026180000_public_offers_min_rental_days_v1.sql');
+  assert.match(sql, /create or replace view public\.public_offers/i);
+  assert.match(sql, /security_invoker = false, security_barrier = true/i);
+  assert.match(sql, /offer_number,\s*min_rental_days\s+from public\.offers/i);
+  assert.match(sql, /where status = 'active'::public\.offer_status/i);
+  assert.match(sql, /grant select on table public\.public_offers to anon, authenticated/i);
+  const detail = read('js/detail-page.js');
+  assert.match(detail, /\.from\("public_offers"\)/);
+  assert.match(detail, /minRentalDays: row\.min_rental_days \|\| 1/);
+});
+
 test('report link removed from detail, reporting retained on contact page', () => {
   assert.doesNotMatch(read('js/detail-page.js'), /detail\.reportOffer/);
   assert.match(read('kontakt.html'), /id="nahlaseni-obsahu"/);
