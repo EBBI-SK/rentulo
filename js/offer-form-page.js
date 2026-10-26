@@ -678,6 +678,7 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
       let hasError = false;
       let hasMissingRequired = false;
       let hasInvalidPrice = false;
+      let hasInvalidMinimumDays = false;
 
       requiredFields.forEach(function (fieldId) {
         if (!getInputValue(fieldId)) {
@@ -699,6 +700,14 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
         if (priceError) {
           priceError.hidden = false;
         }
+      }
+
+      const minimumDaysRaw = getInputValue("toolMinRentalDays");
+      const minimumDays = Number(minimumDaysRaw);
+      if (!/^[1-9]\d*$/.test(minimumDaysRaw) || !Number.isSafeInteger(minimumDays) || minimumDays > 365) {
+        markOfferFormError("toolMinRentalDays");
+        hasError = true;
+        hasInvalidMinimumDays = true;
       }
 
       const pickupUseCustom = document.getElementById("pickupUseCustom");
@@ -742,7 +751,9 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
       }
 
       if (hasError) {
-        if (hasInvalidPrice) {
+        if (hasInvalidMinimumDays) {
+          showOfferTranslatedFormMessage("offer.minRentalDaysInvalid", "Minimální délka musí být celé číslo od 1 do 365 dní.", "error");
+        } else if (hasInvalidPrice) {
           showOfferTranslatedFormMessage("offer.validationCorrectFields", "Opravte prosím označená pole.", "error");
         } else if (hasMissingRequired) {
           showOfferTranslatedFormMessage("offer.validationRequired", "Vyplňte prosím všechna povinná pole.", "error");
@@ -869,6 +880,7 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
         city: pickupAddress.city,
         postal_code: pickupAddress.postalCode,
         price_per_day: parseMoneyValue(getInputValue("toolPrice")),
+        min_rental_days: Number(getInputValue("toolMinRentalDays")),
 
         status: status,
         photo_url: photoUrl || null,

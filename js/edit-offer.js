@@ -891,6 +891,7 @@ function fillEditForm(offer) {
   const postalInput = document.querySelector("#edit-postal-code");
   const pickupNoteInput = document.querySelector("#edit-pickup-note");
   const priceInput = document.querySelector("#edit-price");
+  const minDaysInput = document.querySelector("#edit-min-rental-days");
   const descriptionInput = document.querySelector("#edit-description");
 
   if (
@@ -903,6 +904,7 @@ function fillEditForm(offer) {
     !postalInput ||
     !pickupNoteInput ||
     !priceInput ||
+    !minDaysInput ||
     !descriptionInput
   ) {
     editShowTranslatedMessage("editOffer.formLoadFailed", "Formulář pro úpravu nabídky se nepodařilo načíst.");
@@ -918,6 +920,7 @@ function fillEditForm(offer) {
   postalInput.value = usesCustomPickup ? (offer.pickup_postal_code || offer.postal_code || "") : "";
   pickupNoteInput.value = usesCustomPickup ? (offer.pickup_note || "") : "";
   priceInput.value = editValueOrEmpty(offer.price_per_day);
+  minDaysInput.value = String(offer.min_rental_days || 1);
   descriptionInput.value = offer.description || "";
 
   pickupUseCustom.checked = usesCustomPickup;
@@ -1164,6 +1167,7 @@ function setupEditOfferSave() {
     const postalInput = document.querySelector("#edit-postal-code");
     const pickupNoteInput = document.querySelector("#edit-pickup-note");
     const priceInput = document.querySelector("#edit-price");
+    const minDaysInput = document.querySelector("#edit-min-rental-days");
     const descriptionInput = document.querySelector("#edit-description");
 
     if (
@@ -1175,6 +1179,7 @@ function setupEditOfferSave() {
       !postalInput ||
       !pickupNoteInput ||
       !priceInput ||
+      !minDaysInput ||
       !descriptionInput
     ) {
       editShowTranslatedMessage("editOffer.formLoadFailed", "Formulář pro úpravu nabídky se nepodařilo načíst.");
@@ -1207,6 +1212,14 @@ function setupEditOfferSave() {
         "offer.profilePickupMissing",
         "Ve vašem profilu chybí úplná adresa pro vyzvednutí. Doplňte ji v Nastavení nebo zvolte jiné místo vyzvednutí."
       );
+      return;
+    }
+
+    const minDaysRaw = minDaysInput.value.trim();
+    const minDaysValue = Number(minDaysRaw);
+    if (!/^[1-9]\d*$/.test(minDaysRaw) || !Number.isSafeInteger(minDaysValue) || minDaysValue > 365) {
+      editMarkError(minDaysInput);
+      editShowTranslatedMessage("offer.minRentalDaysInvalid", "Minimální délka musí být celé číslo od 1 do 365 dní.");
       return;
     }
 
@@ -1284,6 +1297,7 @@ function setupEditOfferSave() {
         city: pickupAddress.city,
         postal_code: pickupAddress.postalCode,
         description: descriptionInput.value.trim(),
+        min_rental_days: minDaysValue,
         photo_url: uploadedPhoto.url,
         pickup_mode: pickupAddress.mode,
         pickup_street: pickupAddress.street,

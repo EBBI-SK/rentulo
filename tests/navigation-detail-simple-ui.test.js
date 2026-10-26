@@ -116,6 +116,7 @@ async function renderOfferFor(user) {
     detailCategoryLabel(category) { return category; },
     getOfferCity(offer) { return offer.city; },
     getOfferPrice(offer) { return offer.pricePerDay; },
+    getOfferMinimumDays(offer) { return offer.minRentalDays || 1; },
     getOfferLoginReturnTo() { return "detail.html?id=offer-1"; },
     updateOfferBrowserMetadata() {},
     isOfferActive() { return true; },
@@ -174,15 +175,14 @@ test("owner sees only price and own-offer button, without redundant copy or self
   assert.equal(result.bookingFormSetups, 0);
 });
 
-test("other renters and anonymous visitors can still report the offer; booking stays available", async () => {
+test("renter booking stays available; reporting link is removed from offer detail", async () => {
   const renter = await renderOfferFor({ id: "renter-2" });
-  assert.match(renter.html, /mailto:rentulo@rentulo\.com\?subject=/);
-  assert.match(renter.html, /Nahlasit nabidku/);
+  assert.doesNotMatch(renter.html, /mailto:rentulo@rentulo\.com\?subject=|Nahlasit nabidku/);
   assert.match(renter.html, /Reservation form/);
   assert.equal(renter.bookingFormSetups, 1);
 
   const anonymous = await renderOfferFor(null);
-  assert.match(anonymous.html, /mailto:rentulo@rentulo\.com\?subject=/);
+  assert.doesNotMatch(anonymous.html, /mailto:rentulo@rentulo\.com\?subject=/);
   assert.doesNotMatch(anonymous.html, /href="moje-nabidky\.html"/);
   assert.equal(anonymous.bookingFormSetups, 0);
 });
