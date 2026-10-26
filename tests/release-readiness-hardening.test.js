@@ -154,5 +154,5 @@ test("CI checks both main and production, executes TEST build and Deno typecheck
   assert.match(ci, /run: npm test/);
   assert.match(ci, /RENTULO_DEPLOY_TARGET=test npm run build/);
   assert.match(ci, /denoland\/setup-deno@v2/);
-  assert.match(ci, /deno check "\$\{functions\[@\]\}"/);
+  assert.match(ci, /deno check --node-modules-dir=auto "\$\{functions\[@\]\}"/);
 });
