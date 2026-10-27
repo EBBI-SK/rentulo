@@ -798,6 +798,7 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
     function setupOfferForm() {
       const offerForm = document.getElementById("offerForm");
       const saveDraftButton = document.getElementById("saveDraftButton");
+      setupRentuloCzechPostalCodeBlur(document.getElementById("pickupPostalCode"));
 
       if (offerForm) {
         offerForm.addEventListener("submit", function (event) {
