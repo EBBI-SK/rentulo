@@ -293,7 +293,13 @@ denoRuntime.serve(async (req) => {
       const detailUrl = `${siteUrl}/moje-nabidky.html`;
 
       const html = `
-        <div style="font-family:Arial,Helvetica,sans-serif;max-width:620px;margin:0 auto;color:#103f32;font-size:16px;line-height:1.5">
+        <div style="margin:0;padding:32px 16px;background:#f5f8f6;font-family:Arial,Helvetica,sans-serif;color:#102019;">
+          <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e5e9e5;border-radius:18px;overflow:hidden;">
+            <div style="padding:28px 32px;background:#e9f4ee;">
+              <div style="font-size:30px;font-weight:700;color:#0e5037;">Rentulo</div>
+            </div>
+            <div style="padding:32px;">
+              <div style="font-family:Arial,Helvetica,sans-serif;max-width:620px;margin:0 auto;color:#103f32;font-size:16px;line-height:1.5">
           <h1 style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:24px;line-height:1.25;font-weight:700;color:#103f32">${escapeHtml(copy.subject)}</h1>
           <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#103f32">${escapeHtml(copy.intro)}</p>
           <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#103f32"><strong>${escapeHtml(offerName)}</strong></p>
@@ -302,8 +308,11 @@ denoRuntime.serve(async (req) => {
             <p style="margin:0"><strong>${escapeHtml(copy.dueLabel)}:</strong> ${escapeHtml(dueText)}</p>
           </div>
           <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#103f32">${escapeHtml(copy.blocked)}</p>
-          <p style="margin:18px 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5"><a href="${escapeHtml(detailUrl)}" style="display:inline-block;padding:12px 18px;background:#75d94f;color:#103f32;text-decoration:none;border-radius:10px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.25;font-weight:700">${escapeHtml(copy.action)}</a></p>
-          <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.5;color:#66736f">Rentulo</p>
+          <p style="margin:18px 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5"><a href="${escapeHtml(detailUrl)}" style="display:inline-block;padding:14px 24px;background:#00835a;color:#ffffff;text-decoration:none;border-radius:10px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.25;font-weight:700">${escapeHtml(copy.action)}</a></p>
+                  </div>
+        </div>
+        <div style="padding:20px 32px;border-top:1px solid #e5e9e5;font-size:12px;line-height:1.5;color:#64706b;">Rentulo</div>
+        </div>
         </div>`;
 
       const resendResponse = await fetch("https://api.resend.com/emails", {

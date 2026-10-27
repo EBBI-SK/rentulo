@@ -90,10 +90,10 @@ test("overdue reminder explains the block and supports all five languages", () =
   assert.match(worker, /moje-nabidky\.html/);
 });
 
-test("overdue reminder email keeps the existing Rentulo email visual language", () => {
+test("overdue reminder email matches Rentulo branding and preserves debt details", () => {
   assert.match(worker, /font-family:Arial,Helvetica,sans-serif/);
   assert.match(worker, /background:#f7fbf9/);
-  assert.match(worker, /background:#75d94f/);
+  assert.match(worker, /background:#00835a;color:#ffffff/);
   assert.match(worker, /color:#103f32/);
   assert.match(worker, /formatCurrencyMinor/);
   assert.match(worker, /formatTimestampDate/);
