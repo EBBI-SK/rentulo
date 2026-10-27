@@ -166,3 +166,73 @@ test("paid additional amounts aggregate without changing the original amounts", 
   assert.equal(result[0].extensions.length,3);
   assert.equal(labels.nextDate("2026-10-31"),"2026-11-01");
 });
+
+
+
+test("extension finalizer preserves both price and days CHECK constraints", () => {
+  const finalize = sqlFunction("complete_reservation_extension_payment");
+  const guard = sqlFunction("protect_reservation_immutable_fields");
+  const fix = read("supabase/migrations/20261027130000_fix_extension_total_days_consistency_TEST.sql");
+  assert.match(finalize, /end_date=v_e\.new_end_date,date_to=v_e\.new_end_date/);
+  assert.doesNotMatch(finalize, /\bdays=days\+v_e\.additional_days/);
+  assert.doesNotMatch(finalize, /\btotal_days=total_days\+v_e\.additional_days/);
+  assert.match(guard, /AND new\.days IS NOT DISTINCT FROM old\.days/);
+  assert.match(guard, /AND new\.total_days IS NOT DISTINCT FROM old\.total_days/);
+  assert.match(guard, /new\.total_price IS DISTINCT FROM old\.total_price/);
+  assert.match(guard, /new\.platform_fee_amount IS DISTINCT FROM old\.platform_fee_amount/);
+  assert.match(guard, /new\.owner_payout IS DISTINCT FROM old\.owner_payout/);
+  assert.match(fix, /TEST ONLY: unexpected Supabase project/);
+  assert.match(fix, /reservations_total_days_consistency_check/);
+  assert.match(fix, /reservations_total_price_consistency_check/);
+  assert.match(fix, /p_amount_minor<>v_e\.amount_total\*100/);
+  assert.match(fix, /COMMIT;/);
+  assert.doesNotMatch(fix, /drop\s+constraint|disable\s+trigger|update\s+public\.(payments|reservations|reservation_extensions)\s+set/i);
+});
+
+test("paid extension shows effective days and total without rewriting original Stripe payment", () => {
+  const base = { id: "res-45", days: 3, totalDays: 3, pricePerDay: 150,
+    totalPrice: 450, platformFeeAmount: 70, ownerPayout: 380, endDate: "2026-10-31" };
+  // The historical booking snapshot is unchanged after the Stripe finalizer.
+  assert.equal(base.totalDays, base.days);
+  assert.equal(base.totalPrice, base.days * base.pricePerDay);
+  assert.equal(base.platformFeeAmount + base.ownerPayout, base.totalPrice);
+  const displayed = labels.attachPaidExtensions([base], [
+    { reservation_id: "res-45", status: "paid", additional_days: 1,
+      amount_total: 150, platform_fee_amount: 0, owner_payout: 150 },
+    { reservation_id: "res-45", status: "approved", additional_days: 2,
+      amount_total: 300, platform_fee_amount: 30, owner_payout: 270 },
+  ])[0];
+  assert.equal(displayed.days, 4);
+  assert.equal(displayed.totalDays, 4);
+  assert.equal(displayed.totalPrice, 600);
+  assert.equal(displayed.platformFeeAmount, 70);
+  assert.equal(displayed.ownerPayout, 530);
+  assert.equal(displayed.endDate, "2026-10-31");
+  // Effective UI totals never write back to the original DB financial record.
+});
+
+
+test("owner extension approval uses the standard dark Rentulo primary green", () => {
+  const css = read("css/my-offers-flow.css");
+  assert.match(css, /\.owner-reservation-actions \.small-button\[data-offers-action="approve-extension"\] \{\s*background: #00835a !important;\s*color: #fff !important;/);
+  assert.match(owner, /data-offers-action="approve-extension"/);
+});
+
+test("approved extension payment and deadline are visible in the compact renter row", () => {
+  const detail = renter.slice(renter.indexOf("function renderRentalExtensionPanel("),
+    renter.indexOf("function renderReservationDetailPanel("));
+  const row = renter.slice(renter.indexOf("function renderReservationCard("),
+    renter.indexOf("function renderReservationList("));
+  assert.doesNotMatch(detail, /data-reservations-action="pay-extension"/);
+  assert.match(row, /latestExtension\.status === "approved"/);
+  assert.match(row, /reservation-extension-payment-note/);
+  assert.match(row, /extensionText\("paymentDue"\)/);
+  assert.match(row, /extensionText\("deadline"\)/);
+  assert.match(row, /data-reservations-action="pay-extension"/);
+  assert.match(row, /data-extension-id="\$\{escapeHtml\(latestExtension\.id\)\}"/);
+  assert.match(row, /\$\{extensionPaymentAction\}/);
+  assert.match(row, /\$\{extensionPaymentNote\}/);
+  const css = read("css/my-reservations.css");
+  assert.match(css, /\.simple-reservation-info \.reservation-extension-payment-note/);
+  assert.equal(labels.t("paymentDue"), "Čeká na doplatek");
+});

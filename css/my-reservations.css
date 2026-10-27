@@ -640,3 +640,14 @@ body.reservation-modal-open {
   background: white;
 }
 .reservation-extension-form small { width: 100%; }
+
+/* BOD 1: show approved extension payment deadline directly in the compact row. */
+.simple-reservation-info .reservation-extension-payment-note {
+  display: block;
+  margin-top: 5px;
+  color: #9d2634;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.4;
+  white-space: normal;
+}

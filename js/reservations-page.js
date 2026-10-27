@@ -1640,10 +1640,6 @@ return (
         </p>
       ` : "";
       const pay = approved ? `
-        <button class="reservation-primary-action" type="button" data-reservations-action="pay-extension"
-          data-extension-id="${escapeHtml(extension.id)}" data-reservation-id="${safeId}">
-          ${escapeHtml(extensionText("pay"))} ${escapeHtml(formatReservationsMoney(extension.amount_total))}
-        </button>
         <small>${escapeHtml(extensionText("deadline"))}: ${escapeHtml(formatReservationExpiry(extension.payment_deadline_at))}</small>
       ` : "";
       const form = allowed ? `
@@ -1757,6 +1753,22 @@ return (
         : "";
 
       const cancellationAction = renderRenterReservationCancellationAction(reservation);
+      const latestExtension = latestReservationExtension(reservation);
+      const awaitingExtensionPayment = latestExtension && latestExtension.status === "approved";
+      const extensionDeadline = awaitingExtensionPayment
+        ? formatReservationExpiry(latestExtension.payment_deadline_at) : "";
+      const extensionPaymentNote = awaitingExtensionPayment ? `
+        <small class="reservation-extension-payment-note">
+          ${escapeHtml(extensionText("paymentDue"))}${extensionDeadline
+            ? ` · ${escapeHtml(extensionText("deadline"))}: ${escapeHtml(extensionDeadline)}` : ""}
+        </small>` : "";
+      const extensionPaymentAction = awaitingExtensionPayment ? `
+        <button class="reservation-primary-action orange" type="button"
+          data-reservations-action="pay-extension"
+          data-reservation-id="${escapeHtml(reservationId)}"
+          data-extension-id="${escapeHtml(latestExtension.id)}">
+          ${escapeHtml(extensionText("pay"))} ${escapeHtml(formatReservationsMoney(latestExtension.amount_total))}
+        </button>` : "";
       const extensionAction = canRequestAnotherExtension(reservation) ? `
         <button class="reservation-primary-action" type="button" data-reservations-action="open-extension"
           data-reservation-id="${escapeHtml(reservationId)}">${escapeHtml(extensionText("extend"))}</button>
@@ -1777,6 +1789,7 @@ return (
         <strong>${escapeHtml(toolName)}</strong>
         <span>${escapeHtml(city)}${reservation.reservationNumber ? ` · ${escapeHtml(reservationsTranslate("reference.reservation", "Číslo rezervace"))}: ${escapeHtml(reservation.reservationNumber)}` : ""}</span>
         ${renderReservationDeadline(reservation, normalizedStatus)}
+        ${extensionPaymentNote}
       </div>
     </div>
 
@@ -1796,6 +1809,7 @@ return (
     <div class="simple-reservation-actions">
       ${paymentAction}
       ${cancellationAction}
+      ${extensionPaymentAction}
       ${extensionAction}
       <div class="reservation-detail-action-group">
         ${detailAction}
