@@ -53,6 +53,34 @@ test('SEO route is a dedicated server function; legacy HTML path stays untouched
   assert.equal(vercel.redirects.some(rule => rule.source === '/detail.html'), false);
 });
 
+test('legacy offer detail keeps relative navigation at the site root after SEO URL replacement', () => {
+  const template = readFileSync(path.join(root, 'detail.html'), 'utf8');
+  const head = template.match(/<head(?:\s[^>]*)?>([\s\S]*?)<\/head>/i)?.[1];
+  assert.ok(head, 'Detail template must have a head');
+  const baseTags = [...head.matchAll(/<base\b[^>]*>/gi)];
+  assert.equal(baseTags.length, 1, 'Detail template must define exactly one base');
+  const rootHref = baseTags[0][0].match(/\bhref=["']([^"']+)["']/i)?.[1];
+  assert.equal(rootHref, '/', 'All relative links must resolve from the site root');
+  assert.ok(head.indexOf('<base') < head.indexOf('href="assets/rentulo-logo-mark.png"'),
+    'Base must appear before relative assets');
+
+  const menu = readFileSync(path.join(root, 'js/navigation.js'), 'utf8');
+  const nestedDetailUrl = `https://rentulo.eu/nabidka/${offerId}`;
+  const documentBase = new URL(rootHref, nestedDetailUrl);
+  const pages = [
+    'historie.html', 'moje-nabidky.html', 'moje-rezervace.html',
+    'nastaveni.html', 'kontakt.html', 'jak-to-funguje.html',
+    'prihlaseni.html', 'registrace.html', 'vysledky.html'
+  ];
+  for (const page of pages) {
+    assert.ok(menu.includes(`href="${page}"`), `Missing shared menu route ${page}`);
+    assert.equal(new URL(page, documentBase).href, `https://rentulo.eu/${page}`);
+  }
+  for (const asset of ['assets/rentulo-logo-mark.png', 'js/navigation.js', 'css/rentulo-theme.css']) {
+    assert.equal(new URL(asset, documentBase).pathname, `/${asset}`);
+  }
+});
+
 test('TEST uses only TEST Supabase; PROD requires separate configured publishable credentials', async () => {
   const { getOfferSeoConfig } = await pageModulePromise;
   const config = getOfferSeoConfig({});
@@ -70,6 +98,7 @@ test('active public offer responds with unique canonical, description, original 
   assert.equal(res.headers['x-robots-tag'], 'noindex');
   assert.equal(res.headers['cache-control'], 'private, no-store');
   assert.match(res.body, /<base href="\/" \/>/);
+  assert.equal((res.body.match(/<base\b/gi) || []).length, 1, 'SEO detail must not duplicate the base');
   assert.match(res.body, /<meta name="robots" content="noindex" \/>/);
   assert.ok(res.body.includes(`rel="canonical" href="https://rentulo.eu/nabidka/${offerId}"`));
   assert.ok(res.body.includes('property="og:title" content="Aku vrtačka Bosch – Praha | Rentulo"'));
@@ -92,6 +121,7 @@ test('PROD URL and metadata can be rendered without TEST noindex', async () => {
   });
   const values = getOfferSeoValues(offer, offerId, config);
   const html = renderOfferSeoHtml('<html><head><title>Detail</title></head><body></body></html>', values, 'prod');
+  assert.equal((html.match(/<base\b/gi) || []).length, 1, 'Minimal template also needs one root base');
   assert.ok(html.includes(`rel="canonical" href="https://rentulo.com/nabidka/${offerId}"`));
   assert.doesNotMatch(html, /name="robots" content="noindex"/);
   assert.ok(html.includes('https://rentulo.com/assets/rentulo-logo-mark.png'));
