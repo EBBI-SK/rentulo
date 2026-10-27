@@ -139,7 +139,16 @@ function registrationRenderAddressSuggestions(items) {
     return;
   }
 
-  registrationAddressSuggestions = Array.isArray(items) ? items.slice(0, 5) : [];
+  // If the user entered a postal code, never offer addresses that disagree
+  // with it. Geoapify fallback searches can return a different postcode.
+  const postalCodeInput = document.getElementById("postalCode");
+  const expectedPostalCode = String(postalCodeInput?.value || "").replace(/\D/g, "");
+  registrationAddressSuggestions = (Array.isArray(items) ? items : [])
+    .filter(function (item) {
+      return !expectedPostalCode ||
+        String(item.postalCode || "").replace(/\D/g, "") === expectedPostalCode;
+    })
+    .slice(0, 5);
   registrationAddressActiveIndex = -1;
 
   if (!registrationAddressSuggestions.length) {
@@ -150,10 +159,9 @@ function registrationRenderAddressSuggestions(items) {
   suggestionsBox.innerHTML = registrationAddressSuggestions
     .map(function (item, index) {
       const main = String(item.street || "").trim();
-      const meta = [item.city, item.postalCode]
-        .map(function (part) { return String(part || "").trim(); })
-        .filter(Boolean)
-        .join(", ");
+      // Do not present an unverified provider postcode as part of an address.
+      // The user enters/checks the postcode separately.
+      const meta = String(item.city || "").trim();
 
       return `
         <button
@@ -224,8 +232,11 @@ function registrationSelectAddress(index) {
 
   streetInput.value = String(item.street || "").trim();
   cityInput.value = String(item.city || "").trim();
-  postalCodeInput.value = String(item.postalCode || "").trim();
-  [streetInput, cityInput, postalCodeInput].forEach(function (field) {
+  // Geoapify is not an independent authority for Czech postal codes.
+  // Never silently copy its suggested PSČ into a user's registration profile.
+  // Keep any postcode that the user entered themselves; otherwise it stays
+  // empty and the required field asks them to verify and enter it.
+  [streetInput, cityInput].forEach(function (field) {
     field.classList.remove("input-error");
     field.removeAttribute("aria-invalid");
   });
