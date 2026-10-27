@@ -197,12 +197,12 @@ textarea {
 
 .history-primary-button {
   align-self: flex-start;
-  background: #73d64f;
-  color: #173a22;
+  background: var(--rentulo-action-green, #00835a);
+  color: #ffffff;
 }
 
 .history-primary-button:hover {
-  background: #67c945;
+  background: var(--rentulo-action-green-hover, #006846);
 }
 
 .history-primary-button:disabled {

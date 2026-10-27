@@ -86,8 +86,8 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      background: #7ed957;
-      color: #173a22 !important;
+      background: #00835a;
+      color: #ffffff !important;
       padding: 10px 20px;
       border-radius: 999px;
       font-weight: 800;
@@ -623,8 +623,8 @@
       width: 100%;
       border: none;
       border-radius: 9px;
-      background: #7ed957;
-      color: #173a22;
+      background: #00835a;
+      color: #ffffff;
       font-size: 13px;
       font-weight: 900;
       padding: 9px 12px;
@@ -634,7 +634,7 @@
     }
 
     .primary-button:hover {
-      background: #68c547;
+      background: #006846;
     }
 
     .primary-button.disabled,
@@ -915,9 +915,14 @@
     }
 
     .primary-button {
-      background: #72d84f !important;
-      color: #173a22 !important;
-      border-color: #72d84f !important;
+      background: #00835a !important;
+      color: #ffffff !important;
+      border-color: #00835a !important;
+    }
+
+    .primary-button:hover:not(:disabled):not(.disabled):not(.date-conflict) {
+      background: #006846 !important;
+      border-color: #006846 !important;
     }
 
     .primary-button.disabled,
