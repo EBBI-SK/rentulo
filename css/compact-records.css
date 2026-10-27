@@ -140,7 +140,16 @@
 .simple-offer-actions button,
 .reservation-primary-action,
 .offer-primary-button {
-  background: #006b45 !important;
+  background: #00835a !important;
+  color: #fff !important;
+}
+
+/* Primary actions share a darker hover. Quiet detail and cancellation actions
+   keep their separate informational/warning colors. */
+.simple-offer-actions button:not(.danger):not(.deactivate):hover:not(:disabled),
+.reservation-primary-action:not(.reservation-cancel-action):not([data-reservations-action="toggle-detail"]):hover:not(:disabled),
+.offer-primary-button:not(.secondary):hover:not(:disabled) {
+  background: #006846 !important;
   color: #fff !important;
 }
 

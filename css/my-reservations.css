@@ -70,8 +70,8 @@ button {
 
 .btn-register,
 .logout-link {
-  background: #7ED957;
-  color: #173A22 !important;
+  background: #00835a;
+  color: #ffffff !important;
   padding: 10px 20px;
   border-radius: 999px;
   font-weight: 800;
@@ -219,14 +219,14 @@ h1 {
   padding: 7px 10px;
   font-size: 12px;
   font-weight: 800;
-  background: #7ED957;
-  color: #173A22;
+  background: var(--rentulo-action-green, #00835a);
+  color: #ffffff;
   white-space: nowrap;
   min-height: 32px;
 }
 
 .small-button:hover {
-  background: #68C547;
+  background: var(--rentulo-action-green-hover, #006846);
 }
 
 .small-button.light {
@@ -528,8 +528,8 @@ body.reservation-modal-open {
   padding: 10px 17px;
   border: 0;
   border-radius: 12px;
-  background: #eee9e1;
-  color: #173f35;
+  background: var(--rentulo-action-green, #00835a);
+  color: #ffffff;
   font-weight: 800;
   cursor: pointer;
 }

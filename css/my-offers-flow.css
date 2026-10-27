@@ -312,8 +312,8 @@
   font-size: 12px !important;
 }
 .owner-reservation-actions .small-button:first-of-type {
-  background: #73d64f !important;
-  color: #173a22 !important;
+  background: #00835a !important;
+  color: #ffffff !important;
 }
 .owner-reservation-actions .small-button:disabled {
   cursor: not-allowed;
@@ -325,8 +325,13 @@
   color: #173f35 !important;
 }
 .owner-reservation-actions .small-button.owner-handover-launch {
-  background: #73d64f !important;
-  color: #173a22 !important;
+  background: #00835a !important;
+  color: #ffffff !important;
+}
+.owner-reservation-actions .small-button:not(.light):first-of-type:hover,
+.owner-reservation-actions .small-button.owner-handover-launch:hover {
+  background: #006846 !important;
+  color: #ffffff !important;
 }
 /* Approved extension is a primary Rentulo action, not the pale-green default. */
 .owner-reservation-actions .small-button[data-offers-action="approve-extension"] {

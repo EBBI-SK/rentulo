@@ -77,8 +77,8 @@ button {
 
 .btn-register,
 .logout-link {
-  background: #7ED957;
-  color: #173A22 !important;
+  background: #00835a;
+  color: #ffffff !important;
   padding: 10px 20px;
   border-radius: 999px;
   font-weight: 800;
@@ -273,16 +273,16 @@ h1 {
 .small-button:focus,
 .history-toggle-button:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(126, 217, 87, 0.25);
+  box-shadow: 0 0 0 3px rgba(0, 131, 90, 0.25);
 }
 
 .small-button {
-  background: #7ED957;
-  color: #173A22;
+  background: var(--rentulo-action-green, #00835a);
+  color: #ffffff;
 }
 
 .small-button:hover {
-  background: #68C547;
+  background: var(--rentulo-action-green-hover, #006846);
 }
 
 .small-button.light,
@@ -598,7 +598,7 @@ h1 {
   min-height: 40px;
   border: 0;
   border-radius: 11px;
-  background: #006b45;
+  background: var(--rentulo-action-green, #00835a);
   color: white;
   padding: 0 14px;
   font-size: 13px;
@@ -607,7 +607,7 @@ h1 {
 }
 
 .offer-primary-button:hover {
-  background: #68C547;
+  background: var(--rentulo-action-green-hover, #006846);
 }
 
 .offer-primary-button.urgent,

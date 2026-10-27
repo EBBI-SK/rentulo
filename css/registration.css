@@ -203,17 +203,17 @@ input {
 .registration-submit {
   min-height: 50px;
   padding: 0 20px;
-  color: #102019;
-  background: #70d84b;
+  color: #ffffff;
+  background: var(--rentulo-action-green, #00835a);
   border: 0;
   border-radius: 12px;
   font-weight: 800;
   cursor: pointer;
-  transition: filter 0.15s ease, transform 0.15s ease;
+  transition: background-color 0.15s ease, transform 0.15s ease;
 }
 
 .registration-submit:hover:not(:disabled) {
-  filter: brightness(0.96);
+  background: var(--rentulo-action-green-hover, #006846);
 }
 
 .registration-submit:active:not(:disabled) {
