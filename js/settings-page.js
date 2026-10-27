@@ -1138,6 +1138,7 @@
     let currentUser = user;
 
     if (profileForm) {
+      setupRentuloCzechPostalCodeBlur(document.getElementById("profilePostalCode"));
       profileForm.addEventListener("submit", async function (event) {
         event.preventDefault();
         currentUser = await saveProfile(client, currentUser);

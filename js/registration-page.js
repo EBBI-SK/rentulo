@@ -399,6 +399,7 @@ function handleRegistrationLanguageChange() {
 }
 
 document.addEventListener("DOMContentLoaded", function () {
+  setupRentuloCzechPostalCodeBlur(document.getElementById("postalCode"));
   resetRegistrationConsentCheckboxes();
 
   window.setTimeout(resetRegistrationConsentCheckboxes, 0);

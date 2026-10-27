@@ -567,6 +567,7 @@ function renderEditProfilePickupAddress() {
 function setupEditPickupFields() {
   const pickupUseCustom = document.querySelector("#editPickupUseCustom");
   const pickupCustomFields = document.querySelector("#editPickupCustomFields");
+  setupRentuloCzechPostalCodeBlur(document.getElementById("edit-postal-code"));
 
   if (!pickupUseCustom || !pickupCustomFields) {
     return;
