@@ -90,6 +90,8 @@ function createFixture() {
   };
   context.window = context;
   vm.createContext(context);
+  const utils = read("js/utils.js");
+  vm.runInContext(utils.slice(utils.indexOf("function formatRentuloCzechPostalCode(")), context);
   vm.runInContext(read("js/registration-page.js"), context, { filename: "js/registration-page.js" });
   return { context, elements, signUps };
 }
@@ -152,4 +154,23 @@ test("registration fails closed if private confirmation control is absent", asyn
   await submit(fixture);
   assert.equal(fixture.signUps.length, 0);
   assert.match(fixture.elements.registrationError.textContent, /dočasně nedostupná/);
+});
+
+
+test("manual registration rejects malformed PSČ before creating an account", async () => {
+  const fixture = createFixture();
+  fixture.elements.postalCode.value = "110-00";
+  await submit(fixture);
+  assert.equal(fixture.signUps.length, 0);
+  assert.equal(fixture.elements.postalCode.getAttribute("aria-invalid"), "true");
+  assert.equal(fixture.elements.postalCode.focused, true);
+});
+
+test("manual registration stores five typed digits as normalized PSČ", async () => {
+  const fixture = createFixture();
+  fixture.elements.postalCode.value = "11000";
+  await submit(fixture);
+  assert.equal(fixture.signUps.length, 1);
+  assert.equal(fixture.signUps[0].options.data.postal_code, "110 00");
+  assert.equal(fixture.elements.postalCode.value, "110 00");
 });

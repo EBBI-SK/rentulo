@@ -140,7 +140,7 @@
             </p>
           </div>
 
-          <div class="registration-field registration-field-full address-autocomplete">
+          <div class="registration-field registration-field-full">
             <label for="street" data-i18n="registration.streetLabel">Ulice a číslo</label>
             <input
               type="text"
@@ -149,20 +149,10 @@
               autocomplete="off"
               maxlength="160"
               aria-describedby="registrationError"
-              aria-autocomplete="list"
-              aria-controls="addressSuggestions"
-              aria-expanded="false"
-              role="combobox"
               data-i18n-placeholder="registration.streetPlaceholder"
               placeholder="např. Dlouhá 12"
               required
             />
-            <div
-              class="address-suggestions"
-              id="addressSuggestions"
-              role="listbox"
-              hidden
-            ></div>
           </div>
 
           <div class="registration-field">
@@ -185,17 +175,15 @@
             <input
               type="text"
               id="postalCode"
+              inputmode="numeric"
               name="rentulo-postal-code"
               autocomplete="off"
-              maxlength="20"
-              aria-describedby="registrationError registrationPostalCodeNote"
+              maxlength="6"
+              aria-describedby="registrationError"
               data-i18n-placeholder="registration.postalCodePlaceholder"
               placeholder="např. 110 00"
               required
             />
-            <p class="registration-note" id="registrationPostalCodeNote" data-i18n="registration.postalCodeNote">
-              Po výběru ověřené adresy z registru RÚIAN se PSČ doplní automaticky.
-            </p>
           </div>
 
           <div class="registration-terms">

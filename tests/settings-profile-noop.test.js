@@ -36,7 +36,7 @@ function createElements(values) {
     profilePhone: { value: values.phone },
     profileStreet: { value: values.street },
     profileCity: { value: values.city },
-    profilePostalCode: { value: values.postalCode },
+    profilePostalCode: { value: values.postalCode, focus() { this.focused = true; } },
     saveProfileButton: button,
     profileMessage: {}
   };
@@ -84,6 +84,8 @@ function buildSandbox(settingsSource, initialValues) {
   };
 
   vm.createContext(sandbox);
+  const utils = fs.readFileSync(path.join(PROJECT_ROOT, "js/utils.js"), "utf8");
+  vm.runInContext(utils.slice(utils.indexOf("function formatRentuloCzechPostalCode(")), sandbox);
   vm.runInContext(
     `let savedProfileValues = ${JSON.stringify(initialValues)};\n` +
       helperSource +
@@ -224,4 +226,14 @@ test("no-op guard runs before loading state and network writes", () => {
   assert.ok(guardIndex < loadingIndex, "no-op guard must run before loading state");
   assert.ok(guardIndex < authIndex, "no-op guard must run before auth writes");
   assert.ok(guardIndex < profileIndex, "no-op guard must run before profile writes");
+});
+
+
+test("profile rejects an invalid manual Czech postcode without writing to Supabase", async () => {
+  const { sandbox, elements, messages } = buildSandbox(source(), INITIAL_VALUES);
+  elements.profilePostalCode.value = "110-00";
+  const client = { auth: { updateUser() { throw new Error("Must not write"); } }, from() { throw new Error("Must not write"); } };
+  await sandbox.saveProfile(client, USER);
+  assert.equal(elements.profilePostalCode.focused, true);
+  assert.equal(messages.at(-1).key, "address.invalidPostalCode");
 });

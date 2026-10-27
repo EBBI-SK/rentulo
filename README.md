@@ -16,7 +16,7 @@ Rentulo je webová platforma na požičiavanie vecí medzi súkromnými osobami 
 - **Vercel**: hosting, build a serverless API pre SEO detail ponuky a dynamickú sitemap.
 - **Resend** a **BulkGate**: rezervačné e-maily a voliteľné SMS cez spoločnú databázovú frontu a bezpečný worker; Supabase Auth má vlastné jazykové e-mailové šablóny.
 - **cron-job.org**: nezávislý externý plánovač bezpečnostného monitoringu notifikácií iba pre TEST; samotné spracovanie fronty naďalej používa databázový Supabase `pg_cron`. GitHub Actions má len manuálny diagnostický workflow.
-- **OpenStreetMap**: mapa; **Geoapify EU** (`api-eu.geoapify.com`): geokódovanie a návrhy adries cez Supabase Edge Functions. Aktivácia Geoapify na TEST vyžaduje serverový secret `GEOAPIFY_API_KEY` a samostatné nasadenie funkcií.
+- **OpenStreetMap**: mapa; **Geoapify EU** (`api-eu.geoapify.com`): iba serverové geokódovanie ručne zadanej adresy miesta vyzdvihnutia cez `geocode-pickup`. V registrácii, profile a pri vytváraní/úprave ponuky nie sú automatické návrhy adries. Serverový secret `GEOAPIFY_API_KEY` zostáva potrebný pre geokódovanie. Legacy funkcia `address-suggestions` sa po overení tejto zmeny v TEST vyradí samostatným krokom.
 
 ## Štruktúra repozitára
 
