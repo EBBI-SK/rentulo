@@ -390,6 +390,15 @@ html[data-focus-input="pointer"] .edit-cancel-button:focus {
   flex-shrink: 0;
 }
 
+/* Prevent the full-size form input styles from shifting the confirmation checkbox. */
+#editTransportConfirmation {
+  min-height: 18px;
+  height: 18px;
+  width: 18px;
+  padding: 0;
+  margin: 1px 0 0;
+}
+
 .pickup-custom-fields {
   display: none;
   padding-top: 2px;
