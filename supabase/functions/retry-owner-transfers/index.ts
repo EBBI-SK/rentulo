@@ -180,5 +180,116 @@ denoRuntime.serve(async (req) => {
     }
   });
 
-  return jsonResponse({ ok: true, ...result });
+  // BOD 1 is TEST-only. A future PROD rollout must deploy its own migration
+  // first; the existing production transfer job must never depend on it.
+  if (supabaseUrl !== "https://vspposovhdgvbeukoivh.supabase.co") {
+    return jsonResponse({ ok: true, ...result });
+  }
+
+  // Plain requests and approvals without a Stripe session have a strict
+  // deadline and can be closed by the existing Cron without payment risk.
+  const unstartedExpiry = await admin.rpc("expire_unstarted_reservation_extensions", {
+    p_limit: limit,
+  });
+  if (unstartedExpiry.error) {
+    console.error("retry-owner-transfers: unstarted extension expiry failed",
+      unstartedExpiry.error.message);
+  }
+
+  // Reconcile only sessions that Stripe has VERIFIED as expired and unpaid.
+  // A late but processing payment keeps its date hold until the webhook wins.
+  const checkoutCandidates = await admin.rpc("get_expired_reservation_extension_checkouts", {
+    p_limit: limit,
+  });
+  const checkoutSummary = { candidates: 0, expired: 0, kept: 0, errors: 0 };
+  const stripeKey = denoRuntime.env.get("STRIPE_SECRET_KEY") || "";
+  if (checkoutCandidates.error || !Array.isArray(checkoutCandidates.data)) {
+    checkoutSummary.errors += 1;
+    console.error("retry-owner-transfers: extension checkout scan failed",
+      checkoutCandidates.error?.message);
+  } else {
+    checkoutSummary.candidates = checkoutCandidates.data.length;
+    await processWithConcurrency(checkoutCandidates.data as Array<{
+      extension_id: string; reservation_id: string;
+      session_id: string; amount_minor: number;
+    }>, 5, async (candidate) => {
+      if (!stripeKey) { checkoutSummary.errors += 1; return; }
+      try {
+        const response = await fetch(
+          `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(candidate.session_id)}`,
+          { headers: { Authorization: `Bearer ${stripeKey}` }, signal: AbortSignal.timeout(15000) },
+        );
+        const session = (await response.json().catch(() => ({}))) as {
+          id?: string; mode?: string; currency?: string; amount_total?: number;
+          client_reference_id?: string; status?: string; payment_status?: string;
+          metadata?: Record<string,string>;
+        };
+        if (!response.ok || session.id !== candidate.session_id || session.mode !== "payment" ||
+            session.client_reference_id !== candidate.extension_id ||
+            session.currency !== "czk" || session.amount_total !== candidate.amount_minor ||
+            session.metadata?.payment_kind !== "reservation_extension" ||
+            session.metadata?.extension_id !== candidate.extension_id ||
+            session.metadata?.reservation_id !== candidate.reservation_id) {
+          checkoutSummary.errors += 1;
+          return;
+        }
+        if (session.status !== "expired" || session.payment_status !== "unpaid") {
+          checkoutSummary.kept += 1;
+          return;
+        }
+        const recorded = await admin.rpc("expire_reservation_extension_checkout", {
+          p_extension_id: candidate.extension_id, p_session_id: candidate.session_id,
+        });
+        if (recorded.error) checkoutSummary.errors += 1;
+        else if (recorded.data === true) checkoutSummary.expired += 1;
+        else checkoutSummary.kept += 1;
+      } catch (error) {
+        checkoutSummary.errors += 1;
+        console.error("retry-owner-transfers: failed to reconcile expired checkout",
+          candidate.extension_id, error instanceof Error ? error.message : String(error));
+      }
+    });
+  }
+
+  // Use the SAME authenticated 5-minute retry job for additional-day
+  // payouts, but do not change or duplicate the original payment transfer.
+  const extensions = await admin.rpc("get_due_reservation_extension_transfers", { p_limit: limit });
+  if (extensions.error || !Array.isArray(extensions.data)) {
+    console.error("retry-owner-transfers: extension candidates unavailable", extensions.error?.message);
+    return jsonResponse({ error: "Extension transfers could not be checked", ...result }, 500);
+  }
+  const extensionSummary = {
+    candidates: extensions.data.length, succeeded: 0, failed: 0, skipped: 0,
+  };
+  await processWithConcurrency(extensions.data as Array<{ extension_id: string; reservation_id: string }>, 5,
+    async (extension) => {
+      try {
+        const response = await fetch(`${supabaseUrl}/functions/v1/create-extension-transfer`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey,
+            "Content-Type": "application/json" },
+          body: JSON.stringify({ extension_id: extension.extension_id }),
+          signal: AbortSignal.timeout(25_000),
+        });
+        const body = (await response.json().catch(() => ({}))) as OwnerTransferResponse;
+        if (response.ok && body.status === "succeeded") {
+          extensionSummary.succeeded += 1;
+        } else if (response.status === 409 &&
+            body.error === "Extension transfer is not ready for processing") {
+          extensionSummary.skipped += 1;
+        } else {
+          extensionSummary.failed += 1;
+          console.error("retry-owner-transfers: extension transfer failed", extension.extension_id,
+            response.status, body.error || "unknown_error");
+        }
+      } catch (error) {
+        extensionSummary.failed += 1;
+        console.error("retry-owner-transfers: extension transport error", extension.extension_id,
+          error instanceof Error ? error.message : String(error));
+      }
+    });
+
+  return jsonResponse({ ok: true, ...result,
+    expired_unstarted_extensions: unstartedExpiry.error ? null : unstartedExpiry.data,
+    extension_checkouts: checkoutSummary, extensions: extensionSummary });
 });

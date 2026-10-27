@@ -609,3 +609,34 @@ body.reservation-modal-open {
     flex: 1;
   }
 }
+
+/* RENTULO V1 BOD 1: extension form is confined to the opened reservation row. */
+.reservation-extension-panel {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #d6e6dc;
+  border-radius: 10px;
+  background: #f8fbf9;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.reservation-extension-state { margin: 0; flex-basis: 100%; }
+.reservation-extension-form {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.reservation-extension-form[hidden] { display: none; }
+.reservation-extension-form input[type="date"] {
+  min-height: 40px;
+  border: 1px solid #bacdc1;
+  border-radius: 6px;
+  padding: 8px;
+  color: #22342a;
+  background: white;
+}
+.reservation-extension-form small { width: 100%; }

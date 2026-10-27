@@ -54,7 +54,10 @@ test("retry worker delegates all payout state and Stripe work to create-owner-tr
   assert.match(worker, /Authorization: `Bearer \$\{serviceRoleKey\}`/);
   assert.match(worker, /apikey: serviceRoleKey/);
   assert.match(worker, /reservation_id: candidate\.reservation_id/);
-  assert.doesNotMatch(worker, /api\.stripe\.com/);
+  // The original payout path still performs no direct Stripe calls. The
+  // extension checkout reconciler only READS a checkout session from Stripe.
+  assert.doesNotMatch(worker, /api\.stripe\.com\/v1\/transfers/);
+  assert.match(worker, /api\.stripe\.com\/v1\/checkout\/sessions/);
   assert.doesNotMatch(worker, /\.from\("payments"\).*\.update/s);
 });
 

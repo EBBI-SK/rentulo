@@ -545,6 +545,50 @@ denoRuntime.serve(async (req) => {
     if (asString(metadata.payment_kind) === "owner_cancellation_debt") {
       return await handleOwnerCancellationDebtPaymentEvent(admin, event, object);
     }
+
+    // BOD 1: additional rental days have their OWN Stripe PaymentIntent.
+    // Never pass it into the existing one-payment-per-reservation finalizer.
+    if (asString(metadata.payment_kind) === "reservation_extension") {
+      const extensionId = asString(metadata.extension_id);
+      const reservationId = asString(metadata.reservation_id);
+      const intentId = asString(object.id);
+      const chargeId = objectId(object.latest_charge);
+      const amount = asInteger(object.amount_received);
+      const currency = asString(object.currency).toLowerCase();
+      if (!isUuid(extensionId) || !isUuid(reservationId) ||
+          !intentId || asString(object.status) !== "succeeded" ||
+          !chargeId || amount === null || amount <= 0 || currency !== "czk") {
+        await updateEventStatus(admin, stripeEventId, "failed", {
+          reservation_id: isUuid(reservationId) ? reservationId : null,
+          last_error: "Invalid extension PaymentIntent metadata or charge",
+        });
+        return jsonResponse({ error: "Invalid extension payment evidence" }, 400);
+      }
+      const completion = await admin.rpc("complete_reservation_extension_payment", {
+        p_extension_id: extensionId,
+        p_reservation_id: reservationId,
+        p_payment_intent_id: intentId,
+        p_charge_id: chargeId,
+        p_amount_minor: amount,
+        p_currency: currency,
+      });
+      if (completion.error || completion.data !== true) {
+        const message = completion.error?.message || "Extension finalizer returned false";
+        console.error("stripe-webhook: extension payment finalization failed", message);
+        await updateEventStatus(admin, stripeEventId, "failed", {
+          reservation_id: reservationId,
+          last_error: message,
+        });
+        return jsonResponse({ error: "Extension payment completion failed" }, 500);
+      }
+      const extensionRecorded = await updateEventStatus(admin, stripeEventId, "processed", {
+        reservation_id: reservationId,
+        processed_at: new Date().toISOString(),
+        last_error: null,
+      });
+      return extensionRecorded ? jsonResponse({ received: true }) :
+        jsonResponse({ error: "Webhook event could not be finalized" }, 500);
+    }
   }
 
   if (eventType !== "payment_intent.succeeded") {

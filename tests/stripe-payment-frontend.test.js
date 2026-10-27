@@ -114,7 +114,15 @@ function makeStripeReturnHarness(statuses, options = {}) {
   const context = vm.createContext({
     window, document, Date, URL, URLSearchParams,
     console: { log() {}, warn() {}, error() {} },
-    getSupabaseClient() { return {}; },
+    getSupabaseClient() { return {
+      async rpc(name) {
+        if (name === "get_my_reservation_extensions") return { data: [], error: null };
+        throw new Error("Unexpected RPC: " + name);
+      }
+    }; },
+    RentuloReservationExtensions: {
+      attachPaidExtensions(reservations) { return reservations; }
+    },
     escapeHtml(value) { return String(value); },
     canRenterPayReservation(reservation) { return reservation.status === "approved"; },
     canRenterCancelReservation() { return false; }

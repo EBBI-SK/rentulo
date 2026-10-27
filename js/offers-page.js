@@ -647,7 +647,16 @@
         ? offersResult.data.map(normalizeOffer)
         : [];
 
-      ownerReservations = ownerReservationRows.map(normalizeReservation);
+      const extensionResult = await supabaseClient.rpc("get_my_reservation_extensions");
+      if (extensionResult.error || !Array.isArray(extensionResult.data)) {
+        ownerOffersLoadState = "error";
+        console.error("Reservation extensions could not be loaded", extensionResult.error);
+        setAccountErrorMessage("offers.error.loadRequests", "Žádosti se nepodařilo načíst. Obnovte stránku.");
+        return false;
+      }
+      ownerReservations = RentuloReservationExtensions.attachPaidExtensions(
+        ownerReservationRows.map(normalizeReservation), extensionResult.data
+      );
 
       // Fail closed if the TEST migration is not installed or the query fails.
       // Reporting an unreturned item is never enabled by the browser clock.
@@ -1897,6 +1906,29 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
       ].join("");
     }
 
+    function activeOwnerExtension(reservation) {
+      const extensions = reservation.extensions || [];
+      const active = extensions.filter(function (extension) {
+        return extension.status === "pending" || extension.status === "approved";
+      });
+      return active.length ? active[active.length-1] : null;
+    }
+
+    async function decideOwnerExtension(extensionId, reservationId, approve) {
+      const result = await getSupabaseClient().rpc("decide_reservation_extension", {
+        p_extension_id: extensionId, p_approve: approve,
+      });
+      if (result.error || result.data !== true) {
+        console.error("Extension decision failed", result.error);
+        setAccountErrorMessage("offers.error.loadRequests", RentuloReservationExtensions.t("error"));
+        return;
+      }
+      await reloadAndReopen(reservationId,"open");
+      if (typeof window.refreshRentuloNotificationBadge === "function") {
+        await window.refreshRentuloNotificationBadge();
+      }
+    }
+
     function renderRequestActions(reservation, status) {
       const reservationId = reservation.id;
       const actions = [];
@@ -1952,6 +1984,28 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
         }
       }
 
+      const extension = activeOwnerExtension(reservation);
+      if (extension) {
+        if (extension.status === "pending") {
+          if (hasOverdueOwnerDebt()) {
+            const blockedText = offersTranslate("offers.debt.approvalBlocked",
+              "Rezervaci nelze potvrdit, dokud neuhradíte částku po splatnosti.");
+            actions.unshift(`<button class="small-button" type="button" disabled
+              aria-disabled="true" title="${escapeHtml(blockedText)}">
+              ${escapeHtml(RentuloReservationExtensions.t("approve"))}</button>`);
+          } else {
+            actions.unshift(`<button class="small-button" type="button" data-offers-action="approve-extension"
+              data-reservation-id="${escapeHtml(reservationId)}" data-extension-id="${escapeHtml(extension.id)}">
+              ${escapeHtml(RentuloReservationExtensions.t("approve"))}</button>`);
+          }
+          actions.unshift(`<button class="small-button light" type="button" data-offers-action="reject-extension"
+            data-reservation-id="${escapeHtml(reservationId)}" data-extension-id="${escapeHtml(extension.id)}">
+            ${escapeHtml(RentuloReservationExtensions.t("reject"))}</button>`);
+        } else {
+          actions.unshift(`<span class="owner-extension-state">${escapeHtml(RentuloReservationExtensions.t("ownerApproved"))}
+            · ${escapeHtml(formatOffersMoney(extension.amount_total))}</span>`);
+        }
+      }
       return actions.join("");
     }
 
@@ -2044,9 +2098,13 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
       const reservationId = reservation.id;
 
       const actionButtons = renderRequestActions(reservation, status);
+      const activeExtension = (reservation.extensions || []).find(function (extension) {
+        return extension.status === "pending" || extension.status === "approved";
+      });
 
       return `
         <article class="request-card" id="request-card-${escapeHtml(reservationId)}"
+          data-owner-extension-pending="${activeExtension?.status === 'pending' ? 'true' : 'false'}"
           data-owner-status="${escapeHtml(normalizeReservationStatus(status))}"
           data-owner-number="${escapeHtml(reservation.reservationNumber || "")}"
           data-owner-date="${escapeHtml(startDate || "")}"
@@ -2057,6 +2115,12 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
               <span class="request-email">${escapeHtml(renterEmail)}</span>
               ${reservation.reservationNumber ? `<span class="request-email"><span class="owner-reservation-reference-prefix">${escapeHtml(offersTranslate("reference.reservation", "Číslo rezervace"))}: </span>${escapeHtml(reservation.reservationNumber)}</span>` : ""}
               ${renderOwnerRequestDeadline(reservation)}
+              ${activeExtension ? `<small class="owner-extension-summary">${escapeHtml(
+                typeof RentuloReservationExtensions !== "undefined" ? RentuloReservationExtensions.t(
+                  activeExtension.status === "pending" ? "ownerPending" : "ownerApproved"
+                ) : "Prodloužení pronájmu"
+              )} ${escapeHtml(formatOffersDate(activeExtension.new_end_date))}
+                  · ${escapeHtml(formatOffersMoney(activeExtension.amount_total))}</small>` : ""}
             </div>
 
             <div class="request-date">
@@ -2368,6 +2432,7 @@ return [
       const debtId = actionButton.dataset.debtId || "";
 
       const mutationActions = new Set([
+        "approve-extension", "reject-extension",
         "approve-reservation",
         "reject-reservation",
         "cancel-reservation",
@@ -2393,6 +2458,12 @@ return [
 
       try {
         switch (action) {
+          case "approve-extension":
+            await decideOwnerExtension(actionButton.dataset.extensionId, reservationId, true);
+            break;
+          case "reject-extension":
+            await decideOwnerExtension(actionButton.dataset.extensionId, reservationId, false);
+            break;
           case "approve-reservation":
             await approveReservation(reservationId);
             break;
