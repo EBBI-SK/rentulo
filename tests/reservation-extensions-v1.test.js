@@ -101,6 +101,15 @@ test("Stripe webhook commits the new return date only after verified additional 
   assert.match(webhook,/complete_reservation_extension_payment/);
 });
 
+test("extension immutability guard preserves service-role Stripe payment completion", () => {
+  const guard = sqlFunction("protect_reservation_immutable_fields");
+  const paymentAuth = guard.match(/v_payment_update_authorized\s*:=\s*coalesce\(\(([\s\S]*?)\),\s*false\);/i);
+  assert.ok(paymentAuth, "Missing existing payment authorization guard");
+  assert.match(paymentAuth[1], /old\.status\s*=\s*'approved'[\s\S]*?new\.status\s*=\s*'paid'/i);
+  assert.match(paymentAuth[1], /OR\s*\(\s*coalesce\(auth\.role\(\),\s*''\)\s*=\s*'service_role'\s*AND\s*current_setting\('app\.stripe_payment_authorized',\s*true\)\s*=\s*'on'\s*\)/i);
+  assert.match(guard, /NOT v_payment_update_authorized[\s\S]*?new\.paid_at IS DISTINCT FROM old\.paid_at[\s\S]*?new\.payment_provider_status IS DISTINCT FROM old\.payment_provider_status/i);
+});
+
 test("checkout session is bound to extension, reservation and Stripe PaymentIntent", () => {
   assert.match(checkout,/create-extension-checkout/);
   assert.match(checkout,/claim_reservation_extension_checkout/);

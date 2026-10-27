@@ -718,6 +718,12 @@ BEGIN
     AND (
       current_setting('app.test_payment_authorized', true) = 'on'
       OR current_setting('app.payment_update_authorized', true) = 'on'
+      -- Preserve the trusted Stripe webhook authorization from the 2026-10-23 fix.
+      -- Never allow the Stripe session flag without service_role.
+      OR (
+        coalesce(auth.role(), '') = 'service_role'
+        AND current_setting('app.stripe_payment_authorized', true) = 'on'
+      )
     )
   ), false);
 
