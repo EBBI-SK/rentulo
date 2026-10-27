@@ -633,3 +633,7 @@
   border-color: #00835a !important;
   box-shadow: 0 0 0 2px rgba(0, 131, 90, .12) !important;
 }
+
+/* RENTULO V1 BOD 1: prioritize an awaiting extension decision. */
+.owner-extension-summary { display: block; font-weight: 600; margin-top: 4px; }
+.owner-extension-state { font-size: 0.85em; font-weight: 600; }

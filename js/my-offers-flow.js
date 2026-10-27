@@ -472,6 +472,8 @@
     const cards = Array.from(section.querySelectorAll(".owner-reservation-card"));
     const actionable = cards.find(function (card) {
       return !card.hidden && card.querySelector(
+        '[data-offers-action="approve-extension"], ' +
+        '[data-offers-action="reject-extension"], ' +
         '[data-offers-action="approve-reservation"], ' +
         '[data-offers-action="reject-reservation"], ' +
         '[data-offers-action="mark-returned"]'
@@ -532,10 +534,10 @@
         return compareReservationData(readReservationData(first), readReservationData(second));
       });
       const attention = reservationCards.filter(function (card) {
-        return ATTENTION_STATUSES.has(card.dataset.ownerStatus);
+        return card.dataset.ownerExtensionPending === "true" || ATTENTION_STATUSES.has(card.dataset.ownerStatus);
       });
       const waiting = reservationCards.filter(function (card) {
-        return !ATTENTION_STATUSES.has(card.dataset.ownerStatus);
+        return card.dataset.ownerExtensionPending !== "true" && !ATTENTION_STATUSES.has(card.dataset.ownerStatus);
       });
 
       const section = document.createElement("section");

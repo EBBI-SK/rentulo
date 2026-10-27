@@ -100,7 +100,12 @@ test("latest reservation insert keeps per-offer serialization and the exact two-
   assert.match(availability, /at time zone 'Europe\/Prague'/i);
   assert.match(availability, /interval '2 hours'/i);
   assert.match(availability, /returns boolean/i);
-  assert.doesNotMatch(availability, /returns table/i);
+  // This migration also adds a separate read-only RPC that returns a table.
+  // Inspect the availability function signature, not the entire migration.
+  const helperSignature = availability.slice(
+    availability.lastIndexOf("create or replace function public.has_offer_reservation_time_conflict")
+  ).split(/\bas\s+\$/i)[0];
+  assert.doesNotMatch(helperSignature, /returns table/i);
 });
 
 test("public availability RPC exposes only dates for blocking reservations", () => {
