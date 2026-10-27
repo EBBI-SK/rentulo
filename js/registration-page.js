@@ -1,13 +1,5 @@
-const ADDRESS_SUGGESTION_MIN_LENGTH = 3;
-const ADDRESS_SUGGESTION_DELAY_MS = 650;
-
 let registrationSubmitInProgress = false;
 let registrationErrorState = null;
-let registrationAddressSuggestions = [];
-let registrationAddressActiveIndex = -1;
-let registrationAddressRequestId = 0;
-let registrationAddressTimer = null;
-let registrationLastVerifiedAddress = null;
 
 function registrationT(key, fallback) {
   if (typeof window.rentuloTranslate === "function") {
@@ -107,292 +99,6 @@ function registrationIsEmpty(value) {
   return String(value || "").trim() === "";
 }
 
-function registrationCloseAddressSuggestions() {
-  const streetInput = document.getElementById("street");
-  const suggestionsBox = document.getElementById("addressSuggestions");
-
-  registrationAddressRequestId += 1;
-
-  if (registrationAddressTimer) {
-    window.clearTimeout(registrationAddressTimer);
-    registrationAddressTimer = null;
-  }
-
-  registrationAddressSuggestions = [];
-  registrationAddressActiveIndex = -1;
-
-  if (suggestionsBox) {
-    suggestionsBox.innerHTML = "";
-    suggestionsBox.hidden = true;
-  }
-
-  if (streetInput) {
-    streetInput.setAttribute("aria-expanded", "false");
-    streetInput.removeAttribute("aria-activedescendant");
-  }
-}
-
-function registrationRenderAddressSuggestions(items) {
-  const streetInput = document.getElementById("street");
-  const suggestionsBox = document.getElementById("addressSuggestions");
-
-  if (!streetInput || !suggestionsBox) {
-    return;
-  }
-
-  // Registration shows only address places verified by the official RÚIAN
-  // endpoint; a Geoapify suggestion must not silently set a profile PSČ.
-  const postalCodeInput = document.getElementById("postalCode");
-  const expectedPostalCode = String(postalCodeInput?.value || "").replace(/\D/g, "");
-  registrationAddressSuggestions = (Array.isArray(items) ? items : [])
-    .filter(function (item) {
-      const postcode = String(item.postalCode || "").replace(/\D/g, "");
-      return item.source === "ruian" && item.verified === true && /^\d{5}$/.test(postcode)
-        && (!expectedPostalCode || postcode === expectedPostalCode);
-    })
-    .slice(0, 5);
-  registrationAddressActiveIndex = -1;
-
-  if (!registrationAddressSuggestions.length) {
-    registrationCloseAddressSuggestions();
-    return;
-  }
-
-  suggestionsBox.innerHTML = registrationAddressSuggestions
-    .map(function (item, index) {
-      const main = String(item.street || "").trim();
-      const meta = [item.city, item.postalCode]
-        .map(function (part) { return String(part || "").trim(); })
-        .filter(Boolean)
-        .join(", ");
-
-      return `
-        <button
-          type="button"
-          class="address-suggestion"
-          id="addressSuggestion${index}"
-          role="option"
-          data-address-index="${index}"
-          aria-selected="false"
-        >
-          <span class="address-suggestion-main">${escapeHtml(main)}</span>
-          <span class="address-suggestion-meta">${escapeHtml(meta)}</span>
-        </button>
-      `;
-    })
-    .join("") +
-    '<div class="address-attribution">Zdroj: ČÚZK – RÚIAN</div>';
-
-  suggestionsBox.hidden = false;
-  streetInput.setAttribute("aria-expanded", "true");
-}
-
-function registrationSetAddressActiveIndex(nextIndex) {
-  const streetInput = document.getElementById("street");
-  const suggestionButtons = Array.from(
-    document.querySelectorAll("#addressSuggestions .address-suggestion")
-  );
-
-  if (!streetInput || !suggestionButtons.length) {
-    return;
-  }
-
-  const maxIndex = suggestionButtons.length - 1;
-  let normalizedIndex = nextIndex;
-
-  if (normalizedIndex < 0) {
-    normalizedIndex = maxIndex;
-  }
-
-  if (normalizedIndex > maxIndex) {
-    normalizedIndex = 0;
-  }
-
-  registrationAddressActiveIndex = normalizedIndex;
-
-  suggestionButtons.forEach(function (button, index) {
-    const isActive = index === normalizedIndex;
-    button.classList.toggle("is-active", isActive);
-    button.setAttribute("aria-selected", isActive ? "true" : "false");
-  });
-
-  const activeButton = suggestionButtons[normalizedIndex];
-  if (activeButton) {
-    streetInput.setAttribute("aria-activedescendant", activeButton.id);
-    activeButton.scrollIntoView({ block: "nearest" });
-  }
-}
-
-function registrationSelectAddress(index) {
-  const item = registrationAddressSuggestions[index];
-  const streetInput = document.getElementById("street");
-  const cityInput = document.getElementById("city");
-  const postalCodeInput = document.getElementById("postalCode");
-
-  if (!item || item.source !== "ruian" || item.verified !== true
-      || !streetInput || !cityInput || !postalCodeInput
-      || !/^\d{3} \d{2}$/.test(String(item.postalCode || ""))) {
-    return;
-  }
-
-  streetInput.value = String(item.street || "").trim();
-  cityInput.value = String(item.city || "").trim();
-  postalCodeInput.value = String(item.postalCode).trim();
-  registrationLastVerifiedAddress = {
-    street: streetInput.value,
-    city: cityInput.value,
-    postalCode: postalCodeInput.value
-  };
-  [streetInput, cityInput, postalCodeInput].forEach(function (field) {
-    field.classList.remove("input-error");
-    field.removeAttribute("aria-invalid");
-  });
-
-  registrationCloseAddressSuggestions();
-}
-
-async function registrationLoadAddressSuggestions(query, requestId, city, postalCode) {
-  const supabaseClient = getSupabaseClient();
-
-  if (!supabaseClient) {
-    return;
-  }
-
-  try {
-    const language =
-      typeof window.getRentuloLanguage === "function"
-        ? window.getRentuloLanguage()
-        : "cs";
-
-    const { data, error } = await supabaseClient.functions.invoke(
-      "address-suggestions",
-      {
-        body: {
-          source: "ruian",
-          query: query,
-          city: city,
-          postalCode: postalCode,
-          language: language
-        }
-      }
-    );
-
-    if (requestId !== registrationAddressRequestId) {
-      return;
-    }
-
-    if (error || !data || !Array.isArray(data.suggestions)) {
-      registrationCloseAddressSuggestions();
-      return;
-    }
-
-    registrationRenderAddressSuggestions(data.suggestions);
-  } catch (_error) {
-    if (requestId === registrationAddressRequestId) {
-      registrationCloseAddressSuggestions();
-    }
-  }
-}
-
-function setupAddressAutocomplete() {
-  const streetInput = document.getElementById("street");
-  const cityInput = document.getElementById("city");
-  const postalCodeInput = document.getElementById("postalCode");
-  const suggestionsBox = document.getElementById("addressSuggestions");
-
-  if (!streetInput || !cityInput || !postalCodeInput || !suggestionsBox) {
-    return;
-  }
-
-  function scheduleAddressSuggestions() {
-    // If the user changes a previously verified address, do not leave its old
-    // automatically supplied PSČ attached to the new street/city.
-    if (registrationLastVerifiedAddress && (
-      streetInput.value.trim() !== registrationLastVerifiedAddress.street ||
-      cityInput.value.trim() !== registrationLastVerifiedAddress.city
-    )) {
-      if (postalCodeInput.value.trim() === registrationLastVerifiedAddress.postalCode) {
-        postalCodeInput.value = "";
-      }
-      registrationLastVerifiedAddress = null;
-    }
-
-    const query = streetInput.value.trim();
-    const city = cityInput.value.trim();
-    const postalCode = postalCodeInput.value.trim();
-
-    registrationAddressRequestId += 1;
-    const requestId = registrationAddressRequestId;
-
-    if (registrationAddressTimer) {
-      window.clearTimeout(registrationAddressTimer);
-      registrationAddressTimer = null;
-    }
-
-    if (query.length < ADDRESS_SUGGESTION_MIN_LENGTH) {
-      registrationCloseAddressSuggestions();
-      return;
-    }
-
-    registrationAddressTimer = window.setTimeout(function () {
-      registrationLoadAddressSuggestions(query, requestId, city, postalCode);
-    }, ADDRESS_SUGGESTION_DELAY_MS);
-  }
-
-  streetInput.addEventListener("input", scheduleAddressSuggestions);
-  cityInput.addEventListener("input", scheduleAddressSuggestions);
-  postalCodeInput.addEventListener("input", scheduleAddressSuggestions);
-
-  streetInput.addEventListener("keydown", function (event) {
-    if (suggestionsBox.hidden || !registrationAddressSuggestions.length) {
-      return;
-    }
-
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      registrationSetAddressActiveIndex(registrationAddressActiveIndex + 1);
-      return;
-    }
-
-    if (event.key === "ArrowUp") {
-      event.preventDefault();
-      registrationSetAddressActiveIndex(registrationAddressActiveIndex - 1);
-      return;
-    }
-
-    if (event.key === "Enter" && registrationAddressActiveIndex >= 0) {
-      event.preventDefault();
-      registrationSelectAddress(registrationAddressActiveIndex);
-      return;
-    }
-
-    if (event.key === "Escape") {
-      event.preventDefault();
-      registrationCloseAddressSuggestions();
-    }
-  });
-
-  suggestionsBox.addEventListener("mousedown", function (event) {
-    event.preventDefault();
-  });
-
-  suggestionsBox.addEventListener("click", function (event) {
-    const button = event.target.closest("[data-address-index]");
-
-    if (!button) {
-      return;
-    }
-
-    registrationSelectAddress(Number(button.dataset.addressIndex));
-  });
-
-  document.addEventListener("click", function (event) {
-    if (!event.target.closest(".address-autocomplete")) {
-      registrationCloseAddressSuggestions();
-    }
-  });
-}
-
 function resetRegistrationConsentCheckboxes() {
   const termsBusiness = document.getElementById("termsBusiness");
   const termsPrivacy = document.getElementById("termsPrivacy");
@@ -486,7 +192,6 @@ async function createUserAccount(event) {
 
   registrationHideError();
   registrationClearErrors();
-  registrationCloseAddressSuggestions();
 
   const supabaseClient = getSupabaseClient();
 
@@ -557,6 +262,15 @@ async function createUserAccount(event) {
     registrationFocusFirstError();
     return;
   }
+
+  const normalizedPostalCode = formatRentuloCzechPostalCode(postalCodeInput.value);
+  if (!normalizedPostalCode) {
+    registrationMarkError(postalCodeInput);
+    registrationShowError("address.invalidPostalCode", "Zadejte české PSČ ve formátu 110 00 (5 číslic).");
+    registrationFocusFirstError();
+    return;
+  }
+  postalCodeInput.value = normalizedPostalCode;
 
   const email = registrationNormalizeEmail(emailInput.value);
 
@@ -682,11 +396,9 @@ async function createUserAccount(event) {
 function handleRegistrationLanguageChange() {
   registrationRenderError();
   registrationSetButtonState(registrationSubmitInProgress);
-  registrationCloseAddressSuggestions();
 }
 
 document.addEventListener("DOMContentLoaded", function () {
-  setupAddressAutocomplete();
   resetRegistrationConsentCheckboxes();
 
   window.setTimeout(resetRegistrationConsentCheckboxes, 0);

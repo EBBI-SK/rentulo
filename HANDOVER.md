@@ -54,7 +54,7 @@ externý cron-job.org (TEST; pravidelné HTTPS POST)
          +--> monitorovacie RPC + heartbeat workera
          +--> Resend (deduplikovaný alarm na support@rentulo.com)
 
-mapa: OpenStreetMap; adresy: Geoapify EU (cez Supabase Edge Functions, serverový secret `GEOAPIFY_API_KEY`; TEST aktivovať až po nasadení)
+mapa: OpenStreetMap; adresy sa zadávajú ručne; Geoapify EU slúži iba na serverové geokódovanie vyzdvihnutia (`geocode-pickup`, secret `GEOAPIFY_API_KEY`)
 ```
 
 Frontend nemá bundler ani JS framework, **má však riadený Node.js build** `scripts/build-site.mjs`. Build vytvára `dist/` a vkladá konfiguráciu prostredia a SEO metadata. Vercel má oddelené hostové CSP pravidlá a serverless SEO endpointy. Stripe operácie sa vykonávajú cez dôveryhodný backend/webhook, nie priamou zmenou stavu rezervácie z prehliadača.
@@ -95,7 +95,7 @@ V `main` je **20 Edge Functions**. Zoznam je úplný pre referenčný commit; pr
 | Funkcia | Účel |
 | --- | --- |
 | `account-deactivation` | bezpečná deaktivácia účtu a kontrola finančných prekážok |
-| `address-suggestions` | návrhy a filtrovanie adries podľa prostredia |
+| `address-suggestions` | legacy endpoint po odstránení klientskych návrhov; zatiaľ ponechaný pre bezpečnú prechodnú prevádzku, vyradiť osobitne až po TEST overení |
 | `geocode-pickup` | geokódovanie vyzdvihnutia (Geoapify EU; bez verejného fallbacku po migrácii) |
 | `create-checkout-session` | vytvorenie Stripe Checkout pre rezerváciu |
 | `create-connect-account` | vytvorenie Stripe Connect účtu prenajímateľa |
@@ -185,7 +185,9 @@ Pred spustením overiť Resend sender/doménu, SPF/DKIM/DMARC, presmerovania v A
 
 Autoritatívnym miestom ponuky je profilová alebo vlastná adresa vyzdvihnutia. Súradnice sa získavajú geokódovaním, rezervácia si ukladá ich snapshot. Verejná mapa ukazuje iba **približnú polohu**, nie presnú adresu; presné údaje pre odovzdanie sa oprávneným stranám odomknú po zaplatení.
 
-Východisková mapa bola v októbri upravená na **českú lokalitu** (nie Bratislavu). Opravy automatického dopĺňania a filtrovania adries na TEST boli nasadené a overené 10. 10. (commity `caa842c`, `5f8caee`). Historicky bol fallback Photon a primárny Nominatim. V BOD 02 z 20. 10. 2026 bola pripravená ich náhrada Geoapify EU; skutočné správanie TEST sa potvrdí až po konfigurácii serverového kľúča a nasadení oboch Edge Functions. Pravidlá povolených pôvodov požiadaviek/User-Agent zostávajú oddelené medzi `.eu` a `.com`.
+Východisková mapa bola v októbri upravená na **českú lokalitu** (nie Bratislavu). Historické opravy automatického dopĺňania na TEST zo 10. 10. (commity `caa842c`, `5f8caee`) boli neskôr nahradené ručným zadávaním adries v registrácii, profile a formulároch ponúk (BOD 2, 27. 10. 2026). Historicky bol fallback Photon a primárny Nominatim. V BOD 02 z 20. 10. 2026 bola pripravená ich náhrada Geoapify EU; skutočné správanie TEST sa potvrdí až po konfigurácii serverového kľúča a nasadení oboch Edge Functions. Pravidlá povolených pôvodov požiadaviek/User-Agent zostávajú oddelené medzi `.eu` a `.com`.
+
+**BOD 2 (27. 10. 2026, pripravené na schválenie/nasadenie):** z formulárov `registrace.html`, `nabidnout.html` a `edit-nabidka.html` odstránené automatické návrhy, v `nastaveni.html` ručné adresné polia. PSČ sa kontroluje jednotne (`11000` alebo `110 00` → `110 00`); neoveruje sa fyzická existencia adresy. Pri uložení ponuky zostáva `geocode-pickup`, vrátane uloženia súradníc/bezpečného správania pri výpadku. Po živom TEST overení odstrániť nepoužívanú `address-suggestions` z TEST a neskôr aj z produkčnej konfigurácie koordinovanou zmenou.
 
 **Etapa 3 (pripravená na TEST deploy):** polohu zariadenia žiadať až po výslovnom kliknutí používateľa na hľadanie v okolí; ani platné predošlé browser povolenie nespúšťa žiadosť pri načítaní stránky. Súradnice sa neukladajú do URL, `localStorage` ani profilu. Odovzdajú sa jednorazovo v rámci tej istej browser karty pomocou `sessionStorage` (platnosť maximálne 120 s), na stránke výsledkov sa z neho okamžite odstránia a zostanú len v pamäti zobrazenej stránky. Po refreshi sa musí vyžiadať nová explicitná akcia; bez povolenia funguje manuálne vyhľadávanie. Live TEST overenie ešte vykonať po zlúčení PR.
 

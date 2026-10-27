@@ -333,14 +333,15 @@
     const phone = normalizeText(phoneInput && phoneInput.value);
     const street = normalizeText(streetInput && streetInput.value);
     const city = normalizeText(cityInput && cityInput.value);
-    const postalCode = normalizeText(postalCodeInput && postalCodeInput.value);
+    const postalCodeRaw = normalizeText(postalCodeInput && postalCodeInput.value);
+    const postalCode = formatRentuloCzechPostalCode(postalCodeRaw);
     const profileValues = {
       fullName: fullName,
       email: email,
       phone: phone,
       street: street,
       city: city,
-      postalCode: postalCode
+      postalCode: postalCode || postalCodeRaw
     };
     const phoneChanged = savedProfileValues && savedProfileValues.phone !== phone;
 
@@ -350,7 +351,7 @@
 
     setMessage(message, "", "");
 
-    if (!fullName || !email || !phone || !street || !city || !postalCode) {
+    if (!fullName || !email || !phone || !street || !city || !postalCodeRaw) {
       setTranslatedMessage(
         message,
         "settings.profileRequired",
@@ -359,6 +360,14 @@
       );
       return user;
     }
+
+    if (!postalCode) {
+      setTranslatedMessage(message, "address.invalidPostalCode", "Zadejte české PSČ ve formátu 110 00 (5 číslic).", "error");
+      if (postalCodeInput) postalCodeInput.focus();
+      return user;
+    }
+
+    if (postalCodeInput) postalCodeInput.value = postalCode;
 
     if (!isValidEmail(email)) {
       setTranslatedMessage(

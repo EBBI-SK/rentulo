@@ -26,3 +26,7 @@
 - Žiadny API kľúč nie je súčasťou repozitára, do HTTP odpovede klientovi sa neposiela a poskytovateľské URL s adresou sa nezapisujú do aplikačných logov.
 - Bez nastavenia `GEOAPIFY_API_KEY` po nasadení funkcie bezpečne odmietnu požiadavku namiesto návratu k verejným poskytovateľom. **Preto nastav secret pred deployom, aby existujúce formuláre neprerušili prevádzku.**
 - Získanie potvrdenia DPA/účtu, nastavenie secretu a výber plateného Vercel Pro plánu sú externé úkony v účtoch EBBI; nemožno ich označiť ako hotové samotným commitom alebo úspešným testom.
+
+## Zmena BOD 2 – 27. 10. 2026 (návrh na TEST)
+
+Automatické návrhy adries na klientskych formulároch Rentulo V1 sa po neúspešnom živom teste RÚIAN vyraďujú. Adresy (ulica/číslo, mesto, PSČ) sa zadávajú ručne v registrácii, nastaveniach, pri vytvorení a úprave ponuky. Geoapify EU ostáva pre **geokódovanie miesta vyzdvihnutia** (`geocode-pickup`) a polohu ponuky na mape; nejde o návrat k Photon/Nominatim. Nevyužívaný endpoint `address-suggestions` sa odstráni zvlášť až po bezpečnom nasadení a živom overení formulárov v TEST. Vyššie uvedené pôvodné rozhodnutie zostáva historickým záznamom a nie je aktuálnym návrhom našepkávania vo V1.

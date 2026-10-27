@@ -217,26 +217,16 @@
 
               <div class="pickup-custom-fields" id="editPickupCustomFields">
                 <div class="form-grid">
-                  <div class="form-group address-autocomplete">
+                  <div class="form-group">
                     <label for="edit-pickup-street" data-i18n="offer.streetLabel">Ulice a číslo</label>
                     <input
                       id="edit-pickup-street"
                       type="text"
                       autocomplete="off"
                       maxlength="160"
-                      aria-autocomplete="list"
-                      aria-controls="editPickupAddressSuggestions"
-                      aria-expanded="false"
-                      role="combobox"
                       placeholder="např. Zahradnická 5"
                       data-i18n-placeholder="offer.streetPlaceholder"
                     />
-                    <div
-                      class="address-suggestions"
-                      id="editPickupAddressSuggestions"
-                      role="listbox"
-                      hidden
-                    ></div>
                   </div>
 
                   <div class="form-group">
@@ -246,7 +236,7 @@
 
                   <div class="form-group">
                     <label for="edit-postal-code" data-i18n="offer.postalCodeLabel">PSČ</label>
-                    <input id="edit-postal-code" type="text" autocomplete="off" maxlength="20" placeholder="např. 602 00" data-i18n-placeholder="offer.postalCodePlaceholder" />
+                    <input id="edit-postal-code" type="text" autocomplete="off" inputmode="numeric" maxlength="6" placeholder="např. 602 00" data-i18n-placeholder="offer.postalCodePlaceholder" />
                   </div>
 
                   <div class="form-group">

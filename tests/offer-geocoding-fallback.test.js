@@ -38,20 +38,18 @@ test("address suggestions preserve Geoapify coordinates", () => {
   assert.match(ADDRESS_SOURCE, /suggestions\.push\(item\)/);
 });
 
-test("create offer reuses selected suggestion coordinates and invalidates them after manual edits", () => {
-  assert.match(OFFER_SOURCE, /let offerSelectedPickupCoordinates = null;/);
-  assert.match(OFFER_SOURCE, /offerSelectedPickupCoordinates =\s*Number\.isFinite\(latitude\)[\s\S]*longitude/);
-  assert.match(OFFER_SOURCE, /function scheduleOfferAddressSuggestions\(\) \{\s*offerSelectedPickupCoordinates = null;/);
-  assert.match(OFFER_SOURCE, /const pickupCoordinates = offerSelectedPickupCoordinates \|\|[\s\S]*await geocodePickupAddress/);
+test("create offer geocodes manually entered pickup address on save", () => {
+  assert.doesNotMatch(OFFER_SOURCE, /offerSelectedPickupCoordinates|address-suggestions/);
+  assert.match(OFFER_SOURCE, /const pickupCoordinates = await geocodePickupAddress\(supabaseClient, pickupAddress\)/);
   assert.match(OFFER_SOURCE, /pickup_latitude: pickupCoordinates \? pickupCoordinates\.latitude : null/);
   assert.match(OFFER_SOURCE, /pickup_longitude: pickupCoordinates \? pickupCoordinates\.longitude : null/);
 });
 
-test("edit offer reuses selected suggestion coordinates and invalidates them after manual edits", () => {
-  assert.match(EDIT_SOURCE, /let editSelectedPickupCoordinates = null;/);
-  assert.match(EDIT_SOURCE, /editSelectedPickupCoordinates =\s*Number\.isFinite\(latitude\)[\s\S]*longitude/);
-  assert.match(EDIT_SOURCE, /function scheduleEditAddressSuggestions\(\) \{\s*editSelectedPickupCoordinates = null;/);
-  assert.match(EDIT_SOURCE, /editSelectedPickupCoordinates \|\|[\s\S]*await geocodeEditedPickupAddress/);
+test("edit offer keeps coordinates when manual pickup address is unchanged, geocodes on change", () => {
+  assert.doesNotMatch(EDIT_SOURCE, /editSelectedPickupCoordinates|address-suggestions/);
+  assert.match(EDIT_SOURCE, /const pickupAddressChanged =/);
+  assert.match(EDIT_SOURCE, /!pickupAddressChanged && existingPickupCoordinates/);
+  assert.match(EDIT_SOURCE, /await geocodeEditedPickupAddress\(supabaseClient, pickupAddress\)/);
   assert.match(EDIT_SOURCE, /pickup_latitude: pickupCoordinates \? pickupCoordinates\.latitude : null/);
   assert.match(EDIT_SOURCE, /pickup_longitude: pickupCoordinates \? pickupCoordinates\.longitude : null/);
 });

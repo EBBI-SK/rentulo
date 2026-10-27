@@ -94,6 +94,8 @@ test("create validation blocks vehicles before any attempted upload", () => {
     getPickupAddress() { return { street: "A 1", city: "Praha", postalCode: "110 00" }; },
     showOfferTranslatedFormMessage(key) { messages.push(key); }
   });
+  const utils = fs.readFileSync(path.join(root, "js/utils.js"), "utf8");
+  vm.runInContext(utils.slice(utils.indexOf("function formatRentuloCzechPostalCode(")), context);
   vm.runInContext(create.slice(start, end) + "this.validate = validateOfferForm;", context);
   assert.equal(context.validate(), false);
   assert.deepEqual(messages, ["offer.transportNotAllowed"]);

@@ -130,7 +130,7 @@ Súčasný `main` obsahuje funkcie pre bežný booking, PIN, refund, Connect, tr
 - `process-dispute-refunds`: hardcoded TEST projekt a `sk_test_` Stripe; **do PROD nenasadzovať** bez schválenej LIVE úpravy (BOD 3/6).
 - `gdpr-cleanup-offer-photo`: iba TEST URL; PROD vykonávací gate fotografií zostáva **OFF**, Edge funkciu neaktivovať.
 - `js/registration-page.js` stále posiela `terms_version` a `privacy_notice_version` = `1.0-test-2026-10-20`. PROD SQL `20261020170000` očakáva **`1.0`**. **NO-GO pre registráciu**, kým sa po právnom schválení (issue #7) nezjednotí formulár a dokumenty. Tento ZIP frontend nemení; `1.0` je zatiaľ pripravený, nie schválený produkčný záznam.
-- `address-suggestions`, `geocode-pickup`: preveriť oddelené produkčné Geoapify EU kľúče; TEST projekt/klúče nepresúvať.
+- `geocode-pickup`: preveriť oddelený produkčný Geoapify EU kľúč; TEST kľúč nepresúvať. **Aktualizácia 27. 10. 2026:** `address-suggestions` sa po zrušení automatického dopĺňania klientmi stáva legacy endpointom; jeho bezpečné vyradenie je samostatný krok po TEST overení.
 - `create-checkout-session`, `stripe-webhook`, `create-owner-transfer`, `retry-owner-transfers`: potreba samostatných Stripe LIVE secrets/webhooku a kontrola payout po `returned/no_show` (BOD 3).
 
 Ďalšie samostatné kroky: produkčná SMTP/Resend/BulkGate konfigurácia (BOD 4), Vercel Pro/doména/`noindex` (BOD 5), monitoring/zálohy (BOD 6), jediná produkčná funkčná kontrola a 1 LIVE finančný cyklus (BOD 7–8), dokumentácia/GO (BOD 9–10). Tento ZIP nerobí žiadnu z týchto akcií.

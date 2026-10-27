@@ -56,6 +56,8 @@ function makeFixture({ storedPhone = "+420 777 123 456", optedIn = false } = {})
     Date, console
   };
   vm.createContext(sandbox);
+  const utils = fs.readFileSync(path.join(root, "js/utils.js"), "utf8");
+  vm.runInContext(utils.slice(utils.indexOf("function formatRentuloCzechPostalCode(")), sandbox);
   vm.runInContext(
     `let savedProfileValues = ${JSON.stringify(initial)};\n` +
     `let savedSmsEnabled = ${JSON.stringify(optedIn)};\n` +
