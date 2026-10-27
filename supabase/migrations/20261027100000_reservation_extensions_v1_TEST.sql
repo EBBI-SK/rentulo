@@ -518,12 +518,14 @@ begin
     or public.reservation_extension_has_conflict(v_r.id,v_e.new_end_date) then
     raise exception 'Extension payment failed contract, time or availability guard';
   end if;
+  -- Keep all original booking days, total_days, prices, fees and payout fixed.
+  -- The effective return date changes only after verified Stripe payment.
+  -- Client totals/duration are derived from separately paid extension rows.
   -- The application marker must be checked by the existing immutable-fields trigger.
   perform set_config('app.reservation_extension_authorized','on',true);
   perform set_config('app.reservation_extension_id',v_e.id::text,true);
   update public.reservations set
     end_date=v_e.new_end_date,date_to=v_e.new_end_date,
-    days=days+v_e.additional_days,total_days=total_days+v_e.additional_days,
     updated_at=clock_timestamp()
   where id=v_r.id;
   perform set_config('app.reservation_extension_authorized','',true);
@@ -803,8 +805,9 @@ BEGIN
         AND char_length(btrim(coalesce(g.approval_reference,'')))>=12)
   );
 
-  -- The webhook may extend ONLY date fields using an authenticated paid
-  -- extension; original contract pricing and all financial snapshots are fixed.
+  -- The webhook may update only the effective return dates. Original booking
+  -- days and total_days stay immutable because of their legacy CHECK; paid
+  -- extensions supply effective duration and combined totals to the UI.
   v_extension_change_authorized := (
     auth.role() = 'service_role'
     AND current_setting('app.reservation_extension_authorized', true) = 'on'
@@ -817,8 +820,8 @@ BEGIN
         AND e.previous_end_date = old.end_date
         AND e.new_end_date = new.end_date
         AND e.new_end_date = new.date_to
-        AND new.days = old.days + e.additional_days
-        AND new.total_days = old.total_days + e.additional_days
+        AND new.days IS NOT DISTINCT FROM old.days
+        AND new.total_days IS NOT DISTINCT FROM old.total_days
     )
   );
 

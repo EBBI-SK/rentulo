@@ -328,6 +328,14 @@
   background: #73d64f !important;
   color: #173a22 !important;
 }
+/* Approved extension is a primary Rentulo action, not the pale-green default. */
+.owner-reservation-actions .small-button[data-offers-action="approve-extension"] {
+  background: #00835a !important;
+  color: #fff !important;
+}
+.owner-reservation-actions .small-button[data-offers-action="approve-extension"]:hover {
+  background: #006846 !important;
+}
 .owner-reservation-card > .owner-reservation-contacts {
   display: flex;
   flex-wrap: wrap;

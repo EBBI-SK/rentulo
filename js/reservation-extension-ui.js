@@ -6,7 +6,7 @@
       extend: "Prodloužit pronájem", newReturn: "Nové datum vrácení",
       submit: "Požádat o prodloužení", requested: "Žádost o prodloužení odeslána.",
       pending: "Čeká na schválení majitele", approved: "Prodloužení schváleno – čeká na doplatek",
-      pay: "Zaplatit doplatek", rejected: "Prodloužení zamítnuto", expired: "Žádost o prodloužení vypršela",
+      pay: "Zaplatit doplatek", paymentDue: "Čeká na doplatek", rejected: "Prodloužení zamítnuto", expired: "Žádost o prodloužení vypršela",
       paid: "Prodloužení zaplaceno", until: "Nové vrácení", extra: "Doplatek",
       approve: "Schválit prodloužení", reject: "Zamítnout prodloužení",
       ownerPending: "Žádost o prodloužení do", ownerApproved: "Doplatek čeká na zaplacení",
@@ -20,7 +20,7 @@
     sk: {
       extend: "Predĺžiť prenájom",newReturn: "Nový dátum vrátenia",submit: "Požiadať o predĺženie",
       requested: "Žiadosť o predĺženie odoslaná.", pending: "Čaká na schválenie majiteľa",
-      approved: "Predĺženie schválené – čaká na doplatok",pay: "Zaplatiť doplatok",
+      approved: "Predĺženie schválené – čaká na doplatok",pay: "Zaplatiť doplatok",paymentDue: "Čaká na doplatok",
       rejected: "Predĺženie zamietnuté",expired: "Žiadosť o predĺženie vypršala",paid: "Predĺženie zaplatené",
       until: "Nové vrátenie",extra: "Doplatok",approve: "Schváliť predĺženie",reject: "Zamietnuť predĺženie",
       ownerPending: "Žiadosť o predĺženie do",ownerApproved: "Doplatok čaká na zaplatenie",ownerPaid: "Predĺženie zaplatené",
@@ -33,7 +33,7 @@
     },
     en: {
       extend: "Extend rental",newReturn: "New return date",submit: "Request extension",requested: "Extension request sent.",
-      pending: "Awaiting owner approval",approved: "Extension approved – payment required",pay: "Pay extra amount",
+      pending: "Awaiting owner approval",approved: "Extension approved – payment required",pay: "Pay extra amount",paymentDue: "Additional payment due",
       rejected: "Extension declined",expired: "Extension request expired",paid: "Extension paid",
       until: "New return date",extra: "Additional payment",approve: "Approve extension",reject: "Decline extension",
       ownerPending: "Extension requested until",ownerApproved: "Awaiting additional payment",ownerPaid: "Extension paid",
@@ -46,7 +46,7 @@
     de: {
       extend: "Mietzeit verlängern",newReturn: "Neues Rückgabedatum",submit: "Verlängerung anfragen",requested: "Verlängerung angefragt.",
       pending: "Wartet auf Zustimmung des Eigentümers",approved: "Verlängerung genehmigt – Zahlung ausstehend",
-      pay: "Aufpreis bezahlen",rejected: "Verlängerung abgelehnt",expired: "Verlängerungsanfrage abgelaufen",paid: "Verlängerung bezahlt",
+      pay: "Aufpreis bezahlen",paymentDue: "Aufpreis ausstehend",rejected: "Verlängerung abgelehnt",expired: "Verlängerungsanfrage abgelaufen",paid: "Verlängerung bezahlt",
       until: "Neue Rückgabe",extra: "Aufpreis",approve: "Verlängerung genehmigen",reject: "Verlängerung ablehnen",
       ownerPending: "Verlängerung angefragt bis",ownerApproved: "Aufpreis noch nicht bezahlt",ownerPaid: "Verlängerung bezahlt",
       error: "Verlängerung nicht möglich. Verfügbarkeit prüfen und erneut versuchen.",declined: "Verlängerung abgelehnt.",
@@ -57,7 +57,7 @@
     },
     pl: {
       extend: "Przedłuż wynajem",newReturn: "Nowa data zwrotu",submit: "Poproś o przedłużenie",requested: "Prośba o przedłużenie wysłana.",
-      pending: "Oczekuje na zgodę właściciela",approved: "Przedłużenie zatwierdzone – dopłata wymagana",pay: "Zapłać dopłatę",
+      pending: "Oczekuje na zgodę właściciela",approved: "Przedłużenie zatwierdzone – dopłata wymagana",pay: "Zapłać dopłatę",paymentDue: "Oczekuje na dopłatę",
       rejected: "Przedłużenie odrzucone",expired: "Prośba o przedłużenie wygasła",paid: "Przedłużenie opłacone",
       until: "Nowy zwrot",extra: "Dopłata",approve: "Zatwierdź przedłużenie",reject: "Odrzuć przedłużenie",
       ownerPending: "Prośba o przedłużenie do",ownerApproved: "Oczekuje na dopłatę",ownerPaid: "Przedłużenie opłacone",
@@ -88,8 +88,14 @@
     return reservations.map(function (reservation) {
       const list = byReservation.get(String(reservation.id)) || [];
       const paid = list.filter(function (entry) { return entry.status === "paid"; });
+      // Database days and total_days must equal the original paid booking days;
+      // effective duration is derived from separately paid extension records.
+      const extraDays = paid.reduce(function (n,e) { return n + Number(e.additional_days || 0); },0);
+      const baseDays = Number(reservation.totalDays || reservation.days || 0);
       return Object.assign(reservation, {
         extensions: list,
+        days: baseDays + extraDays,
+        totalDays: baseDays + extraDays,
         totalPrice: Number(reservation.totalPrice || 0) + paid.reduce(function (n,e) { return n + Number(e.amount_total); },0),
         platformFeeAmount: Number(reservation.platformFeeAmount || 0) + paid.reduce(function (n,e) { return n + Number(e.platform_fee_amount); },0),
         ownerPayout: Number(reservation.ownerPayout || 0) + paid.reduce(function (n,e) { return n + Number(e.owner_payout); },0)
