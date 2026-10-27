@@ -10,6 +10,7 @@ const denoRuntime = (
 ).Deno;
 
 type AddressSuggestionPayload = {
+  source?: "ruian";
   query?: string;
   city?: string;
   postalCode?: string;
@@ -23,6 +24,17 @@ type AddressSuggestion = {
   latitude: number;
   longitude: number;
   label: string;
+};
+
+// RÚIAN is the official Czech address register. Registration reads only
+// verified address places and their PSČ; other Rentulo forms keep Geoapify.
+type RuianAddressSuggestion = {
+  street: string;
+  city: string;
+  postalCode: string;
+  label: string;
+  source: "ruian";
+  verified: true;
 };
 
 type CacheEntry = {
@@ -57,6 +69,12 @@ const GEOCODING_USER_AGENT = ALLOWED_ORIGINS.has("https://rentulo.com")
 // Server-only API key; never send it back to browsers or log the query URL.
 const GEOAPIFY_API_KEY = (denoRuntime.env.get("GEOAPIFY_API_KEY") || "").trim();
 const GEOAPIFY_EU_URL = "https://api-eu.geoapify.com";
+
+const RUIAN_BASE_URL = "https://ags.cuzk.gov.cz/arcgis/rest/services/RUIAN/MapServer";
+const RUIAN_SUGGEST_URL = `${RUIAN_BASE_URL}/exts/GeocodeSOE/tables/1/suggest`;
+const RUIAN_ADDRESS_QUERY_URL = `${RUIAN_BASE_URL}/1/query`;
+const RUIAN_MAX_SUGGESTIONS = 20;
+const ruianCache = new Map<string, { expiresAt: number; suggestions: RuianAddressSuggestion[] }>();
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const MAX_CACHE_ENTRIES = 120;
@@ -531,6 +549,174 @@ function createForwardUrl(query: string): URL {
   return url;
 }
 
+// ČÚZK publishes two official operations: GeocodeSOE suggest (full-text,
+// returning a table/feature ID), then MapServer/1/query (authoritative PSČ).
+// Both are server-to-server; no user address or upstream URL is written to logs.
+function parseRuianAddress(value: unknown): { street: string; city: string; postalCode: string } | null {
+  const parts = cleanText(value, 240).split(",").map(part => part.trim()).filter(Boolean);
+  if (parts.length < 2) return null;
+
+  const match = parts[parts.length - 1].match(/^(\d{3})\s?(\d{2})\s+(.+)$/u);
+  const street = parts[0];
+  if (!match || !parseStreetAndHouseNumber(street)) return null;
+
+  const cityWithDistrict = cleanText(match[3], 100);
+  // Prague's postal locality "Praha 1" is still the municipality Praha.
+  const city = cityWithDistrict.replace(/^Praha\s+(?:[1-9]|1\d|2[0-2])$/u, "Praha");
+  if (!city) return null;
+
+  return { street, city, postalCode: `${match[1]} ${match[2]}` };
+}
+
+function ruianMatchesRequestedAddress(
+  address: { street: string; city: string; postalCode: string },
+  streetQuery: string,
+  requestedCity: string,
+  requestedPostcode: string,
+  allowCityPrefix: boolean
+): boolean {
+  const requestedNumber = parseStreetAndHouseNumber(streetQuery);
+  const candidateNumber = parseStreetAndHouseNumber(address.street);
+  if (!candidateNumber) return false;
+  if (requestedNumber) {
+    if (!matchesRequestedStreet(candidateNumber.street, requestedNumber.street)
+        || !houseNumberMatches(candidateNumber.houseNumber, requestedNumber.houseNumber)) {
+      return false;
+    }
+  } else if (!matchesRequestedStreet(candidateNumber.street, streetQuery)) {
+    return false;
+  }
+
+  if (requestedCity && !cityMatches(address.city, requestedCity, allowCityPrefix)) return false;
+  if (requestedPostcode && !postalCodeMatches(address.postalCode, requestedPostcode)) return false;
+  return true;
+}
+
+async function fetchRuianJson(url: URL): Promise<Record<string, unknown>> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch(url.toString(), {
+      signal: controller.signal,
+      headers: { Accept: "application/json" }
+    });
+    if (!response.ok) throw new Error("RUIAN HTTP error");
+    const body: unknown = await response.json();
+    if (!body || typeof body !== "object" || Array.isArray(body)
+        || "error" in body) throw new Error("RUIAN response error");
+    return body as Record<string, unknown>;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function fetchRuianSuggestions(
+  streetQuery: string,
+  city: string,
+  postalCode: string,
+  allowCityPrefix: boolean
+): Promise<RuianAddressSuggestion[]> {
+  // A valid suggestion is not enough: always confirm the official PSČ attribute
+  // on MapServer/1/query for exactly the returned address object ID.
+  const search = async (text: string): Promise<Array<{ magicKey: string; text: string }>> => {
+    const url = new URL(RUIAN_SUGGEST_URL);
+    url.searchParams.set("text", text);
+    url.searchParams.set("maxSuggestions", String(RUIAN_MAX_SUGGESTIONS));
+    url.searchParams.set("f", "json");
+    const data = await fetchRuianJson(url);
+    if (!Array.isArray(data.suggestions)) throw new Error("Invalid RUIAN suggestions");
+    return data.suggestions
+      .filter(item => item && typeof item === "object")
+      .map(item => item as Record<string, unknown>)
+      .filter(item => item.isCollection !== true && item.type === "AdresniMisto"
+        && typeof item.magicKey === "string"
+        && /^\d{1,10}$/.test(item.magicKey)
+        && Number(item.magicKey) > 0 && Number(item.magicKey) <= 2147483647
+        && typeof item.text === "string")
+      .map(item => ({ magicKey: item.magicKey as string, text: item.text as string }));
+  };
+
+  // Search city first to avoid a similarly named street in another municipality.
+  let candidates = await search([streetQuery, city].filter(Boolean).join(" "));
+  if (!candidates.length && city) candidates = await search(streetQuery);
+  if (!candidates.length) return [];
+
+  const ids = [...new Set(candidates.map(item => item.magicKey))];
+  const url = new URL(RUIAN_ADDRESS_QUERY_URL);
+  url.searchParams.set("objectIds", ids.join(","));
+  url.searchParams.set("outFields", "objectid,kod,adresa,psc,nespravny,platido");
+  url.searchParams.set("returnGeometry", "false");
+  url.searchParams.set("f", "json");
+  const data = await fetchRuianJson(url);
+  if (!Array.isArray(data.features)) throw new Error("Invalid RUIAN address attributes");
+
+  const allowedIds = new Set(ids);
+  const suggestions: RuianAddressSuggestion[] = [];
+  const unique = new Set<string>();
+  for (const feature of data.features) {
+    const attributes = feature && typeof feature === "object"
+      ? (feature as { attributes?: Record<string, unknown> }).attributes : null;
+    if (!attributes || typeof attributes !== "object") continue;
+    const objectId = String(attributes.objectid ?? "");
+    if (!allowedIds.has(objectId) || attributes.platido != null
+        || (attributes.nespravny != null && attributes.nespravny !== "" && attributes.nespravny !== 0)) {
+      continue;
+    }
+
+    const address = parseRuianAddress(attributes.adresa);
+    const officialPostcode = String(attributes.psc ?? "");
+    if (!address || !/^\d{5}$/.test(officialPostcode)
+        || normalizePostalDigits(address.postalCode) !== officialPostcode
+        || !ruianMatchesRequestedAddress(address, streetQuery, city, postalCode, allowCityPrefix)) {
+      continue;
+    }
+
+    const key = `${normalizeComparableText(address.street)}|${normalizeComparableText(address.city)}|${officialPostcode}`;
+    if (unique.has(key)) continue;
+    unique.add(key);
+    suggestions.push({
+      ...address,
+      label: cleanText(attributes.adresa, 240),
+      source: "ruian",
+      verified: true
+    });
+  }
+
+  const candidateOrder = new Map(candidates.map((item, index) => [item.magicKey, index]));
+  // Server's feature order is arbitrary. Keep the official autocomplete ranking.
+  const idsByAddress = new Map<string, number>();
+  for (const feature of data.features) {
+    const attributes = (feature as { attributes?: Record<string, unknown> })?.attributes;
+    if (attributes) {
+      const order = candidateOrder.get(String(attributes.objectid ?? ""));
+      if (order !== undefined) idsByAddress.set(cleanText(attributes.adresa, 240), order);
+    }
+  }
+  suggestions.sort((a, b) => (idsByAddress.get(a.label) ?? 999) - (idsByAddress.get(b.label) ?? 999));
+  return suggestions.slice(0, 5);
+}
+
+async function getRuianSuggestions(
+  streetQuery: string,
+  city: string,
+  postalCode: string,
+  allowCityPrefix: boolean
+): Promise<RuianAddressSuggestion[]> {
+  const key = [streetQuery, city, normalizePostalDigits(postalCode)]
+    .map(value => normalizeComparableText(value)).join("|");
+  const entry = ruianCache.get(key);
+  if (entry && entry.expiresAt > Date.now()) return entry.suggestions;
+  if (entry) ruianCache.delete(key);
+
+  const suggestions = await fetchRuianSuggestions(streetQuery, city, postalCode, allowCityPrefix);
+  if (ruianCache.size >= MAX_CACHE_ENTRIES) {
+    const oldest = ruianCache.keys().next().value;
+    if (oldest) ruianCache.delete(oldest);
+  }
+  ruianCache.set(key, { expiresAt: Date.now() + CACHE_TTL_MS, suggestions });
+  return suggestions;
+}
+
 denoRuntime.serve(async (req) => {
   const origin = req.headers.get("Origin");
 
@@ -565,6 +751,22 @@ denoRuntime.serve(async (req) => {
 
   if (query.length < 3) {
     return jsonResponse({ suggestions: [] }, 200, origin);
+  }
+  if (payload.source === "ruian") {
+    const parsedQuery = parseAddressQuery(query);
+    const streetQuery = parsedQuery.streetQuery;
+    const city = cleanText(payload.city, 100) || parsedQuery.city;
+    const postalCode = normalizePostalCode(payload.postalCode) || parsedQuery.postalCode;
+    const allowCityPrefix = !cleanText(payload.city, 100) && parsedQuery.cityMayBePartial;
+    try {
+      return jsonResponse({
+        suggestions: await getRuianSuggestions(streetQuery, city, postalCode, allowCityPrefix)
+      }, 200, origin);
+    } catch (_error) {
+      // No fallback to unverified geocoding, no address/URL in logs.
+      console.warn("address-suggestions: official RUIAN lookup unavailable");
+      return jsonResponse({ error: "Verified address lookup unavailable" }, 503, origin);
+    }
   }
   if (!GEOAPIFY_API_KEY) {
     return jsonResponse({ error: "Address search unavailable" }, 503, origin);

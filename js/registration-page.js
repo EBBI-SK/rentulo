@@ -1,5 +1,5 @@
 const ADDRESS_SUGGESTION_MIN_LENGTH = 3;
-const ADDRESS_SUGGESTION_DELAY_MS = 450;
+const ADDRESS_SUGGESTION_DELAY_MS = 650;
 
 let registrationSubmitInProgress = false;
 let registrationErrorState = null;
@@ -7,6 +7,7 @@ let registrationAddressSuggestions = [];
 let registrationAddressActiveIndex = -1;
 let registrationAddressRequestId = 0;
 let registrationAddressTimer = null;
+let registrationLastVerifiedAddress = null;
 
 function registrationT(key, fallback) {
   if (typeof window.rentuloTranslate === "function") {
@@ -139,14 +140,15 @@ function registrationRenderAddressSuggestions(items) {
     return;
   }
 
-  // If the user entered a postal code, never offer addresses that disagree
-  // with it. Geoapify fallback searches can return a different postcode.
+  // Registration shows only address places verified by the official RÚIAN
+  // endpoint; a Geoapify suggestion must not silently set a profile PSČ.
   const postalCodeInput = document.getElementById("postalCode");
   const expectedPostalCode = String(postalCodeInput?.value || "").replace(/\D/g, "");
   registrationAddressSuggestions = (Array.isArray(items) ? items : [])
     .filter(function (item) {
-      return !expectedPostalCode ||
-        String(item.postalCode || "").replace(/\D/g, "") === expectedPostalCode;
+      const postcode = String(item.postalCode || "").replace(/\D/g, "");
+      return item.source === "ruian" && item.verified === true && /^\d{5}$/.test(postcode)
+        && (!expectedPostalCode || postcode === expectedPostalCode);
     })
     .slice(0, 5);
   registrationAddressActiveIndex = -1;
@@ -159,9 +161,10 @@ function registrationRenderAddressSuggestions(items) {
   suggestionsBox.innerHTML = registrationAddressSuggestions
     .map(function (item, index) {
       const main = String(item.street || "").trim();
-      // Do not present an unverified provider postcode as part of an address.
-      // The user enters/checks the postcode separately.
-      const meta = String(item.city || "").trim();
+      const meta = [item.city, item.postalCode]
+        .map(function (part) { return String(part || "").trim(); })
+        .filter(Boolean)
+        .join(", ");
 
       return `
         <button
@@ -178,7 +181,7 @@ function registrationRenderAddressSuggestions(items) {
       `;
     })
     .join("") +
-    '<div class="address-attribution">© OpenStreetMap contributors</div>';
+    '<div class="address-attribution">Zdroj: ČÚZK – RÚIAN</div>';
 
   suggestionsBox.hidden = false;
   streetInput.setAttribute("aria-expanded", "true");
@@ -226,17 +229,21 @@ function registrationSelectAddress(index) {
   const cityInput = document.getElementById("city");
   const postalCodeInput = document.getElementById("postalCode");
 
-  if (!item || !streetInput || !cityInput || !postalCodeInput) {
+  if (!item || item.source !== "ruian" || item.verified !== true
+      || !streetInput || !cityInput || !postalCodeInput
+      || !/^\d{3} \d{2}$/.test(String(item.postalCode || ""))) {
     return;
   }
 
   streetInput.value = String(item.street || "").trim();
   cityInput.value = String(item.city || "").trim();
-  // Geoapify is not an independent authority for Czech postal codes.
-  // Never silently copy its suggested PSČ into a user's registration profile.
-  // Keep any postcode that the user entered themselves; otherwise it stays
-  // empty and the required field asks them to verify and enter it.
-  [streetInput, cityInput].forEach(function (field) {
+  postalCodeInput.value = String(item.postalCode).trim();
+  registrationLastVerifiedAddress = {
+    street: streetInput.value,
+    city: cityInput.value,
+    postalCode: postalCodeInput.value
+  };
+  [streetInput, cityInput, postalCodeInput].forEach(function (field) {
     field.classList.remove("input-error");
     field.removeAttribute("aria-invalid");
   });
@@ -261,6 +268,7 @@ async function registrationLoadAddressSuggestions(query, requestId, city, postal
       "address-suggestions",
       {
         body: {
+          source: "ruian",
           query: query,
           city: city,
           postalCode: postalCode,
@@ -297,6 +305,18 @@ function setupAddressAutocomplete() {
   }
 
   function scheduleAddressSuggestions() {
+    // If the user changes a previously verified address, do not leave its old
+    // automatically supplied PSČ attached to the new street/city.
+    if (registrationLastVerifiedAddress && (
+      streetInput.value.trim() !== registrationLastVerifiedAddress.street ||
+      cityInput.value.trim() !== registrationLastVerifiedAddress.city
+    )) {
+      if (postalCodeInput.value.trim() === registrationLastVerifiedAddress.postalCode) {
+        postalCodeInput.value = "";
+      }
+      registrationLastVerifiedAddress = null;
+    }
+
     const query = streetInput.value.trim();
     const city = cityInput.value.trim();
     const postalCode = postalCodeInput.value.trim();
