@@ -89,8 +89,8 @@ export function renderOfferSeoHtml(html, values, target) {
       !/<title\b[^>]*>[\s\S]*?<\/title>/i.test(html)) {
     throw new Error('Detail template is missing expected HTML structure');
   }
-  // Keep the existing client application unchanged, while relative CSS/JS links
-  // remain anchored at / when served below /nabidka/<uuid>.
+  // Legacy detail.html already declares the root base for canonical URL changes.
+  // Inject it only for minimal templates without one, never twice.
   const head = [
     `<meta name="description" content="${escapeHtml(values.description)}" />`,
     `<link rel="canonical" href="${escapeHtml(values.canonicalUrl)}" />`,
@@ -104,8 +104,10 @@ export function renderOfferSeoHtml(html, values, target) {
     '<meta property="og:locale" content="cs_CZ" />'
   ];
   if (target === 'test') head.unshift('<meta name="robots" content="noindex" />');
-  return html
-    .replace(/<head(?:\s[^>]*)?>/i, opening => `${opening}\n  <base href="/" />`)
+  const htmlWithRootBase = /<base\b[^>]*href=["']\/["'][^>]*>/i.test(html)
+    ? html
+    : html.replace(/<head(?:\s[^>]*)?>/i, opening => `${opening}\n  <base href="/" />`);
+  return htmlWithRootBase
     .replace(/(<title\b[^>]*>)[\s\S]*?(<\/title>)/i,
       (_, opening, closing) => `${opening}${escapeHtml(values.title)}${closing}`)
     .replace(/<\/head>/i, `  ${head.join('\n  ')}\n</head>`);
