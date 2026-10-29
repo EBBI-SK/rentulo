@@ -1396,15 +1396,33 @@
       body[data-navigation-page="uvod"] .home-map-stage { order: 6; width: 100%; margin-top: 20px; }
       body[data-navigation-page="uvod"] .home-map-previews { order: 7; margin-top: 10px; }
     }
-    /* Only the mobile search action: match the existing "Nabidnout cokoli" frame. */
+    /* Mobile search: match the typography and arrow of "Nabidnout cokoli". */
     @media (max-width: 640px) {
       body[data-navigation-page="uvod"] .search-box .search-button {
+        position: relative;
         width: calc(100% + 16px);
         height: 61px;
         min-height: 61px;
         justify-self: start;
         margin-left: -8px;
         border-radius: 15px;
+      }
+      body[data-navigation-page="uvod"] .search-box .search-button-label {
+        font-size: 18px;
+        font-weight: 800;
+      }
+      body[data-navigation-page="uvod"] .search-box .search-button svg {
+        display: none;
+      }
+      body[data-navigation-page="uvod"] .search-box .search-button::after {
+        content: "→";
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 28px;
+        font-weight: 400;
+        line-height: 1;
       }
     }
 </style>
