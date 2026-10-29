@@ -989,6 +989,13 @@ function setupEditOfferSave() {
       return;
     }
 
+    if (editCurrentOffer.status === "active" && !String(editOfferPhotoDataUrl || "").trim()) {
+      const message = "Zveřejněná nabídka musí mít alespoň jednu fotografii. Ponechte původní nebo nahrajte novou.";
+      updateEditPhotoStatus(editT("editOffer.photoRequired", message), "error", "editOffer.photoRequired");
+      editShowTranslatedMessage("editOffer.photoRequired", message);
+      return;
+    }
+
     editSaveInProgress = true;
     setEditSavingState(true);
 
