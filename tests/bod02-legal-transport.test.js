@@ -216,6 +216,32 @@ test("Rentulo V1 legal notices consistently use the first document version 1.0",
   assert.match(registration, /privacy_notice_version:\s*"1\.0-test-2026-10-20"/);
 });
 
+test("public copy does not show internal V1 label while legal versions remain 1.0", () => {
+  const translate = dictionary();
+  const publicKeys = [
+    "offer.transportConfirmation", "offer.transportNotAllowed", "offer.transportMustConfirm",
+    "terms.section4.item5", "privacy.warning"
+  ];
+  for (const language of languages) {
+    for (const key of publicKeys) {
+      assert.doesNotMatch(translate(key, language), /\bV1\b/, `${language}:${key}`);
+    }
+  }
+  for (const file of [
+    "nabidnout.html", "edit-nabidka.html", "obchodni-podminky.html", "ochrana-osobnich-udaju.html"
+  ]) {
+    assert.doesNotMatch(read(file), /\bV1\b/, file);
+  }
+  for (const source of [create, edit]) {
+    assert.doesNotMatch(source, /\bV1\b/, "offer form fallback");
+  }
+  for (const language of languages) {
+    for (const key of ["terms.eyebrow", "privacy.eyebrow", "registration.termsVersionNote"]) {
+      assert.match(translate(key, language), /\b1\.0\b/, `${language}:${key}`);
+    }
+  }
+});
+
 test("listing price labels show Czech crowns in all five languages", () => {
   const translate = dictionary();
   const expected = {
