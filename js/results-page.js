@@ -121,12 +121,19 @@
     function resultsDateRangeText(from, to) {
       const lang = typeof window.getRentuloLanguage === "function"
         ? window.getRentuloLanguage() : "cs";
-      const locales = { cs: "cs-CZ", sk: "sk-SK", en: "en-GB", de: "de-DE", pl: "pl-PL" };
-      const options = { day: "numeric", month: "numeric", timeZone: "UTC" };
-      if (from.slice(0, 4) !== to.slice(0, 4)) options.year = "numeric";
-      const dateFormat = new Intl.DateTimeFormat(locales[lang] || "cs-CZ", options);
-      return dateFormat.format(new Date(from + "T00:00:00Z")) +
-        " – " + dateFormat.format(new Date(to + "T00:00:00Z"));
+      const [yearFrom, monthFrom, dayFrom] = from.split("-").map(Number);
+      const [yearTo, monthTo, dayTo] = to.split("-").map(Number);
+      const sameMonth = yearFrom === yearTo && monthFrom === monthTo;
+      // Use a compact local convention so both dates fit beside the calendar icon.
+      // Both native date inputs still show the full year for cross-year ranges.
+      if (lang === "en") {
+        return sameMonth
+          ? `${dayFrom}–${dayTo}/${monthTo}`
+          : `${dayFrom}/${monthFrom}–${dayTo}/${monthTo}`;
+      }
+      return sameMonth
+        ? `${dayFrom}.–${dayTo}.${monthTo}.`
+        : `${dayFrom}.${monthFrom}.–${dayTo}.${monthTo}.`;
     }
 
     function refreshResultsWhenSummary() {

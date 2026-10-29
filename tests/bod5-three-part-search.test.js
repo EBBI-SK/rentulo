@@ -29,10 +29,13 @@ test('homepage search has exactly three visible segments: CO / KDY / KDE (not a 
   assert.match(bar, /id="home-date-from" type="date"/);
   assert.match(bar, /id="home-date-to" type="date"/);
   assert.match(bar, /id="home-date-clear"/);
-  assert.match(homeHtml, /grid-template-columns: minmax\(0, 1\.13fr\) minmax\(0, \.82fr\) minmax\(0, \.88fr\) 66px/);
+  assert.match(homeHtml, /grid-template-columns: minmax\(0, 1\.13fr\) minmax\(0, \.96fr\) minmax\(0, \.91fr\) 66px/);
   assert.match(homeHtml, /\.search-box\s*\{\s*grid-template-columns: 1fr;/);
   assert.match(homeHtml, /id="homeNearbySearchButton"/);
   assert.match(homeHtml, /id="homeOffersMap"/);
+  assert.match(homeHtml, /\.search-field-where \{ grid-template-columns: minmax\(0, 1fr\) 26px/);
+  assert.match(homeHtml, /\.search-date-popover \{[\s\S]*?left: 50%/);
+  assert.match(homeHtml, /\.search-date-picker > summary \{[\s\S]*?border: 0; background: transparent/);
 });
 
 test('results search matches CO / KDY / KDE in one bar and retains category/price filters', () => {
@@ -49,6 +52,18 @@ test('results search matches CO / KDY / KDE in one bar and retains category/pric
   assert.match(resultsHtml, /id="priceFilter"/);
   assert.match(resultsHtml, /\.results-searchbar \{ grid-template-columns: 1fr;/);
   assert.match(resultsJs, /refreshResultsWhenSummary\(\)/);
+  assert.match(resultsHtml, /\.results-searchbar \{[\s\S]*?grid-template-columns: minmax\(0, 1\.13fr\) minmax\(0, \.96fr\) minmax\(0, \.91fr\) 66px/);
+  assert.match(resultsHtml, /\.search-date-popover \{[\s\S]*?left: 50%/);
+});
+
+test('CO and KDE placeholders remain short in all five languages', () => {
+  const placeholders = ['home.searchWhatPlaceholder', 'home.searchWherePlaceholder',
+    'results.searchWhatPlaceholder', 'results.searchWherePlaceholder'];
+  for (const key of placeholders) {
+    const expressions = [...i18n.matchAll(new RegExp(`"${key.replace('.', '\\.')}": "([^"]+)"`, 'g'))];
+    assert.equal(expressions.length, 5, key);
+    for (const match of expressions) assert.ok(match[1].length <= 25, `${key}: ${match[1]}`);
+  }
 });
 
 test('date picker labels and validation messages are translated into all five languages', () => {
