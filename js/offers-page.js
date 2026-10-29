@@ -1199,11 +1199,29 @@ const data = Array.isArray(updatedReservations)
       await reloadAndReopen(reservationId, "history");
     }
 
+    function ownerOfferHasPhoto(offerId) {
+      const offer = ownerOffers.find(function (item) {
+        return String(item.id) === String(offerId);
+      });
+      if (!offer || !String(offer.photoUrl || "").trim()) {
+        setAccountErrorMessage(
+          "offers.photoRequiredBeforePublish",
+          "Než nabídku zveřejníte nebo aktivujete, otevřete Upravit nabídku a přidejte alespoň jednu fotografii věci."
+        );
+        return false;
+      }
+      return true;
+    }
+
     async function publishOffer(offerId) {
       const supabaseClient = getSupabaseClient();
 
       if (!supabaseClient) {
         setAccountErrorMessage("offers.error.supabaseMissing", "Služba je dočasně nedostupná. Obnovte stránku.");
+        return;
+      }
+
+      if (!ownerOfferHasPhoto(offerId)) {
         return;
       }
 
@@ -1230,6 +1248,10 @@ const data = Array.isArray(updatedReservations)
     }
 
     async function changeOfferVisibility(offerId, newStatus) {
+      if (newStatus === "active" && !ownerOfferHasPhoto(offerId)) {
+        return;
+      }
+
       const supabaseClient = getSupabaseClient();
 
       if (!supabaseClient) {

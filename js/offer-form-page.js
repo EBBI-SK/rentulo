@@ -720,6 +720,13 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
         return;
       }
 
+      if (status !== "draft" && !offerPhotoDataUrl) {
+        const message = "Pro zveřejnění nabídky vyberte alespoň jednu fotografii věci. Koncept lze uložit bez fotky.";
+        updatePhotoStatusByKey("offer.photoRequired", message, "error");
+        showOfferTranslatedFormMessage("offer.photoRequired", message, "error");
+        return;
+      }
+
       offerSaveInProgress = true;
       setOfferSavingState(true, status);
 
