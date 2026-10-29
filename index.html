@@ -232,7 +232,7 @@
 
     .search-box {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 0.72fr) 66px;
+      grid-template-columns: minmax(0, 1.13fr) minmax(0, .96fr) minmax(0, .91fr) 66px;
       align-items: stretch;
       gap: 0;
       width: min(100%, 760px);
@@ -245,6 +245,8 @@
       box-shadow: 0 18px 42px rgba(16, 32, 25, 0.075);
     }
 
+    .search-box { position: relative; z-index: 30; }
+
     .search-field {
       position: relative;
       display: grid;
@@ -252,6 +254,14 @@
       gap: 4px;
       min-width: 0;
       padding: 7px 18px;
+    }
+
+    /* All three entries share the same interior spacing. */
+    .search-field input,
+    .search-field .search-date-picker > summary {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .search-field + .search-field::before {
@@ -290,6 +300,69 @@
       color: #8b9490;
       opacity: 1;
       font-weight: 500;
+    }
+
+    /* Keep the CO / KDY / KDE values aligned, even with a long search term. */
+    .search-field input { text-overflow: ellipsis; }
+    .search-field-where { min-width: 0; }
+    .search-field-when .search-date-picker { width: 100%; }
+
+    /* BOD 5: compact date-range selector, a single visible KDY? field. */
+    .search-date-picker { position: relative; min-width: 0; }
+    .search-date-picker > summary {
+      display: flex; align-items: center; justify-content: space-between; gap: 7px;
+      min-width: 0; min-height: 30px; padding: 0; border: 0; background: transparent; box-shadow: none;
+      outline: none; border-radius: 0; list-style: none; cursor: pointer;
+      color: #8b9490; font-size: 14px; font-weight: 500;
+    }
+    .search-date-picker > summary::-webkit-details-marker { display: none; }
+    .search-date-picker > summary span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .search-date-picker > summary:focus-visible { outline: 2px solid #00835a; outline-offset: 3px; border-radius: 3px; }
+    .search-date-picker.has-dates > summary { color: var(--rentulo-ink, var(--ink, #102019)); font-weight: 600; }
+    .search-date-picker > summary svg {
+      flex: 0 0 18px; width: 18px; height: 18px; fill: none;
+      stroke: #247654; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+    }
+    .search-date-picker > summary:focus-visible,
+    .search-date-popover input:focus-visible,
+    .search-date-clear:focus-visible { outline: 2px solid #00835a; outline-offset: 2px; }
+    .search-date-popover {
+      position: absolute; z-index: 40; left: 50%; top: calc(100% + 12px);
+      transform: translateX(-50%); width: 330px; max-width: calc(100vw - 36px);
+      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
+      padding: 14px; border: 1px solid #d9e5df; border-radius: 15px;
+      background: #fff; box-shadow: 0 18px 38px rgba(16, 32, 25, 0.16);
+    }
+    .search-date-control { display: grid; gap: 6px; min-width: 0; }
+    .search-date-control label { color: #102019; font-size: 12px; font-weight: 700; letter-spacing: 0; text-transform: none; }
+    .search-date-control input[type="date"] {
+      width: 100%; min-width: 0; height: 42px; padding: 0 5px;
+      border: 1px solid #d9e1dd; border-radius: 10px; background: #fbfcfb;
+      color: #102019; font-size: 12px; font-weight: 500; color-scheme: light;
+    }
+    .search-date-error { grid-column: 1 / -1; margin: 0; font-size: 12px; color: #ad3030; }
+    .search-date-error[hidden] { display: none; }
+    .search-date-clear {
+      grid-column: 1 / -1; justify-self: end; padding: 6px 1px;
+      border: 0; background: transparent; color: #176747;
+      font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+    /* Stack the date controls only when the search bar itself is stacked. */
+    @media (max-width: 640px) {
+      .search-date-popover {
+        position: static; transform: none; width: 100%; max-width: none;
+        margin-top: 8px; padding: 8px 0 4px; border: 0;
+        border-top: 1px solid #e7e9e6; border-radius: 0; box-shadow: none;
+      }
+    }
+
+    @media (max-width: 359px) {
+      .search-date-popover { grid-template-columns: 1fr; }
+    }
+
+    .search-field-when .search-field-heading {
+      color: #16251f; font-size: 13px; line-height: 1.2;
+      font-weight: 800; letter-spacing: .055em; text-transform: uppercase;
     }
 
     .search-button {
@@ -955,6 +1028,17 @@
 
     /* Compact location action inside the existing KDE? search field. */
     #home-search-where { padding-right: 40px; }
+    /* Move the location icon beside KDE? on a horizontal bar, freeing text space. */
+    @media (min-width: 641px) {
+      .search-field-where { grid-template-columns: minmax(0, 1fr) 26px; gap: 3px 4px; }
+      .search-field-where > label { grid-column: 1; grid-row: 1; align-self: center; }
+      .search-field-where > #home-search-where { grid-column: 1 / -1; grid-row: 2; padding-right: 0; transform: translateY(-5px); }
+      .search-field-where > .home-nearby-icon-button {
+        position: static; grid-column: 2; grid-row: 1; align-self: center;
+        justify-self: end; width: 26px; height: 26px;
+      }
+      .search-field-where > .home-nearby-icon-button svg { width: 18px; height: 18px; }
+    }
     .home-nearby-icon-button {
       position: absolute;
       right: 8px;
@@ -1244,15 +1328,16 @@
       }
       body[data-navigation-page="uvod"] .home-offer-cta-arrow { font-size: 30px; }
       body[data-navigation-page="uvod"] .search-box {
-        grid-template-columns: minmax(0, 1fr) minmax(0, .72fr) 58px;
+        grid-template-columns: minmax(0, 1.13fr) minmax(0, .96fr) minmax(0, .91fr) 58px;
         min-height: clamp(53px, 9vh, 64px);
         margin-top: clamp(7px, 1.5vh, 12px);
         margin-bottom: 0;
         padding: 5px;
         border-radius: 17px;
       }
-      body[data-navigation-page="uvod"] .search-field { padding: 4px 12px; gap: 3px; }
-      body[data-navigation-page="uvod"] .search-field label { font-size: 12px; }
+      body[data-navigation-page="uvod"] .search-field { padding: 4px 10px; gap: 3px; }
+      body[data-navigation-page="uvod"] .search-field label,
+      body[data-navigation-page="uvod"] .search-field-when .search-field-heading { font-size: 12px; }
       body[data-navigation-page="uvod"] .search-field input { height: 25px; }
       body[data-navigation-page="uvod"] .search-button {
         width: clamp(50px, 7vh, 56px);
@@ -1513,17 +1598,39 @@
             <input
               id="home-search-what"
               type="text"
-              placeholder="např. vysavač, gril nebo reproduktor"
+              placeholder="např. vrtačka"
               data-i18n-placeholder="home.searchWhatPlaceholder"
             />
           </div>
 
-          <div class="search-field">
+          <div class="search-field search-field-when">
+            <span class="search-field-heading" id="home-when-heading" data-i18n="search.whenLabel">Kdy?</span>
+            <details class="search-date-picker" id="home-search-when">
+              <summary aria-labelledby="home-when-heading home-when-value">
+                <span id="home-when-value">Vyberte termín</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4 M17 3v4 M3 10h18"/></svg>
+              </summary>
+              <div class="search-date-popover">
+                <div class="search-date-control">
+                  <label for="home-date-from" data-i18n="search.dateFrom">Od</label>
+                  <input id="home-date-from" type="date" autocomplete="off" />
+                </div>
+                <div class="search-date-control">
+                  <label for="home-date-to" data-i18n="search.dateTo">Do</label>
+                  <input id="home-date-to" type="date" autocomplete="off" />
+                </div>
+                <p class="search-date-error" id="home-date-error" role="status" aria-live="polite" hidden></p>
+                <button type="button" class="search-date-clear" id="home-date-clear" data-i18n="search.dateClear">Vymazat termín</button>
+              </div>
+            </details>
+          </div>
+
+          <div class="search-field search-field-where">
             <label for="home-search-where" data-i18n="home.searchWhereLabel">Kde?</label>
             <input
               id="home-search-where"
               type="text"
-              placeholder="město nebo PSČ"
+              placeholder="město / PSČ"
               data-i18n-placeholder="home.searchWherePlaceholder"
             />
             <button type="button" id="homeNearbySearchButton" class="home-nearby-icon-button">

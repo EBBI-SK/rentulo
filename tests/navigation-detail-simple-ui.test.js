@@ -17,7 +17,7 @@ function extractFunction(source, startMarker, endMarker, context) {
   return vm.runInNewContext(`(${source.slice(start, end).trim()})`, context);
 }
 
-function renderHeader(page, loggedIn) {
+function renderHeader(page, loggedIn, detailReturnTo) {
   const element = { innerHTML: "", classList: { toggle() {} } };
   let desktopPin = false;
   let mobilePin = false;
@@ -32,6 +32,7 @@ function renderHeader(page, loggedIn) {
     navBindGlobalDropdownDismissal() {}, navInjectStyles() {},
     navGetCurrentUser() { return loggedIn ? { id: "owner-1" } : null; },
     navTranslate(key, fallback) { return fallback; },
+    getOfferLoginReturnTo: detailReturnTo ? () => detailReturnTo : undefined,
     navMobileProfileSummary() { return "<div>Mobile account menu</div>"; },
     navPinLink() { desktopPin = true; return '<button data-home-pin-open="true">Zadat PIN</button>'; },
     navProfileControl() { return "<button>Account</button>"; },
@@ -71,6 +72,30 @@ test("all pages share the simplified header; the existing PIN and account contro
       }
     }
   }
+});
+
+test("header login on offer detail returns to the same offer and selected dates", () => {
+  const offerId = "16b3017d-13b5-4a39-b617-fd56614d7d6d";
+  const detailReturnTo = `detail.html?id=${offerId}&od=2026-10-31&do=2026-11-03`;
+  const expectedLoginHref = "prihlaseni.html?returnTo=" + encodeURIComponent(detailReturnTo);
+  const detailHeader = renderHeader("detail", false, detailReturnTo).html;
+  assert.ok(detailHeader.includes(`href="${expectedLoginHref}"`));
+
+  // Confirm the destination is accepted by the existing login allowlist.
+  const login = fs.readFileSync(path.join(root, "js/login-page.js"), "utf8");
+  const origin = "https://rentulo.test";
+  const context = {
+    URL, URLSearchParams,
+    window: { location: { origin, search: "?returnTo=" + encodeURIComponent(detailReturnTo) } },
+    document: { addEventListener() {} }
+  };
+  vm.runInNewContext(login, context);
+  assert.equal(context.loginGetSafeReturnTo(), detailReturnTo);
+
+  // No changed behavior for other pages or when the detail has no offer ID.
+  assert.doesNotMatch(renderHeader("uvod", false, detailReturnTo).html, /returnTo=/);
+  assert.doesNotMatch(renderHeader("detail", false, "detail.html").html, /returnTo=/);
+  assert.doesNotMatch(renderHeader("detail", true, detailReturnTo).html, /prihlaseni\.html/);
 });
 
 test("browse listings is first in both desktop and mobile account menus", () => {

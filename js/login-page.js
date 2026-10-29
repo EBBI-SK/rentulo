@@ -42,9 +42,24 @@ function loginNormalizeEmail(email) {
           return "";
         }
 
-        return returnPath === "detail.html"
-          ? "detail.html?id=" + encodeURIComponent(id)
-          : "edit-nabidka.html?id=" + encodeURIComponent(id);
+        if (returnPath === "edit-nabidka.html") {
+          return "edit-nabidka.html?id=" + encodeURIComponent(id);
+        }
+        const safeParams = new URLSearchParams({ id });
+        const from = returnUrl.searchParams.get("od") || "";
+        const to = returnUrl.searchParams.get("do") || "";
+        if (/^\d{4}-\d{2}-\d{2}$/.test(from) && /^\d{4}-\d{2}-\d{2}$/.test(to)) {
+          const start = new Date(from + "T00:00:00Z");
+          const end = new Date(to + "T00:00:00Z");
+          const days = (end.getTime() - start.getTime()) / 86400000;
+          if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) &&
+              start.toISOString().slice(0, 10) === from && end.toISOString().slice(0, 10) === to &&
+              Number.isInteger(days) && days >= 1 && days <= 365) {
+            safeParams.set("od", from);
+            safeParams.set("do", to);
+          }
+        }
+        return "detail.html?" + safeParams.toString();
       }
 
       switch (returnPath) {

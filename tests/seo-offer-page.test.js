@@ -73,7 +73,12 @@ test('legacy offer detail keeps relative navigation at the site root after SEO U
     'prihlaseni.html', 'registrace.html', 'vysledky.html'
   ];
   for (const page of pages) {
-    assert.ok(menu.includes(`href="${page}"`), `Missing shared menu route ${page}`);
+    if (page === 'prihlaseni.html') {
+      assert.ok(menu.includes('href="${loginHref}"'), 'Detail login must preserve the offer return destination');
+      assert.match(menu, /: "prihlaseni\.html";/, 'Other pages retain the default login destination');
+    } else {
+      assert.ok(menu.includes(`href="${page}"`), `Missing shared menu route ${page}`);
+    }
     assert.equal(new URL(page, documentBase).href, `https://rentulo.eu/${page}`);
   }
   for (const asset of ['assets/rentulo-logo-mark.png', 'js/navigation.js', 'css/rentulo-theme.css']) {
@@ -168,8 +173,8 @@ test('new offer links and legacy login return URLs coexist', () => {
   assert.match(detail, /getOfferLoginReturnTo\(\)/);
   assert.match(detail, /showCanonicalOfferUrl\(offer\)/);
   assert.match(detail, /window\.history\.replaceState/);
-  assert.match(detail, /"detail\.html\?id=" \+ encodeURIComponent\(offerId\)/);
-  assert.match(results, /href="\/nabidka\/\$\{encodeURIComponent\(offerId\)\}"/);
+  assert.match(detail, /return "detail\.html\?" \+ params\.toString\(\)/);
+  assert.match(results, /getResultOfferDetailLink\(offerId\)/);
   assert.match(detail, /cs:.*Rentulo|const descriptions = \{/);
   for (const code of ['cs','sk','en','de','pl']) assert.match(detail, new RegExp(`\\b${code}: \\x60`));
 });
