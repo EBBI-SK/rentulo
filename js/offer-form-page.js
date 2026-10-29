@@ -95,16 +95,8 @@ let offerSaveInProgress = false;
         customFields.classList.toggle("is-visible", Boolean(pickupUseCustom && pickupUseCustom.checked));
       }
       if (notice) {
-        notice.hidden = hasCompleteCzechProfileAddress;
-        if (!hasCompleteCzechProfileAddress) {
-          const missingCzechAddress = offerOwnerProfile.countryCode === "CZ";
-          const key = missingCzechAddress ? "offer.profilePickupMissing" : "offer.profilePickupOutsideCz";
-          const fallback = missingCzechAddress
-            ? "Ve vašem profilu chybí úplná adresa pro vyzvednutí. Doplňte ji v Nastavení nebo zvolte jiné místo vyzvednutí."
-            : "Profilová adresa není ověřená jako česká. Zvolte jiné místo vyzvednutí v ČR nebo doplňte zemi bydliště v Nastavení.";
-          notice.setAttribute("data-i18n", key);
-          notice.textContent = offerTranslate(key, fallback);
-        }
+        // A single clear instruction is enough when the user is entering a pickup address.
+        notice.hidden = !(pickupUseCustom && pickupUseCustom.checked);
       }
 
       if (!summary || !address) return;
