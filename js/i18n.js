@@ -4,6 +4,13 @@
 
   const translations = {
       "cs": {
+          "offer.pickupOutsideCz": "Místo vyzvednutí musí být v České republice. Zadejte českou adresu.",
+          "country.choose": "Vyberte zemi",
+          "country.residenceLabel": "Země bydliště",
+          "country.required": "Vyberte prosím zemi bydliště.",
+          "country.invalidPostalCode": "Zkontrolujte PSČ pro vybranou zemi.",
+          "offer.pickupCountryNote": "Země vyzvednutí: Česká republika. Nabídky v dalších zemích zatím nejsou dostupné.",
+          "offer.profilePickupOutsideCz": "Profilová adresa není ověřená jako česká. Zvolte jiné místo vyzvednutí v ČR nebo doplňte zemi bydliště v Nastavení.",
           "reference.offer": "Číslo nabídky",
           "reference.reservation": "Číslo rezervace",
           "footer.creditLabel": "Web vytvořila",
@@ -1315,6 +1322,13 @@
           "detail.category.other": "Ostatní"
       },
       "sk": {
+          "offer.pickupOutsideCz": "Miesto vyzdvihnutia musí byť v Českej republike. Zadajte českú adresu.",
+          "country.choose": "Vyberte krajinu",
+          "country.residenceLabel": "Krajina bydliska",
+          "country.required": "Vyberte, prosím, krajinu bydliska.",
+          "country.invalidPostalCode": "Skontrolujte PSČ pre vybranú krajinu.",
+          "offer.pickupCountryNote": "Krajina vyzdvihnutia: Česká republika. Ponuky v ďalších krajinách zatiaľ nie sú dostupné.",
+          "offer.profilePickupOutsideCz": "Adresa profilu nie je overená ako česká. Vyberte iné miesto vyzdvihnutia v ČR alebo doplňte krajinu bydliska v Nastaveniach.",
           "reference.offer": "Číslo ponuky",
           "reference.reservation": "Číslo rezervácie",
           "footer.creditLabel": "Web vytvorila",
@@ -2628,6 +2642,13 @@
           "detail.category.other": "Ostatné"
       },
       "en": {
+          "offer.pickupOutsideCz": "Pickup must take place in Czechia. Please enter an address in Czechia.",
+          "country.choose": "Select a country",
+          "country.residenceLabel": "Country of residence",
+          "country.required": "Please select your country of residence.",
+          "country.invalidPostalCode": "Please check the postal code for the selected country.",
+          "offer.pickupCountryNote": "Pickup country: Czech Republic. Listings in other countries are not available yet.",
+          "offer.profilePickupOutsideCz": "Your profile address is not verified as Czech. Choose another pickup location in Czechia or set your country of residence in Settings.",
           "reference.offer": "Listing number",
           "reference.reservation": "Reservation number",
           "footer.creditLabel": "Website created by",
@@ -3939,6 +3960,13 @@
           "detail.category.other": "Other"
       },
       "de": {
+          "offer.pickupOutsideCz": "Der Abholort muss in Tschechien liegen. Geben Sie eine tschechische Adresse ein.",
+          "country.choose": "Land auswählen",
+          "country.residenceLabel": "Wohnsitzland",
+          "country.required": "Bitte wählen Sie Ihr Wohnsitzland.",
+          "country.invalidPostalCode": "Bitte prüfen Sie die Postleitzahl für das ausgewählte Land.",
+          "offer.pickupCountryNote": "Abholland: Tschechien. Angebote in anderen Ländern sind derzeit noch nicht verfügbar.",
+          "offer.profilePickupOutsideCz": "Ihre Profiladresse ist nicht als tschechische Adresse bestätigt. Wählen Sie einen anderen Abholort in Tschechien oder ergänzen Sie Ihr Wohnsitzland in den Einstellungen.",
           "reference.offer": "Angebotsnummer",
           "reference.reservation": "Reservierungsnummer",
           "footer.creditLabel": "Website erstellt von",
@@ -5250,6 +5278,13 @@
           "detail.category.other": "Sonstiges"
       },
       "pl": {
+          "offer.pickupOutsideCz": "Miejsce odbioru musi znajdować się w Czechach. Podaj adres w Czechach.",
+          "country.choose": "Wybierz kraj",
+          "country.residenceLabel": "Kraj zamieszkania",
+          "country.required": "Wybierz kraj zamieszkania.",
+          "country.invalidPostalCode": "Sprawdź kod pocztowy dla wybranego kraju.",
+          "offer.pickupCountryNote": "Kraj odbioru: Czechy. Oferty w innych krajach nie są jeszcze dostępne.",
+          "offer.profilePickupOutsideCz": "Adres w profilu nie jest potwierdzony jako czeski. Wybierz inne miejsce odbioru w Czechach lub uzupełnij kraj zamieszkania w Ustawieniach.",
           "reference.offer": "Numer oferty",
           "reference.reservation": "Numer rezerwacji",
           "footer.creditLabel": "Stronę stworzyła",

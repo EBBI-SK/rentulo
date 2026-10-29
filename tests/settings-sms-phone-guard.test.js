@@ -26,7 +26,7 @@ const saveCode = extract("async function saveProfile(", "async function changePa
 function makeFixture({ storedPhone = "+420 777 123 456", optedIn = false } = {}) {
   const initial = {
     fullName: "Example User", email: "example@domain.cz", phone: storedPhone,
-    street: "Dlouha 1", city: "Praha", postalCode: "11000"
+    street: "Dlouha 1", city: "Praha", countryCode: "CZ", postalCode: "11000"
   };
   const user = { id: "test-user", email: initial.email, new_email: "", user_metadata: {} };
   const db = { ...initial, sms_notifications: optedIn };
@@ -40,6 +40,7 @@ function makeFixture({ storedPhone = "+420 777 123 456", optedIn = false } = {})
     profilePhone: { value: initial.phone },
     profileStreet: { value: initial.street },
     profileCity: { value: initial.city },
+    profileCountryCode: { value: initial.countryCode },
     profilePostalCode: { value: initial.postalCode },
     saveProfileButton: button(), profileMessage: {},
     settingsSmsEnabled: { checked: optedIn },
@@ -55,7 +56,9 @@ function makeFixture({ storedPhone = "+420 777 123 456", optedIn = false } = {})
     setButtonLoading(buttonElement, busy) { if (buttonElement) buttonElement.disabled = busy; },
     Date, console
   };
+  sandbox.window = sandbox;
   vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(root, "js/country-address.js"), "utf8"), sandbox);
   const utils = fs.readFileSync(path.join(root, "js/utils.js"), "utf8");
   vm.runInContext(utils.slice(utils.indexOf("function formatRentuloCzechPostalCode(")), sandbox);
   vm.runInContext(

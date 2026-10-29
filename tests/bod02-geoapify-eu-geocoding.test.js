@@ -41,14 +41,15 @@ function createGeocodeHarness({ key = "test-eu-secret", authenticated = true, fe
       requests.push(new URL(url));
       if (fetchError) throw new Error("Mocked connection failed: " + fetchError);
       return fetchResponse || new Response(JSON.stringify({
-        results: [{ lat: 50.087, lon: 14.421, country_code: "cz" }],
+        results: [{ lat: 50.087, lon: 14.421, country_code: "cz",
+          city: "Praha", postcode: "110 00", street: "Národní", housenumber: "10" }],
       }), { status: 200 });
     },
   };
   vm.runInNewContext(geocodeScript, sandbox, { timeout: 2500 });
   return {
     requests,
-    async geocode(address = { street: "Národní 10", city: "Praha", postalCode: "110 00" }) {
+    async geocode(address = { street: "Národní 10", city: "Praha", postalCode: "110 00", countryCode: "CZ" }) {
       const result = await handle(new Request(`${testProject}/functions/v1/geocode-pickup`, {
         method: "POST",
         headers: { Authorization: "Bearer fictional-test-token", "content-type": "application/json" },
@@ -71,7 +72,7 @@ test("V1 sends precise addresses only to the Geoapify EU geocoding API", async (
   assert.equal(url.protocol, "https:");
   assert.equal(url.hostname, "api-eu.geoapify.com");
   assert.equal(url.pathname, "/v1/geocode/search");
-  assert.equal(url.searchParams.get("filter"), "countrycode:cz");
+  assert.equal(url.searchParams.get("filter"), null, "foreign addresses must remain detectable");
   assert.equal(url.searchParams.get("format"), "json");
   assert.equal(url.searchParams.get("street"), "Národní");
   assert.equal(url.searchParams.get("housenumber"), "10");
@@ -119,4 +120,53 @@ test("Both Rentulo address functions use Geoapify's EU endpoint without browser 
     assert.match(source, /GEOAPIFY_API_KEY/);
     assert.doesNotMatch(source, /photon\.komoot|nominatim\.openstreetmap|https:\/\/api\.geoapify\.com/);
   }
+});
+
+test("rejects foreign pickup-country requests before contacting provider", async () => {
+  const harness = createGeocodeHarness();
+  const result = await harness.geocode({
+    street: "Hlboká 24", city: "Trnava", postalCode: "917 01", countryCode: "SK"
+  });
+  assert.equal(result.status, 400);
+  assert.equal(result.body.reason, "unsupported_country");
+  assert.equal(harness.requests.length, 0);
+});
+
+test("Czech approximate result for a foreign address is rejected when postcode differs", async () => {
+  const harness = createGeocodeHarness({fetchResponse: new Response(JSON.stringify({
+    results: [{lat: 49.26, lon: 17.79, country_code: "cz", city: "Trnava",
+      postcode: "763 18", street: "Hlboká", housenumber: "24"}]
+  }), {status: 200})});
+  const result = await harness.geocode({
+    street: "Hlboká 24", city: "Trnava", postalCode: "917 01", countryCode: "CZ"
+  });
+  assert.equal(result.status, 200);
+  assert.equal(result.body.reason, "not_found");
+});
+
+test("Czech geocoding chooses the exact address instead of an approximate first match", async () => {
+  const harness = createGeocodeHarness({fetchResponse: new Response(JSON.stringify({
+    results: [
+      {lat: 50.2, lon: 14.5, country_code: "cz", city: "Kladno", postcode: "272 01",
+        street: "Národní", housenumber: "10"},
+      {lat: 50.087, lon: 14.421, country_code: "cz", city: "Praha", postcode: "11000",
+        street: "Národní", housenumber: "10"}
+    ]
+  }), {status: 200})});
+  const result = await harness.geocode();
+  assert.equal(result.body.ok, true);
+  assert.equal(result.body.latitude, 50.087);
+  assert.equal(harness.requests[0].searchParams.get("limit"), "5");
+});
+
+test("recognizes an exact Slovak address and returns clear unsupported country", async () => {
+  const harness = createGeocodeHarness({fetchResponse: new Response(JSON.stringify({
+    results: [{lat: 48.38, lon: 17.58, country_code: "sk", city: "Trnava",
+      postcode: "917 01", street: "Hlboká", housenumber: "24"}]
+  }), {status: 200})});
+  const result = await harness.geocode({
+    street: "Hlboká 24", city: "Trnava", postalCode: "917 01", countryCode: "CZ"
+  });
+  assert.equal(result.status, 200);
+  assert.equal(result.body.reason, "unsupported_country");
 });

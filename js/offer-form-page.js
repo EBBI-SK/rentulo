@@ -7,7 +7,8 @@ let offerSaveInProgress = false;
       phone: "",
       street: "",
       city: "",
-      postalCode: ""
+      postalCode: "",
+      countryCode: ""
     };
 
     const OFFER_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
@@ -42,7 +43,7 @@ let offerSaveInProgress = false;
 
       const { data: profile, error } = await supabaseClient
         .from("profiles")
-        .select("phone, street, city, postal_code")
+        .select("phone, street, city, postal_code, country_code")
         .eq("id", authenticatedUser.id)
         .maybeSingle();
 
@@ -57,8 +58,17 @@ let offerSaveInProgress = false;
         phone: profile.phone || "",
         street: profile.street || "",
         city: userCity,
-        postalCode: userPostalCode
+        postalCode: userPostalCode,
+        countryCode: profile.country_code || ""
       };
+
+      // A foreign or legacy profile is never silently treated as a Czech pickup address.
+      if (offerOwnerProfile.countryCode !== "CZ") {
+        const custom = document.getElementById("pickupUseCustom");
+        const customFields = document.getElementById("pickupCustomFields");
+        if (custom) custom.checked = true;
+        if (customFields) customFields.classList.add("is-visible");
+      }
 
       renderProfilePickupAddress();
     }
@@ -75,7 +85,8 @@ let offerSaveInProgress = false;
       const hasCompleteProfileAddress = Boolean(
         offerOwnerProfile.street &&
         offerOwnerProfile.city &&
-        offerOwnerProfile.postalCode
+        offerOwnerProfile.postalCode &&
+        offerOwnerProfile.countryCode === "CZ"
       );
 
       if (!hasCompleteProfileAddress) {
@@ -371,6 +382,7 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
       if (useCustomPickup) {
         return {
           mode: "custom",
+          countryCode: "CZ",
           street: getInputValue("pickupStreet"),
           city: getInputValue("pickupCity"),
           postalCode: formatRentuloCzechPostalCode(getInputValue("pickupPostalCode")) || getInputValue("pickupPostalCode"),
@@ -381,6 +393,7 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
 
       return {
         mode: "profile",
+        countryCode: offerOwnerProfile.countryCode,
         street: offerOwnerProfile.street,
         city: offerOwnerProfile.city,
         postalCode: formatRentuloCzechPostalCode(offerOwnerProfile.postalCode) || offerOwnerProfile.postalCode,
@@ -455,6 +468,10 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
       } else {
         const profilePickup = getPickupAddress();
 
+        if (profilePickup.countryCode !== "CZ") {
+          showOfferTranslatedFormMessage("offer.profilePickupOutsideCz", "Profilová adresa není ověřená jako česká. Zvolte jiné místo vyzvednutí v ČR nebo doplňte zemi bydliště v Nastavení.", "error");
+          return false;
+        }
         if (!profilePickup.street || !profilePickup.city || !profilePickup.postalCode) {
           showOfferTranslatedFormMessage(
             "offer.profilePickupMissing",
@@ -569,28 +586,43 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
       };
     }
 
-    async function geocodePickupAddress(supabaseClient, pickupAddress) {
+    async function geocodePickupAddress(supabaseClient, pickupAddress, mustVerify = true) {
       const { data, error } = await supabaseClient.functions.invoke("geocode-pickup", {
         body: {
-  street: pickupAddress.street,
-  city: pickupAddress.city,
-  postalCode: pickupAddress.postalCode
-}
+          street: pickupAddress.street,
+          city: pickupAddress.city,
+          postalCode: pickupAddress.postalCode,
+          countryCode: pickupAddress.countryCode
+        }
       });
 
       if (error) {
-        console.warn("Pickup geocoding is temporarily unavailable; saving without coordinates.", error);
+        if (mustVerify) {
+          const unavailable = new Error("Pickup verification unavailable");
+          unavailable.code = "PICKUP_GEOCODING_UNAVAILABLE";
+          throw unavailable;
+        }
+        console.warn("Pickup verification unavailable; draft will have no coordinates.");
         return null;
       }
 
       if (!data || data.ok !== true) {
+        if (data && data.reason === "unsupported_country") {
+          const countryError = new Error("Pickup address is outside the Czech Republic");
+          countryError.code = "PICKUP_COUNTRY_UNSUPPORTED";
+          throw countryError;
+        }
         if (data && data.reason === "not_found") {
           const geocodeError = new Error("Pickup address was not found");
           geocodeError.code = "PICKUP_GEOCODING_NOT_FOUND";
           throw geocodeError;
         }
 
-        console.warn("Pickup geocoding is temporarily unavailable; saving without coordinates.");
+        if (mustVerify) {
+          const unavailable = new Error("Pickup verification unavailable");
+          unavailable.code = "PICKUP_GEOCODING_UNAVAILABLE";
+          throw unavailable;
+        }
         return null;
       }
 
@@ -598,8 +630,9 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
       const longitude = Number(data.longitude);
 
       if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-        console.warn("Pickup geocoding returned invalid coordinates; saving without coordinates.");
-        return null;
+        const invalid = new Error("Pickup verification returned invalid coordinates");
+        invalid.code = "PICKUP_GEOCODING_UNAVAILABLE";
+        throw invalid;
       }
 
       return {
@@ -623,6 +656,8 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
         photo_url: photoUrl || null,
 
         pickup_mode: pickupAddress.mode,
+        pickup_country_code: pickupAddress.countryCode,
+        currency_code: "CZK",
         pickup_street: pickupAddress.street,
         pickup_city: pickupAddress.city,
         pickup_postal_code: pickupAddress.postalCode,
@@ -691,7 +726,7 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
         }
 
         const pickupAddress = getPickupAddress();
-        const pickupCoordinates = await geocodePickupAddress(supabaseClient, pickupAddress);
+        const pickupCoordinates = await geocodePickupAddress(supabaseClient, pickupAddress, status !== "draft");
         const uploadedPhoto = await uploadOfferPhoto(supabaseClient, supabaseUser.id);
         uploadedPhotoPath = uploadedPhoto.path;
         const supabaseOffer = createSupabaseOfferObject(
@@ -735,6 +770,11 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
         const message = error && error.message
           ? String(error.message).toLowerCase()
           : "";
+
+        if (error && error.code === "PICKUP_COUNTRY_UNSUPPORTED") {
+          showOfferTranslatedFormMessage("offer.pickupOutsideCz", "Místo vyzvednutí musí být v České republice. Zadejte českou adresu.", "error");
+          return;
+        }
 
         if (error && error.code === "PICKUP_GEOCODING_NOT_FOUND") {
           showOfferTranslatedFormMessage(

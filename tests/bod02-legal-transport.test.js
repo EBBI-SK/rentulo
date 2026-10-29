@@ -91,7 +91,7 @@ test("create validation blocks vehicles before any attempted upload", () => {
     markOfferFormError(id) { marked.push(id); },
     parseMoneyValue: Number,
     MINIMUM_OFFER_PRICE_CZK: 100,
-    getPickupAddress() { return { street: "A 1", city: "Praha", postalCode: "110 00" }; },
+    getPickupAddress() { return { street: "A 1", city: "Praha", postalCode: "110 00", countryCode: "CZ" }; },
     showOfferTranslatedFormMessage(key) { messages.push(key); }
   });
   const utils = fs.readFileSync(path.join(root, "js/utils.js"), "utf8");

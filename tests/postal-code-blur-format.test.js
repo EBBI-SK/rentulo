@@ -54,7 +54,7 @@ test("invalid or incomplete PSČ is left untouched for existing submit validatio
   assert.doesNotThrow(() => context.setupRentuloCzechPostalCodeBlur({ value: "11000" }));
 });
 
-test("registration, new offer, edit offer and settings all connect the same blur helper", () => {
+test("pickup PSČ keeps Czech blur helper, residence forms switch formatter by country", () => {
   const pages = [
     ["registrace.html", "js/registration-page.js", "postalCode"],
     ["nabidnout.html", "js/offer-form-page.js", "pickupPostalCode"],
@@ -65,7 +65,12 @@ test("registration, new offer, edit offer and settings all connect the same blur
     const html = read(htmlPath);
     const js = read(jsPath);
     assert.ok(html.includes(`id="${id}"`), `${htmlPath}: PSČ field must exist`);
-    assert.ok(js.includes(`setupRentuloCzechPostalCodeBlur(document.getElementById("${id}"))`), `${jsPath}: missing blur binding`);
+    if (["registrace.html", "nastaveni.html"].includes(htmlPath)) {
+      assert.match(js, /rentuloCountries\.setupSelect\(/, `${jsPath}: country-specific postal format`);
+      assert.match(html, /js\/country-address\.js/, `${htmlPath}: country logic loaded`);
+    } else {
+      assert.ok(js.includes(`setupRentuloCzechPostalCodeBlur(document.getElementById("${id}"))`), `${jsPath}: missing blur binding`);
+    }
     assert.ok(html.indexOf('<script src="js/utils.js"></script>') !== -1, `${htmlPath}: shared helper must be loaded`);
     assert.ok(html.indexOf('<script src="js/utils.js"></script>') < html.indexOf(`<script src="${jsPath}"></script>`), `${htmlPath}: script ordering`);
   }
