@@ -2139,7 +2139,7 @@ function navRenderCreditFooter(page) {
         </nav>
         <div class="rentulo-credit-footer-meta">
           <span class="rentulo-credit-footer-copyright">\u00a9 2026 Rentulo</span>
-          <span class="rentulo-credit-footer-operator"><span data-i18n="footer.operatorLabel">Provozovatel:</span> EBBI s. r. o.</span>
+          <span class="rentulo-credit-footer-operator"><span data-i18n="footer.operatorLabel">Provozovatel:</span> <a href="https://ebbi.sk" target="_blank" rel="noopener noreferrer">EBBI s. r. o.</a></span>
         </div>
       </div>
     `;

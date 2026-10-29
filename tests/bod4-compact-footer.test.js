@@ -15,18 +15,19 @@ function footerHtml() {
   return new Function('return `' + footerTemplate[1] + '`')();
 }
 
-test('public footer contains exactly the four agreed links and two legal labels', () => {
+test('public footer contains the four agreed navigation links and the original EBBI link', () => {
   const html = footerHtml();
   const actualLinks = Array.from(html.matchAll(/<a\s+href="([^"]+)"/g), (match) => match[1]);
   assert.deepEqual(actualLinks, [
     'kontakt.html',
     'kontakt.html#nahlaseni-obsahu',
     'obchodni-podminky.html',
-    'ochrana-osobnich-udaju.html'
+    'ochrana-osobnich-udaju.html',
+    'https://ebbi.sk'
   ]);
   assert.match(html, /\u00a9 2026 Rentulo/);
   assert.match(html, /EBBI s\. r\. o\./);
-  assert.doesNotMatch(html, /href="https?:\/\//i);
+  assert.match(html, /<a href="https:\/\/ebbi\.sk" target="_blank" rel="noopener noreferrer">EBBI s\. r\. o\.<\/a>/);
   assert.doesNotMatch(html, /social|facebook|instagram|youtube|FAQ|cookies/i);
   assert.ok(fs.readFileSync(path.join(root, 'kontakt.html'), 'utf8').includes('id="nahlaseni-obsahu"'));
 });
@@ -67,6 +68,8 @@ test('footer is in document flow, compact on desktop and vertically stacked on m
   assert.ok(mobile, 'mobile footer stylesheet exists');
   assert.match(footerStyles, /\.rentulo-credit-footer\s*\{\s*position: static;/);
   assert.match(footerStyles, /padding: 13px 0;/);
+  assert.match(footerStyles, /\.rentulo-credit-footer-links a\s*\{[^}]*color: var\(--rentulo-muted\);[^}]*font-weight: 400;/);
+  assert.match(footerStyles, /\.rentulo-credit-footer-operator a\s*\{[^}]*color: inherit;/);
   assert.match(mobile[1], /\.rentulo-credit-footer-links\s*\{\s*flex-direction: column;/);
   assert.match(mobile[1], /\.rentulo-credit-footer-meta\s*\{\s*flex-direction: column;/);
 });

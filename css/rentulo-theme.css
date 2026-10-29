@@ -506,8 +506,8 @@ body[data-navigation-page="uvod"] .home-map-zoom-controls {
   align-items: center;
   margin-right: 12px;
   padding: 2px 12px 2px 0;
-  color: var(--rentulo-ink);
-  font-weight: 600;
+  color: var(--rentulo-muted);
+  font-weight: 400;
   text-decoration: none;
   border-right: 1px solid var(--rentulo-line);
 }
@@ -535,6 +535,23 @@ body[data-navigation-page="uvod"] .home-map-zoom-controls {
   align-items: center;
   gap: 20px;
   white-space: nowrap;
+}
+
+.rentulo-credit-footer-operator a {
+  color: inherit;
+  font-weight: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.rentulo-credit-footer-operator a:hover {
+  color: var(--rentulo-green);
+}
+
+.rentulo-credit-footer-operator a:focus-visible {
+  outline: 2px solid var(--rentulo-green);
+  outline-offset: 3px;
+  border-radius: 2px;
 }
 
 @media (max-width: 640px) {
