@@ -48,6 +48,8 @@ let offerSaveInProgress = false;
         .maybeSingle();
 
       if (error || !profile) {
+        // Without a confirmed Czech profile address, require a separate CZ pickup place.
+        renderProfilePickupAddress();
         return;
       }
 
@@ -62,14 +64,9 @@ let offerSaveInProgress = false;
         countryCode: profile.country_code || ""
       };
 
-      // A foreign or legacy profile is never silently treated as a Czech pickup address.
-      if (offerOwnerProfile.countryCode !== "CZ") {
-        const custom = document.getElementById("pickupUseCustom");
-        const customFields = document.getElementById("pickupCustomFields");
-        if (custom) custom.checked = true;
-        if (customFields) customFields.classList.add("is-visible");
-      }
-
+      // Start from the profile address only if it is complete and Czech.
+      const custom = document.getElementById("pickupUseCustom");
+      if (custom) custom.checked = false;
       renderProfilePickupAddress();
     }
 
@@ -77,24 +74,45 @@ let offerSaveInProgress = false;
       const summary = document.getElementById("profilePickupSummary");
       const address = document.getElementById("profilePickupAddress");
       const pickupUseCustom = document.getElementById("pickupUseCustom");
+      const customToggle = document.getElementById("pickupCustomToggle");
+      const customFields = document.getElementById("pickupCustomFields");
+      const notice = document.getElementById("pickupProfileAddressNotice");
 
-      if (!summary || !address) {
-        return;
-      }
-
-      const hasCompleteProfileAddress = Boolean(
+      const hasCompleteCzechProfileAddress = Boolean(
         offerOwnerProfile.street &&
         offerOwnerProfile.city &&
         offerOwnerProfile.postalCode &&
-        offerOwnerProfile.countryCode === "CZ"
+        offerOwnerProfile.countryCode === "CZ" &&
+        formatRentuloCzechPostalCode(offerOwnerProfile.postalCode)
       );
 
-      if (!hasCompleteProfileAddress) {
+      // No valid Czech profile pickup: use separate fields without showing a misleading toggle.
+      if (pickupUseCustom && !hasCompleteCzechProfileAddress) {
+        pickupUseCustom.checked = true;
+      }
+      if (customToggle) customToggle.hidden = !hasCompleteCzechProfileAddress;
+      if (customFields) {
+        customFields.classList.toggle("is-visible", Boolean(pickupUseCustom && pickupUseCustom.checked));
+      }
+      if (notice) {
+        notice.hidden = hasCompleteCzechProfileAddress;
+        if (!hasCompleteCzechProfileAddress) {
+          const missingCzechAddress = offerOwnerProfile.countryCode === "CZ";
+          const key = missingCzechAddress ? "offer.profilePickupMissing" : "offer.profilePickupOutsideCz";
+          const fallback = missingCzechAddress
+            ? "Ve vašem profilu chybí úplná adresa pro vyzvednutí. Doplňte ji v Nastavení nebo zvolte jiné místo vyzvednutí."
+            : "Profilová adresa není ověřená jako česká. Zvolte jiné místo vyzvednutí v ČR nebo doplňte zemi bydliště v Nastavení.";
+          notice.setAttribute("data-i18n", key);
+          notice.textContent = offerTranslate(key, fallback);
+        }
+      }
+
+      if (!summary || !address) return;
+      if (!hasCompleteCzechProfileAddress) {
         summary.hidden = true;
         address.textContent = "";
         return;
       }
-
       address.textContent = [
         offerOwnerProfile.street,
         offerOwnerProfile.city,
@@ -855,6 +873,7 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
     }
 
     function refreshOfferDynamicTranslations() {
+      renderProfilePickupAddress();
       renderPhotoPreview(offerPhotoDataUrl);
       refreshDynamicTranslatedText(document.getElementById("toolPhotoStatus"));
       refreshDynamicTranslatedText(document.getElementById("offerFormMessage"));
