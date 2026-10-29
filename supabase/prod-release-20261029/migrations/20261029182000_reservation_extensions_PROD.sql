@@ -793,11 +793,11 @@ BEGIN
     RAISE EXCEPTION 'STOP: Unexpected existing Stripe/GDPR/financial immutability guard';
   END IF;
   v_after := v_before;
-  v_needle := '  v_owner_contact_scrub_authorized boolean;
-BEGIN';
-  v_replacement := '  v_owner_contact_scrub_authorized boolean;
-  v_extension_change_authorized boolean;
-BEGIN';
+  -- Use an explicit LF: pasted Windows CRLF must not alter the search needle.
+  -- The exact shape and single-occurrence guard checks remain unchanged.
+  v_needle := '  v_owner_contact_scrub_authorized boolean;' || chr(10) || 'BEGIN';
+  v_replacement := '  v_owner_contact_scrub_authorized boolean;' || chr(10)
+    || '  v_extension_change_authorized boolean;' || chr(10) || 'BEGIN';
   v_count := (length(v_after)-length(replace(v_after,v_needle,'')))/length(v_needle);
   IF v_count <> 1 THEN
     RAISE EXCEPTION 'STOP: Unexpected immutable guard shape (patch %)', v_changes+1;
