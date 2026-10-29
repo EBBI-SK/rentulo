@@ -470,11 +470,12 @@ body[data-navigation-page="uvod"] .home-map-zoom-controls {
   }
 }
 
-/* Public-page credit: always in document flow, never over the page content. */
+/* Shared public footer: compact on desktop, readable links on mobile. */
 .rentulo-credit-footer {
   position: static;
   width: 100%;
-  padding: 10px 0 18px;
+  padding: 13px 0;
+  background: var(--rentulo-page);
   border-top: 1px solid var(--rentulo-line);
   color: var(--rentulo-muted);
   font-family: var(--rentulo-font);
@@ -486,44 +487,100 @@ body[data-navigation-page="uvod"] .home-map-zoom-controls {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px 24px;
+  flex-wrap: wrap;
+  gap: 10px 24px;
   width: min(1480px, calc(100% - 64px));
   margin: 0 auto;
 }
 
-.rentulo-credit-footer-byline {
+.rentulo-credit-footer-links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 0;
+  min-width: 0;
+}
+
+.rentulo-credit-footer-links a {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-}
-
-.rentulo-credit-footer-byline a {
+  margin-right: 12px;
+  padding: 2px 12px 2px 0;
   color: var(--rentulo-ink);
   font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration: none;
+  border-right: 1px solid var(--rentulo-line);
 }
 
-.rentulo-credit-footer-byline a:hover {
+.rentulo-credit-footer-links a:last-child {
+  margin-right: 0;
+  padding-right: 0;
+  border-right: none;
+}
+
+.rentulo-credit-footer-links a:hover {
   color: var(--rentulo-green);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
-.rentulo-credit-footer-byline a:focus-visible {
+.rentulo-credit-footer-links a:focus-visible {
   outline: 2px solid var(--rentulo-green);
   outline-offset: 3px;
   border-radius: 2px;
 }
 
+.rentulo-credit-footer-meta {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  white-space: nowrap;
+}
+
 @media (max-width: 640px) {
   .rentulo-credit-footer {
-    padding: 12px 0 20px;
+    padding: 10px 0 14px;
   }
 
   .rentulo-credit-footer-inner {
     width: calc(100% - 28px);
     flex-direction: column;
-    gap: 4px;
-    text-align: center;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .rentulo-credit-footer-links {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .rentulo-credit-footer-links a,
+  .rentulo-credit-footer-links a:last-child {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    margin: 0;
+    padding: 10px 4px;
+    border-right: 0;
+    border-bottom: 1px solid var(--rentulo-line);
+  }
+
+  .rentulo-credit-footer-links a::after {
+    content: "";
+    width: 7px;
+    height: 7px;
+    margin-right: 5px;
+    border-right: 2px solid currentColor;
+    border-top: 2px solid currentColor;
+    transform: rotate(45deg);
+  }
+
+  .rentulo-credit-footer-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    white-space: normal;
   }
 }
 

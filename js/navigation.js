@@ -2131,19 +2131,28 @@ function navRenderCreditFooter(page) {
     footer.className = "rentulo-credit-footer";
     footer.innerHTML = `
       <div class="rentulo-credit-footer-inner">
-        <span class="rentulo-credit-footer-copyright">© 2026 Rentulo</span>
-        <span class="rentulo-credit-footer-byline">
-          <span data-rentulo-credit-label></span>
-          <a href="https://ebbi.sk" target="_blank" rel="noopener noreferrer">EBBI s. r. o.</a>
-        </span>
+        <nav class="rentulo-credit-footer-links" aria-label="D\u016fle\u017eit\u00e9 odkazy">
+          <a href="kontakt.html" data-i18n="contact.eyebrow">Kontakt</a>
+          <a href="kontakt.html#nahlaseni-obsahu" data-i18n="footer.reportIllegal">Nahl\u00e1sit nez\u00e1konn\u00fd obsah</a>
+          <a href="obchodni-podminky.html" data-i18n="contact.termsLink">Obchodn\u00ed podm\u00ednky</a>
+          <a href="ochrana-osobnich-udaju.html" data-i18n="contact.privacyLink">Ochrana osobn\u00edch \u00fadaj\u016f</a>
+        </nav>
+        <div class="rentulo-credit-footer-meta">
+          <span class="rentulo-credit-footer-copyright">\u00a9 2026 Rentulo</span>
+          <span class="rentulo-credit-footer-operator"><span data-i18n="footer.operatorLabel">Provozovatel:</span> EBBI s. r. o.</span>
+        </div>
       </div>
     `;
     document.body.appendChild(footer);
   }
 
-  const label = footer.querySelector("[data-rentulo-credit-label]");
-  if (label) {
-    label.textContent = navTranslate("footer.creditLabel", "Web vytvořila");
+  footer.querySelectorAll("[data-i18n]").forEach(function (element) {
+    element.textContent = navTranslate(element.dataset.i18n, element.textContent);
+  });
+
+  const footerLinks = footer.querySelector(".rentulo-credit-footer-links");
+  if (footerLinks) {
+    footerLinks.setAttribute("aria-label", navTranslate("footer.linksLabel", "D\u016fle\u017eit\u00e9 odkazy"));
   }
 }
 
