@@ -513,6 +513,18 @@
       font-weight: 800;
     }
 
+    .pickup-options-body > [hidden] {
+      display: none !important;
+    }
+
+    .pickup-profile-notice {
+      margin: 0;
+      color: var(--rentulo-muted, #64706b);
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.5;
+    }
+
     .pickup-checkbox {
       display: flex;
       align-items: flex-start;
@@ -823,7 +835,9 @@
                 <span class="profile-pickup-summary-address" id="profilePickupAddress"></span>
               </div>
 
-              <label class="pickup-checkbox">
+              <p class="pickup-profile-notice" id="pickupProfileAddressNotice" hidden aria-live="polite"></p>
+
+              <label class="pickup-checkbox" id="pickupCustomToggle" hidden>
                 <input type="checkbox" id="pickupUseCustom" />
                 <span data-i18n="offer.pickupCustomToggleCreate">Použít jiné místo vyzvednutí</span>
               </label>

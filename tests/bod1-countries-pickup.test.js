@@ -73,3 +73,85 @@ test("market migration refuses PROD, preserves old unknown residence and blocks 
   assert.doesNotMatch(migration, /alter table public\.(payments|reservations)/i);
   assert.doesNotMatch(migration, /update public\.offers/i);
 });
+
+test("create offer pickup selector uses profile only for a complete Czech address", async () => {
+  const html = read("nabidnout.html");
+  assert.match(html, /id="pickupProfileAddressNotice" hidden/);
+  assert.match(html, /id="pickupCustomToggle" hidden/);
+  assert.match(html, /\.pickup-options-body\s*>\s*\[hidden\]\s*\{\s*display:\s*none\s*!important/);
+
+  const source = read("js/offer-form-page.js");
+  const start = source.indexOf("async function fillProfileAddressAsDefault(");
+  const end = source.indexOf("function parseMoneyValue(", start);
+  assert.ok(start >= 0 && end > start);
+  assert.match(source, /function refreshOfferDynamicTranslations\(\)\s*\{\s*renderProfilePickupAddress\(\)/);
+
+  async function setup(profile, error = null) {
+    const classes = new Set();
+    const elements = {
+      profilePickupSummary: { hidden: true },
+      profilePickupAddress: { textContent: "" },
+      pickupUseCustom: { checked: false },
+      pickupCustomToggle: { hidden: true },
+      pickupCustomFields: {
+        classList: {
+          toggle(name, enabled) { if (enabled) classes.add(name); else classes.delete(name); }
+        }
+      },
+      pickupProfileAddressNotice: {
+        hidden: true, textContent: "", attributes: {},
+        setAttribute(name, value) { this.attributes[name] = value; }
+      }
+    };
+    const context = vm.createContext({
+      offerOwnerProfile: { phone: "", street: "", city: "", postalCode: "", countryCode: "" },
+      document: { getElementById: id => elements[id] || null },
+      formatRentuloCzechPostalCode(value) {
+        const match = String(value || "").trim().match(/^(\d{3}) ?(\d{2})$/);
+        return match ? match[1] + " " + match[2] : null;
+      },
+      offerTranslate(key, fallback) { return `[${key}] ${fallback}`; },
+      getSupabaseClient() {
+        return { from() { return { select() { return { eq() { return { async maybeSingle() {
+          return { data: profile, error };
+        } }; } }; } }; } };
+      }
+    });
+    vm.runInContext(source.slice(start, end), context);
+    await context.fillProfileAddressAsDefault({ id: "test-user" });
+    return { elements, classes, context };
+  }
+
+  const cz = await setup({ street: "Zahradnická 5", city: "Brno", postal_code: "602 00", country_code: "CZ" });
+  assert.equal(cz.elements.pickupUseCustom.checked, false);
+  assert.equal(cz.elements.pickupCustomToggle.hidden, false);
+  assert.equal(cz.elements.pickupCustomFields.classList !== null && cz.classes.has("is-visible"), false);
+  assert.equal(cz.elements.profilePickupSummary.hidden, false);
+  assert.equal(cz.elements.pickupProfileAddressNotice.hidden, true);
+  cz.elements.pickupUseCustom.checked = true;
+  cz.context.renderProfilePickupAddress();
+  assert.equal(cz.classes.has("is-visible"), true);
+  assert.equal(cz.elements.profilePickupSummary.hidden, true);
+  cz.elements.pickupUseCustom.checked = false;
+  cz.context.renderProfilePickupAddress();
+  assert.equal(cz.classes.has("is-visible"), false);
+
+  for (const [label, profile, messageKey] of [
+    ["foreign", { street: "Hlboká 24", city: "Trnava", postal_code: "917 01", country_code: "SK" }, "offer.profilePickupOutsideCz"],
+    ["legacy", { street: "Kvetná 1", city: "Trnava", postal_code: "917 01", country_code: null }, "offer.profilePickupOutsideCz"],
+    ["incomplete", { street: "", city: "Praha", postal_code: "110 00", country_code: "CZ" }, "offer.profilePickupMissing"],
+    ["invalid postcode", { street: "Ulice 1", city: "Praha", postal_code: "1100", country_code: "CZ" }, "offer.profilePickupMissing"]
+  ]) {
+    const result = await setup(profile);
+    assert.equal(result.elements.pickupCustomToggle.hidden, true, `${label} toggle hidden`);
+    assert.equal(result.elements.pickupUseCustom.checked, true, `${label} custom mode`);
+    assert.equal(result.classes.has("is-visible"), true, `${label} fields visible`);
+    assert.equal(result.elements.profilePickupSummary.hidden, true, `${label} profile hidden`);
+    assert.equal(result.elements.pickupProfileAddressNotice.hidden, false, `${label} message visible`);
+    assert.equal(result.elements.pickupProfileAddressNotice.attributes["data-i18n"], messageKey);
+  }
+
+  const failedLoad = await setup(null, new Error("network"));
+  assert.equal(failedLoad.elements.pickupCustomToggle.hidden, true);
+  assert.equal(failedLoad.classes.has("is-visible"), true);
+});
