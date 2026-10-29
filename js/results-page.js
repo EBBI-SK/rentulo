@@ -104,6 +104,11 @@
       status.hidden = !key;
       status.classList.toggle("error", Boolean(isError));
       status.textContent = key ? resultsDateText(key) : "";
+      const popupError = document.getElementById("results-date-error");
+      if (popupError) {
+        popupError.hidden = !(key && isError);
+        popupError.textContent = key && isError ? resultsDateText(key) : "";
+      }
     }
 
     function updateResultsDateLabels() {
@@ -111,6 +116,28 @@
       const toLabel = document.getElementById("results-date-to-label");
       if (fromLabel) fromLabel.textContent = resultsDateText("from");
       if (toLabel) toLabel.textContent = resultsDateText("to");
+    }
+
+    function resultsDateRangeText(from, to) {
+      const lang = typeof window.getRentuloLanguage === "function"
+        ? window.getRentuloLanguage() : "cs";
+      const locales = { cs: "cs-CZ", sk: "sk-SK", en: "en-GB", de: "de-DE", pl: "pl-PL" };
+      const options = { day: "numeric", month: "numeric", timeZone: "UTC" };
+      if (from.slice(0, 4) !== to.slice(0, 4)) options.year = "numeric";
+      const dateFormat = new Intl.DateTimeFormat(locales[lang] || "cs-CZ", options);
+      return dateFormat.format(new Date(from + "T00:00:00Z")) +
+        " – " + dateFormat.format(new Date(to + "T00:00:00Z"));
+    }
+
+    function refreshResultsWhenSummary() {
+      const picker = document.getElementById("results-search-when");
+      const text = document.getElementById("results-when-value");
+      if (!picker || !text) return;
+      const dates = getResultsDateRange();
+      text.textContent = dates.enabled && !dates.error
+        ? resultsDateRangeText(dates.from, dates.to)
+        : resultsTranslate("search.whenPlaceholder", "Vyberte termín");
+      picker.classList.toggle("has-dates", Boolean(dates.enabled && !dates.error));
     }
 
     async function getAvailableOfferIdsForDates(offers, from, to) {
@@ -911,6 +938,7 @@ const HOME_CATEGORY_GROUPS = {
       if (toInput) toInput.value = params.get("do") || "";
       updateResultsDateInputMin();
       updateResultsDateLabels();
+      refreshResultsWhenSummary();
 
       applyResultsModeTranslations();
     }
@@ -1125,12 +1153,38 @@ const HOME_CATEGORY_GROUPS = {
         applySearchAndUpdateUrl();
       });
 
+      const picker = document.getElementById("results-search-when");
       ["results-date-from", "results-date-to"].forEach(function (id) {
         document.getElementById(id).addEventListener("change", function () {
           updateResultsDateInputMin();
+          refreshResultsWhenSummary();
+          const dates = getResultsDateRange();
+          // Do not filter or clear the results while the first date is being chosen.
+          if (dates.error === "both") return;
           applySearchAndUpdateUrl();
+          if (picker && dates.enabled && !dates.error) picker.open = false;
         });
       });
+      const clear = document.getElementById("results-date-clear");
+      if (clear) clear.addEventListener("click", function () {
+        document.getElementById("results-date-from").value = "";
+        document.getElementById("results-date-to").value = "";
+        if (picker) picker.open = false;
+        updateResultsDateInputMin();
+        refreshResultsWhenSummary();
+        applySearchAndUpdateUrl();
+      });
+      if (picker) {
+        document.addEventListener("pointerdown", function (event) {
+          if (picker.open && !picker.contains(event.target)) picker.open = false;
+        });
+        picker.addEventListener("keydown", function (event) {
+          if (event.key === "Escape") {
+            picker.open = false;
+            picker.querySelector("summary")?.focus();
+          }
+        });
+      }
     }
 
     async function initializeResultsPage() {
@@ -1160,6 +1214,7 @@ const HOME_CATEGORY_GROUPS = {
     document.addEventListener("rentuloLanguageChanged", function () {
       applyResultsModeTranslations();
       updateResultsDateLabels();
+      refreshResultsWhenSummary();
       updateResultsFilterLabelsForViewport();
       renderResults();
     });

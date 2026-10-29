@@ -88,7 +88,113 @@ function applyHomeMapGestureTranslations() {
   }
 }
 
-function goToResults(what, where) {
+// BOD 5: optional date range in the existing three-part homepage search.
+function homePragueToday() {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Prague", year: "numeric", month: "2-digit", day: "2-digit"
+  }).formatToParts(new Date());
+  const read = (type) => parts.find((part) => part.type === type).value;
+  return `${read("year")}-${read("month")}-${read("day")}`;
+}
+
+function homeIsIsoDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const time = Date.parse(value + "T00:00:00Z");
+  return Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === value;
+}
+
+function getHomeSearchDates() {
+  const from = document.getElementById("home-date-from")?.value || "";
+  const to = document.getElementById("home-date-to")?.value || "";
+  if (!from && !to) return { enabled: false };
+  if (!from || !to) return { error: "search.dateBoth" };
+  if (!homeIsIsoDate(from) || !homeIsIsoDate(to)) return { error: "search.dateInvalid" };
+  const days = (Date.parse(to + "T00:00:00Z") - Date.parse(from + "T00:00:00Z")) / 86400000;
+  if (!Number.isInteger(days) || days < 1 || days > 365) return { error: "search.dateInvalid" };
+  if (from < homePragueToday()) return { error: "search.datePast" };
+  return { enabled: true, from, to };
+}
+
+function homeDateRangeText(from, to) {
+  const lang = typeof window.getRentuloLanguage === "function" ? window.getRentuloLanguage() : "cs";
+  const locales = { cs: "cs-CZ", sk: "sk-SK", en: "en-GB", de: "de-DE", pl: "pl-PL" };
+  const options = { day: "numeric", month: "numeric", timeZone: "UTC" };
+  if (from.slice(0, 4) !== to.slice(0, 4)) options.year = "numeric";
+  const format = new Intl.DateTimeFormat(locales[lang] || "cs-CZ", options);
+  return format.format(new Date(from + "T00:00:00Z")) + " – " + format.format(new Date(to + "T00:00:00Z"));
+}
+
+function refreshHomeDateSummary() {
+  const picker = document.getElementById("home-search-when");
+  const summary = document.getElementById("home-when-value");
+  if (!summary || !picker) return;
+  const dates = getHomeSearchDates();
+  summary.textContent = dates.enabled && !dates.error
+    ? homeDateRangeText(dates.from, dates.to)
+    : homeTranslate("search.whenPlaceholder", "Vyberte termín");
+  picker.classList.toggle("has-dates", Boolean(dates.enabled && !dates.error));
+}
+
+function homeDateError(key) {
+  const error = document.getElementById("home-date-error");
+  const picker = document.getElementById("home-search-when");
+  if (error) {
+    error.hidden = !key;
+    error.textContent = key ? homeTranslate(key, "Vyberte platný termín.") : "";
+  }
+  if (key && picker) picker.open = true;
+}
+
+function homeValidatedDates() {
+  const dates = getHomeSearchDates();
+  homeDateError(dates.error || "");
+  if (dates.error) return null;
+  return dates;
+}
+
+function homeSetDateParams(params, dates) {
+  if (dates?.enabled) {
+    params.set("od", dates.from);
+    params.set("do", dates.to);
+  }
+}
+
+function setupHomeDateSelector() {
+  const from = document.getElementById("home-date-from");
+  const to = document.getElementById("home-date-to");
+  const picker = document.getElementById("home-search-when");
+  const clear = document.getElementById("home-date-clear");
+  if (!from || !to || !picker || !clear) return;
+
+  function onDateChange() {
+    from.min = homePragueToday();
+    to.min = from.value || from.min;
+    homeDateError("");
+    refreshHomeDateSummary();
+    const dates = getHomeSearchDates();
+    if (dates.enabled && !dates.error) picker.open = false;
+  }
+  from.addEventListener("change", onDateChange);
+  to.addEventListener("change", onDateChange);
+  clear.addEventListener("click", function () {
+    from.value = "";
+    to.value = "";
+    picker.open = false;
+    onDateChange();
+  });
+  document.addEventListener("pointerdown", function (event) {
+    if (picker.open && !picker.contains(event.target)) picker.open = false;
+  });
+  picker.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") {
+      picker.open = false;
+      picker.querySelector("summary")?.focus();
+    }
+  });
+  onDateChange();
+}
+
+function goToResults(what, where, dates) {
   const searchParams = new URLSearchParams();
 
   if (what) {
@@ -99,6 +205,7 @@ function goToResults(what, where) {
     searchParams.set("kde", where);
   }
 
+  homeSetDateParams(searchParams, dates);
   const queryString = searchParams.toString();
   window.location.href = queryString ? "vysledky.html?" + queryString : "vysledky.html";
 }
@@ -109,12 +216,16 @@ function setupHomeSearch() {
   const whereInput = document.getElementById("home-search-where");
 
   if (!form) return;
+  setupHomeDateSelector();
 
   form.addEventListener("submit", function (event) {
     event.preventDefault();
+    const dates = homeValidatedDates();
+    if (!dates) return;
     goToResults(
       whatInput ? whatInput.value.trim() : "",
-      whereInput ? whereInput.value.trim() : ""
+      whereInput ? whereInput.value.trim() : "",
+      dates
     );
   });
 }
@@ -148,6 +259,8 @@ function setupHomeNearbySearch() {
   button.addEventListener("click", function () {
     if (button.disabled) return;
     clearStatus();
+    const dates = homeValidatedDates();
+    if (!dates) return;
     const nearby = window.rentuloNearbyLocation;
     if (!navigator.geolocation || !nearby) {
       showStatus("home.locationUnavailable", "Poloha není dostupná. Hledejte podle města.");
@@ -166,6 +279,7 @@ function setupHomeNearbySearch() {
       const searchTerm = document.getElementById("home-search-what");
       if (searchTerm && searchTerm.value.trim()) params.set("co", searchTerm.value.trim());
       params.set("okoli", "1");
+      homeSetDateParams(params, dates);
       // The next page consumes the coordinates once and deletes them.
       // No lat/lng is ever appended to the URL or stored in a user profile.
       window.location.assign("vysledky.html?" + params.toString());
@@ -179,12 +293,15 @@ function setupHomeNearbySearch() {
 function setupCategorySearch() {
   document.querySelectorAll(".home-point-button").forEach(function (button) {
     button.addEventListener("click", function () {
+      const dates = homeValidatedDates();
+      if (!dates) return;
       const category = button.dataset.category || "";
       const searchParams = new URLSearchParams();
 
       if (category) {
         searchParams.set("kategorie", category);
       }
+      homeSetDateParams(searchParams, dates);
 
       const queryString = searchParams.toString();
       window.location.href = queryString ? "vysledky.html?" + queryString : "vysledky.html";
@@ -193,6 +310,7 @@ function setupCategorySearch() {
 }
 
 function applyHomeDynamicTranslations() {
+  refreshHomeDateSummary();
   const mapElement = document.getElementById("homeOffersMap");
 
   if (mapElement) {
