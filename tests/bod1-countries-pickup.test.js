@@ -19,9 +19,10 @@ test("residence offers a broad country list; pickup market remains independent",
   assert.equal(countries.validCountry(""), "");
   assert.match(read("registrace.html"), /id="countryCode"/);
   assert.match(read("nastaveni.html"), /id="profileCountryCode"/);
+  assert.match(read("nabidnout.html"), /data-i18n="offer.pickupCountryShort"/);
+  assert.match(read("edit-nabidka.html"), /data-i18n="offer.pickupCountryNote"/);
   for (const html of ["nabidnout.html", "edit-nabidka.html"]) {
-    assert.match(read(html), /data-i18n="offer.pickupCountryNote"/);
-    assert.doesNotMatch(html, /id="pickupCountryCode"/);
+    assert.doesNotMatch(read(html), /id="pickupCountryCode"/);
   }
 });
 
@@ -54,7 +55,8 @@ test("signup and settings persist residence, offers persist CZ pickup and CZK", 
     assert.match(source, /PICKUP_GEOCODING_UNAVAILABLE/);
   }
   for (const key of ["country.choose", "country.residenceLabel", "country.required",
-    "country.invalidPostalCode", "offer.pickupCountryNote", "offer.profilePickupOutsideCz", "offer.pickupOutsideCz"]) {
+    "country.invalidPostalCode", "offer.pickupCountryNote", "offer.profilePickupOutsideCz", "offer.pickupOutsideCz",
+    "offer.pickupCountryShort", "offer.pickupEnterCzAddress"]) {
     assert.equal((read("js/i18n.js").match(new RegExp('"' + key.replace(/\./g, "\\.") + '":', "g")) || []).length, 5);
   }
 });
@@ -76,8 +78,12 @@ test("market migration refuses PROD, preserves old unknown residence and blocks 
 
 test("create offer pickup selector uses profile only for a complete Czech address", async () => {
   const html = read("nabidnout.html");
-  assert.match(html, /id="pickupProfileAddressNotice" hidden/);
+  assert.match(html, /id="pickupProfileAddressNotice" data-i18n="offer.pickupEnterCzAddress" hidden/);
   assert.match(html, /id="pickupCustomToggle" hidden/);
+  assert.match(html, /class="pickup-country-label"/);
+  assert.match(html, /data-i18n="offer.pickupCountryShort"/);
+  assert.doesNotMatch(html, /data-i18n="offer.pickupDescription"/);
+  assert.doesNotMatch(html, /data-i18n="offer.pickupCountryNote"/);
   assert.match(html, /\.pickup-options-body\s*>\s*\[hidden\]\s*\{\s*display:\s*none\s*!important/);
 
   const source = read("js/offer-form-page.js");
@@ -132,23 +138,24 @@ test("create offer pickup selector uses profile only for a complete Czech addres
   cz.context.renderProfilePickupAddress();
   assert.equal(cz.classes.has("is-visible"), true);
   assert.equal(cz.elements.profilePickupSummary.hidden, true);
+  assert.equal(cz.elements.pickupProfileAddressNotice.hidden, false);
   cz.elements.pickupUseCustom.checked = false;
   cz.context.renderProfilePickupAddress();
   assert.equal(cz.classes.has("is-visible"), false);
+  assert.equal(cz.elements.pickupProfileAddressNotice.hidden, true);
 
-  for (const [label, profile, messageKey] of [
-    ["foreign", { street: "Hlboká 24", city: "Trnava", postal_code: "917 01", country_code: "SK" }, "offer.profilePickupOutsideCz"],
-    ["legacy", { street: "Kvetná 1", city: "Trnava", postal_code: "917 01", country_code: null }, "offer.profilePickupOutsideCz"],
-    ["incomplete", { street: "", city: "Praha", postal_code: "110 00", country_code: "CZ" }, "offer.profilePickupMissing"],
-    ["invalid postcode", { street: "Ulice 1", city: "Praha", postal_code: "1100", country_code: "CZ" }, "offer.profilePickupMissing"]
+  for (const [label, profile] of [
+    ["foreign", { street: "Hlboká 24", city: "Trnava", postal_code: "917 01", country_code: "SK" }],
+    ["legacy", { street: "Kvetná 1", city: "Trnava", postal_code: "917 01", country_code: null }],
+    ["incomplete", { street: "", city: "Praha", postal_code: "110 00", country_code: "CZ" }],
+    ["invalid postcode", { street: "Ulice 1", city: "Praha", postal_code: "1100", country_code: "CZ" }]
   ]) {
     const result = await setup(profile);
     assert.equal(result.elements.pickupCustomToggle.hidden, true, `${label} toggle hidden`);
     assert.equal(result.elements.pickupUseCustom.checked, true, `${label} custom mode`);
     assert.equal(result.classes.has("is-visible"), true, `${label} fields visible`);
     assert.equal(result.elements.profilePickupSummary.hidden, true, `${label} profile hidden`);
-    assert.equal(result.elements.pickupProfileAddressNotice.hidden, false, `${label} message visible`);
-    assert.equal(result.elements.pickupProfileAddressNotice.attributes["data-i18n"], messageKey);
+    assert.equal(result.elements.pickupProfileAddressNotice.hidden, false, `${label} simple instruction visible`);
   }
 
   const failedLoad = await setup(null, new Error("network"));

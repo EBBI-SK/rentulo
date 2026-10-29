@@ -275,12 +275,20 @@
       font-weight: 600;
     }
 
-    .pickup-options-header p {
-      margin: 5px 0 0;
-      color: var(--rentulo-muted, #64706b);
-      font-size: 13px;
-      font-weight: 600;
-      line-height: 1.5;
+    .pickup-country-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 9px;
+      color: var(--rentulo-ink, #102019);
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    .pickup-country-label svg {
+      flex-shrink: 0;
+      color: var(--rentulo-green, #176747);
     }
 
     .photo-upload-layout {
@@ -825,8 +833,13 @@
           <section class="pickup-options">
             <div class="pickup-options-header">
               <strong data-i18n="offer.pickupTitle">Místo vyzvednutí</strong>
-              <p class="pickup-market-note" data-i18n="offer.pickupCountryNote">Země vyzvednutí: Česká republika. Nabídky v dalších zemích zatím nejsou dostupné.</p>
-              <p data-i18n="offer.pickupDescription">Místo vyzvednutí určuje také polohu nabídky na mapě. Standardně se použijí údaje z vašeho profilu; jiné místo můžete zadat níže.</p>
+              <div class="pickup-country-label">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                  <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" />
+                  <circle cx="12" cy="10" r="2.5" />
+                </svg>
+                <span data-i18n="offer.pickupCountryShort">Česká republika</span>
+              </div>
             </div>
 
             <div class="pickup-options-body">
@@ -835,12 +848,12 @@
                 <span class="profile-pickup-summary-address" id="profilePickupAddress"></span>
               </div>
 
-              <p class="pickup-profile-notice" id="pickupProfileAddressNotice" hidden aria-live="polite"></p>
-
               <label class="pickup-checkbox" id="pickupCustomToggle" hidden>
                 <input type="checkbox" id="pickupUseCustom" />
                 <span data-i18n="offer.pickupCustomToggleCreate">Použít jiné místo vyzvednutí</span>
               </label>
+
+              <p class="pickup-profile-notice" id="pickupProfileAddressNotice" data-i18n="offer.pickupEnterCzAddress" hidden>Zadejte adresu v ČR, kde si nájemce věc vyzvedne.</p>
 
               <div class="pickup-custom-fields" id="pickupCustomFields">
                 <div class="form-grid">
