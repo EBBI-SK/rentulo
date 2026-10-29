@@ -160,6 +160,8 @@
 .owner-offer-manage-summary::-webkit-details-marker { display: none; }
 .owner-offer-manage-summary::after { content: "\2304"; margin-left: 7px; }
 .owner-offer-manage[open] .owner-offer-manage-summary { background: #e2efe9; }
+.owner-offer-manage-summary:hover,
+.owner-offer-manage[open] .owner-offer-manage-summary:hover { background: #e2f0e9; }
 .owner-offer-manage[open] .owner-offer-manage-summary::after { content: "\2303"; }
 .owner-offer-manage-panel {
   position: absolute;
@@ -193,7 +195,8 @@
   box-shadow: none !important;
 }
 .owner-offer-manage-panel a:hover,
-.owner-offer-manage-panel button:hover { background: #f3f8f5 !important; }
+.owner-offer-manage-panel button:hover { background: #e2f0e9 !important; }
+.owner-offer-manage-panel .offer-visibility-action.deactivate:hover { background: #e2f0e9 !important; }
 .owner-offer-manage-panel .danger { color: #a43b2f !important; }
 .owner-offer-manage-panel .danger:hover { background: #fff3f0 !important; }
 
@@ -317,12 +320,30 @@
 }
 .owner-reservation-actions .small-button:disabled {
   cursor: not-allowed;
-  opacity: .55;
+  opacity: .70;
 }
 .owner-reservation-actions .small-button.light,
 .owner-reservation-actions .history-toggle-button {
   background: #edf5f1 !important;
   color: #173f35 !important;
+}
+.owner-reservation-actions .small-button.light:hover,
+.owner-reservation-actions .history-toggle-button:hover {
+  background: #e2f0e9 !important;
+  color: #173f35 !important;
+}
+/* Reject reservation and extension like renter cancellation: muted red, not mint. */
+.owner-reservation-actions .small-button[data-offers-action="reject-reservation"],
+.owner-reservation-actions .small-button[data-offers-action="reject-extension"] {
+  background: #fff8f6 !important;
+  color: #a43b2f !important;
+  border: 1px solid #efc1b7 !important;
+}
+.owner-reservation-actions .small-button[data-offers-action="reject-reservation"]:hover,
+.owner-reservation-actions .small-button[data-offers-action="reject-extension"]:hover {
+  background: #fff0ec !important;
+  color: #a43b2f !important;
+  border-color: #efc1b7 !important;
 }
 .owner-reservation-actions .small-button.owner-handover-launch {
   background: #00835a !important;
