@@ -36,6 +36,7 @@ function createElements(values) {
     profilePhone: { value: values.phone },
     profileStreet: { value: values.street },
     profileCity: { value: values.city },
+    profileCountryCode: { value: values.countryCode },
     profilePostalCode: { value: values.postalCode, focus() { this.focused = true; } },
     saveProfileButton: button,
     profileMessage: {}
@@ -83,7 +84,9 @@ function buildSandbox(settingsSource, initialValues) {
     console
   };
 
+  sandbox.window = sandbox;
   vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(PROJECT_ROOT, "js/country-address.js"), "utf8"), sandbox);
   const utils = fs.readFileSync(path.join(PROJECT_ROOT, "js/utils.js"), "utf8");
   vm.runInContext(utils.slice(utils.indexOf("function formatRentuloCzechPostalCode(")), sandbox);
   vm.runInContext(
@@ -104,6 +107,7 @@ const INITIAL_VALUES = {
   phone: "+420 000 000 000",
   street: "Dlouha 12",
   city: "Praha",
+  countryCode: "CZ",
   postalCode: "110 00"
 };
 
@@ -235,5 +239,5 @@ test("profile rejects an invalid manual Czech postcode without writing to Supaba
   const client = { auth: { updateUser() { throw new Error("Must not write"); } }, from() { throw new Error("Must not write"); } };
   await sandbox.saveProfile(client, USER);
   assert.equal(elements.profilePostalCode.focused, true);
-  assert.equal(messages.at(-1).key, "address.invalidPostalCode");
+  assert.equal(messages.at(-1).key, "country.invalidPostalCode");
 });

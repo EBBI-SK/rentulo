@@ -38,6 +38,7 @@ function createFixture() {
     phone: "+420 777 123 456",
     street: "Dlouha 12",
     city: "Praha",
+    countryCode: "CZ",
     postalCode: "110 00",
     password: "GoodPass9!",
     passwordConfirm: "GoodPass9!"
@@ -55,7 +56,7 @@ function createFixture() {
   const document = {
     getElementById(id) { return elements[id] || null; },
     querySelectorAll(selector) {
-      if (selector === "#registrationForm input") {
+      if (selector === "#registrationForm input, #registrationForm select") {
         return Object.entries(elements)
           .filter(([id]) => !["registrationError", "registrationSubmitButton"].includes(id))
           .map(([, element]) => element);
@@ -63,7 +64,7 @@ function createFixture() {
       return [];
     },
     querySelector(selector) {
-      if (selector === "#registrationForm input[aria-invalid='true']") {
+      if (selector === "#registrationForm [aria-invalid='true']") {
         return Object.values(elements).find(e => e.getAttribute("aria-invalid") === "true") || null;
       }
       return null;
@@ -92,6 +93,7 @@ function createFixture() {
   vm.createContext(context);
   const utils = read("js/utils.js");
   vm.runInContext(utils.slice(utils.indexOf("function formatRentuloCzechPostalCode(")), context);
+  vm.runInContext(read("js/country-address.js"), context);
   vm.runInContext(read("js/registration-page.js"), context, { filename: "js/registration-page.js" });
   return { context, elements, signUps };
 }

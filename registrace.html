@@ -141,6 +141,13 @@
           </div>
 
           <div class="registration-field registration-field-full">
+            <label for="countryCode" data-i18n="country.residenceLabel">Země bydliště</label>
+            <select id="countryCode" name="country" autocomplete="country" aria-describedby="registrationError" required>
+              <option value="" data-i18n="country.choose">Vyberte zemi</option>
+            </select>
+          </div>
+
+          <div class="registration-field registration-field-full">
             <label for="street" data-i18n="registration.streetLabel">Ulice a číslo</label>
             <input
               type="text"
@@ -178,9 +185,8 @@
               inputmode="numeric"
               name="rentulo-postal-code"
               autocomplete="off"
-              maxlength="6"
+              maxlength="20"
               aria-describedby="registrationError"
-              data-i18n-placeholder="registration.postalCodePlaceholder"
               placeholder="např. 110 00"
               required
             />
@@ -250,6 +256,7 @@
   <script src="js/i18n.js"></script>
   <script src="js/navigation.js"></script>
   <script src="js/password-visibility.js"></script>
+  <script src="js/country-address.js"></script>
   <script src="js/registration-page.js"></script>
 </body>
 </html>

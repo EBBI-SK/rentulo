@@ -52,7 +52,7 @@ function registrationHideError() {
 }
 
 function registrationClearErrors() {
-  const fields = document.querySelectorAll("#registrationForm input");
+  const fields = document.querySelectorAll("#registrationForm input, #registrationForm select");
 
   fields.forEach(function (field) {
     field.classList.remove("input-error");
@@ -69,7 +69,7 @@ function registrationMarkError(input) {
 
 function registrationFocusFirstError() {
   const firstInvalidField = document.querySelector(
-    "#registrationForm input[aria-invalid='true']"
+    "#registrationForm [aria-invalid='true']"
   );
 
   if (firstInvalidField && typeof firstInvalidField.focus === "function") {
@@ -206,6 +206,7 @@ async function createUserAccount(event) {
   const fullNameInput = document.getElementById("fullName");
   const emailInput = document.getElementById("email");
   const phoneInput = document.getElementById("phone");
+  const countryInput = document.getElementById("countryCode");
   const streetInput = document.getElementById("street");
   const cityInput = document.getElementById("city");
   const postalCodeInput = document.getElementById("postalCode");
@@ -218,9 +219,9 @@ async function createUserAccount(event) {
     fullNameInput,
     emailInput,
     phoneInput,
+    countryInput,
     streetInput,
     cityInput,
-    postalCodeInput,
     passwordInput,
     passwordConfirmInput
   ];
@@ -263,10 +264,17 @@ async function createUserAccount(event) {
     return;
   }
 
-  const normalizedPostalCode = formatRentuloCzechPostalCode(postalCodeInput.value);
-  if (!normalizedPostalCode) {
+  const countryCode = window.rentuloCountries.validCountry(countryInput.value);
+  if (!countryCode) {
+    registrationMarkError(countryInput);
+    registrationShowError("country.required", "Vyberte zemi bydliště.");
+    registrationFocusFirstError();
+    return;
+  }
+  const normalizedPostalCode = window.rentuloCountries.normalizePostal(countryCode, postalCodeInput.value);
+  if (normalizedPostalCode === null) {
     registrationMarkError(postalCodeInput);
-    registrationShowError("address.invalidPostalCode", "Zadejte české PSČ ve formátu 110 00 (5 číslic).");
+    registrationShowError("country.invalidPostalCode", "Zkontrolujte poštovní směrovací číslo pro vybranou zemi.");
     registrationFocusFirstError();
     return;
   }
@@ -337,6 +345,7 @@ async function createUserAccount(event) {
           street: street,
           city: city,
           postal_code: postalCode,
+          country_code: countryCode,
           preferred_language: preferredLanguage,
           terms_business_accepted: true,
           terms_privacy_accepted: true,
@@ -399,7 +408,7 @@ function handleRegistrationLanguageChange() {
 }
 
 document.addEventListener("DOMContentLoaded", function () {
-  setupRentuloCzechPostalCodeBlur(document.getElementById("postalCode"));
+  window.rentuloCountries.setupSelect("countryCode", "postalCode");
   resetRegistrationConsentCheckboxes();
 
   window.setTimeout(resetRegistrationConsentCheckboxes, 0);
@@ -411,7 +420,7 @@ document.addEventListener("DOMContentLoaded", function () {
     registrationForm.addEventListener("input", function (event) {
       const field = event.target;
 
-      if (field && field.matches("input")) {
+      if (field && field.matches("input, select")) {
         field.classList.remove("input-error");
         field.removeAttribute("aria-invalid");
       }

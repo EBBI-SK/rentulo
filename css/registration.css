@@ -7,7 +7,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -104,7 +105,8 @@ input {
   font-weight: 800;
 }
 
-.registration-field input {
+.registration-field input,
+.registration-field select {
   width: 100%;
   min-width: 0;
   height: 50px;
@@ -121,15 +123,18 @@ input {
   color: #8a958f;
 }
 
+.registration-field select:hover,
 .registration-field input:hover {
   border-color: #b9c9c1;
 }
 
+.registration-field select:focus-visible,
 .registration-field input:focus-visible {
   border-color: rgba(23, 103, 71, 0.55);
   box-shadow: 0 0 0 3px rgba(23, 103, 71, 0.09);
 }
 
+.registration-field select.input-error,
 .registration-field input.input-error,
 .registration-check input.input-error {
   border-color: #dc3545;

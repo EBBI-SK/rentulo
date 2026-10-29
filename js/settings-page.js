@@ -160,6 +160,7 @@
       left.phone === right.phone &&
       left.street === right.street &&
       left.city === right.city &&
+      left.countryCode === right.countryCode &&
       left.postalCode === right.postalCode
     );
   }
@@ -193,6 +194,7 @@
       profilePhone: profile && profile.phone ? profile.phone : "",
       profileStreet: profile && profile.street ? profile.street : "",
       profileCity: profile && profile.city ? profile.city : "",
+      profileCountryCode: profile && profile.country_code ? profile.country_code : "",
       profilePostalCode: profile && profile.postal_code ? profile.postal_code : ""
     };
 
@@ -204,12 +206,18 @@
       }
     });
 
+    window.rentuloCountries.syncPostalInput(
+      document.getElementById("profileCountryCode"),
+      document.getElementById("profilePostalCode")
+    );
+
     savedProfileValues = {
       fullName: normalizeText(values.profileFullName),
       email: normalizeEmail(values.profileEmail),
       phone: normalizeText(values.profilePhone),
       street: normalizeText(values.profileStreet),
       city: normalizeText(values.profileCity),
+      countryCode: values.profileCountryCode,
       postalCode: normalizeText(values.profilePostalCode)
     };
   }
@@ -227,7 +235,7 @@
       const response = await client
         .from("profiles")
         .select(
-          "full_name, email, phone, street, city, postal_code, preferred_language, sms_notifications"
+          "full_name, email, phone, street, city, postal_code, country_code, preferred_language, sms_notifications"
         )
         .eq("id", user.id)
         .maybeSingle();
@@ -325,6 +333,7 @@
     const streetInput = document.getElementById("profileStreet");
     const cityInput = document.getElementById("profileCity");
     const postalCodeInput = document.getElementById("profilePostalCode");
+    const countryInput = document.getElementById("profileCountryCode");
     const button = document.getElementById("saveProfileButton");
     const message = document.getElementById("profileMessage");
 
@@ -334,14 +343,16 @@
     const street = normalizeText(streetInput && streetInput.value);
     const city = normalizeText(cityInput && cityInput.value);
     const postalCodeRaw = normalizeText(postalCodeInput && postalCodeInput.value);
-    const postalCode = formatRentuloCzechPostalCode(postalCodeRaw);
+    const countryCode = window.rentuloCountries.validCountry(countryInput && countryInput.value);
+    const postalCode = window.rentuloCountries.normalizePostal(countryCode, postalCodeRaw);
     const profileValues = {
       fullName: fullName,
       email: email,
       phone: phone,
       street: street,
       city: city,
-      postalCode: postalCode || postalCodeRaw
+      countryCode: countryCode,
+      postalCode: postalCode === null ? postalCodeRaw : postalCode
     };
     const phoneChanged = savedProfileValues && savedProfileValues.phone !== phone;
 
@@ -351,7 +362,7 @@
 
     setMessage(message, "", "");
 
-    if (!fullName || !email || !phone || !street || !city || !postalCodeRaw) {
+    if (!fullName || !email || !phone || !street || !city) {
       setTranslatedMessage(
         message,
         "settings.profileRequired",
@@ -361,8 +372,14 @@
       return user;
     }
 
-    if (!postalCode) {
-      setTranslatedMessage(message, "address.invalidPostalCode", "Zadejte české PSČ ve formátu 110 00 (5 číslic).", "error");
+    if (!countryCode) {
+      setTranslatedMessage(message, "country.required", "Vyberte zemi bydliště.", "error");
+      if (countryInput) countryInput.focus();
+      return user;
+    }
+
+    if (postalCode === null) {
+      setTranslatedMessage(message, "country.invalidPostalCode", "Zkontrolujte poštovní směrovací číslo pro vybranou zemi.", "error");
       if (postalCodeInput) postalCodeInput.focus();
       return user;
     }
@@ -405,7 +422,8 @@
             phone: phone,
             street: street,
             city: city,
-            postal_code: postalCode
+            postal_code: postalCode,
+            country_code: countryCode
           }
         });
 
@@ -436,7 +454,8 @@
             phone: phone,
             street: street,
             city: city,
-            postal_code: postalCode
+            postal_code: postalCode,
+            country_code: countryCode
           }
         });
 
@@ -453,6 +472,7 @@
         street: street,
         city: city,
         postal_code: postalCode,
+        country_code: countryCode,
         updated_at: new Date().toISOString()
       };
 
@@ -479,7 +499,8 @@
             phone: phone,
             street: street,
             city: city,
-            postal_code: postalCode
+            postal_code: postalCode,
+            country_code: countryCode
           }
         };
 
@@ -1138,7 +1159,7 @@
     let currentUser = user;
 
     if (profileForm) {
-      setupRentuloCzechPostalCodeBlur(document.getElementById("profilePostalCode"));
+      window.rentuloCountries.setupSelect("profileCountryCode", "profilePostalCode");
       profileForm.addEventListener("submit", async function (event) {
         event.preventDefault();
         currentUser = await saveProfile(client, currentUser);

@@ -30,11 +30,13 @@ type GeocodePayload = {
   street?: string;
   city?: string;
   postalCode?: string;
+  countryCode?: string;
 };
 
 type GeocodeResult =
   | { kind: "ok"; latitude: number; longitude: number; provider: string }
   | { kind: "not_found"; provider: string }
+  | { kind: "unsupported_country"; provider: string }
   | { kind: "error"; provider: string; detail: string };
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -67,6 +69,30 @@ function splitStreetAndHouseNumber(value: string): {
   };
 }
 
+// Geoapify can return a nearby Czech address even when the supplied address
+// is foreign. Accept a point only if every supplied component matches.
+function normalizeAddressComponent(value: unknown): string {
+  return String(value ?? "").trim().toLowerCase().normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
+}
+
+function matchesRequestedPickupAddress(
+  result: Record<string, unknown>, street: string, city: string, postalCode: string,
+): boolean {
+  const expected = splitStreetAndHouseNumber(street);
+  const actualCity = result.city || result.town || result.village || result.municipality;
+  const geoPostal = String(result.postcode || "").replace(/\s+/g, "");
+  if (geoPostal !== postalCode.replace(/\s+/g, "")) return false;
+  if (normalizeAddressComponent(actualCity) !== normalizeAddressComponent(city)) return false;
+  if (normalizeAddressComponent(result.street) !== normalizeAddressComponent(expected.street)) return false;
+  if (expected.houseNumber &&
+      normalizeAddressComponent(result.housenumber) !== normalizeAddressComponent(expected.houseNumber)) {
+    return false;
+  }
+  return true;
+}
+
 async function fetchWithTimeout(
   url: string,
   init: RequestInit = {},
@@ -93,9 +119,8 @@ async function geocodeWithGeoapify(
   const url = new URL("https://api-eu.geoapify.com/v1/geocode/search");
   const parts = splitStreetAndHouseNumber(street);
   url.searchParams.set("format", "json");
-  url.searchParams.set("filter", "countrycode:cz");
   url.searchParams.set("lang", "cs");
-  url.searchParams.set("limit", "1");
+  url.searchParams.set("limit", "5");
   if (parts.street) url.searchParams.set("street", parts.street);
   if (parts.houseNumber) url.searchParams.set("housenumber", parts.houseNumber);
   url.searchParams.set("city", city);
@@ -120,15 +145,26 @@ async function geocodeWithGeoapify(
 
   try {
     const data = await response.json();
-    const first = Array.isArray(data?.results) ? data.results[0] : null;
-    const latitude = first?.lat;
-    const longitude = first?.lon;
-    if (!first || typeof latitude !== "number" || typeof longitude !== "number" ||
-        !Number.isFinite(latitude) || !Number.isFinite(longitude) ||
-        String(first.country_code || "").toLowerCase() !== "cz") {
-      return { kind: "not_found", provider: "geoapify" };
+    const results = Array.isArray(data?.results) ? data.results : [];
+    let foundForeignAddress = false;
+    for (const candidate of results) {
+      if (!candidate || !matchesRequestedPickupAddress(candidate, street, city, postalCode)) continue;
+      if (String(candidate.country_code || "").toLowerCase() !== "cz") {
+        foundForeignAddress = true;
+        continue;
+      }
+      const latitude = candidate.lat;
+      const longitude = candidate.lon;
+      if (typeof latitude === "number" && typeof longitude === "number" &&
+          Number.isFinite(latitude) && Number.isFinite(longitude) &&
+          latitude >= 48.5 && latitude <= 51.2 &&
+          longitude >= 12 && longitude <= 19) {
+        return { kind: "ok", latitude, longitude, provider: "geoapify" };
+      }
     }
-    return { kind: "ok", latitude, longitude, provider: "geoapify" };
+    return foundForeignAddress
+      ? { kind: "unsupported_country", provider: "geoapify" }
+      : { kind: "not_found", provider: "geoapify" };
   } catch {
     return { kind: "error", provider: "geoapify", detail: "invalid_response" };
   }
@@ -174,8 +210,12 @@ denoRuntime.serve(async (req) => {
   const street = cleanAddressPart(payload.street, 180);
   const city = cleanAddressPart(payload.city, 120);
   const postalCode = cleanAddressPart(payload.postalCode, 24);
+  const countryCode = cleanAddressPart(payload.countryCode, 4).toUpperCase();
 
-  if (!city || !postalCode) {
+  if (countryCode !== "CZ") {
+    return jsonResponse({ ok: false, reason: "unsupported_country" }, 400);
+  }
+  if (!street || !city || !/^\d{3} ?\d{2}$/.test(postalCode)) {
     return jsonResponse({ error: "Incomplete pickup location" }, 400);
   }
 
@@ -186,6 +226,9 @@ denoRuntime.serve(async (req) => {
   const geocode = await geocodeWithGeoapify(street, city, postalCode, userAgent, apiKey);
   if (geocode.kind === "ok") {
     return jsonResponse({ ok: true, latitude: geocode.latitude, longitude: geocode.longitude });
+  }
+  if (geocode.kind === "unsupported_country") {
+    return jsonResponse({ ok: false, reason: "unsupported_country" });
   }
   if (geocode.kind === "not_found") {
     return jsonResponse({ ok: false, reason: "not_found" });

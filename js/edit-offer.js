@@ -9,7 +9,8 @@ let editSaveInProgress = false;
 let editOwnerProfile = {
   street: "",
   city: "",
-  postalCode: ""
+  postalCode: "",
+  countryCode: ""
 };
 
 const EDIT_OFFER_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
@@ -101,45 +102,6 @@ function editValueOrEmpty(value) {
   return value === undefined || value === null ? "" : value;
 }
 
-
-function normalizeEditPickupAddress(pickupAddress) {
-  return [
-    pickupAddress && pickupAddress.street,
-    pickupAddress && pickupAddress.city,
-    pickupAddress && pickupAddress.postalCode
-  ].map(function (value) {
-    return String(value || "").trim().toLowerCase();
-  }).join("|");
-}
-
-function getExistingEditPickupCoordinates(offer) {
-  if (!offer) {
-    return null;
-  }
-
-  const rawLatitude = offer.pickup_latitude;
-  const rawLongitude = offer.pickup_longitude;
-
-  if (
-    rawLatitude === undefined ||
-    rawLatitude === null ||
-    rawLatitude === "" ||
-    rawLongitude === undefined ||
-    rawLongitude === null ||
-    rawLongitude === ""
-  ) {
-    return null;
-  }
-
-  const latitude = Number(rawLatitude);
-  const longitude = Number(rawLongitude);
-
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    return null;
-  }
-
-  return { latitude, longitude };
-}
 
 function getEditToolId() {
   const params = new URLSearchParams(window.location.search);
@@ -444,7 +406,7 @@ async function loadEditOwnerProfile(userId) {
 
   const { data: profile, error } = await supabaseClient
     .from("profiles")
-    .select("street, city, postal_code")
+    .select("street, city, postal_code, country_code")
     .eq("id", userId)
     .maybeSingle();
 
@@ -459,7 +421,8 @@ async function loadEditOwnerProfile(userId) {
   editOwnerProfile = {
     street: profile.street || "",
     city: profile.city || "",
-    postalCode: profile.postal_code || ""
+    postalCode: profile.postal_code || "",
+    countryCode: profile.country_code || ""
   };
 }
 
@@ -547,7 +510,8 @@ function renderEditProfilePickupAddress() {
   const hasCompleteProfileAddress = Boolean(
     editOwnerProfile.street &&
     editOwnerProfile.city &&
-    editOwnerProfile.postalCode
+    editOwnerProfile.postalCode &&
+    editOwnerProfile.countryCode === "CZ"
   );
 
   if (!hasCompleteProfileAddress) {
@@ -595,6 +559,7 @@ function getEditedPickupAddress() {
 
     return {
       mode: "custom",
+      countryCode: "CZ",
       street: pickupStreetInput ? pickupStreetInput.value.trim() : "",
       city: cityInput ? cityInput.value.trim() : "",
       postalCode: postalInput ? (formatRentuloCzechPostalCode(postalInput.value) || postalInput.value.trim()) : "",
@@ -604,6 +569,7 @@ function getEditedPickupAddress() {
 
   return {
     mode: "profile",
+    countryCode: editOwnerProfile.countryCode,
     street: editOwnerProfile.street,
     city: editOwnerProfile.city,
     postalCode: formatRentuloCzechPostalCode(editOwnerProfile.postalCode) || editOwnerProfile.postalCode,
@@ -777,28 +743,42 @@ function setEditSavingState(isSaving) {
     : editT("editOffer.save", "Uložit změny");
 }
 
-async function geocodeEditedPickupAddress(supabaseClient, pickupAddress) {
+async function geocodeEditedPickupAddress(supabaseClient, pickupAddress, mustVerify = true) {
   const { data, error } = await supabaseClient.functions.invoke("geocode-pickup", {
     body: {
       street: pickupAddress.street,
       city: pickupAddress.city,
-      postalCode: pickupAddress.postalCode
+      postalCode: pickupAddress.postalCode,
+      countryCode: pickupAddress.countryCode
     }
   });
 
   if (error) {
-    console.warn("Pickup geocoding is temporarily unavailable; saving without coordinates.", error);
+    if (mustVerify) {
+      const unavailable = new Error("Pickup verification unavailable");
+      unavailable.code = "PICKUP_GEOCODING_UNAVAILABLE";
+      throw unavailable;
+    }
     return null;
   }
 
   if (!data || data.ok !== true) {
+    if (data && data.reason === "unsupported_country") {
+      const countryError = new Error("Pickup address is outside the Czech Republic");
+      countryError.code = "PICKUP_COUNTRY_UNSUPPORTED";
+      throw countryError;
+    }
     if (data && data.reason === "not_found") {
       const geocodeError = new Error("Pickup address was not found");
       geocodeError.code = "PICKUP_GEOCODING_NOT_FOUND";
       throw geocodeError;
     }
 
-    console.warn("Pickup geocoding is temporarily unavailable; saving without coordinates.");
+    if (mustVerify) {
+      const unavailable = new Error("Pickup verification unavailable");
+      unavailable.code = "PICKUP_GEOCODING_UNAVAILABLE";
+      throw unavailable;
+    }
     return null;
   }
 
@@ -806,8 +786,9 @@ async function geocodeEditedPickupAddress(supabaseClient, pickupAddress) {
   const longitude = Number(data.longitude);
 
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    console.warn("Pickup geocoding returned invalid coordinates; saving without coordinates.");
-    return null;
+    const unavailable = new Error("Invalid pickup coordinates");
+    unavailable.code = "PICKUP_GEOCODING_UNAVAILABLE";
+    throw unavailable;
   }
 
   return { latitude, longitude };
@@ -936,6 +917,9 @@ function setupEditOfferSave() {
           hasError = true;
         }
       });
+    } else if (editOwnerProfile.countryCode !== "CZ") {
+      editShowTranslatedMessage("offer.profilePickupOutsideCz", "Profilová adresa není ověřená jako česká. Zvolte jiné místo vyzvednutí v ČR nebo doplňte zemi bydliště v Nastavení.");
+      return;
     } else if (!editOwnerProfile.street || !editOwnerProfile.city || !editOwnerProfile.postalCode) {
       editShowTranslatedMessage(
         "offer.profilePickupMissing",
@@ -1012,17 +996,10 @@ function setupEditOfferSave() {
 
     try {
       const pickupAddress = getEditedPickupAddress();
-      const currentPickupAddress = {
-        street: editCurrentOffer.pickup_street || "",
-        city: editCurrentOffer.pickup_city || editCurrentOffer.city || "",
-        postalCode: editCurrentOffer.pickup_postal_code || editCurrentOffer.postal_code || ""
-      };
-      const existingPickupCoordinates = getExistingEditPickupCoordinates(editCurrentOffer);
-      const pickupAddressChanged =
-        normalizeEditPickupAddress(currentPickupAddress) !== normalizeEditPickupAddress(pickupAddress);
-      const pickupCoordinates = !pickupAddressChanged && existingPickupCoordinates
-        ? existingPickupCoordinates
-        : await geocodeEditedPickupAddress(supabaseClient, pickupAddress);
+      // Always re-check edited offers, including unchanged legacy addresses.
+      const pickupCoordinates = await geocodeEditedPickupAddress(
+        supabaseClient, pickupAddress, editCurrentOffer.status !== "draft"
+      );
       const previousPhotoUrl = getEditOfferPhoto(editCurrentOffer);
       const uploadedPhoto = await uploadEditedOfferPhoto(supabaseClient, supabaseUser.id);
       newlyUploadedPhotoPath = uploadedPhoto.isNew ? uploadedPhoto.path : "";
@@ -1036,6 +1013,8 @@ function setupEditOfferSave() {
         min_rental_days: minDaysValue,
         photo_url: uploadedPhoto.url,
         pickup_mode: pickupAddress.mode,
+        pickup_country_code: pickupAddress.countryCode,
+        currency_code: "CZK",
         pickup_street: pickupAddress.street,
         pickup_city: pickupAddress.city,
         pickup_postal_code: pickupAddress.postalCode,
@@ -1091,6 +1070,11 @@ function setupEditOfferSave() {
       console.error(error);
       editSaveInProgress = false;
       setEditSavingState(false);
+
+      if (error && error.code === "PICKUP_COUNTRY_UNSUPPORTED") {
+        editShowTranslatedMessage("offer.pickupOutsideCz", "Místo vyzvednutí musí být v České republice. Zadejte českou adresu.");
+        return;
+      }
 
       if (error && error.code === "PICKUP_GEOCODING_NOT_FOUND") {
         editShowTranslatedMessage(
