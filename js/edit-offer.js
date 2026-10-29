@@ -967,12 +967,12 @@ function setupEditOfferSave() {
     }
     if (window.rentuloOfferPolicy.isTransportOffer(nameInput.value, categorySelect.value)) {
       editMarkError(nameInput);
-      editShowTranslatedMessage("offer.transportNotAllowed", "Dopravní prostředky nelze v Rentulu V1 nabízet.");
+      editShowTranslatedMessage("offer.transportNotAllowed", "Dopravní prostředky nelze na Rentulu nabízet.");
       return;
     }
     if (!transportAttestation || !transportAttestation.checked) {
       editMarkError(transportAttestation);
-      editShowTranslatedMessage("offer.transportMustConfirm", "Potvrďte prosím pravidla Rentula V1.");
+      editShowTranslatedMessage("offer.transportMustConfirm", "Potvrďte prosím pravidla Rentula.");
       return;
     }
 
@@ -1063,7 +1063,7 @@ function setupEditOfferSave() {
       if (error && String(error.message || "").toLowerCase().includes("rentulo_v1_transport_not_allowed")) {
         editSaveInProgress = false;
         setEditSavingState(false);
-        editShowTranslatedMessage("offer.transportNotAllowed", "Dopravní prostředky nelze v Rentulu V1 nabízet.");
+        editShowTranslatedMessage("offer.transportNotAllowed", "Dopravní prostředky nelze na Rentulu nabízet.");
         return;
       }
 
