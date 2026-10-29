@@ -538,8 +538,8 @@ body[data-navigation-page="uvod"] .home-map-zoom-controls {
 }
 
 .rentulo-credit-footer-operator a {
-  color: inherit;
-  font-weight: inherit;
+  color: var(--rentulo-ink);
+  font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 2px;
 }

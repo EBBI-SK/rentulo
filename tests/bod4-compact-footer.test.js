@@ -69,7 +69,7 @@ test('footer is in document flow, compact on desktop and vertically stacked on m
   assert.match(footerStyles, /\.rentulo-credit-footer\s*\{\s*position: static;/);
   assert.match(footerStyles, /padding: 13px 0;/);
   assert.match(footerStyles, /\.rentulo-credit-footer-links a\s*\{[^}]*color: var\(--rentulo-muted\);[^}]*font-weight: 400;/);
-  assert.match(footerStyles, /\.rentulo-credit-footer-operator a\s*\{[^}]*color: inherit;/);
+  assert.match(footerStyles, /\.rentulo-credit-footer-operator a\s*\{[^}]*color: var\(--rentulo-ink\);[^}]*font-weight: 600;/);
   assert.match(mobile[1], /\.rentulo-credit-footer-links\s*\{\s*flex-direction: column;/);
   assert.match(mobile[1], /\.rentulo-credit-footer-meta\s*\{\s*flex-direction: column;/);
 });
