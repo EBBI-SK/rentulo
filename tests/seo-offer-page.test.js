@@ -73,7 +73,12 @@ test('legacy offer detail keeps relative navigation at the site root after SEO U
     'prihlaseni.html', 'registrace.html', 'vysledky.html'
   ];
   for (const page of pages) {
-    assert.ok(menu.includes(`href="${page}"`), `Missing shared menu route ${page}`);
+    if (page === 'prihlaseni.html') {
+      assert.ok(menu.includes('href="${loginHref}"'), 'Detail login must preserve the offer return destination');
+      assert.match(menu, /: "prihlaseni\.html";/, 'Other pages retain the default login destination');
+    } else {
+      assert.ok(menu.includes(`href="${page}"`), `Missing shared menu route ${page}`);
+    }
     assert.equal(new URL(page, documentBase).href, `https://rentulo.eu/${page}`);
   }
   for (const asset of ['assets/rentulo-logo-mark.png', 'js/navigation.js', 'css/rentulo-theme.css']) {

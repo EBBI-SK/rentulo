@@ -1930,6 +1930,15 @@ function renderSharedNavigation(activePage) {
   const loginText = navTranslate("nav.login", "Přihlásit se");
   const registerText = navTranslate("nav.register", "Registrovat se");
 
+  // On offer detail, the header login must preserve the same offer and dates
+  // as the booking sidebar. The login page validates the returnTo allowlist.
+  const detailReturnTo = activePage === "detail" && typeof getOfferLoginReturnTo === "function"
+    ? getOfferLoginReturnTo()
+    : "";
+  const loginHref = typeof detailReturnTo === "string" && detailReturnTo.startsWith("detail.html?id=")
+    ? "prihlaseni.html?returnTo=" + encodeURIComponent(detailReturnTo)
+    : "prihlaseni.html";
+
   if (currentUser) {
     nav.innerHTML = `
       ${navMobileProfileSummary()}
@@ -1943,7 +1952,7 @@ function renderSharedNavigation(activePage) {
   } else {
     nav.innerHTML = `
       <a href="jak-to-funguje.html" class="${isHowActive}">${howItWorksText}</a>
-      <a href="prihlaseni.html" class="${isLoginActive}">${loginText}</a>
+      <a href="${loginHref}" class="${isLoginActive}">${loginText}</a>
       <a href="registrace.html" class="btn-register ${isRegisterActive}">${registerText}</a>
       ${navLanguageControl()}
     `;
