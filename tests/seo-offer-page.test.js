@@ -168,8 +168,8 @@ test('new offer links and legacy login return URLs coexist', () => {
   assert.match(detail, /getOfferLoginReturnTo\(\)/);
   assert.match(detail, /showCanonicalOfferUrl\(offer\)/);
   assert.match(detail, /window\.history\.replaceState/);
-  assert.match(detail, /"detail\.html\?id=" \+ encodeURIComponent\(offerId\)/);
-  assert.match(results, /href="\/nabidka\/\$\{encodeURIComponent\(offerId\)\}"/);
+  assert.match(detail, /return "detail\.html\?" \+ params\.toString\(\)/);
+  assert.match(results, /getResultOfferDetailLink\(offerId\)/);
   assert.match(detail, /cs:.*Rentulo|const descriptions = \{/);
   for (const code of ['cs','sk','en','de','pl']) assert.match(detail, new RegExp(`\\b${code}: \\x60`));
 });

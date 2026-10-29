@@ -199,6 +199,21 @@
       return new URLSearchParams(window.location.search).get("id");
     }
 
+    function getDetailSearchDates() {
+      const params = new URLSearchParams(window.location.search);
+      const from = params.get("od") || "";
+      const to = params.get("do") || "";
+      const iso = /^\d{4}-\d{2}-\d{2}$/;
+      if (!iso.test(from) || !iso.test(to)) return null;
+      const first = new Date(from + "T00:00:00Z");
+      const last = new Date(to + "T00:00:00Z");
+      if (Number.isNaN(first.getTime()) || Number.isNaN(last.getTime())) return null;
+      if (first.toISOString().slice(0, 10) !== from || last.toISOString().slice(0, 10) !== to) return null;
+      const days = (last.getTime() - first.getTime()) / 86400000;
+      if (!Number.isInteger(days) || days < 1 || days > 365) return null;
+      return { from, to };
+    }
+
     function showCanonicalOfferUrl(offer) {
       // Old bookmarks continue to load. After an active offer is confirmed,
       // display the SEO URL so copying the browser address shares its photo.
@@ -207,7 +222,11 @@
       if (!/^https?:$/.test(window.location.protocol)) return;
       if (!/\/detail\.html$/i.test(window.location.pathname)) return;
       if (window.history && typeof window.history.replaceState === "function") {
-        window.history.replaceState(window.history.state, "", "/nabidka/" + id.toLowerCase());
+        const dates = getDetailSearchDates();
+        const dateQuery = dates
+          ? "?" + new URLSearchParams({ od: dates.from, do: dates.to }).toString()
+          : "";
+        window.history.replaceState(window.history.state, "", "/nabidka/" + id.toLowerCase() + dateQuery);
       }
     }
 
@@ -215,7 +234,14 @@
       // The login allowlist already accepts this legacy UUID URL. Keep it so
       // logging in from a public SEO link cannot break reservation checkout.
       const offerId = getOfferIdFromUrl();
-      return offerId ? "detail.html?id=" + encodeURIComponent(offerId) : "detail.html";
+      if (!offerId) return "detail.html";
+      const params = new URLSearchParams({ id: offerId });
+      const dates = getDetailSearchDates();
+      if (dates) {
+        params.set("od", dates.from);
+        params.set("do", dates.to);
+      }
+      return "detail.html?" + params.toString();
     }
 
     function updateOfferBrowserMetadata(offer) {
@@ -1048,6 +1074,11 @@ const hasGps = offerHasGpsLocation(offer);
 
       startDateInput.min = today;
       endDateInput.min = getNextDate(today);
+      const searchDates = getDetailSearchDates();
+      if (searchDates && searchDates.from >= today) {
+        startDateInput.value = searchDates.from;
+        endDateInput.value = searchDates.to;
+      }
 
       function updateAvailabilityElement(element, state, title, text) {
         if (!element) {

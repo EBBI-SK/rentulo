@@ -3,6 +3,143 @@
     let resultsLoadState = "idle";
     let resultsGpsLoadState = "idle";
     let resultsNearbyLocation = null;
+    let resultsDateRenderId = 0;
+
+    const RESULTS_DATE_COPY = {
+      cs: {
+        from: "Od", to: "Do",
+        hint: "Dostupnost je orienta\u010dn\u00ed. P\u0159esn\u00fd \u010das ov\u011b\u0159\u00edme v detailu nab\u00eddky.",
+        both: "Vypl\u0148te oba datumy (Od i Do), nebo je oba sma\u017ete.",
+        invalid: "Zvolte platn\u00e9 datum Od a pozd\u011bj\u0161\u00ed datum Do (max. 365 dn\u00ed).",
+        past: "Datum Od nesm\u00ed b\u00fdt v minulosti.",
+        checking: "Ov\u011b\u0159uji dostupnost pro vybran\u00e9 term\u00edny...",
+        unavailable: "Dostupnost se nepoda\u0159ilo ov\u011b\u0159it. Zkuste hledat znovu."
+      },
+      sk: {
+        from: "Od", to: "Do",
+        hint: "Dostupnos\u0165 je orienta\u010dn\u00e1. Presn\u00fd \u010das over\u00edme v detaile ponuky.",
+        both: "Vypl\u0148te oba d\u00e1tumy (Od aj Do), alebo ich oba vyma\u017ete.",
+        invalid: "Zvo\u013ete platn\u00fd d\u00e1tum Od a neskor\u0161\u00ed d\u00e1tum Do (max. 365 dn\u00ed).",
+        past: "D\u00e1tum Od nesmie by\u0165 v minulosti.",
+        checking: "Overujem dostupnos\u0165 vo vybran\u00fdch term\u00ednoch...",
+        unavailable: "Dostupnos\u0165 sa nepodarilo overi\u0165. Sk\u00faste h\u013eada\u0165 znova."
+      },
+      en: {
+        from: "From", to: "To",
+        hint: "Availability is preliminary. Choose an exact pickup time on the offer page.",
+        both: "Enter both dates (From and To), or clear both.",
+        invalid: "Choose a valid From date and a later To date (max. 365 days).",
+        past: "The From date cannot be in the past.",
+        checking: "Checking availability for the selected dates...",
+        unavailable: "Availability could not be checked. Please search again."
+      },
+      de: {
+        from: "Von", to: "Bis",
+        hint: "Verf\u00fcgbarkeit vorl\u00e4ufig. Die genaue Abholzeit wird im Angebot gepr\u00fcft.",
+        both: "Bitte beide Daten (Von und Bis) eingeben oder beide l\u00f6schen.",
+        invalid: "G\u00fcltiges Von-Datum und sp\u00e4teres Bis-Datum w\u00e4hlen (max. 365 Tage).",
+        past: "Das Von-Datum darf nicht in der Vergangenheit liegen.",
+        checking: "Verf\u00fcgbarkeit f\u00fcr die gew\u00e4hlten Daten wird gepr\u00fcft...",
+        unavailable: "Verf\u00fcgbarkeit konnte nicht gepr\u00fcft werden. Bitte erneut suchen."
+      },
+      pl: {
+        from: "Od", to: "Do",
+        hint: "Dost\u0119pno\u015b\u0107 jest wst\u0119pna. Dok\u0142adn\u0105 godzin\u0119 odbioru sprawdzisz w ofercie.",
+        both: "Wybierz obie daty (Od i Do) albo usu\u0144 obie.",
+        invalid: "Wybierz poprawn\u0105 dat\u0119 Od i p\u00f3\u017aniejsz\u0105 Do (maks. 365 dni).",
+        past: "Data Od nie mo\u017ce by\u0107 przesz\u0142a.",
+        checking: "Sprawdzanie dost\u0119pno\u015bci w wybranym terminie...",
+        unavailable: "Nie uda\u0142o si\u0119 sprawdzi\u0107 dost\u0119pno\u015bci. Spr\u00f3buj ponownie."
+      }
+    };
+
+    function resultsDateText(key) {
+      const language = typeof window.getRentuloLanguage === "function"
+        ? window.getRentuloLanguage()
+        : "cs";
+      const copy = RESULTS_DATE_COPY[language] || RESULTS_DATE_COPY.cs;
+      return copy[key] || RESULTS_DATE_COPY.cs[key] || key;
+    }
+
+    function getTodayInPrague() {
+      const parts = new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Europe/Prague", year: "numeric", month: "2-digit", day: "2-digit"
+      }).formatToParts(new Date());
+      const getPart = (name) => parts.find((part) => part.type === name).value;
+      return `${getPart("year")}-${getPart("month")}-${getPart("day")}`;
+    }
+
+    function isValidIsoDate(value) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ""))) return false;
+      const date = new Date(value + "T00:00:00Z");
+      return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+    }
+
+    function getDateDurationDays(from, to) {
+      return (Date.parse(to + "T00:00:00Z") - Date.parse(from + "T00:00:00Z")) / 86400000;
+    }
+
+    function getResultsDateRange() {
+      const from = document.getElementById("results-date-from")?.value || "";
+      const to = document.getElementById("results-date-to")?.value || "";
+      if (!from && !to) return { enabled: false };
+      if (!from || !to) return { enabled: true, error: "both" };
+      if (!isValidIsoDate(from) || !isValidIsoDate(to)) return { enabled: true, error: "invalid" };
+      const days = getDateDurationDays(from, to);
+      if (!Number.isInteger(days) || days < 1 || days > 365) return { enabled: true, error: "invalid" };
+      if (from < getTodayInPrague()) return { enabled: true, error: "past" };
+      return { enabled: true, from, to, days };
+    }
+
+    function updateResultsDateInputMin() {
+      const fromInput = document.getElementById("results-date-from");
+      const toInput = document.getElementById("results-date-to");
+      if (fromInput) fromInput.min = getTodayInPrague();
+      if (toInput) toInput.min = fromInput?.value || getTodayInPrague();
+    }
+
+    function showResultsDateStatus(key, isError = false) {
+      const status = document.getElementById("results-date-status");
+      if (!status) return;
+      status.hidden = !key;
+      status.classList.toggle("error", Boolean(isError));
+      status.textContent = key ? resultsDateText(key) : "";
+    }
+
+    function updateResultsDateLabels() {
+      const fromLabel = document.getElementById("results-date-from-label");
+      const toLabel = document.getElementById("results-date-to-label");
+      if (fromLabel) fromLabel.textContent = resultsDateText("from");
+      if (toLabel) toLabel.textContent = resultsDateText("to");
+    }
+
+    async function getAvailableOfferIdsForDates(offers, from, to) {
+      const supabaseClient = getSupabaseClient();
+      if (!supabaseClient) throw new Error("Supabase unavailable");
+      const ids = [...new Set(offers.map(getOfferId).filter(Boolean))];
+      const available = new Set();
+      for (let offset = 0; offset < ids.length; offset += 50) {
+        const { data, error } = await supabaseClient.rpc("get_available_offer_ids_for_dates", {
+          p_offer_ids: ids.slice(offset, offset + 50),
+          p_start_date: from,
+          p_end_date: to
+        });
+        if (error || !Array.isArray(data)) throw error || new Error("Availability check failed");
+        data.forEach(function (row) {
+          if (!row || typeof row.offer_id !== "string") throw new Error("Invalid availability result");
+          available.add(row.offer_id);
+        });
+      }
+      return available;
+    }
+
+    function getResultOfferDetailLink(offerId) {
+      const url = "/nabidka/" + encodeURIComponent(offerId);
+      const dates = getResultsDateRange();
+      if (!dates.enabled || dates.error) return url;
+      const params = new URLSearchParams({ od: dates.from, do: dates.to });
+      return url + "?" + params.toString();
+    }
 
     function resultsTranslate(key, fallback) {
       if (typeof window.rentuloTranslate === "function") {
@@ -567,7 +704,7 @@ function getOfferPhoto(offer) {
             </div>
 
             <div class="result-actions">
-              <a class="result-button" href="/nabidka/${encodeURIComponent(offerId)}">
+              <a class="result-button" href="${escapeHtml(getResultOfferDetailLink(offerId))}">
                 ${escapeHtml(resultsTranslate("results.viewDetail", "Zobrazit detail"))}
               </a>
             </div>
@@ -741,6 +878,8 @@ const HOME_CATEGORY_GROUPS = {
       const whereInput = document.getElementById("results-search-where");
       const categoryFilter = document.getElementById("categoryFilter");
       const priceFilter = document.getElementById("priceFilter");
+      const fromInput = document.getElementById("results-date-from");
+      const toInput = document.getElementById("results-date-to");
 
       const what = params.get("co") || "";
       const where = params.get("kde") || "";
@@ -768,6 +907,10 @@ const HOME_CATEGORY_GROUPS = {
       if (priceFilter) {
         priceFilter.value = price;
       }
+      if (fromInput) fromInput.value = params.get("od") || "";
+      if (toInput) toInput.value = params.get("do") || "";
+      updateResultsDateInputMin();
+      updateResultsDateLabels();
 
       applyResultsModeTranslations();
     }
@@ -779,6 +922,8 @@ const HOME_CATEGORY_GROUPS = {
       const whereInput = document.getElementById("results-search-where");
       const categoryFilter = document.getElementById("categoryFilter");
       const priceFilter = document.getElementById("priceFilter");
+      const fromInput = document.getElementById("results-date-from");
+      const toInput = document.getElementById("results-date-to");
 
       const what = whatInput ? whatInput.value.trim() : "";
       const where = whereInput ? whereInput.value.trim() : "";
@@ -827,6 +972,12 @@ const HOME_CATEGORY_GROUPS = {
         params.delete("cena");
       }
 
+      // Date filters are optional; keep the historical search unchanged when empty.
+      if (fromInput?.value) params.set("od", fromInput.value);
+      else params.delete("od");
+      if (toInput?.value) params.set("do", toInput.value);
+      else params.delete("do");
+
       // Remove the legacy availability filter parameter from older result URLs.
       params.delete("dostupnost");
 
@@ -844,11 +995,21 @@ const HOME_CATEGORY_GROUPS = {
       renderResults();
     }
 
-    function renderResults() {
+    async function renderResults() {
+      // A later filter change must never display an older asynchronous result.
+      const requestId = ++resultsDateRenderId;
       const offers = resultsOffers;
+      const dates = getResultsDateRange();
+      const list = document.getElementById("resultsList");
+      showResultsDateStatus(dates.error || (dates.enabled ? "hint" : ""), Boolean(dates.error));
 
       if (resultsLoadState === "error") {
         renderEmptyResults("load-error");
+        return;
+      }
+
+      if (dates.error) {
+        list.innerHTML = "";
         return;
       }
 
@@ -863,25 +1024,41 @@ const HOME_CATEGORY_GROUPS = {
       const priceFilter = document.getElementById("priceFilter").value;
 
       const filteredOffers = offers.filter(function (offer) {
-        return offerMatchesSearch(
-          offer,
-          whatQuery,
-          whereQuery,
-          categoryFilter,
-          priceFilter
-        );
+        return offerMatchesSearch(offer, whatQuery, whereQuery, categoryFilter, priceFilter);
       });
 
-      const sortedOffers = sortOffersForNearbySearch(filteredOffers);
-      updateNearbyBanner(sortedOffers);
-
-      if (!sortedOffers.length) {
+      if (!filteredOffers.length) {
+        updateNearbyBanner([]);
         renderEmptyResults("no-match");
         return;
       }
 
-      document.getElementById("resultsList").innerHTML =
-        sortedOffers.map(renderOfferCard).join("");
+      let availableOffers = filteredOffers;
+      if (dates.enabled) {
+        showResultsDateStatus("checking");
+        list.innerHTML = "";
+        try {
+          const allowedIds = await getAvailableOfferIdsForDates(filteredOffers, dates.from, dates.to);
+          if (requestId !== resultsDateRenderId) return;
+          availableOffers = filteredOffers.filter((offer) => allowedIds.has(getOfferId(offer)));
+          showResultsDateStatus("hint");
+        } catch (error) {
+          if (requestId !== resultsDateRenderId) return;
+          console.warn("Availability search failed.", error);
+          showResultsDateStatus("unavailable", true);
+          list.innerHTML = "";
+          updateNearbyBanner([]);
+          return;
+        }
+      }
+
+      const sortedOffers = sortOffersForNearbySearch(availableOffers);
+      updateNearbyBanner(sortedOffers);
+      if (!sortedOffers.length) {
+        renderEmptyResults("no-match");
+        return;
+      }
+      list.innerHTML = sortedOffers.map(renderOfferCard).join("");
     }
 
     function getCompactCategoryAllLabel() {
@@ -948,6 +1125,12 @@ const HOME_CATEGORY_GROUPS = {
         applySearchAndUpdateUrl();
       });
 
+      ["results-date-from", "results-date-to"].forEach(function (id) {
+        document.getElementById(id).addEventListener("change", function () {
+          updateResultsDateInputMin();
+          applySearchAndUpdateUrl();
+        });
+      });
     }
 
     async function initializeResultsPage() {
@@ -976,6 +1159,7 @@ const HOME_CATEGORY_GROUPS = {
 
     document.addEventListener("rentuloLanguageChanged", function () {
       applyResultsModeTranslations();
+      updateResultsDateLabels();
       updateResultsFilterLabelsForViewport();
       renderResults();
     });

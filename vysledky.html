@@ -223,6 +223,21 @@
       cursor: pointer;
     }
 
+    .results-date-status {
+      margin: 0 0 12px;
+      color: var(--rentulo-muted, #64706b);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .results-date-status.error {
+      color: #ad3030;
+    }
+
+    .results-date-status[hidden] {
+      display: none;
+    }
+
     #results-search-button {
       display: inline-flex;
       align-items: center;
@@ -570,7 +585,8 @@
       }
 
       .filters-card h2,
-      #results-search-button {
+      #results-search-button,
+      #results-date-status {
         grid-column: 1 / -1;
       }
 
@@ -615,7 +631,8 @@
       }
 
       .filters-card h2,
-      #results-search-button {
+      #results-search-button,
+      #results-date-status {
         grid-column: auto;
       }
 
@@ -746,6 +763,18 @@
           <label for="results-search-where" data-i18n="results.searchWhereLabel">Kde?</label>
           <input id="results-search-where" type="text" placeholder="město nebo PSČ" data-i18n-placeholder="results.searchWherePlaceholder" />
         </div>
+
+        <div class="filter-group">
+          <label for="results-date-from" id="results-date-from-label">Od</label>
+          <input id="results-date-from" type="date" autocomplete="off" />
+        </div>
+
+        <div class="filter-group">
+          <label for="results-date-to" id="results-date-to-label">Do</label>
+          <input id="results-date-to" type="date" autocomplete="off" />
+        </div>
+
+        <p id="results-date-status" class="results-date-status" role="status" aria-live="polite" hidden></p>
 
         <div class="filter-group">
           <label for="categoryFilter" data-i18n="results.categoryLabel">Kategorie</label>
