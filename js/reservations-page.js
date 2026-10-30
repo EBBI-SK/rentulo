@@ -1360,8 +1360,21 @@ return (
       });
       if (error || !data || typeof data.url !== "string" ||
           !/^https:\/\/checkout\.stripe\.com\//.test(data.url)) {
-        console.error("Stripe extension checkout failed", error);
-        showReservationsNotice(extensionText("error"),"error");
+        // Non-2xx Edge Function responses arrive in error.context as a
+        // Response, not necessarily in data. Do not label a busy payment failed.
+        let code = data && typeof data.code === "string" ? data.code : "";
+        if (!code && error && error.context && typeof error.context.json === "function") {
+          try {
+            const details = await error.context.json();
+            code = details && typeof details.code === "string" ? details.code : "";
+          } catch (_parseError) { /* Generic localized fallback below. */ }
+        }
+        const label = code === "checkout_busy" ? "paymentBusy"
+          : code === "payment_deadline" ? "deadlineElapsed"
+          : code === "checkout_retry" ? "checkoutRetry" : "error";
+        console.error("Stripe extension checkout failed", code || error);
+        showReservationsNotice(extensionText(label), "error");
+        if (code === "payment_deadline") await retryLoadReservations();
         return;
       }
       // The redirect query itself is not payment evidence. Keep the exact

@@ -197,11 +197,13 @@ denoRuntime.serve(async (req) => {
   }
 
   // Reconcile only sessions that Stripe has VERIFIED as expired and unpaid.
+  // A verified expired session can be retried under its existing approval when
+  // there is enough time; otherwise the SQL RPC closes the extension.
   // A late but processing payment keeps its date hold until the webhook wins.
   const checkoutCandidates = await admin.rpc("get_expired_reservation_extension_checkouts", {
     p_limit: limit,
   });
-  const checkoutSummary = { candidates: 0, expired: 0, kept: 0, errors: 0 };
+  const checkoutSummary = { candidates: 0, reconciled: 0, kept: 0, errors: 0 };
   const stripeKey = denoRuntime.env.get("STRIPE_SECRET_KEY") || "";
   if (checkoutCandidates.error || !Array.isArray(checkoutCandidates.data)) {
     checkoutSummary.errors += 1;
@@ -241,7 +243,7 @@ denoRuntime.serve(async (req) => {
           p_extension_id: candidate.extension_id, p_session_id: candidate.session_id,
         });
         if (recorded.error) checkoutSummary.errors += 1;
-        else if (recorded.data === true) checkoutSummary.expired += 1;
+        else if (recorded.data === true) checkoutSummary.reconciled += 1;
         else checkoutSummary.kept += 1;
       } catch (error) {
         checkoutSummary.errors += 1;
