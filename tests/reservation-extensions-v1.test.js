@@ -9,6 +9,7 @@ const root = path.resolve(__dirname, "..");
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 const migration = read("supabase/migrations/20261027100000_reservation_extensions_v1_TEST.sql");
 const checkout = read("supabase/functions/create-extension-checkout/index.ts");
+const checkoutHelper = read("supabase/functions/_shared/extension-checkout-recovery.mjs");
 const webhook = read("supabase/functions/stripe-webhook/index.ts");
 const payout = read("supabase/functions/create-extension-transfer/index.ts");
 const worker = read("supabase/functions/retry-owner-transfers/index.ts");
@@ -113,8 +114,11 @@ test("extension immutability guard preserves service-role Stripe payment complet
 test("checkout session is bound to extension, reservation and Stripe PaymentIntent", () => {
   assert.match(checkout,/create-extension-checkout/);
   assert.match(checkout,/claim_reservation_extension_checkout/);
-  assert.match(checkout,/payment_intent_data\[metadata\]\[extension_id\]/);
-  assert.match(checkout,/payment_intent_data\[metadata\]\[reservation_id\]/);
+  // Stripe PaymentIntent metadata is constructed by the shared helper.
+  assert.match(checkout,/from "\.\.\/_shared\/extension-checkout-recovery\.mjs"/);
+  assert.match(checkout,/buildExtensionCheckoutParams\(\{/);
+  assert.match(checkoutHelper,/payment_intent_data\[metadata\]\[extension_id\]/);
+  assert.match(checkoutHelper,/payment_intent_data\[metadata\]\[reservation_id\]/);
   assert.match(checkout,/Idempotency-Key/);
   assert.match(checkout,/record_reservation_extension_checkout/);
   assert.match(checkout,/rentulo\.eu/);
