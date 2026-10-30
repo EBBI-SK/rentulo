@@ -1604,17 +1604,13 @@ return (
 
     function renderReservationDeadline(reservation, status) {
       const normalized = normalizeReservationStatus(status);
-      if (normalized !== RESERVATION_STATUS_PENDING &&
-          normalized !== RESERVATION_STATUS_APPROVED) return "";
+      if (normalized !== RESERVATION_STATUS_APPROVED) return "";
       if (!reservation.expiresAt) return ""; // grandfathered TEST reservations
       const deadlineText = formatReservationExpiry(reservation.expiresAt);
       if (!deadlineText) return "";
       const passed = new Date(reservation.expiresAt).getTime() <= Date.now();
-      const key = passed ? "reservations.expiration.review" :
-        normalized === RESERVATION_STATUS_PENDING
-          ? "reservations.expiration.ownerDeadline" : "reservations.expiration.paymentDeadline";
-      const label = passed ? "Lhůta uplynula – ověřujeme stav" :
-        normalized === RESERVATION_STATUS_PENDING ? "Schválit do" : "Zaplatit do";
+      const key = passed ? "reservations.expiration.review" : "reservations.expiration.paymentDeadline";
+      const label = passed ? "Lhůta uplynula – ověřujeme stav" : "Zaplatit do";
       return `<small class="reservation-expiration-note">${escapeHtml(reservationsTranslate(key, label))}: ${escapeHtml(deadlineText)}</small>`;
     }
 
@@ -1767,6 +1763,7 @@ return (
 
       const cancellationAction = renderRenterReservationCancellationAction(reservation);
       const latestExtension = latestReservationExtension(reservation);
+      const extensionApprovalNote = latestExtension && latestExtension.status === "pending" ? `<small class="reservation-extension-approval-note">${escapeHtml(extensionText("pending"))} · ${escapeHtml(extensionText("until"))}: ${escapeHtml(formatReservationsDate(latestExtension.new_end_date))}</small>` : "";
       const awaitingExtensionPayment = latestExtension && latestExtension.status === "approved";
       const extensionDeadline = awaitingExtensionPayment
         ? formatReservationExpiry(latestExtension.payment_deadline_at) : "";
@@ -1802,6 +1799,7 @@ return (
         <strong>${escapeHtml(toolName)}</strong>
         <span>${escapeHtml(city)}${reservation.reservationNumber ? ` · ${escapeHtml(reservationsTranslate("reference.reservation", "Číslo rezervace"))}: ${escapeHtml(reservation.reservationNumber)}` : ""}</span>
         ${renderReservationDeadline(reservation, normalizedStatus)}
+        ${extensionApprovalNote}
         ${extensionPaymentNote}
       </div>
     </div>
