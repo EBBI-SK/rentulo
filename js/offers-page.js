@@ -2023,9 +2023,6 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
           actions.unshift(`<button class="small-button light" type="button" data-offers-action="reject-extension"
             data-reservation-id="${escapeHtml(reservationId)}" data-extension-id="${escapeHtml(extension.id)}">
             ${escapeHtml(RentuloReservationExtensions.t("reject"))}</button>`);
-        } else {
-          actions.unshift(`<span class="owner-extension-state">${escapeHtml(RentuloReservationExtensions.t("ownerApproved"))}
-            · ${escapeHtml(formatOffersMoney(extension.amount_total))}</span>`);
         }
       }
       return actions.join("");
@@ -2087,8 +2084,7 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
     }
 
     function renderOwnerRequestDeadline(reservation) {
-      if (!reservation.expiresAt || ![RESERVATION_STATUS_PENDING, RESERVATION_STATUS_APPROVED]
-        .includes(normalizeReservationStatus(reservation.status))) return "";
+      if (!reservation.expiresAt || normalizeReservationStatus(reservation.status) !== RESERVATION_STATUS_APPROVED) return "";
       const date = new Date(reservation.expiresAt);
       if (Number.isNaN(date.getTime())) return "";
       const lang = typeof window.getRentuloLanguage === "function"
@@ -2097,12 +2093,9 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
       const formatted = new Intl.DateTimeFormat(locales[lang] || "cs-CZ", {
         dateStyle: "short", timeStyle: "short", timeZone: "Europe/Prague"
       }).format(date);
-      const pending = normalizeReservationStatus(reservation.status) === RESERVATION_STATUS_PENDING;
       const expired = date.getTime() <= Date.now();
-      const key = expired ? "reservations.expiration.review"
-        : pending ? "reservations.expiration.ownerDeadline" : "offers.expiration.customerPaymentDeadline";
-      const label = expired ? "Lhůta uplynula – ověřujeme stav"
-        : pending ? "Schválit do" : "Zákazník má zaplatit do";
+      const key = expired ? "reservations.expiration.review" : "offers.expiration.customerPaymentDeadline";
+      const label = expired ? "Lhůta uplynula – ověřujeme stav" : "Zákazník má zaplatit do";
       return `<small class="reservation-expiration-note">${escapeHtml(offersTranslate(key, label))}: ${escapeHtml(formatted)}</small>`;
     }
 
@@ -2150,6 +2143,7 @@ return `<p class="request-note success">${offersTranslate("offers.note.pickedUp"
               ${reservation.pickupTime ? `<small class="owner-pickup-time">${escapeHtml(offersTranslate("reservations.pickupTimeShort", "Převzetí"))}: ${escapeHtml(String(reservation.pickupTime).slice(0, 5))}</small>` : ""}
             </div>
 
+            <div class="owner-reservation-price"><strong>${escapeHtml(formatOffersMoney(reservation.totalPrice))}</strong></div>
             <span class="request-status ${getRequestStatusClass(status)}">${escapeHtml(statusText)}</span>
 
             <div class="row-actions">
