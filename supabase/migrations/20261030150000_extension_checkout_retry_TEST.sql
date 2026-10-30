@@ -109,8 +109,7 @@ begin
     ) values (
       v_e.id,coalesce(v_e.stripe_checkout_locale,'cs'),
       left(coalesce(nullif(btrim(p_offer_name),''),'Rentulo'),160),
-      nullif(left(btrim(coalesce(p_customer_email,'')),254),''),
-      v_expiry
+      nullif(left(btrim(coalesce(p_customer_email,'')),254),''),v_expiry
     ) returning * into v_a;
   end if;
   return query select v_a.id,v_a.checkout_expires_at,v_a.locale,
