@@ -342,7 +342,7 @@ denoRuntime.serve(async (req) => {
         let fullySearched = false;
         if (!verified) {
           const lookup = await findRecoveredCheckoutSession(stripeKey, expected);
-          if (lookup.status === "matched") {
+          if (lookup.status === "matched" && "session" in lookup && "state" in lookup) {
             verified = { session: lookup.session as RecoveredCheckoutSession,
               state: lookup.state as string };
           } else if (lookup.status === "none") {
