@@ -14,7 +14,9 @@
       declined: "Žádost o prodloužení byla zamítnuta.", confirmed: "Prodloužení schváleno.",
       checking: "Ověřujeme doplatek ve Stripe. Nový termín platí až po potvrzení platby.",
       cancelled: "Platbu jste nedokončili. Původní termín zatím platí.",
-      deadline: "Zaplatit do", paymentBusy: "Platba se ověřuje, neplaťte znovu.",
+      deadline: "Zaplatit do", paymentBusy: "Ověřujeme předchozí pokus ve Stripe. Neplaťte znovu, dokud nebude stav potvrzen.",
+      checkoutRetry: "Platební stránku se nepodařilo vytvořit. Zkuste doplatek znovu.",
+      deadlineElapsed: "Lhůta pro doplatek uplynula nebo se již nedá otevřít nová platební stránka.",
       priceInfo: "Cena dalších dní podle původní denní ceny; minimální provize je účtována za rezervaci jen jednou."
     },
     sk: {
@@ -28,7 +30,9 @@
       declined: "Žiadosť o predĺženie bola zamietnutá.",confirmed: "Predĺženie schválené.",
       checking: "Overujeme doplatok v Stripe. Nový termín platí až po potvrdení platby.",
       cancelled: "Platbu ste nedokončili. Pôvodný termín zatiaľ platí.",
-      deadline: "Zaplatiť do",paymentBusy: "Platba sa overuje, neplaťte znova.",
+      deadline: "Zaplatiť do",paymentBusy: "Overujeme predchádzajúci pokus v Stripe. Neplaťte znova, kým nebude stav potvrdený.",
+      checkoutRetry: "Platobnú stránku sa nepodarilo vytvoriť. Skúste doplatok znova.",
+      deadlineElapsed: "Lehota na doplatok uplynula alebo už nemožno vytvoriť novú platobnú stránku.",
       priceInfo: "Cena ďalších dní podľa pôvodnej dennej ceny; minimálna provízia len raz za rezerváciu."
     },
     en: {
@@ -40,7 +44,9 @@
       error: "Could not process the extension. Check availability and try again.",declined: "Extension request declined.",
       confirmed: "Extension approved.",checking: "Verifying additional Stripe payment. The return date changes only after payment.",
       cancelled: "Payment was not completed; original return date still applies.",deadline: "Pay by",
-      paymentBusy: "Payment being verified; do not pay again.",
+      paymentBusy: "Stripe is verifying the previous attempt. Do not pay again until it is resolved.",
+      checkoutRetry: "We could not create the payment page. Please try the additional payment again.",
+      deadlineElapsed: "The payment deadline has passed or there is insufficient time for a new checkout.",
       priceInfo: "Additional days use the agreed daily price; the minimum platform fee applies only once per reservation."
     },
     de: {
@@ -52,7 +58,9 @@
       error: "Verlängerung nicht möglich. Verfügbarkeit prüfen und erneut versuchen.",declined: "Verlängerung abgelehnt.",
       confirmed: "Verlängerung genehmigt.",checking: "Stripe-Zahlung wird geprüft. Das neue Datum gilt erst nach Zahlung.",
       cancelled: "Zahlung nicht abgeschlossen; ursprüngliche Rückgabe gilt weiterhin.",deadline: "Zahlen bis",
-      paymentBusy: "Zahlung wird geprüft; nicht erneut bezahlen.",
+      paymentBusy: "Stripe prüft den vorherigen Versuch. Bitte noch nicht erneut bezahlen.",
+      checkoutRetry: "Die Zahlungsseite konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
+      deadlineElapsed: "Die Zahlungsfrist ist abgelaufen oder reicht für eine neue Zahlungsseite nicht aus.",
       priceInfo: "Zusätzliche Tage zum vereinbarten Tagespreis; Mindestprovision nur einmal pro Reservierung."
     },
     pl: {
@@ -64,7 +72,9 @@
       error: "Nie udało się przedłużyć. Sprawdź dostępność i spróbuj ponownie.",declined: "Przedłużenie odrzucone.",
       confirmed: "Przedłużenie zatwierdzone.",checking: "Trwa weryfikacja płatności Stripe. Nowa data obowiązuje dopiero po zapłacie.",
       cancelled: "Nie dokończono płatności; obowiązuje pierwotna data zwrotu.",deadline: "Zapłać do",
-      paymentBusy: "Weryfikacja płatności; nie płać ponownie.",
+      paymentBusy: "Stripe weryfikuje poprzednią próbę. Nie płać ponownie do czasu wyjaśnienia.",
+      checkoutRetry: "Nie udało się utworzyć strony płatności. Spróbuj dopłacić ponownie.",
+      deadlineElapsed: "Termin dopłaty upłynął lub pozostało zbyt mało czasu na nową płatność.",
       priceInfo: "Kolejne dni według ustalonej stawki dziennej; minimalna prowizja tylko raz za rezerwację."
     }
   };
