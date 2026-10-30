@@ -90,7 +90,7 @@ test("My offers renders action-first rows, search only and no duplicate history 
   const page = read(OFFERS_PAGE);
   const css = read(CSS);
   assert.match(flow, /root\.insertBefore\(section, offersHeader\)/);
-  assert.match(flow, /ATTENTION_STATUSES = new Set\(\["pending", "picked_up", "paid"\]\)/);
+  assert.match(flow, /ATTENTION_STATUSES = new Set\(\["pending", "paid"\]\)/);
   assert.match(flow, /createReservationToolbar\(/);
   assert.match(flow, /ownerReservationSearch/);
   assert.doesNotMatch(flow, /ownerReservationStatus|FILTER_STATUSES|statusFilter/);
@@ -100,7 +100,7 @@ test("My offers renders action-first rows, search only and no duplicate history 
   assert.match(page, /data-owner-number="\$\{escapeHtml\(reservation\.reservationNumber \|\| ""\)\}"/);
   assert.match(page, /data-owner-offer-number="\$\{escapeHtml\(offer\.offerNumber \|\| ""\)\}"/);
   assert.match(css, /\.owner-reservation-card\[hidden\]/);
-  assert.match(css, /grid-template-columns: minmax\(235px, 1\.6fr\) minmax\(160px, 180px\) minmax\(110px, 130px\) minmax\(185px, auto\)/);
+  assert.match(css, /grid-template-columns: minmax\(225px, 1\.6fr\) minmax\(140px, 180px\) minmax\(75px, 95px\) minmax\(100px, 120px\) minmax\(185px, auto\)/);
   assert.match(css, /\.owner-reservations-toolbar/);
   assert.match(css, /@media \(max-width: 560px\)/);
 
@@ -130,10 +130,10 @@ test("Reservation detail uses a compact financial summary and retains contact, n
   assert.match(css, /\.owner-payment-summary/);
 });
 
-test("My offers shows listings first unless an existing reservation needs owner attention", () => {
+test("My offers keeps listings below active reservations", () => {
   const { shouldShowReservationsFirst } = require(FLOW);
   assert.equal(shouldShowReservationsFirst([]), false);
-  assert.equal(shouldShowReservationsFirst(["approved"]), false);
+  assert.equal(shouldShowReservationsFirst(["approved"]), true);
   assert.equal(shouldShowReservationsFirst(["pending"]), true);
   assert.equal(shouldShowReservationsFirst(["picked_up"]), true);
   assert.equal(shouldShowReservationsFirst(["paid"]), true);
@@ -219,7 +219,7 @@ test("My offers shows minimum fee text only when the 70 CZK floor increases the 
 });
 
 
-test("My offers keeps active reservation rows free of financial amounts and preserves paid contacts", () => {
+test("My offers shows renter total but no owner payout and preserves paid contacts", () => {
   const vm = require("node:vm");
   const page = read(OFFERS_PAGE);
   const start = page.indexOf("function renderRequest(reservation)");
@@ -247,7 +247,7 @@ test("My offers keeps active reservation rows free of financial amounts and pres
   const pending = render(reservation);
   assert.doesNotMatch(pending, /Vy dostanete/);
   assert.doesNotMatch(pending, /100 Kč/);
-  assert.doesNotMatch(pending, /150 Kč/);
+  assert.match(pending, /150 Kč/);
   assert.doesNotMatch(pending, /data-offers-action="toggle-request-detail"/);
   assert.doesNotMatch(pending, /jan@example\.cz/);
   assert.doesNotMatch(pending, /\+420777123456/);
@@ -309,4 +309,18 @@ test("My offers labels existing return action and paid handover in all five lang
   assert.match(flow, /receiveBack\.textContent = label\("receiveBack"\)/);
   assert.match(flow, /data-offers-action="mark-returned"/);
   assert.match(page, /data-offers-action="mark-returned" data-reservation-id="\$\{escapeHtml\(reservationId\)\}"/);
+});
+
+
+test("Design fixes retain payment deadline and show pending extension in compact row", () => {
+ const renter = read(path.join(ROOT, "js", "reservations-page.js"));
+ const owner = read(OFFERS_PAGE);
+ const layout = read(FLOW);
+ assert.match(renter, /reservation-extension-approval-note/);
+ assert.match(renter, /\$\{extensionApprovalNote\}/);
+ assert.doesNotMatch(renter.slice(renter.indexOf("function renderReservationDeadline("), renter.indexOf("function extensionText(")), /Schválit do/);
+ assert.doesNotMatch(owner.slice(owner.indexOf("function renderOwnerRequestDeadline("), owner.indexOf("function renderRequest(")), /Schválit do/);
+ assert.match(owner, /owner-reservation-price/);
+ assert.match(layout, /owner-reservation-thumb/);
+ assert.match(layout, /createReservationGroup\("inProgress", inProgress\)/);
 });
