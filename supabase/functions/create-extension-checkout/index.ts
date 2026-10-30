@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { normalizeStripeCheckoutLocale } from "../_shared/stripe-checkout-language.mjs";
 import {
   classifyExtensionCheckoutSession, isDefiniteCheckoutCreationRejection,
+  buildExtensionCheckoutParams, extensionCheckoutIdempotencyKey,
 } from "../_shared/extension-checkout-recovery.mjs";
 
 type Runtime = {
@@ -11,8 +12,9 @@ type Runtime = {
 type StripeSession = {
   id?: string; url?: string; status?: string; payment_status?: string;
   mode?: string; currency?: string; amount_total?: number;
-  client_reference_id?: string; expires_at?: number;
-  metadata?: { reservation_id?: string; extension_id?: string; payment_kind?: string };
+  client_reference_id?: string; expires_at?: number; livemode?: boolean;
+  metadata?: { reservation_id?: string; extension_id?: string;
+    payment_kind?: string; checkout_attempt_id?: string };
   error?: { message?: string; type?: string; code?: string };
 };
 type CheckoutAttempt = {
@@ -40,13 +42,14 @@ runtime.serve(async (request) => {
   const anon = runtime.env.get("SUPABASE_ANON_KEY") || "";
   const serviceRole = runtime.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   const stripeKey = runtime.env.get("STRIPE_SECRET_KEY") || "";
-  const siteUrl = runtime.env.get("SITE_URL") || "";
+  const siteUrl = (runtime.env.get("SITE_URL") || "").replace(/\/+$/, "");
   // BOD 4: keep TEST-only safety guard. LIVE is a separate approved rollout.
   if (url !== "https://vspposovhdgvbeukoivh.supabase.co" ||
       siteUrl.replace(/\/+$/, "") !== "https://rentulo.eu") {
     return json({ error: "Extension checkout is TEST-only" }, 503);
   }
   if (!anon || !serviceRole || !stripeKey) return json({ error: "Missing server configuration" }, 500);
+  if (!stripeKey.startsWith("sk_test_")) return json({ error: "TEST Stripe key required" }, 503);
   const authorization = request.headers.get("Authorization") || "";
   const accessToken = authorization.replace(/^Bearer\s+/i, "").trim();
   if (!accessToken) return json({ error: "Unauthorized" }, 401);
@@ -91,7 +94,7 @@ runtime.serve(async (request) => {
     const expectedAmount = extension.amount_total * 100;
     const existingId = extension.stripe_checkout_session_id;
     if (existingId) {
-      if (!/^cs_(test_|live_)[A-Za-z0-9]+$/.test(existingId)) {
+      if (!/^cs_test_[A-Za-z0-9]+$/.test(existingId)) {
         return json({ code: "checkout_busy", error: "Invalid existing checkout reference" }, 409);
       }
       let response: Response;
@@ -135,36 +138,26 @@ runtime.serve(async (request) => {
     const expiry = Math.floor(new Date(attempt.checkout_expires_at).getTime() / 1000);
     // An unrecorded attempt might have been created by Stripe despite a lost
     // response. Keep its key and snapshot even if it is now too late to retry.
-    if (!Number.isFinite(expiry) || expiry <= Math.floor(Date.now() / 1000)) {
+    // The TEST SQL caps the expiry at attempt creation + 23h. Keeping a
+    // 31-minute margin means a replay cannot outlive Stripe's 24h key window.
+    if (!Number.isFinite(expiry) || expiry * 1000 <= Date.now() + 31 * 60 * 1000) {
       return json({ code: "checkout_busy", error: "Checkout attempt requires verification" }, 409);
     }
-    const params = new URLSearchParams();
-    params.set("mode", "payment");
-    params.set("locale", attempt.locale);
-    params.set("expires_at", String(expiry));
-    params.set("success_url", `${siteUrl}/moje-rezervace.html?extension_payment=success`);
-    params.set("cancel_url", `${siteUrl}/moje-rezervace.html?extension_payment=cancelled`);
-    params.set("client_reference_id", extension.id);
-    params.set("line_items[0][price_data][currency]", "czk");
-    params.set("line_items[0][price_data][product_data][name]", `${attempt.offer_name} – prodloužení pronájmu`);
-    params.set("line_items[0][price_data][product_data][description]", `${extension.previous_end_date} - ${extension.new_end_date}`);
-    params.set("line_items[0][price_data][unit_amount]", String(expectedAmount));
-    params.set("line_items[0][quantity]", "1");
-    params.set("metadata[payment_kind]", "reservation_extension");
-    params.set("metadata[extension_id]", extension.id);
-    params.set("metadata[reservation_id]", extension.reservation_id);
-    params.set("payment_intent_data[metadata][payment_kind]", "reservation_extension");
-    params.set("payment_intent_data[metadata][extension_id]", extension.id);
-    params.set("payment_intent_data[metadata][reservation_id]", extension.reservation_id);
-    params.set("payment_intent_data[transfer_group]", `rentulo_extension_${extension.id}`);
-    if (attempt.customer_email) params.set("customer_email", attempt.customer_email);
+    const params = buildExtensionCheckoutParams({
+      attemptId: attempt.attempt_id, checkoutExpiresAt: attempt.checkout_expires_at,
+      locale: attempt.locale, offerName: attempt.offer_name,
+      customerEmail: attempt.customer_email, siteUrl,
+      extensionId: extension.id, reservationId: extension.reservation_id,
+      previousEndDate: extension.previous_end_date, newEndDate: extension.new_end_date,
+      amountMinor: expectedAmount,
+    });
 
     let stripeResponse: Response;
     try {
       stripeResponse = await fetch("https://api.stripe.com/v1/checkout/sessions", {
         method: "POST", headers: {
           Authorization: `Bearer ${stripeKey}`, "Content-Type": "application/x-www-form-urlencoded",
-          "Idempotency-Key": `rentulo-extension-checkout-${attempt.attempt_id}`,
+          "Idempotency-Key": extensionCheckoutIdempotencyKey(attempt.attempt_id),
         }, body: params, signal: AbortSignal.timeout(15_000),
       });
     } catch (_) {
@@ -191,7 +184,9 @@ runtime.serve(async (request) => {
       sessionId: session.id || "", amountMinor: expectedAmount,
       extensionId: extension.id, reservationId: extension.reservation_id,
     });
-    if (state !== "reuse" || !session.expires_at || session.expires_at !== expiry) {
+    if (state !== "reuse" || session.livemode !== false ||
+        session.metadata?.checkout_attempt_id !== attempt.attempt_id ||
+        !session.expires_at || session.expires_at !== expiry) {
       return json({ code: "checkout_busy", error: "Stripe checkout session could not be safely validated" }, 503);
     }
     const record = await admin.rpc("record_reservation_extension_checkout_attempt", {

@@ -1,4 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  buildExtensionCheckoutParams, classifyRecoveredCheckoutSession,
+  extensionCheckoutIdempotencyKey, mayRetrySameCheckoutAttempt,
+  findRecoveredCheckoutSession,
+} from "../_shared/extension-checkout-recovery.mjs";
 
 type RentuloDenoRuntime = {
   serve(handler: (request: Request) => Response | Promise<Response>): void;
@@ -17,6 +22,20 @@ type OwnerTransferResponse = {
   status?: string;
   error?: string;
   transfer_id?: string;
+};
+
+type MissingExtensionCheckoutCandidate = {
+  attempt_id: string; extension_id: string; reservation_id: string;
+  renter_id: string; attempt_created_at: string; checkout_expires_at: string;
+  locale: string; offer_name: string; customer_email: string | null;
+  previous_end_date: string; new_end_date: string; amount_minor: number | string;
+};
+type RecoveredCheckoutSession = {
+  id?: string; created?: number; expires_at?: number; livemode?: boolean;
+  url?: string; status?: string; payment_status?: string;
+  mode?: string; currency?: string; amount_total?: number;
+  client_reference_id?: string;
+  metadata?: Record<string, string>;
 };
 
 const denoRuntime = (
@@ -253,6 +272,133 @@ denoRuntime.serve(async (req) => {
     });
   }
 
+  // BOD 4: a Stripe POST can have succeeded even when its HTTP response was
+  // lost. Recover ONLY the original attempt: same snapshot/idempotency key,
+  // or discover the exact attempt in Stripe's read-only Session listing.
+  // Never release its date hold from an absent/incomplete Stripe response.
+  const unresolved = await admin.rpc("get_unrecorded_extension_checkout_recovery_candidates", {
+    p_limit: Math.min(limit, 2),
+  });
+  const missingSessionSummary = { candidates: 0, recovered: 0, expired: 0, review: 0, pending: 0, errors: 0 };
+  const recoverySiteUrl = (denoRuntime.env.get("SITE_URL") || "").replace(/\/+$/, "");
+  if (unresolved.error || !Array.isArray(unresolved.data)) {
+    missingSessionSummary.errors += 1;
+    console.error("retry-owner-transfers: missing-session candidate scan failed",
+      unresolved.error?.message);
+  } else if (!stripeKey.startsWith("sk_test_") || recoverySiteUrl !== "https://rentulo.eu") {
+    missingSessionSummary.errors += 1;
+    console.error("retry-owner-transfers: missing-session recovery requires TEST Stripe/site configuration");
+  } else {
+    missingSessionSummary.candidates = unresolved.data.length;
+    await processWithConcurrency(unresolved.data as MissingExtensionCheckoutCandidate[], 2,
+      async (candidate) => {
+        const createdMs = Date.parse(candidate.attempt_created_at);
+        const expiresMs = Date.parse(candidate.checkout_expires_at);
+        const expiresAtUnix = Math.floor(expiresMs / 1000);
+        const createdAfterUnix = Math.floor(createdMs / 1000) - 2;
+        const amountMinor = Number(candidate.amount_minor);
+        if (!Number.isFinite(createdMs) || !Number.isFinite(expiresMs) ||
+            !Number.isSafeInteger(amountMinor) || amountMinor <= 0 ||
+            expiresAtUnix <= createdAfterUnix || !candidate.attempt_id) {
+          missingSessionSummary.errors += 1;
+          return;
+        }
+        const expected = {
+          attemptId: candidate.attempt_id, extensionId: candidate.extension_id,
+          reservationId: candidate.reservation_id, amountMinor,
+          createdAfterUnix, expiresAtUnix,
+        };
+        let verified: { session: RecoveredCheckoutSession; state: string } | null = null;
+
+        // Stripe v1 can drop idempotency keys after 24h. Never POST with the
+        // old key outside a conservative 22h safe window.
+        if (mayRetrySameCheckoutAttempt(createdMs, expiresMs, Date.now())) {
+          const params = buildExtensionCheckoutParams({
+            attemptId: candidate.attempt_id, checkoutExpiresAt: candidate.checkout_expires_at,
+            locale: candidate.locale, offerName: candidate.offer_name,
+            customerEmail: candidate.customer_email, siteUrl: recoverySiteUrl,
+            extensionId: candidate.extension_id, reservationId: candidate.reservation_id,
+            previousEndDate: candidate.previous_end_date, newEndDate: candidate.new_end_date,
+            amountMinor,
+          });
+          try {
+            const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+              method: "POST", headers: {
+                Authorization: `Bearer ${stripeKey}`,
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Idempotency-Key": extensionCheckoutIdempotencyKey(candidate.attempt_id),
+              }, body: params, signal: AbortSignal.timeout(12_000),
+            });
+            const session = await response.json().catch(() => null) as RecoveredCheckoutSession | null;
+            if (response.ok && session) {
+              const state = classifyRecoveredCheckoutSession(session, expected);
+              if (state !== "invalid") verified = { session, state };
+            }
+          } catch (_) {
+            // Network failure is unknown, not permission to rotate the key.
+          }
+        }
+
+        let fullySearched = false;
+        if (!verified) {
+          const lookup = await findRecoveredCheckoutSession(stripeKey, expected);
+          if (lookup.status === "matched") {
+            verified = { session: lookup.session as RecoveredCheckoutSession,
+              state: lookup.state as string };
+          } else if (lookup.status === "none") {
+            fullySearched = true;
+          } else if (lookup.status === "ambiguous") {
+            missingSessionSummary.errors += 1;
+            console.error("retry-owner-transfers: multiple Sessions for one Checkout attempt",
+              candidate.extension_id);
+            return;
+          }
+        }
+
+        if (verified) {
+          // Only a positively matched Stripe Session can be attached. Even a
+          // past expiry is recorded so a successful payment webhook can finish.
+          const record = await admin.rpc("record_reservation_extension_checkout_attempt", {
+            p_extension_id: candidate.extension_id,
+            p_renter_id: candidate.renter_id,
+            p_attempt_id: candidate.attempt_id,
+            p_session_id: verified.session.id,
+            p_expires_at: candidate.checkout_expires_at,
+          });
+          if (record.error || record.data !== true) {
+            missingSessionSummary.errors += 1;
+            return;
+          }
+          missingSessionSummary.recovered += 1;
+          if (verified.state === "verified_expired") {
+            const closed = await admin.rpc("expire_reservation_extension_checkout", {
+              p_extension_id: candidate.extension_id, p_session_id: verified.session.id,
+            });
+            if (closed.error) missingSessionSummary.errors += 1;
+            else if (closed.data === true) missingSessionSummary.expired += 1;
+          }
+          return;
+        }
+
+        // Even a complete negative Stripe list is NOT proof no payment ever
+        // existed. Mark for manual review; NEVER rotate, expire, or unlock.
+        if (fullySearched && Date.now() > expiresMs + 5 * 60 * 1000) {
+          const marked = await admin.rpc("flag_unrecorded_extension_checkout_for_review", {
+            p_extension_id: candidate.extension_id, p_attempt_id: candidate.attempt_id,
+          });
+          if (!marked.error && marked.data === true) {
+            missingSessionSummary.review += 1;
+            console.error("retry-owner-transfers: missing Stripe Session needs manual review",
+              candidate.extension_id);
+            return;
+          }
+          missingSessionSummary.errors += 1;
+        } else {
+          missingSessionSummary.pending += 1;
+        }
+      });
+  }
+
   // Use the SAME authenticated 5-minute retry job for additional-day
   // payouts, but do not change or duplicate the original payment transfer.
   const extensions = await admin.rpc("get_due_reservation_extension_transfers", { p_limit: limit });
@@ -293,5 +439,7 @@ denoRuntime.serve(async (req) => {
 
   return jsonResponse({ ok: true, ...result,
     expired_unstarted_extensions: unstartedExpiry.error ? null : unstartedExpiry.data,
-    extension_checkouts: checkoutSummary, extensions: extensionSummary });
+    extension_checkouts: checkoutSummary,
+    missing_extension_checkouts: missingSessionSummary,
+    extensions: extensionSummary });
 });
