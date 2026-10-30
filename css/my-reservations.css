@@ -395,13 +395,13 @@ h1 {
 }
 
 .reservation-cancel-action {
-  background: #fff7f5;
-  border: 1px solid #efc7be;
-  color: #9a3f2d;
+  background: #fff0f1;
+  border: 1px solid #f0b2bb;
+  color: #9d2634;
 }
 
 .reservation-cancel-action:hover {
-  background: #fcece8;
+  background: #fce4e8;
 }
 
 body.reservation-modal-open {
@@ -474,13 +474,13 @@ body.reservation-modal-open {
 }
 
 .reservation-modal-cancel {
-  border-color: #efc7be;
-  background: #fff7f5;
-  color: #9a3f2d;
+  border-color: #f0b2bb;
+  background: #fff0f1;
+  color: #9d2634;
 }
 
 .reservation-modal-cancel:hover {
-  background: #fcece8;
+  background: #fce4e8;
 }
 
 .reservation-modal-button:focus-visible {
@@ -651,3 +651,5 @@ body.reservation-modal-open {
   line-height: 1.4;
   white-space: normal;
 }
+
+.simple-reservation-info .reservation-extension-approval-note { display:block; margin-top:5px; color:#42564e; font-size:11px; font-weight:800; line-height:1.4; }

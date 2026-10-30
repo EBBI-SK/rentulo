@@ -699,13 +699,13 @@ body.offers-modal-open {
 }
 
 .offers-modal-delete {
-  border-color: #efc7be;
-  background: #fff7f5;
-  color: #9a3f2d;
+  border-color: #f0b2bb;
+  background: #fff0f1;
+  color: #9d2634;
 }
 
 .offers-modal-delete:hover {
-  background: #fcece8;
+  background: #fce4e8;
 }
 
 .offers-modal-button:focus-visible {
@@ -763,7 +763,7 @@ body.offers-modal-open {
 .return-issue-modal-feedback {
   min-height: 17px;
   margin-top: 6px !important;
-  color: #9a3f2d !important;
+  color: #9d2634 !important;
   font-size: 13px !important;
 }
 .return-issue-reported {

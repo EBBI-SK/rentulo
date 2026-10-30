@@ -158,10 +158,10 @@ test("renter and owner cancellation actions use the same compact visual semantic
   );
 
   for (const source of [renterHtml, ownerHtml]) {
-    assert.match(source, /background: #fff8f6 !important;/);
-    assert.match(source, /color: #a43b2f !important;/);
-    assert.match(source, /border: 1px solid #efc1b7 !important;/);
-    assert.match(source, /background: #fff0ec !important;/);
+    assert.match(source, /background: #fff0f1 !important;/);
+    assert.match(source, /color: #9d2634 !important;/);
+    assert.match(source, /border: 1px solid #f0b2bb !important;/);
+    assert.match(source, /background: #fce4e8 !important;/);
   }
 
   assert.match(renterHtml, /\.simple-reservation-actions \.reservation-cancel-action/);
