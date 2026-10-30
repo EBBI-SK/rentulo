@@ -63,7 +63,7 @@
   const EXTRA_LABELS = {
     cs: {
       activeReservations: "Aktivní rezervace",
-      attention: "K vy\u0159\u00edzen\u00ed", waiting: "Ostatn\u00ed aktivn\u00ed",
+      attention: "K vy\u0159\u00edzen\u00ed", inProgress: "Probíhající", waiting: "Ostatn\u00ed aktivn\u00ed",
       search: "Hledat \u010d\u00edslo, p\u0159edm\u011bt nebo n\u00e1jemce",
       pending: "\u010cek\u00e1 na potvrzen\u00ed", approved: "\u010cek\u00e1 na platbu",
       paid: "Zaplaceno", picked_up: "P\u0159ed\u00e1no",
@@ -73,7 +73,7 @@
     },
     sk: {
       activeReservations: "Aktívne rezervácie",
-      attention: "Na vybavenie", waiting: "Ostatn\u00e9 akt\u00edvne",
+      attention: "Na vybavenie", inProgress: "Prebiehajúce", waiting: "Ostatn\u00e9 akt\u00edvne",
       search: "H\u013eada\u0165 \u010d\u00edslo, predmet alebo n\u00e1jomcu",
       pending: "\u010cak\u00e1 na potvrdenie", approved: "\u010cak\u00e1 na platbu",
       paid: "Zaplaten\u00e9", picked_up: "Odovzdan\u00e9",
@@ -83,7 +83,7 @@
     },
     en: {
       activeReservations: "Active reservations",
-      attention: "Needs attention", waiting: "Other active reservations",
+      attention: "Needs attention", inProgress: "In progress", waiting: "Other active reservations",
       search: "Search number, item or renter",
       pending: "Awaiting approval", approved: "Awaiting payment", paid: "Paid", picked_up: "Handed over",
       noMatches: "No reservations match your search.",
@@ -92,7 +92,7 @@
     },
     de: {
       activeReservations: "Aktive Reservierungen",
-      attention: "Zu erledigen", waiting: "Weitere aktive Reservierungen",
+      attention: "Zu erledigen", inProgress: "Laufende Vermietungen", waiting: "Weitere aktive Reservierungen",
       search: "Nummer, Gegenstand oder Mieter suchen",
       pending: "Wartet auf Best\u00e4tigung",
       approved: "Wartet auf Zahlung", paid: "Bezahlt", picked_up: "\u00dcbergeben",
@@ -102,7 +102,7 @@
     },
     pl: {
       activeReservations: "Aktywne rezerwacje",
-      attention: "Do za\u0142atwienia", waiting: "Pozosta\u0142e aktywne rezerwacje",
+      attention: "Do za\u0142atwienia", inProgress: "W trakcie", waiting: "Pozosta\u0142e aktywne rezerwacje",
       search: "Szukaj numeru, przedmiotu lub najemcy",
       pending: "Czeka na zatwierdzenie",
       approved: "Czeka na p\u0142atno\u015b\u0107", paid: "Op\u0142acona", picked_up: "Przekazana",
@@ -112,7 +112,7 @@
     }
   };
 
-  const ATTENTION_STATUSES = new Set(["pending", "picked_up", "paid"]);
+  const ATTENTION_STATUSES = new Set(["pending", "paid"]);
 
   function normalizeSearch(value) {
     return String(value || "").normalize("NFD")
@@ -125,7 +125,7 @@
   }
 
   function shouldShowReservationsFirst(statuses) {
-    return statuses.some(function (status) { return ATTENTION_STATUSES.has(status); });
+    return statuses.length > 0;
   }
 
   function compareReservationData(first, second) {
@@ -282,7 +282,7 @@
     }
   }
 
-  function enhanceReservationCard(card, offerName, offerNumber) {
+  function enhanceReservationCard(card, offerName, offerNumber, photoUrl) {
     card.classList.add("owner-reservation-card");
     card.dataset.ownerOffer = offerName;
     card.dataset.ownerOfferNumber = offerNumber;
@@ -324,6 +324,9 @@
       }
 
       setText(offer, offerName);
+      if (photoUrl && !party.querySelector(".owner-reservation-thumb")) {
+        const thumb = document.createElement("img"); thumb.className = "owner-reservation-thumb"; thumb.alt = ""; thumb.loading = "lazy"; thumb.src = photoUrl; party.insertBefore(thumb, offer);
+      }
     }
 
     if (term) {
@@ -419,7 +422,7 @@
     section.className = "owner-reservation-group owner-reservation-group-" + type;
     const heading = document.createElement("h3");
     heading.className = "owner-reservation-group-title";
-    heading.dataset.groupLabel = type === "attention" ? "attention" : "waiting";
+    heading.dataset.groupLabel = type === "attention" ? "attention" : type === "inProgress" ? "inProgress" : "waiting";
     heading.textContent = label(heading.dataset.groupLabel);
     const list = document.createElement("div");
     list.className = "owner-reservations-list";
@@ -518,11 +521,13 @@
       const reservationCards = [];
       Array.from(offersList.querySelectorAll(":scope > .simple-offer-record")).forEach(function (record) {
         const offerName = simplifyOfferRow(record);
+        const photo = record.querySelector(".simple-offer-main .tool-image img");
+        const offerPhotoUrl = photo ? photo.getAttribute("src") : "";
         const offerNumber = record.dataset.ownerOfferNumber || "";
         const panel = record.querySelector(":scope > .request-panel");
         if (!panel) return;
         Array.from(panel.querySelectorAll(":scope .request-card")).forEach(function (card) {
-          enhanceReservationCard(card, offerName, offerNumber);
+          enhanceReservationCard(card, offerName, offerNumber, offerPhotoUrl);
           reservationCards.push(card);
         });
         panel.remove();
@@ -536,9 +541,8 @@
       const attention = reservationCards.filter(function (card) {
         return card.dataset.ownerExtensionPending === "true" || ATTENTION_STATUSES.has(card.dataset.ownerStatus);
       });
-      const waiting = reservationCards.filter(function (card) {
-        return card.dataset.ownerExtensionPending !== "true" && !ATTENTION_STATUSES.has(card.dataset.ownerStatus);
-      });
+      const inProgress = reservationCards.filter(function (card) { return card.dataset.ownerExtensionPending !== "true" && card.dataset.ownerStatus === "picked_up"; });
+      const waiting = reservationCards.filter(function (card) { return card.dataset.ownerExtensionPending !== "true" && !ATTENTION_STATUSES.has(card.dataset.ownerStatus) && card.dataset.ownerStatus !== "picked_up"; });
 
       const section = document.createElement("section");
       section.className = "owner-reservations-section";
@@ -559,6 +563,7 @@
       toolbar.hidden = reservationCards.length <= 5;
       section.appendChild(toolbar);
       section.appendChild(createReservationGroup("attention", attention));
+      section.appendChild(createReservationGroup("inProgress", inProgress));
       section.appendChild(createReservationGroup("waiting", waiting));
       const empty = document.createElement("div");
       empty.className = "owner-reservations-empty";
