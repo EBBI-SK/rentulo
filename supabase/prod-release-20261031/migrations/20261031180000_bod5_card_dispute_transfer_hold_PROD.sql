@@ -26,7 +26,7 @@ $guard$;
 -- associated with the same booking. Closed disputes stay on hold for review.
 
 CREATE TABLE public.stripe_card_disputes (
-  dispute_id text PRIMARY KEY CHECK (dispute_id ~ '^dp_[A-Za-z0-9]+$'),
+  dispute_id text PRIMARY KEY CHECK (dispute_id ~ '^du_[A-Za-z0-9]+$'),
   charge_id text NOT NULL CHECK (charge_id ~ '^ch_[A-Za-z0-9]+$'),
   reservation_id uuid,
   extension_id uuid,
@@ -206,7 +206,7 @@ BEGIN
     RAISE EXCEPTION 'BOD5: trusted webhook required';
   END IF;
   IF p_event_id !~ '^evt_[A-Za-z0-9]+$'
-    OR p_dispute_id !~ '^dp_[A-Za-z0-9]+$'
+    OR p_dispute_id !~ '^du_[A-Za-z0-9]+$'
     OR p_charge_id !~ '^ch_[A-Za-z0-9]+$'
     OR p_event_type NOT IN (
       'charge.dispute.created','charge.dispute.updated','charge.dispute.closed',

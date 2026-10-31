@@ -9,10 +9,31 @@ const root = path.resolve(__dirname, "..");
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 const testSql = read("supabase/migrations/20261031180000_bod5_card_dispute_transfer_hold_TEST.sql");
 const prodSql = read("supabase/prod-release-20261031/migrations/20261031180000_bod5_card_dispute_transfer_hold_PROD.sql");
+const duFixSql = read("supabase/migrations/20261031183000_bod5_dispute_id_du_prefix_TEST.sql");
 const webhook = read("supabase/functions/stripe-webhook/index.ts");
 const original = read("supabase/functions/create-owner-transfer/index.ts");
 const extension = read("supabase/functions/create-extension-transfer/index.ts");
 const retry = read("supabase/functions/retry-owner-transfers/index.ts");
+
+test("BOD5: Stripe real dispute IDs du_ are accepted end-to-end, dp_ still rejected", () => {
+  // Applied migrations stay immutable; corrections go into a new TEST migration.
+  assert.ok(testSql.includes("CHECK (dispute_id ~ '^dp_[A-Za-z0-9]+$')"));
+  assert.ok(duFixSql.includes("https://vspposovhdgvbeukoivh.supabase.co"));
+  assert.ok(!duFixSql.includes("https://tfvgxrdjrpicgtvovehl.supabase.co"));
+  assert.ok(duFixSql.includes("DROP CONSTRAINT stripe_card_disputes_dispute_id_check"));
+  assert.ok(duFixSql.includes("ADD CONSTRAINT stripe_card_disputes_dispute_id_check"));
+  for (const sql of [duFixSql, prodSql]) {
+    assert.ok(sql.includes("CHECK (dispute_id ~ '^du_[A-Za-z0-9]+$')"));
+    assert.ok(sql.includes("p_dispute_id !~ '^du_[A-Za-z0-9]+$'"));
+    assert.ok(!sql.includes("'^dp_[A-Za-z0-9]+$'"));
+  }
+  assert.ok(webhook.includes("!/^du_[A-Za-z0-9]+$/.test(disputeId)"));
+  assert.ok(!webhook.includes("!/^dp_[A-Za-z0-9]+$/.test(disputeId)"));
+  const duIdPattern = /^du_[A-Za-z0-9]+$/;
+  assert.equal(duIdPattern.test("du_1UWcxN2EOGKeXJDiC8Opm7Bl"), true);
+  assert.equal(duIdPattern.test("dp_1UWcxN2EOGKeXJDiC8Opm7Bl"), false);
+  assert.equal(duIdPattern.test("du_"), false);
+});
 
 test("BOD5: two releases use project-specific, fail-closed SQL guards", () => {
   assert.match(testSql, /vspposovhdgvbeukoivh\.supabase\.co/);
