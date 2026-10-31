@@ -268,7 +268,12 @@ async function beginEvent(
   }
 
   const row = existing.data as WebhookEventRow;
-  if (row.processing_status === "processed" || row.processing_status === "ignored") {
+  // An older version of this handler ignored charge.dispute.*. Allow an
+  // explicitly resent event to be reconciled instead of accepting the old ignore.
+  const previouslyIgnoredDispute = row.processing_status === "ignored" &&
+    eventType.startsWith("charge.dispute.");
+  if (row.processing_status === "processed" ||
+      (row.processing_status === "ignored" && !previouslyIgnoredDispute)) {
     return { row, duplicateDone: true };
   }
 
@@ -482,6 +487,65 @@ async function handlePaidCancellationRefundEvent(
   });
 }
 
+async function handleStripeCardDispute(
+  admin: AdminClient,
+  event: StripeEvent,
+  object: Record<string, unknown>,
+): Promise<Response> {
+  const eventId = asString(event.id);
+  const eventType = asString(event.type);
+  const disputeId = asString(object.id);
+  const chargeId = objectId(object.charge);
+  const disputeStatus = asString(object.status);
+  const amount = asInteger(object.amount);
+  const currency = asString(object.currency).toLowerCase();
+  const eventCreatedAt = stripeEventCreatedAt(event);
+  const url = denoRuntime.env.get("SUPABASE_URL") || "";
+  const expectedLiveMode = url.includes("tfvgxrdjrpicgtvovehl") ? true
+    : url.includes("vspposovhdgvbeukoivh") ? false : null;
+
+  // A verified Stripe signature is mandatory, but the payload still must match
+  // the specific TEST/PROD project before any money-related database change.
+  if (asString(object.object) !== "dispute" || !/^dp_[A-Za-z0-9]+$/.test(disputeId) ||
+      !chargeId || !/^ch_[A-Za-z0-9]+$/.test(chargeId) ||
+      !disputeStatus || amount === null || amount <= 0 ||
+      !/^[a-z]{3}$/.test(currency) || !eventCreatedAt ||
+      expectedLiveMode === null || event.livemode !== expectedLiveMode) {
+    await updateEventStatus(admin, eventId, "failed", {
+      last_error: "Invalid or cross-environment Stripe card dispute event",
+    });
+    return jsonResponse({ error: "Stripe card dispute requires manual review" }, 503);
+  }
+
+  const { data: outcome, error } = await admin.rpc("bod5_record_stripe_card_dispute", {
+    p_event_id: eventId,
+    p_event_type: eventType,
+    p_dispute_id: disputeId,
+    p_charge_id: chargeId,
+    p_status: disputeStatus,
+    p_reason: asString(object.reason),
+    p_amount_minor: amount,
+    p_currency: currency,
+    p_livemode: event.livemode,
+    p_event_created_at: eventCreatedAt,
+  });
+  if (error || outcome !== "recorded") {
+    console.error("stripe-webhook: BOD5 card dispute unresolved",
+      disputeId, error?.message || outcome || "no_result");
+    await updateEventStatus(admin, eventId, "failed", {
+      last_error: error?.message || "Card dispute charge has not been matched to Rentulo payment",
+    });
+    // Fail closed: Stripe will retry until the charge mapping can be reconciled.
+    return jsonResponse({ error: "Stripe card dispute was not safely recorded" }, 503);
+  }
+  const finalized = await updateEventStatus(admin, eventId, "processed", {
+    processed_at: new Date().toISOString(), last_error: null,
+  });
+  return finalized
+    ? jsonResponse({ received: true, card_dispute_held: true })
+    : jsonResponse({ error: "Card dispute webhook could not be finalized" }, 500);
+}
+
 denoRuntime.serve(async (req) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
@@ -527,6 +591,11 @@ denoRuntime.serve(async (req) => {
 
   if (eventState.duplicateDone) {
     return jsonResponse({ received: true, duplicate: true });
+  }
+
+  if (["charge.dispute.created", "charge.dispute.updated", "charge.dispute.closed",
+       "charge.dispute.funds_withdrawn", "charge.dispute.funds_reinstated"].includes(eventType)) {
+    return await handleStripeCardDispute(admin, event, object);
   }
 
   if (
