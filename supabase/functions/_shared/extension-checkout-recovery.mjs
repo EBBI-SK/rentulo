@@ -13,6 +13,7 @@ const EXTENSION_DEPLOYMENTS = [
   },
 ];
 
+/** @param {{ supabaseUrl: string, stripeKey: string, siteUrl?: string }} options */
 export function resolveExtensionStripeEnvironment({ supabaseUrl, siteUrl, stripeKey }) {
   const url = typeof supabaseUrl === "string" ? supabaseUrl.replace(/\/+$/, "") : "";
   const deployment = EXTENSION_DEPLOYMENTS.find((item) => item.supabaseUrl === url);
