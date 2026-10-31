@@ -112,7 +112,8 @@
     }
   };
 
-  const ATTENTION_STATUSES = new Set(["pending", "paid"]);
+  // Red attention is for decisions, not for already-paid active rentals.
+  const ATTENTION_STATUSES = new Set(["pending"]);
 
   function normalizeSearch(value) {
     return String(value || "").normalize("NFD")
@@ -541,8 +542,13 @@
       const attention = reservationCards.filter(function (card) {
         return card.dataset.ownerExtensionPending === "true" || ATTENTION_STATUSES.has(card.dataset.ownerStatus);
       });
-      const inProgress = reservationCards.filter(function (card) { return card.dataset.ownerExtensionPending !== "true" && card.dataset.ownerStatus === "picked_up"; });
-      const waiting = reservationCards.filter(function (card) { return card.dataset.ownerExtensionPending !== "true" && !ATTENTION_STATUSES.has(card.dataset.ownerStatus) && card.dataset.ownerStatus !== "picked_up"; });
+      const inProgress = reservationCards.filter(function (card) {
+        return card.dataset.ownerExtensionPending !== "true" && ["paid", "picked_up"].includes(card.dataset.ownerStatus);
+      });
+      const waiting = reservationCards.filter(function (card) {
+        return card.dataset.ownerExtensionPending !== "true" && !ATTENTION_STATUSES.has(card.dataset.ownerStatus)
+          && !["paid", "picked_up"].includes(card.dataset.ownerStatus);
+      });
 
       const section = document.createElement("section");
       section.className = "owner-reservations-section";

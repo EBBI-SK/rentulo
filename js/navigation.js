@@ -25,6 +25,7 @@ let navPendingPreferredLanguage = null;
 let navGlobalDropdownDismissalBound = false;
 let navProfileSummary = null;
 let navReservationsDataCache = null;
+let navNotificationLoadSeq = 0;
 
 function navIsLoggedIn() {
   return Boolean(navVerifiedUser);
@@ -653,8 +654,9 @@ function navIsReservationWaitingForPayment(status) {
 }
 
 function navRequiresOwnerAction(status) {
-  const normalizedStatus = navNormalizeReservationStatus(status);
-  return normalizedStatus === "pending" || normalizedStatus === "paid" || normalizedStatus === "picked_up";
+  // The red counter means a decision is needed, not that a rental is ongoing.
+  // Paid handover and picked_up return remain visible in My offers.
+  return navNormalizeReservationStatus(status) === "pending";
 }
 
 function navInjectStyles() {
@@ -1539,6 +1541,8 @@ async function navLoadNotificationCountFromSupabase(activePage) {
     return;
   }
 
+  const notificationLoadSeq = ++navNotificationLoadSeq;
+
   try {
     const { data, error } = await navGetReservationsData();
 
@@ -1550,18 +1554,21 @@ async function navLoadNotificationCountFromSupabase(activePage) {
     const reservations = Array.isArray(data) ? data : [];
     const userId = String(currentUser.id || "");
     const userEmail = navNormalizeEmail(navGetUserEmail(currentUser));
+    const reservationsById = new Map();
 
     let offersNotificationCount = 0;
     let reservationsNotificationCount = 0;
 
     reservations.forEach(function (reservation) {
+      reservationsById.set(String(reservation.id || ""), reservation);
       const ownerId = String(reservation.ownerId || reservation.owner_id || "");
       const renterId = String(reservation.renterId || reservation.renter_id || "");
       const renterEmail = navNormalizeEmail(reservation.renterEmail || reservation.renter_email || "");
       const status = navGetReservationStatus(reservation);
 
       const ownerNeedsAction = ownerId === userId && navRequiresOwnerAction(status);
-      const renterNeedsPayment = (renterId === userId || renterEmail === userEmail) && navIsReservationWaitingForPayment(status);
+      const isRenter = renterId === userId || (Boolean(userEmail) && renterEmail === userEmail);
+      const renterNeedsPayment = isRenter && navIsReservationWaitingForPayment(status);
 
       if (ownerNeedsAction) {
         offersNotificationCount += 1;
@@ -1571,6 +1578,34 @@ async function navLoadNotificationCountFromSupabase(activePage) {
         reservationsNotificationCount += 1;
       }
     });
+
+    // Extensions are a separate RPC. Only pending owner decisions and approved
+    // renter supplements are actionable; paid extensions are informational.
+    try {
+      const extensionsResult = await supabaseClient.rpc("get_my_reservation_extensions");
+      if (extensionsResult.error) {
+        console.warn("Počet upozornění na prodloužení se nepodařilo načíst.", extensionsResult.error);
+      } else {
+        (Array.isArray(extensionsResult.data) ? extensionsResult.data : []).forEach(function (extension) {
+          const reservation = reservationsById.get(String(extension.reservation_id || ""));
+          if (!reservation) return;
+          if (extension.status === "pending" && String(reservation.owner_id || reservation.ownerId || "") === userId) {
+            offersNotificationCount += 1;
+          } else if (extension.status === "approved" && String(reservation.renter_id || reservation.renterId || "") === userId) {
+            reservationsNotificationCount += 1;
+          }
+        });
+      }
+    } catch (extensionError) {
+      // Failed extension reads must not hide regular reservation decisions.
+      console.warn("Počet upozornění na prodloužení se nepodařilo načíst.", extensionError);
+    }
+
+    // An account switch during an asynchronous request must not display the
+    // previous user's alert count.
+    const activeUser = navGetCurrentUser();
+    if (!activeUser || String(activeUser.id || "") !== userId ||
+        notificationLoadSeq !== navNotificationLoadSeq) return;
 
     const notificationCount = offersNotificationCount + reservationsNotificationCount;
 
@@ -1674,6 +1709,8 @@ window.refreshRentuloNotificationBadge = async function () {
     return;
   }
 
+  // The caller expects a current count after a payment or status change.
+  navInvalidateReservationsData();
   await navLoadNotificationCountFromSupabase(activePage);
 };
 

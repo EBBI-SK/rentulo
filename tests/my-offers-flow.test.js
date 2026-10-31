@@ -90,7 +90,8 @@ test("My offers renders action-first rows, search only and no duplicate history 
   const page = read(OFFERS_PAGE);
   const css = read(CSS);
   assert.match(flow, /root\.insertBefore\(section, offersHeader\)/);
-  assert.match(flow, /ATTENTION_STATUSES = new Set\(\["pending", "paid"\]\)/);
+  assert.match(flow, /ATTENTION_STATUSES = new Set\(\["pending"\]\)/);
+  assert.match(flow, /\["paid", "picked_up"\]\.includes\(card\.dataset\.ownerStatus\)/);
   assert.match(flow, /createReservationToolbar\(/);
   assert.match(flow, /ownerReservationSearch/);
   assert.doesNotMatch(flow, /ownerReservationStatus|FILTER_STATUSES|statusFilter/);
