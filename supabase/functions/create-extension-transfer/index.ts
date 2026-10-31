@@ -4,7 +4,7 @@ import { resolveExtensionStripeEnvironment } from "../_shared/extension-checkout
 type Runtime = { serve(handler: (request: Request) => Response | Promise<Response>): void;
   env: { get(name: string): string | undefined } };
 type StripeObject = { id?: string; amount?: number; amount_refunded?: number; livemode?: boolean;
-  currency?: string; paid?: boolean; captured?: boolean; refunded?: boolean;
+  currency?: string; paid?: boolean; captured?: boolean; refunded?: boolean; disputed?: boolean;
   type?: string; payouts_enabled?: boolean; capabilities?: { transfers?: string };
   payment_intent?: string | { id?: string }; balance_transaction?: string | { id?: string };
   source?: string | { id?: string }; destination?: string | { id?: string };
@@ -74,6 +74,13 @@ runtime.serve(async (request) => {
     if (result.error) console.error("create-extension-transfer: failure recording error", result.error.message);
     return json({ error: "Extension payout could not be completed" }, http);
   };
+  const cardHold = await admin.rpc("bod5_reservation_has_card_dispute", {
+    p_reservation_id: claim.reservation_id,
+  });
+  if (cardHold.error || cardHold.data !== false) {
+    return fail("BOD5: card dispute blocks extension transfer", true,
+      cardHold.error ? 503 : 409);
+  }
   const profileResult = await admin.from("profiles")
     .select("stripe_connected_account_id,stripe_connect_status,stripe_connect_transfers_enabled")
     .eq("id", (await admin.from("reservation_extensions").select("owner_id")
@@ -104,6 +111,15 @@ runtime.serve(async (request) => {
         charge.body.amount_refunded !== 0 || charge.body.amount !== claim.amount_total*100 ||
         charge.body.currency !== "czk" || !objectId(charge.body.balance_transaction)) {
       return fail("Stripe extension charge evidence does not match", false, 409);
+    }
+    if (charge.body.disputed === true) {
+      const cleared = await admin.rpc("bod5_charge_dispute_cleared", {
+        p_reservation_id: claim.reservation_id, p_charge_id: claim.stripe_charge_id,
+      });
+      if (cleared.error || cleared.data !== true) {
+        return fail("BOD5: disputed extension charge is not cleared", true,
+          cleared.error ? 503 : 409);
+      }
     }
     const balance = await fetchObject(`balance_transactions/${encodeURIComponent(objectId(charge.body.balance_transaction)!)}`);
     if (!balance.ok) return fail(`Stripe settlement HTTP ${balance.status}`, retryable(balance.status, balance.body.error));
@@ -137,6 +153,13 @@ runtime.serve(async (request) => {
     }
     let transfer = transferList.data[0];
     if (!transfer) {
+      const finalCardHold = await admin.rpc("bod5_reservation_has_card_dispute", {
+        p_reservation_id: claim.reservation_id,
+      });
+      if (finalCardHold.error || finalCardHold.data !== false) {
+        return fail("BOD5: card dispute blocks new extension transfer", true,
+          finalCardHold.error ? 503 : 409);
+      }
       const params = new URLSearchParams();
       params.set("amount", String(amountMinor));
       params.set("currency", balance.body.currency!);

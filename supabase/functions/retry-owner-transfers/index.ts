@@ -147,6 +147,15 @@ denoRuntime.serve(async (req) => {
 
   await processWithConcurrency(candidates, 5, async (candidate) => {
     try {
+      const cardHold = await admin.rpc("bod5_reservation_has_card_dispute", {
+        p_reservation_id: candidate.reservation_id,
+      });
+      if (cardHold.error || typeof cardHold.data !== "boolean") {
+        result.failed += 1;
+        console.error("retry-owner-transfers: card dispute guard unavailable", candidate.reservation_id);
+        return;
+      }
+      if (cardHold.data) { result.skipped += 1; return; }
       const transferResponse = await fetch(
         `${supabaseUrl}/functions/v1/create-owner-transfer`,
         {
@@ -421,6 +430,15 @@ denoRuntime.serve(async (req) => {
   await processWithConcurrency(extensions.data as Array<{ extension_id: string; reservation_id: string }>, 5,
     async (extension) => {
       try {
+        const cardHold = await admin.rpc("bod5_reservation_has_card_dispute", {
+          p_reservation_id: extension.reservation_id,
+        });
+        if (cardHold.error || typeof cardHold.data !== "boolean") {
+          extensionSummary.failed += 1;
+          console.error("retry-owner-transfers: extension card dispute guard unavailable", extension.reservation_id);
+          return;
+        }
+        if (cardHold.data) { extensionSummary.skipped += 1; return; }
         const response = await fetch(`${supabaseUrl}/functions/v1/create-extension-transfer`, {
           method: "POST",
           headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey,
