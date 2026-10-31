@@ -3,6 +3,7 @@ import {
   buildExtensionCheckoutParams, classifyRecoveredCheckoutSession,
   extensionCheckoutIdempotencyKey, mayRetrySameCheckoutAttempt,
   findRecoveredCheckoutSession,
+  resolveExtensionStripeEnvironment, checkoutSessionIdMatchesMode,
 } from "../_shared/extension-checkout-recovery.mjs";
 
 type RentuloDenoRuntime = {
@@ -199,10 +200,18 @@ denoRuntime.serve(async (req) => {
     }
   });
 
-  // BOD 1 is TEST-only. A future PROD rollout must deploy its own migration
-  // first; the existing production transfer job must never depend on it.
-  if (supabaseUrl !== "https://vspposovhdgvbeukoivh.supabase.co") {
-    return jsonResponse({ ok: true, ...result });
+  // The original owner-transfer retry path above is unchanged. Extension
+  // work is allowed only when project, public URL and Stripe key all match.
+  // In an unprepared PROD deployment skip extensions without blocking existing
+  // owner transfers; do not query extension RPCs or touch Stripe.
+  const stripeKey = denoRuntime.env.get("STRIPE_SECRET_KEY") || "";
+  const recoverySiteUrl = (denoRuntime.env.get("SITE_URL") || "").replace(/\/+$/, "");
+  const environment = resolveExtensionStripeEnvironment({
+    supabaseUrl, siteUrl: recoverySiteUrl, stripeKey,
+  });
+  if (!environment) {
+    console.error("retry-owner-transfers: extension settlement disabled by environment guard");
+    return jsonResponse({ ok: true, ...result, extension_settlement: "disabled_environment_mismatch" });
   }
 
   // Plain requests and approvals without a Stripe session have a strict
@@ -223,7 +232,6 @@ denoRuntime.serve(async (req) => {
     p_limit: limit,
   });
   const checkoutSummary = { candidates: 0, reconciled: 0, kept: 0, errors: 0 };
-  const stripeKey = denoRuntime.env.get("STRIPE_SECRET_KEY") || "";
   if (checkoutCandidates.error || !Array.isArray(checkoutCandidates.data)) {
     checkoutSummary.errors += 1;
     console.error("retry-owner-transfers: extension checkout scan failed",
@@ -234,7 +242,10 @@ denoRuntime.serve(async (req) => {
       extension_id: string; reservation_id: string;
       session_id: string; amount_minor: number;
     }>, 5, async (candidate) => {
-      if (!stripeKey) { checkoutSummary.errors += 1; return; }
+      if (!checkoutSessionIdMatchesMode(candidate.session_id, environment.liveMode)) {
+        checkoutSummary.errors += 1;
+        return;
+      }
       try {
         const response = await fetch(
           `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(candidate.session_id)}`,
@@ -242,10 +253,12 @@ denoRuntime.serve(async (req) => {
         );
         const session = (await response.json().catch(() => ({}))) as {
           id?: string; mode?: string; currency?: string; amount_total?: number;
+          livemode?: boolean;
           client_reference_id?: string; status?: string; payment_status?: string;
           metadata?: Record<string,string>;
         };
-        if (!response.ok || session.id !== candidate.session_id || session.mode !== "payment" ||
+        if (!response.ok || session.id !== candidate.session_id ||
+            session.livemode !== environment.liveMode || session.mode !== "payment" ||
             session.client_reference_id !== candidate.extension_id ||
             session.currency !== "czk" || session.amount_total !== candidate.amount_minor ||
             session.metadata?.payment_kind !== "reservation_extension" ||
@@ -280,14 +293,10 @@ denoRuntime.serve(async (req) => {
     p_limit: Math.min(limit, 2),
   });
   const missingSessionSummary = { candidates: 0, recovered: 0, expired: 0, review: 0, pending: 0, errors: 0 };
-  const recoverySiteUrl = (denoRuntime.env.get("SITE_URL") || "").replace(/\/+$/, "");
   if (unresolved.error || !Array.isArray(unresolved.data)) {
     missingSessionSummary.errors += 1;
     console.error("retry-owner-transfers: missing-session candidate scan failed",
       unresolved.error?.message);
-  } else if (!stripeKey.startsWith("sk_test_") || recoverySiteUrl !== "https://rentulo.eu") {
-    missingSessionSummary.errors += 1;
-    console.error("retry-owner-transfers: missing-session recovery requires TEST Stripe/site configuration");
   } else {
     missingSessionSummary.candidates = unresolved.data.length;
     await processWithConcurrency(unresolved.data as MissingExtensionCheckoutCandidate[], 2,
@@ -306,7 +315,7 @@ denoRuntime.serve(async (req) => {
         const expected = {
           attemptId: candidate.attempt_id, extensionId: candidate.extension_id,
           reservationId: candidate.reservation_id, amountMinor,
-          createdAfterUnix, expiresAtUnix,
+          createdAfterUnix, expiresAtUnix, liveMode: environment.liveMode,
         };
         let verified: { session: RecoveredCheckoutSession; state: string } | null = null;
 

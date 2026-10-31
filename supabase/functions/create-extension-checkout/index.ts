@@ -3,6 +3,7 @@ import { normalizeStripeCheckoutLocale } from "../_shared/stripe-checkout-langua
 import {
   classifyExtensionCheckoutSession, isDefiniteCheckoutCreationRejection,
   buildExtensionCheckoutParams, extensionCheckoutIdempotencyKey,
+  resolveExtensionStripeEnvironment, checkoutSessionIdMatchesMode,
 } from "../_shared/extension-checkout-recovery.mjs";
 
 type Runtime = {
@@ -43,13 +44,12 @@ runtime.serve(async (request) => {
   const serviceRole = runtime.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   const stripeKey = runtime.env.get("STRIPE_SECRET_KEY") || "";
   const siteUrl = (runtime.env.get("SITE_URL") || "").replace(/\/+$/, "");
-  // BOD 4: keep TEST-only safety guard. LIVE is a separate approved rollout.
-  if (url !== "https://vspposovhdgvbeukoivh.supabase.co" ||
-      siteUrl.replace(/\/+$/, "") !== "https://rentulo.eu") {
-    return json({ error: "Extension checkout is TEST-only" }, 503);
-  }
-  if (!anon || !serviceRole || !stripeKey) return json({ error: "Missing server configuration" }, 500);
-  if (!stripeKey.startsWith("sk_test_")) return json({ error: "TEST Stripe key required" }, 503);
+  // Deny all cross-project and mixed-mode configurations before using Stripe.
+  const environment = resolveExtensionStripeEnvironment({
+    supabaseUrl: url, siteUrl, stripeKey,
+  });
+  if (!environment) return json({ error: "Extension Stripe environment is not approved" }, 503);
+  if (!anon || !serviceRole) return json({ error: "Missing server configuration" }, 500);
   const authorization = request.headers.get("Authorization") || "";
   const accessToken = authorization.replace(/^Bearer\s+/i, "").trim();
   if (!accessToken) return json({ error: "Unauthorized" }, 401);
@@ -94,7 +94,7 @@ runtime.serve(async (request) => {
     const expectedAmount = extension.amount_total * 100;
     const existingId = extension.stripe_checkout_session_id;
     if (existingId) {
-      if (!/^cs_test_[A-Za-z0-9]+$/.test(existingId)) {
+      if (!checkoutSessionIdMatchesMode(existingId, environment.liveMode)) {
         return json({ code: "checkout_busy", error: "Invalid existing checkout reference" }, 409);
       }
       let response: Response;
@@ -109,6 +109,7 @@ runtime.serve(async (request) => {
       const state = classifyExtensionCheckoutSession(session, {
         sessionId: existingId, amountMinor: expectedAmount,
         extensionId: extension.id, reservationId: extension.reservation_id,
+        liveMode: environment.liveMode,
       });
       if (state === "reuse") return json({ url: session.url });
       if (state !== "verified_expired") {
@@ -138,7 +139,7 @@ runtime.serve(async (request) => {
     const expiry = Math.floor(new Date(attempt.checkout_expires_at).getTime() / 1000);
     // An unrecorded attempt might have been created by Stripe despite a lost
     // response. Keep its key and snapshot even if it is now too late to retry.
-    // The TEST SQL caps the expiry at attempt creation + 23h. Keeping a
+    // The approved SQL caps the expiry at attempt creation + 23h. Keeping a
     // 31-minute margin means a replay cannot outlive Stripe's 24h key window.
     if (!Number.isFinite(expiry) || expiry * 1000 <= Date.now() + 31 * 60 * 1000) {
       return json({ code: "checkout_busy", error: "Checkout attempt requires verification" }, 409);
@@ -183,8 +184,9 @@ runtime.serve(async (request) => {
     const state = classifyExtensionCheckoutSession(session, {
       sessionId: session.id || "", amountMinor: expectedAmount,
       extensionId: extension.id, reservationId: extension.reservation_id,
+      liveMode: environment.liveMode,
     });
-    if (state !== "reuse" || session.livemode !== false ||
+    if (state !== "reuse" || session.livemode !== environment.liveMode ||
         session.metadata?.checkout_attempt_id !== attempt.attempt_id ||
         !session.expires_at || session.expires_at !== expiry) {
       return json({ code: "checkout_busy", error: "Stripe checkout session could not be safely validated" }, 503);

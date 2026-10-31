@@ -1,8 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveExtensionStripeEnvironment } from "../_shared/extension-checkout-recovery.mjs";
 
 type Runtime = { serve(handler: (request: Request) => Response | Promise<Response>): void;
   env: { get(name: string): string | undefined } };
-type StripeObject = { id?: string; amount?: number; amount_refunded?: number;
+type StripeObject = { id?: string; amount?: number; amount_refunded?: number; livemode?: boolean;
   currency?: string; paid?: boolean; captured?: boolean; refunded?: boolean;
   type?: string; payouts_enabled?: boolean; capabilities?: { transfers?: string };
   payment_intent?: string | { id?: string }; balance_transaction?: string | { id?: string };
@@ -47,10 +48,10 @@ runtime.serve(async (request) => {
   const url = runtime.env.get("SUPABASE_URL") || "";
   const key = runtime.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   const stripeKey = runtime.env.get("STRIPE_SECRET_KEY") || "";
-  if (url !== "https://vspposovhdgvbeukoivh.supabase.co") {
-    return json({ error: "Extension payouts are TEST-only" }, 503);
-  }
-  if (!key || !stripeKey) return json({ error: "Missing server configuration" }, 500);
+  // Transfers do not need SITE_URL; project and Stripe mode must agree.
+  const environment = resolveExtensionStripeEnvironment({ supabaseUrl: url, stripeKey });
+  if (!environment) return json({ error: "Extension Stripe environment is not approved" }, 503);
+  if (!key) return json({ error: "Missing server configuration" }, 500);
   const token = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
   if (!token || !safeEqual(token, key)) return json({ error: "Unauthorized" }, 401);
   const payload = await request.json().catch(() => null) as { extension_id?: string } | null;
@@ -97,6 +98,7 @@ runtime.serve(async (request) => {
     const charge = await fetchObject(`charges/${encodeURIComponent(claim.stripe_charge_id)}`);
     if (!charge.ok) return fail(`Stripe charge HTTP ${charge.status}`, retryable(charge.status, charge.body.error));
     if (charge.body.id !== claim.stripe_charge_id ||
+        charge.body.livemode !== environment.liveMode ||
         objectId(charge.body.payment_intent) !== claim.stripe_payment_intent_id ||
         charge.body.paid !== true || charge.body.captured !== true || charge.body.refunded === true ||
         charge.body.amount_refunded !== 0 || charge.body.amount !== claim.amount_total*100 ||
@@ -114,7 +116,8 @@ runtime.serve(async (request) => {
     if (!amountMinor) return fail("Extension payout amount invalid", false, 409);
     const transferGroup = `rentulo_extension_${extensionId}`;
     const expected = (t: StripeObject): boolean => Boolean(
-      t.id && t.amount === amountMinor && t.currency === balance.body.currency &&
+      t.id && t.livemode === environment.liveMode &&
+      t.amount === amountMinor && t.currency === balance.body.currency &&
       objectId(t.destination) === profile.stripe_connected_account_id &&
       objectId(t.source_transaction) === claim.stripe_charge_id &&
       t.transfer_group === transferGroup &&

@@ -69,7 +69,7 @@ test("migration guards TEST and serializes attempt preparation/record/reconcilia
 });
 
 test("Stripe POST uses persisted immutable attempt parameters and stores before redirect", () => {
-  assert.match(checkout, /Extension checkout is TEST-only/);
+  assert.match(checkout, /resolveExtensionStripeEnvironment/);
   assert.match(checkout, /prepare_reservation_extension_checkout_attempt/);
   assert.match(checkout, /attempt\.checkout_expires_at/);
   assert.match(checkout, /attempt\.offer_name/);
@@ -92,7 +92,8 @@ test("worker reconciles only verified unpaid expiry and protects Stripe Connect 
   assert.match(worker, /checkoutSummary\.reconciled/);
   assert.match(worker, /get_due_reservation_extension_transfers/);
   assert.match(worker, /create-extension-transfer/);
-  assert.match(worker, /supabaseUrl !== "https:\/\/vspposovhdgvbeukoivh\.supabase\.co"/);
+  assert.match(worker, /resolveExtensionStripeEnvironment/);
+  assert.match(worker, /checkoutSessionIdMatchesMode/);
 });
 
 test("renter sees distinct localized busy/retry/deadline notices", () => {
@@ -215,5 +216,47 @@ test("TEST-only migration preserves unknown-payment hold and accepts positively 
   assert.match(worker, /findRecoveredCheckoutSession/);
   assert.match(worker, /flag_unrecorded_extension_checkout_for_review/);
   assert.match(worker, /if \(verified\)/);
-  assert.match(worker, /sk_test_/);
+  assert.match(worker, /liveMode: environment\.liveMode/);
+});
+
+
+test("exact TEST/LIVE project and key pairing fails closed on a mismatch", async () => {
+  const { resolveExtensionStripeEnvironment: resolve, checkoutSessionIdMatchesMode: idMatches,
+    classifyRecoveredCheckoutSession: recovered, classifyExtensionCheckoutSession: classify } = await helpers;
+  const testConfig = { supabaseUrl: "https://vspposovhdgvbeukoivh.supabase.co",
+    siteUrl: "https://rentulo.eu", stripeKey: "sk_test_example" };
+  const liveConfig = { supabaseUrl: "https://tfvgxrdjrpicgtvovehl.supabase.co",
+    siteUrl: "https://rentulo.com", stripeKey: "sk_live_example" };
+  assert.equal(resolve(testConfig).liveMode, false);
+  assert.equal(resolve(liveConfig).liveMode, true);
+  assert.equal(resolve({ ...testConfig, stripeKey: liveConfig.stripeKey }), null);
+  assert.equal(resolve({ ...liveConfig, stripeKey: testConfig.stripeKey }), null);
+  assert.equal(resolve({ ...liveConfig, siteUrl: testConfig.siteUrl }), null);
+  assert.equal(resolve({ ...testConfig, siteUrl: liveConfig.siteUrl }), null);
+  assert.equal(resolve({ ...liveConfig, supabaseUrl: "https://unknown.supabase.co" }), null);
+  assert.equal(resolve({ ...liveConfig, stripeKey: "" }), null);
+  assert.equal(idMatches("cs_live_A1", true), true);
+  assert.equal(idMatches("cs_test_A1", true), false);
+  assert.equal(idMatches("cs_test_A1", false), true);
+  assert.equal(idMatches("cs_live_A1", false), false);
+  assert.equal(classify({ ...unpaid, livemode: false }, { ...expected, liveMode: false }), "reuse");
+  assert.equal(classify({ ...unpaid, livemode: true }, { ...expected, liveMode: false }), "invalid");
+  assert.equal(classify({ ...unpaid, id: "cs_live_A1", livemode: true },
+    { ...expected, sessionId: "cs_live_A1", liveMode: true }), "reuse");
+  assert.equal(recovered({ ...recoveredSession, id: "cs_live_A1", livemode: true },
+    { ...recoveryExpected, liveMode: true }), "reuse");
+  assert.equal(recovered({ ...recoveredSession, livemode: false },
+    { ...recoveryExpected, liveMode: true }), "invalid");
+});
+
+test("PROD edge rollout retains service-role authorization and guards Stripe transfer evidence", () => {
+  const payouts = read("supabase/functions/create-extension-transfer/index.ts");
+  assert.match(checkout, /environment\.liveMode/);
+  assert.match(checkout, /checkoutSessionIdMatchesMode/);
+  assert.match(worker, /session\.livemode !== environment\.liveMode/);
+  assert.match(worker, /extension_settlement: "disabled_environment_mismatch"/);
+  assert.match(payouts, /safeEqual\(token, key\)/);
+  assert.match(payouts, /charge\.body\.livemode !== environment\.liveMode/);
+  assert.match(payouts, /t\.livemode === environment\.liveMode/);
+  assert.match(payouts, /Idempotency-Key.*rentulo-extension-transfer-\$\{extensionId\}/s);
 });

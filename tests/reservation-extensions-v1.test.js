@@ -121,7 +121,10 @@ test("checkout session is bound to extension, reservation and Stripe PaymentInte
   assert.match(checkoutHelper,/payment_intent_data\[metadata\]\[reservation_id\]/);
   assert.match(checkout,/Idempotency-Key/);
   assert.match(checkout,/record_reservation_extension_checkout/);
-  assert.match(checkout,/rentulo\.eu/);
+  // TEST and PROD URL allowlists now live in the shared environment helper.
+  assert.match(checkout,/resolveExtensionStripeEnvironment/);
+  assert.match(checkoutHelper,/siteUrl: "https:\/\/rentulo\.eu"/);
+  assert.match(checkoutHelper,/siteUrl: "https:\/\/rentulo\.com"/);
 });
 
 test("abandoned checkout is released only after Stripe confirms expired and unpaid", () => {
