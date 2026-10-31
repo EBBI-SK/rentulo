@@ -229,6 +229,14 @@ test("exact TEST/LIVE project and key pairing fails closed on a mismatch", async
     siteUrl: "https://rentulo.com", stripeKey: "sk_live_example" };
   assert.equal(resolve(testConfig).liveMode, false);
   assert.equal(resolve(liveConfig).liveMode, true);
+  // Stripe restricted keys are legitimate LIVE/TEST keys too. Keep project
+  // and mode isolation identical for restricted and unrestricted keys.
+  assert.equal(resolve({ ...testConfig, stripeKey: "rk_test_restricted" }).liveMode, false);
+  assert.equal(resolve({ ...liveConfig, stripeKey: "rk_live_restricted" }).liveMode, true);
+  assert.equal(resolve({ ...testConfig, stripeKey: "rk_live_restricted" }), null);
+  assert.equal(resolve({ ...liveConfig, stripeKey: "rk_test_restricted" }), null);
+  assert.equal(resolve({ ...liveConfig, stripeKey: "rk_live_" }), null);
+  assert.equal(resolve({ ...liveConfig, siteUrl: "https://rentulo.eu", stripeKey: "rk_live_restricted" }), null);
   assert.equal(resolve({ ...testConfig, stripeKey: liveConfig.stripeKey }), null);
   assert.equal(resolve({ ...liveConfig, stripeKey: testConfig.stripeKey }), null);
   assert.equal(resolve({ ...liveConfig, siteUrl: testConfig.siteUrl }), null);
