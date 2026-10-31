@@ -270,6 +270,11 @@ function reservationsExpirationText(reason) {
       clearStripePendingCheckout();
       removeStripeReturnQuery();
       renderReservations();
+      // Stripe can confirm the payment after the navigation initially counted
+      // the reservation as approved. Refresh only after server verification.
+      if (typeof window.refreshRentuloNotificationBadge === "function") {
+        void window.refreshRentuloNotificationBadge();
+      }
       if (result === "confirmed") {
         showReservationsNotice(stripeReturnText("confirmed"));
       } else {
