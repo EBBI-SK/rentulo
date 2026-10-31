@@ -1,3 +1,36 @@
+// Exact deployment allowlist: never combine a TEST project with LIVE Stripe
+// credentials (or vice versa). Only the approved CZK Rentulo projects may run.
+const EXTENSION_DEPLOYMENTS = [
+  {
+    supabaseUrl: "https://vspposovhdgvbeukoivh.supabase.co",
+    siteUrl: "https://rentulo.eu",
+    keyPrefix: "sk_test_", liveMode: false,
+  },
+  {
+    supabaseUrl: "https://tfvgxrdjrpicgtvovehl.supabase.co",
+    siteUrl: "https://rentulo.com",
+    keyPrefix: "sk_live_", liveMode: true,
+  },
+];
+
+export function resolveExtensionStripeEnvironment({ supabaseUrl, siteUrl, stripeKey }) {
+  const url = typeof supabaseUrl === "string" ? supabaseUrl.replace(/\/+$/, "") : "";
+  const deployment = EXTENSION_DEPLOYMENTS.find((item) => item.supabaseUrl === url);
+  if (!deployment || typeof stripeKey !== "string" ||
+      !stripeKey.startsWith(deployment.keyPrefix) ||
+      stripeKey.length <= deployment.keyPrefix.length) return null;
+  // A transfer has no public redirect URL, so siteUrl is optional there.
+  // For Checkout and the recovery worker it MUST exactly match the project.
+  if (siteUrl !== undefined && (typeof siteUrl !== "string" ||
+      siteUrl.replace(/\/+$/, "") !== deployment.siteUrl)) return null;
+  return { liveMode: deployment.liveMode, siteUrl: deployment.siteUrl };
+}
+
+export function checkoutSessionIdMatchesMode(sessionId, liveMode) {
+  return typeof sessionId === "string" &&
+    (liveMode === true ? /^cs_live_[A-Za-z0-9]+$/ : /^cs_test_[A-Za-z0-9]+$/).test(sessionId);
+}
+
 // Pure Stripe decision helpers shared with the targeted Node tests.
 // A Session must match the expected amount, extension and reservation before
 // its status can release a payment/date hold.
@@ -7,7 +40,10 @@ export function classifyExtensionCheckoutSession(session, expected) {
       session.client_reference_id !== expected.extensionId ||
       session.metadata?.payment_kind !== "reservation_extension" ||
       session.metadata?.extension_id !== expected.extensionId ||
-      session.metadata?.reservation_id !== expected.reservationId) {
+      session.metadata?.reservation_id !== expected.reservationId ||
+      (expected.liveMode !== undefined &&
+        (session.livemode !== expected.liveMode ||
+         !checkoutSessionIdMatchesMode(session.id, expected.liveMode)))) {
     return "invalid";
   }
   if (session.status === "open" && session.payment_status === "unpaid" &&
@@ -76,8 +112,9 @@ export function mayRetrySameCheckoutAttempt(createdAtMs, expiresAtMs, nowMs) {
 // Never trust extension_id alone: require attempt, creation window, amount,
 // dates and a verified non-payable or payable Checkout status.
 export function classifyRecoveredCheckoutSession(session, expected) {
-  if (!session || session.livemode !== false ||
-      !/^cs_test_[A-Za-z0-9]+$/.test(session.id || "") ||
+  const liveMode = expected.liveMode === true;
+  if (!session || session.livemode !== liveMode ||
+      !checkoutSessionIdMatchesMode(session.id, liveMode) ||
       session.metadata?.checkout_attempt_id !== expected.attemptId ||
       session.expires_at !== expected.expiresAtUnix ||
       !Number.isInteger(session.created) ||
