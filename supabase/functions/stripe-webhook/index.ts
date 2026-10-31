@@ -506,7 +506,7 @@ async function handleStripeCardDispute(
 
   // A verified Stripe signature is mandatory, but the payload still must match
   // the specific TEST/PROD project before any money-related database change.
-  if (asString(object.object) !== "dispute" || !/^dp_[A-Za-z0-9]+$/.test(disputeId) ||
+  if (asString(object.object) !== "dispute" || !/^du_[A-Za-z0-9]+$/.test(disputeId) ||
       !chargeId || !/^ch_[A-Za-z0-9]+$/.test(chargeId) ||
       !disputeStatus || amount === null || amount <= 0 ||
       !/^[a-z]{3}$/.test(currency) || !eventCreatedAt ||
