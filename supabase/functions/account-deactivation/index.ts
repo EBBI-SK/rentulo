@@ -26,6 +26,13 @@ type DeactivationStatus = {
   open_owner_debts_count: number;
   unfinished_refunds_count: number;
   unresolved_owner_transfers_count: number;
+  pending_extensions_count: number;
+  unresolved_extension_payouts_count: number;
+  active_card_disputes_count: number;
+  unresolved_internal_settlements_count: number;
+  active_legal_holds_count: number;
+  unresolved_return_incidents_count: number;
+  open_platform_incidents_count: number;
 };
 
 type FinalizeResult = {
@@ -118,6 +125,18 @@ function firstRow<T>(value: unknown): T | null {
   return null;
 }
 
+function hasBod6Blockers(status: DeactivationStatus): boolean {
+  return [
+    status.pending_extensions_count,
+    status.unresolved_extension_payouts_count,
+    status.active_card_disputes_count,
+    status.unresolved_internal_settlements_count,
+    status.active_legal_holds_count,
+    status.unresolved_return_incidents_count,
+    status.open_platform_incidents_count,
+  ].some((count) => count > 0);
+}
+
 function activeReservationBlockResponse(status: DeactivationStatus | null): Response {
   return jsonResponse({
     error: "Account has active reservations",
@@ -138,6 +157,13 @@ function financialBlockResponse(status: DeactivationStatus | null): Response {
       open_owner_debts_count: status.open_owner_debts_count,
       unfinished_refunds_count: status.unfinished_refunds_count,
       unresolved_owner_transfers_count: status.unresolved_owner_transfers_count,
+      pending_extensions_count: status.pending_extensions_count,
+      unresolved_extension_payouts_count: status.unresolved_extension_payouts_count,
+      active_card_disputes_count: status.active_card_disputes_count,
+      unresolved_internal_settlements_count: status.unresolved_internal_settlements_count,
+      active_legal_holds_count: status.active_legal_holds_count,
+      unresolved_return_incidents_count: status.unresolved_return_incidents_count,
+      open_platform_incidents_count: status.open_platform_incidents_count,
     } : {}),
   }, 409);
 }
@@ -194,7 +220,7 @@ denoRuntime.serve(async (req) => {
   // A previously deactivated account is allowed to continue so a safe retry can
   // finish the Auth soft-delete after a temporary server/network failure.
   const { data: statusData, error: statusError } = await userClient.rpc(
-    "get_my_account_deactivation_status_v2",
+    "get_my_account_deactivation_status_v3",
   );
 
   if (statusError) {
@@ -249,7 +275,7 @@ denoRuntime.serve(async (req) => {
         // Re-read the caller's own status to report accurate counts if possible.
         let refreshed: DeactivationStatus | null = null;
         try {
-          const { data, error } = await userClient.rpc("get_my_account_deactivation_status_v2");
+          const { data, error } = await userClient.rpc("get_my_account_deactivation_status_v3");
           if (!error) refreshed = firstRow<DeactivationStatus>(data);
         } catch (refreshError) {
           console.warn("account-deactivation: could not refresh blocker details", refreshError);
@@ -268,6 +294,23 @@ denoRuntime.serve(async (req) => {
     if (parsedFinalizeResult) {
       finalizeResult = parsedFinalizeResult;
     }
+  }
+
+  // Recheck even on a retry: a newly opened case must not lose photo evidence.
+  // The database trigger separately protects the first active->deactivated write.
+  const { data: latestStatusData, error: latestStatusError } = await userClient.rpc(
+    "get_my_account_deactivation_status_v3",
+  );
+  if (latestStatusError) {
+    console.error("account-deactivation: evidence recheck failed", latestStatusError.message);
+    return jsonResponse({ error: "Account evidence check failed" }, 500);
+  }
+  const latestStatus = firstRow<DeactivationStatus>(latestStatusData);
+  if (!latestStatus) {
+    return jsonResponse({ error: "Account evidence status not found" }, 500);
+  }
+  if (hasBod6Blockers(latestStatus)) {
+    return financialBlockResponse(latestStatus);
   }
 
   // Finish physical Storage cleanup before removing the Auth login. If Storage

@@ -252,7 +252,7 @@
       // the user can retry the same protected operation after reloading the page.
       try {
         const { data: statusData, error: statusError } = await client.rpc(
-          "get_my_account_deactivation_status_v2"
+          "get_my_account_deactivation_status_v3"
         );
         const status = !statusError ? firstResultRow(statusData) : null;
         if (status && status.account_status === "deactivated") {
@@ -792,7 +792,31 @@
     );
   }
 
+  function hasBod6DeactivationBlockers(status) {
+    const fields = [
+      "pending_extensions_count",
+      "unresolved_extension_payouts_count",
+      "active_card_disputes_count",
+      "unresolved_internal_settlements_count",
+      "active_legal_holds_count",
+      "unresolved_return_incidents_count",
+      "open_platform_incidents_count"
+    ];
+    return Boolean(status && fields.some(function (key) {
+      return Number(status[key]) > 0;
+    }));
+  }
+
   function showFinancialCancellationBlock(message, status) {
+    if (hasBod6DeactivationBlockers(status)) {
+      setTranslatedMessage(
+        message,
+        "settings.cancelAccountFinancialBlockedGeneric",
+        "Účet zatím nelze zrušit kvůli nedokončeným finančním operacím. Zkuste kontrolu opakovat později nebo kontaktujte podporu.",
+        "error"
+      );
+      return;
+    }
     const fields = [
       "open_owner_debts_count",
       "unfinished_refunds_count",
@@ -882,7 +906,7 @@
     setButtonLoading(button, true);
 
     try {
-      const { data, error } = await client.rpc("get_my_account_deactivation_status_v2");
+      const { data, error } = await client.rpc("get_my_account_deactivation_status_v3");
 
       if (error) {
         throw error;
@@ -915,7 +939,8 @@
         } else if (
           status.open_owner_debts_count > 0 ||
           status.unfinished_refunds_count > 0 ||
-          status.unresolved_owner_transfers_count > 0
+          status.unresolved_owner_transfers_count > 0 ||
+          hasBod6DeactivationBlockers(status)
         ) {
           showFinancialCancellationBlock(message, status);
         } else {
