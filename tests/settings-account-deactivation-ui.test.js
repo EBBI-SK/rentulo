@@ -76,7 +76,7 @@ test("financial blocker response has real counts and does not expose permanent a
   const { get, api } = harness();
   const result = await api.checkAccountCancellation({
     async rpc(name) {
-      assert.equal(name, "get_my_account_deactivation_status_v2");
+      assert.equal(name, "get_my_account_deactivation_status_v3");
       return { data: [financialStatus], error: null };
     }
   });
@@ -212,7 +212,7 @@ test("deactivated account can retry photo cleanup after settings reload despite 
       } }; } }; } };
     },
     async rpc(name) {
-      assert.equal(name, "get_my_account_deactivation_status_v2");
+      assert.equal(name, "get_my_account_deactivation_status_v3");
       statusCalls++;
       return { data: [{ ...financialStatus, account_status: "deactivated", can_deactivate: false }], error: null };
     }
@@ -238,7 +238,7 @@ test("missing active profile without confirmed deactivation keeps settings hidde
       return { data: null, error: null };
     } }; } }; } }; },
     async rpc(name) {
-      assert.equal(name, "get_my_account_deactivation_status_v2");
+      assert.equal(name, "get_my_account_deactivation_status_v3");
       return { data: [{ ...financialStatus, account_status: "active" }], error: null };
     }
   };
