@@ -4,12 +4,12 @@ const EXTENSION_DEPLOYMENTS = [
   {
     supabaseUrl: "https://vspposovhdgvbeukoivh.supabase.co",
     siteUrl: "https://rentulo.eu",
-    keyPrefix: "sk_test_", liveMode: false,
+    keyPrefixes: ["sk_test_", "rk_test_"], liveMode: false,
   },
   {
     supabaseUrl: "https://tfvgxrdjrpicgtvovehl.supabase.co",
     siteUrl: "https://rentulo.com",
-    keyPrefix: "sk_live_", liveMode: true,
+    keyPrefixes: ["sk_live_", "rk_live_"], liveMode: true,
   },
 ];
 
@@ -18,8 +18,8 @@ export function resolveExtensionStripeEnvironment({ supabaseUrl, siteUrl, stripe
   const url = typeof supabaseUrl === "string" ? supabaseUrl.replace(/\/+$/, "") : "";
   const deployment = EXTENSION_DEPLOYMENTS.find((item) => item.supabaseUrl === url);
   if (!deployment || typeof stripeKey !== "string" ||
-      !stripeKey.startsWith(deployment.keyPrefix) ||
-      stripeKey.length <= deployment.keyPrefix.length) return null;
+      !deployment.keyPrefixes.some((prefix) =>
+        stripeKey.startsWith(prefix) && stripeKey.length > prefix.length)) return null;
   // A transfer has no public redirect URL, so siteUrl is optional there.
   // For Checkout and the recovery worker it MUST exactly match the project.
   if (siteUrl !== undefined && (typeof siteUrl !== "string" ||
