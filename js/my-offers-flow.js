@@ -462,8 +462,6 @@
       empty.hidden = shown > 0;
       setText(empty, total ? label("noMatches") : label("empty"));
     }
-    const badge = section.querySelector(".owner-reservations-section-header .owner-section-count");
-    if (badge) setText(badge, String(shown));
   }
 
   function focusActionReservation(section) {
@@ -556,14 +554,10 @@
         "owner-reservations-section-header",
         label(reservationCards.length ? "reservations" : "activeReservations")
       );
-      const headingWithCount = document.createElement("div");
-      headingWithCount.className = "owner-reservations-heading";
-      headingWithCount.appendChild(header.querySelector("h2"));
-      const count = document.createElement("span");
-      count.className = "owner-section-count";
-      count.textContent = String(reservationCards.length);
-      headingWithCount.appendChild(count);
-      header.appendChild(headingWithCount);
+      const headingRow = document.createElement("div");
+      headingRow.className = "owner-reservations-heading";
+      headingRow.appendChild(header.querySelector("h2"));
+      header.appendChild(headingRow);
       section.appendChild(header);
       const toolbar = createReservationToolbar();
       toolbar.hidden = reservationCards.length <= 5;

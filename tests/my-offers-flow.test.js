@@ -25,6 +25,14 @@ test("My offers separates reservations from listing rows", () => {
   assert.match(source, /owner-offer-request-summary/);
 });
 
+test("My offers does not display a redundant reservation count next to the heading", () => {
+  const source = read(FLOW);
+  assert.match(source, /owner-reservations-section-header/);
+  assert.match(source, /headingRow\.appendChild\(header\.querySelector\("h2"\)\)/);
+  assert.doesNotMatch(source, /owner-section-count/);
+  assert.match(source, /const canSearch = total > 5/);
+});
+
 test("My offers keeps a hidden paid handover action available for the verified PIN flow", () => {
   const source = read(FLOW);
   const pickupStart = source.indexOf('card.querySelectorAll(\'[data-offers-action="mark-picked-up"]\')');
