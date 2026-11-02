@@ -174,6 +174,18 @@ test('new outcome emails are essential for every user preference', async () => {
   }
 });
 
+test('Reply-To routes customer replies to rentulo mailbox and preserves the system sender', async () => {
+  const output = await runEmail({
+    event: 'extension_paid', currentStatus: 'paid', recipientId: ownerId,
+  });
+  assert.equal(output.status, 200, JSON.stringify(output.body));
+  assert.equal(output.sentEmails.length, 1);
+  const email = JSON.parse(output.sentEmails[0].body);
+  assert.equal(email.from, 'Rentulo <support@rentulo.com>');
+  assert.equal(email.to[0], 'owner@example.test');
+  assert.equal(email.reply_to, 'rentulo@rentulo.com');
+});
+
 const languages = [
   ['cs', 'Prodlou', 'Doplatek', 'Otevřít Moje rezervace →', 'Otevřít Moje nabídky →', 'Prodloužení pronájmu zaplaceno'],
   ['sk', 'Pred', 'Doplatok', 'Otvoriť Moje rezervácie →', 'Otvoriť Moje ponuky →', 'Predĺženie prenájmu zaplatené'],

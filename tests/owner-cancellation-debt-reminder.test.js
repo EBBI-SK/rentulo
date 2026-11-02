@@ -78,6 +78,11 @@ test("Resend delivery is idempotent per overdue debt and failed sends remain ret
   assert.match(worker, /provider_message_id/);
 });
 
+test("overdue reminder replies go to rentulo inbox, not the system sender", () => {
+  assert.match(worker, /from: emailFrom,\s*to: \[recipientEmail\],\s*reply_to: "rentulo@rentulo\.com"/);
+  assert.match(worker, /"Idempotency-Key": `owner-debt-overdue\/\$\{claim\.debt_id\}`/);
+});
+
 test("overdue reminder explains the block and supports all five languages", () => {
   for (const language of ["cs", "sk", "en", "de", "pl"]) {
     assert.match(worker, new RegExp(`\\n  ${language}: \\{`));

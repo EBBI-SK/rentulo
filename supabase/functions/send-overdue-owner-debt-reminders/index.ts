@@ -325,6 +325,7 @@ denoRuntime.serve(async (req) => {
         body: JSON.stringify({
           from: emailFrom,
           to: [recipientEmail],
+          reply_to: "rentulo@rentulo.com",
           subject: copy.subject,
           html,
         }),
