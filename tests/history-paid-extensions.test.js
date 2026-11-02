@@ -46,6 +46,8 @@ function harness({ language = "cs", extensions = [paid], rpcError = null, rows =
   const client = {
     rpc: async (name) => {
       requests.push(["rpc", name]);
+      if (name === "get_my_history_owner_transfers") return { data: [], error: null };
+      assert.equal(name, "get_my_reservation_extensions");
       return rpcError
         ? { data: null, error: rpcError }
         : { data: extensions, error: null };
@@ -108,7 +110,8 @@ test("R-000045: renter and owner history show original 450 + paid extension 150 
     assert.doesNotMatch(html, /\+ 300 Kč|\+ 900 Kč|\+ 999 Kč/);
     assert.equal(original.total_price, 450, "original financial snapshot must stay unchanged");
     assert.deepEqual(app.requests.map(x => x.join(":")), [
-      "from:reviews", "rpc:get_my_reservation_extensions"
+      "from:reviews", "rpc:get_my_reservation_extensions",
+      ...(userId === "owner-id" ? ["rpc:get_my_history_owner_transfers"] : [])
     ]);
   }
 });
