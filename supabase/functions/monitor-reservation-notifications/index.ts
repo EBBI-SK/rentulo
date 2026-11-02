@@ -11,6 +11,8 @@ const runtime = (globalThis as typeof globalThis & { Deno: RentuloDenoRuntime })
 
 const TEST_SUPABASE_URL = "https://vspposovhdgvbeukoivh.supabase.co";
 const TEST_ALERT_TO = "support@rentulo.com";
+// Fixed technical identity: never inherit the customer sender or a shared env secret.
+const TEST_ALERT_FROM = "Rentulo Monitoring <support@rentulo.com>";
 const DB_TIMEOUT_MS = 4000;
 const RESEND_TIMEOUT_MS = 8000;
 const MAX_BATCH = 5;
@@ -78,6 +80,7 @@ async function sendAlert(
       body: JSON.stringify({
         from,
         to: [TEST_ALERT_TO],
+        reply_to: TEST_ALERT_TO,
         subject: `Rentulo TEST – alarm: ${kind}`,
         text: [
           "Automatický monitoring Rentulo TEST zaznamenal problém.",
@@ -112,9 +115,8 @@ runtime.serve(async (request: Request) => {
   }
   const serviceKey = runtime.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   const resendKey = runtime.env.get("RESEND_API_KEY") || "";
-  const from = runtime.env.get("EMAIL_FROM") || "";
-  // The TEST alert recipient is fixed; cron-job.org failure notifications are configured separately.
-  if (!serviceKey || !resendKey || !from) {
+  // The TEST alert sender and recipient are fixed; cron-job.org failures are separate.
+  if (!serviceKey || !resendKey) {
     return json({ error: "Monitoring email credentials are not configured" }, 503);
   }
 
@@ -137,7 +139,7 @@ runtime.serve(async (request: Request) => {
   const result = { ok: true, claimed: pending.length, sent: 0, retried: 0, ack_failures: 0 };
 
   async function processAlert(alert: Alert): Promise<void> {
-    const delivery = await sendAlert(alert, resendKey, from);
+    const delivery = await sendAlert(alert, resendKey, TEST_ALERT_FROM);
     try {
       const ack = await admin.rpc("finish_reservation_notification_monitor_alert", {
         p_alert_key: alert.alert_key,

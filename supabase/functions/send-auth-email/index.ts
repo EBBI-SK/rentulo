@@ -41,7 +41,8 @@ Deno.serve(async (request: Request) => {
     return jsonResponse(422, "Unsupported or invalid Auth email event");
   }
 
-  const from = Deno.env.get("EMAIL_FROM") || "Rentulo <support@rentulo.com>";
+  // Transactional Auth messages always use the customer identity, never the monitoring sender.
+  const from = "Rentulo <rentulo@rentulo.com>";
   // Auth HTTP hooks have a 5-second overall deadline. Two confirmation emails
   // (secure email change) must be sent in parallel rather than serially.
   const deliveries = await Promise.all(messages.map(async (message) => {

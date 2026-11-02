@@ -187,6 +187,8 @@ for (const [language, subject, dateLabel, action] of [
     assert.equal(out.body.results?.[0]?.status, 'sent');
     assert.equal(out.sentEmails.length, 1);
     const email = JSON.parse(out.sentEmails[0].body);
+    assert.equal(email.from, 'Rentulo <rentulo@rentulo.com>');
+    assert.equal(email.reply_to, 'rentulo@rentulo.com');
     assert.ok(email.subject.includes(subject));
     assert.equal(email.to.length, 1);
     assert.equal(email.to[0], 'owner@example.test');

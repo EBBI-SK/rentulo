@@ -39,7 +39,7 @@ async function invokeMonitor({
     SUPABASE_SERVICE_ROLE_KEY: 'service-test-key',
     RENTULO_MONITOR_SECRET: environmentSecret,
     RESEND_API_KEY: apiKey,
-    EMAIL_FROM: 'Rentulo <rentulo@rentulo.com>',
+    // Deliberately no EMAIL_FROM: technical alert sender must not depend on it.
   };
   const admin = {
     rpc(name, payload) {
@@ -156,6 +156,8 @@ test('P1-4: idle queue sends nothing; active problem sends limited operational d
   assert.equal(active.externalCalls[0].endpoint, 'https://api.resend.com/emails');
   const payload = JSON.parse(active.externalCalls[0].options.body);
   assert.deepEqual(payload.to, ['support@rentulo.com']);
+  assert.equal(payload.from, 'Rentulo Monitoring <support@rentulo.com>');
+  assert.equal(payload.reply_to, 'support@rentulo.com');
   assert.match(payload.subject, /^Rentulo TEST/);
   assert.match(payload.text, /R-000026/);
   assert.match(payload.text, /manuálne|preveriť/);

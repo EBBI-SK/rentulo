@@ -172,6 +172,7 @@ test("AUTH hook server requires signed events, returns success only after provid
   assert.match(src, /new Webhook\(/);
   assert.match(src, /webhook\.verify\(raw,/);
   assert.match(src, /no-verify-jwt|No JWT verification/);
+  assert.match(src, /const from = "Rentulo <rentulo@rentulo\.com>"/);
   assert.match(src, /reply_to: "rentulo@rentulo\.com"/);
   assert.match(src, /https:\/\/api\.resend\.com\/emails/);
   assert.match(src, /Idempotency-Key/);
