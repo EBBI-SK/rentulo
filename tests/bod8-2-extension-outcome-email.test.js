@@ -181,7 +181,7 @@ test('Reply-To routes customer replies to rentulo mailbox and preserves the syst
   assert.equal(output.status, 200, JSON.stringify(output.body));
   assert.equal(output.sentEmails.length, 1);
   const email = JSON.parse(output.sentEmails[0].body);
-  assert.equal(email.from, 'Rentulo <support@rentulo.com>');
+  assert.equal(email.from, 'Rentulo <rentulo@rentulo.com>');
   assert.equal(email.to[0], 'owner@example.test');
   assert.equal(email.reply_to, 'rentulo@rentulo.com');
 });

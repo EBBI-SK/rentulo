@@ -190,10 +190,11 @@ denoRuntime.serve(async (req) => {
   const supabaseUrl = denoRuntime.env.get("SUPABASE_URL");
   const serviceRoleKey = denoRuntime.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const resendApiKey = denoRuntime.env.get("RESEND_API_KEY");
-  const emailFrom = denoRuntime.env.get("EMAIL_FROM");
+  // Debt reminders are customer messages, even though sent by a scheduled worker.
+  const emailFrom = "Rentulo <rentulo@rentulo.com>";
   const siteUrl = resolveRentuloSiteUrl(supabaseUrl, denoRuntime.env.get("SITE_URL"));
 
-  if (!supabaseUrl || !serviceRoleKey || !resendApiKey || !emailFrom || !siteUrl) {
+  if (!supabaseUrl || !serviceRoleKey || !resendApiKey || !siteUrl) {
     console.error("send-overdue-owner-debt-reminders: missing or mismatched server configuration");
     return jsonResponse({ error: "Missing or invalid server configuration" }, 500);
   }

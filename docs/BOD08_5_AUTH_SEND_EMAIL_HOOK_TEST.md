@@ -1,8 +1,15 @@
 # Rentulo – Bod 8.5 – Supabase Auth Send Email Hook (iba TEST)
 
-**Cieľ:** Odosielateľ Auth správ zostáva `Rentulo <support@rentulo.com>`;
-**Reply-To = `rentulo@rentulo.com`** pre registráciu, obnovu hesla, zmenu e-mailu a ostatné Auth správy.
-Doterajšia SMTP konfigurácia Resend sa **nemení**. `policy@rentulo.com` zostáva GDPR kontakt.
+**Current sender policy (BOD 8.6):** Auth messages must use
+`Rentulo <rentulo@rentulo.com>` and `Reply-To: rentulo@rentulo.com`.
+`support@rentulo.com` is reserved for technical alerts. `policy@rentulo.com`
+remains the GDPR contact. The original BOD 8.5 deployment used support as the
+Auth sender; do not restore that earlier behavior.
+
+**TEST status (2 November 2026):** The Send Email HTTP Hook is enabled and a real
+password-reset email with Reply-To to rentulo@ was received successfully.
+The current sender and a working SMTP rollback are to be finalized under BOD 8.6.
+Follow `docs/BOD08_6_EMAIL_SENDER_ROLES_TEST.md` before changing hook status.
 
 ## Prečo samostatný hook
 
@@ -38,7 +45,8 @@ Node testy kontrolujú zhodu oboch kópií pri budúcich úpravách.
 2. Skontrolovať Supabase TEST: Authentication → Email Templates, SMTP Settings, URL Configuration,
    Auth Hooks – či neexistuje iný zapnutý Send Email Hook.
 3. Skontrolovať, že v **TEST** Edge Function Secrets existuje platný `RESEND_API_KEY`
-   a prípadne `EMAIL_FROM` (`Rentulo <support@rentulo.com>`); **neodhaľovať hodnoty**.
+   a podpisovy kluc hooku; povodny `EMAIL_FROM` sa v BOD 8.6 prestava pouzivat
+   na zakaznicke aj technicke spravy. **Neodhalovat hodnoty tajomstiev**.
 4. Funkciu nasadiť iba do TEST:
 
    ```powershell
@@ -61,8 +69,10 @@ Node testy kontrolujú zhodu oboch kópií pri budúcich úpravách.
 ## Rollback (okamžitý)
 
 Supabase TEST → Authentication → Auth Hooks → **vypnúť Send Email Hook**.
-Auth sa vráti k existujúcemu nakonfigurovanému Resend SMTP, ak Email Provider ostáva zapnutý.
-Funkciu netreba mazať. Overiť testovaciu obnovu hesla.
+**Pred vypnutim overit SMTP Settings**, najma host, prihlasovacie udaje,
+port, `Sender email address = rentulo@rentulo.com` a `Sender name = Rentulo`.
+Supabase hook bypasses SMTP; a successful hook test does not prove SMTP still works.
+After disabling, run an actual password recovery test. Do not delete the function.
 
 ## Dôležitá hranica testov
 

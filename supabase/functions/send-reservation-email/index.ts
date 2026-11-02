@@ -591,10 +591,11 @@ denoRuntime.serve(async (req) => {
   const anonKey = denoRuntime.env.get("SUPABASE_ANON_KEY");
   const serviceRoleKey = denoRuntime.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const resendApiKey = denoRuntime.env.get("RESEND_API_KEY");
-  const emailFrom = denoRuntime.env.get("EMAIL_FROM");
+  // Customer email identity must not inherit the ambiguous legacy EMAIL_FROM setting.
+  const emailFrom = "Rentulo <rentulo@rentulo.com>";
   const siteUrl = resolveRentuloSiteUrl(supabaseUrl, denoRuntime.env.get("SITE_URL"));
 
-  if (!supabaseUrl || !anonKey || !serviceRoleKey || !resendApiKey || !emailFrom || !siteUrl) {
+  if (!supabaseUrl || !anonKey || !serviceRoleKey || !resendApiKey || !siteUrl) {
     console.error("send-reservation-email: missing or mismatched server configuration");
     return response({ error: "Missing or invalid server configuration" }, 500);
   }

@@ -17,7 +17,9 @@
 1. **Supabase `pg_cron` pre bežné notifikácie:** `rentulo-process-reservation-notifications-every-minute` každú minútu volá `process-reservation-notifications`. Po úspešnom spracovaní vrátane ACK worker zavolá `record_reservation_notification_worker_success`; aj prázdna zdravá fronta zaznamená heartbeat v `reservation_notification_worker_health`.
 2. **Supabase SQL:** migrácia `20261013100000_monitor_reservation_notifications_TEST.sql` pridala `reservation_notification_worker_health` a `reservation_notification_monitor_alerts`, tri server-only RPC s obmedzenými právami/RLS. Sama **nevytvára ani nespúšťa externý monitorovací cron**.
 3. **Externý plánovač `cron-job.org`:** nezávisle od databázového workera vykonáva autorizované periodické HTTPS `POST` na funkciu `monitor-reservation-notifications`. Periodicita je konfigurovaná v **cron-job.org** (pôvodný zámer P1-4: približne každých päť minút; aktuálnu hodnotu potvrdzuje dashboard, nie repo). Pri presune plánovania sa **nevytvára nový druhý job**.
-4. **Supabase TEST Edge Function:** prijíma výhradne `POST`, kontroluje exact TEST projekt `vspposovhdgvbeukoivh`, minimálne 64-znakové tajomstvo a dostupnosť `RESEND_API_KEY`/`EMAIL_FROM`. Akceptuje najviac päť alarmov na volanie (súbežne najviac tri), cez `claim_token`/lease/`generation` zabraňuje duplicitám. Adresát je pevne `support@rentulo.com`; z alarmov sa neposielajú PIN-y, telefóny ani privátne kontakty.
+4. **Supabase TEST Edge Function:** prijíma výhradne `POST`, kontroluje exact TEST projekt `vspposovhdgvbeukoivh`, minimálne 64-znakové tajomstvo a dostupnosť `RESEND_API_KEY`.
+   Since BOD 8.6 the monitoring sender is fixed in code as
+   `Rentulo Monitoring <support@rentulo.com>`, independent of `EMAIL_FROM`. Akceptuje najviac päť alarmov na volanie (súbežne najviac tri), cez `claim_token`/lease/`generation` zabraňuje duplicitám. Adresát je pevne `support@rentulo.com`; z alarmov sa neposielajú PIN-y, telefóny ani privátne kontakty.
 5. **GitHub Actions iba ručne:** `.github/workflows/rentulo-test-notification-monitor.yml` zostáva ako diagnostická možnosť `workflow_dispatch` na vetve `main`. Po tejto aktualizácii **nemá `schedule`** a nepotrebuje `RENTULO_TEST_MONITOR_ENABLED`. GitHub secret `RENTULO_TEST_MONITOR_SECRET` môže zostať iba pre túto manuálnu diagnostiku; samotný opakovaný monitoring sa nevykonáva v GitHube.
 
 **Aktualizácia BOD 03A:** komentár v Edge Function už správne označuje cron-job.org; adresát TEST alarmov sa mení na `support@rentulo.com`. Je potrebné nasadiť zmenenú Edge Function, samotný GitHub merge príjemcu v existujúcej funkcii nemení. Samostatné notifikácie o nedostupnosti HTTP jobu nastavuje cron-job.org mimo zdrojového kódu.
@@ -65,3 +67,17 @@ order by last_seen_at desc limit 30;
 4. **Obnovenie:** po odstránení príčiny opäť povoliť ten istý externý job a overiť jeho úspešný HTTP beh + zdravý heartbeat. Nezakladať druhý job. Po schválenom nasadení päťsúborového ZIP-u GitHub slúži iba na manuálny test, nie ako ďalší plánovač.
 
 **Žiadne zmeny PROD:** `production`, Vercel `rentulo-prod`, Supabase PROD, Stripe live, DNS a `rentulo.com` týmto BODOM nie sú dotknuté. Budúci monitoring PROD vyžaduje nové oddelené riešenie a súhlas.
+
+## Update 2 November 2026 - BOD 8.6: sender identity separation
+
+- The TEST monitor continues to send alerts **to** `support@rentulo.com`.
+- The configured sender and Reply-To are now both `support@rentulo.com`
+  (`Rentulo Monitoring <support@rentulo.com>`).
+- The monitor no longer reads the legacy `EMAIL_FROM` secret. Changing customer
+  email configuration cannot redirect the technical sender.
+- The monitor remains TEST-only; do not deploy it to PROD or create another cron.
+- Deploy the updated function only after the separate BOD 8.6 PR is merged,
+  then check the existing cron job and use a natural incident for delivery QA.
+  Do not fabricate an alert or resend ambiguous SMS to test sender branding.
+
+Full rollout: `docs/BOD08_6_EMAIL_SENDER_ROLES_TEST.md`.
