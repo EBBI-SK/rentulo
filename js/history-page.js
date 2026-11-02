@@ -171,47 +171,60 @@ function historyOwnerTransferStatus(status, blocked) {
     : historyT("history.finance.status.unknown", "Stav nelze ověřit");
 }
 
-function historyRenderOwnerFinance(reservation, role) {
-  if (role !== "owner" || !historyCurrentUser ||
-      historyGetOwnerId(reservation) !== String(historyCurrentUser.id) ||
-      !["returned", "no_show"].includes(historyNormalizeStatus(reservation.status))) return "";
+function historyOwnerFinanceEligible(reservation, role) {
+  return role === "owner" && Boolean(historyCurrentUser) &&
+    historyGetOwnerId(reservation) === String(historyCurrentUser.id) &&
+    ["returned", "no_show"].includes(historyNormalizeStatus(reservation.status));
+}
 
-  const heading = escapeHtml(historyT("history.finance.heading", "Finanční vyúčtování pronájmu"));
-  const finance = historyOwnerFinanceSnapshot(reservation);
+function historyRenderOwnerFinance(reservation, role, finance) {
+  if (!historyOwnerFinanceEligible(reservation, role)) return "";
+
+  const heading = escapeHtml(historyT("history.finance.heading", "Finanční vyúčtování"));
   if (!finance) {
     return `<section class="history-owner-finance"><h3>${heading}</h3><p class="history-finance-unavailable">${escapeHtml(historyT("history.finance.unavailable", "Finanční údaje se nepodařilo ověřit. Zkuste stránku obnovit."))}</p></section>`;
   }
 
-  const line = function (label, amount, klass = "") {
-    return `<div class="${klass}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(historyFormatMoney(amount))}</strong></div>`;
+  const line = function (label, amount, klass = "", prefix = "") {
+    return `<div class="${klass}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(prefix + historyFormatMoney(amount))}</strong></div>`;
   };
-  const statusLine = function (label, status) {
-    return `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(historyOwnerTransferStatus(status, finance.payoutBlocked))}</strong></div>`;
+  const statusLine = function (label, result) {
+    return `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(result)}</strong></div>`;
   };
+  const transfers = [{
+    label: historyT("history.finance.originalStatus", "Původní převod"),
+    result: historyOwnerTransferStatus(finance.originalTransferStatus, finance.payoutBlocked)
+  }].concat(finance.paidExtensions.map(function (extension) {
+    return {
+      label: historyT("history.finance.extensionStatus", "Prodloužení do") + " " + historyFormatDate(extension.new_end_date),
+      result: historyOwnerTransferStatus(extension.transfer_status, finance.payoutBlocked)
+    };
+  }));
+  // A single status suffices when every transfer has the same effective result.
+  // Different outcomes must remain visible for the original and each extension.
+  const sameStatus = transfers.every(function (transfer) {
+    return transfer.result === transfers[0].result;
+  });
+  const transferMarkup = sameStatus
+    ? statusLine(historyT("history.finance.statusLabel", "Stav výplaty"), transfers[0].result)
+    : transfers.map(function (transfer) {
+        return statusLine(transfer.label, transfer.result);
+      }).join("");
 
   return `
     <section class="history-owner-finance">
       <h3>${heading}</h3>
       <div class="history-detail-grid">
-        ${line(historyT("history.finance.original", "Původní cena"), finance.original)}
-        ${finance.paidExtensions.map(function (extension) {
-          return line(historyT("history.finance.extension", "Zaplacené prodloužení do") + " " + historyFormatDate(extension.new_end_date), historyWholeCzk(extension.amount_total));
-        }).join("")}
+        ${line(historyT("history.finance.original", "Původní pronájem"), finance.original)}
+        ${finance.extensionTotal > 0
+          ? line(historyT("history.finance.extension", "Prodloužení"), finance.extensionTotal, "", "+")
+          : ""}
         ${line(historyT("history.finance.paidTotal", "Celkem zaplaceno"), finance.total, "history-finance-total")}
-        ${line(historyT("history.finance.commission", "Provize Rentulo celkem"), -finance.commission)}
-        ${line(historyT("history.finance.originalPayout", "Výplata za původní pronájem"), finance.originalPayout)}
-        ${finance.paidExtensions.map(function (extension) {
-          return line(historyT("history.finance.extensionPayout", "Výplata za prodloužení do") + " " + historyFormatDate(extension.new_end_date), historyWholeCzk(extension.owner_payout));
-        }).join("")}
+        ${line(historyT("history.finance.commission", "Provize Rentulo"), -finance.commission)}
         ${line(historyT("history.finance.totalPayout", "Celkem k výplatě"), finance.payout, "history-finance-total")}
       </div>
-      <div class="history-owner-transfer-states">
-        ${statusLine(historyT("history.finance.originalStatus", "Stav původního převodu"), finance.originalTransferStatus)}
-        ${finance.paidExtensions.map(function (extension) {
-          return statusLine(historyT("history.finance.extensionStatus", "Stav převodu za prodloužení do") + " " + historyFormatDate(extension.new_end_date), extension.transfer_status);
-        }).join("")}
-      </div>
-      <p class="history-owner-finance-note">${escapeHtml(historyT("history.finance.stripeNote", "Stav převodu na účet Stripe neznamená připsání peněz na bankovní účet."))}</p>
+      <div class="history-owner-transfer-states">${transferMarkup}</div>
+      <p class="history-owner-finance-note">${escapeHtml(historyT("history.finance.stripeNote", "Převod na Stripe neznamená připsání na bankovní účet."))}</p>
     </section>
   `;
 }
@@ -521,25 +534,30 @@ function historyRenderDetail(reservation, role) {
   const counterpart = historyGetCounterpart(reservation, role);
   const expiryReason = historyExpirationReasonText(reservation, role);
   const noShowReason = historyNoShowReasonText(reservation, role);
+  const ownerFinance = historyOwnerFinanceEligible(reservation, role)
+    ? historyOwnerFinanceSnapshot(reservation)
+    : null;
 
   return `
     <div class="history-detail" id="history-detail-${escapeHtml(reservationId)}-${escapeHtml(role)}">
       <div class="history-detail-grid">
         <div><span>${escapeHtml(historyT("history.detail.term", "Termín"))}</span><strong>${escapeHtml(historyFormatDate(startDate))} – ${escapeHtml(historyFormatDate(endDate))}</strong></div>
-        ${price.paidExtensions.length ? `
-          <div><span>${escapeHtml(historyT("history.price.original", "Původní cena"))}</span><strong>${escapeHtml(historyFormatMoney(price.original))}</strong></div>
-          ${price.paidExtensions.map(function (extension) {
-            return `<div><span>${escapeHtml(historyT("history.price.extensionUntil", "Zaplacené prodloužení do"))} ${escapeHtml(historyFormatDate(extension.new_end_date))}</span><strong>+ ${escapeHtml(historyFormatMoney(extension.amount_total))}</strong></div>`;
-          }).join("")}
+        ${!ownerFinance ? `
+          ${price.paidExtensions.length ? `
+            <div><span>${escapeHtml(historyT("history.price.original", "Původní cena"))}</span><strong>${escapeHtml(historyFormatMoney(price.original))}</strong></div>
+            ${price.paidExtensions.map(function (extension) {
+              return `<div><span>${escapeHtml(historyT("history.price.extensionUntil", "Zaplacené prodloužení do"))} ${escapeHtml(historyFormatDate(extension.new_end_date))}</span><strong>+ ${escapeHtml(historyFormatMoney(extension.amount_total))}</strong></div>`;
+            }).join("")}
+          ` : ""}
+          <div><span>${escapeHtml(historyT("history.detail.total", "Celková cena"))}</span><strong>${escapeHtml(historyFormatMoney(price.total))}</strong></div>
         ` : ""}
-        <div><span>${escapeHtml(historyT("history.detail.total", "Celková cena"))}</span><strong>${escapeHtml(historyFormatMoney(price.total))}</strong></div>
         <div><span>${escapeHtml(counterpart.label)}</span><strong>${escapeHtml(counterpart.name)}</strong></div>
         ${reservation.reservation_number ? `<div><span>${escapeHtml(historyT("reference.reservation", "Číslo rezervace"))}</span><strong>${escapeHtml(reservation.reservation_number)}</strong></div>` : ""}
         ${reservation.offer_number ? `<div><span>${escapeHtml(historyT("reference.offer", "Číslo nabídky"))}</span><strong>${escapeHtml(reservation.offer_number)}</strong></div>` : ""}
         ${expiryReason ? `<div><span>${escapeHtml(historyT("history.detail.expiryReason", "Důvod vypršení"))}</span><strong>${escapeHtml(expiryReason)}</strong></div>` : ""}
         ${noShowReason ? `<div><span>${escapeHtml(historyT("history.detail.noShowReason", "Důvod ukončení"))}</span><strong>${escapeHtml(noShowReason)}</strong></div>` : ""}
       </div>
-      ${historyRenderOwnerFinance(reservation, role)}
+      ${historyRenderOwnerFinance(reservation, role, ownerFinance)}
       <div class="history-review-grid">
         ${historyRenderReviewForm(reservation, role)}
         ${historyRenderReceivedReview(reservation, role)}

@@ -93,17 +93,21 @@ function harness({
   };
 }
 
-test("owner R-000045 sees 450 + 150 = 600 CZK, 70 commission and 530 payout", async () => {
+test("owner R-000045 sees one compact statement, not duplicate prices or transfer states", async () => {
   const app = harness();
   assert.equal(await app.render(), true);
   const html = app.offerList.innerHTML;
-  assert.match(html, /Finanční vyúčtování pronájmu/);
+  assert.match(html, /Finanční vyúčtování/);
+  assert.match(html, /Původní pronájem<\/span><strong>450 Kč/);
+  assert.match(html, /Prodloužení<\/span><strong>\+150 Kč/);
   assert.match(html, /Celkem zaplaceno<\/span><strong>600 Kč/);
-  assert.match(html, /Provize Rentulo celkem<\/span><strong>-70 Kč/);
-  assert.match(html, /Výplata za původní pronájem<\/span><strong>380 Kč/);
-  assert.match(html, /Výplata za prodloužení do.*?<\/span><strong>150 Kč/s);
+  assert.match(html, /Provize Rentulo<\/span><strong>-70 Kč/);
   assert.match(html, /Celkem k výplatě<\/span><strong>530 Kč/);
-  assert.equal((html.match(/Převedeno na účet Stripe/g) || []).length, 2);
+  assert.match(html, /Stav výplaty<\/span><strong>Převedeno na účet Stripe/);
+  assert.equal((html.match(/Převedeno na účet Stripe/g) || []).length, 1);
+  assert.equal((html.match(/Celkem zaplaceno/g) || []).length, 1);
+  assert.doesNotMatch(html, /Původní cena|Celková cena|Výplata za původní pronájem|Výplata za prodloužení/);
+  assert.match(html, /Číslo rezervace/);
   assert.deepEqual(app.calls, ["get_my_reservation_extensions", "get_my_history_owner_transfers"]);
 });
 
@@ -116,7 +120,7 @@ test("a renter never sees owner-only financial rows nor requests transfer eviden
   assert.deepEqual(app.calls, ["get_my_reservation_extensions"]);
 });
 
-test("two paid extensions, including additional commission, remain separate", async () => {
+test("multiple paid extensions have one total but show distinct payout statuses", async () => {
   const app = harness({ extensions: [
     extension,
     { id: "extension-2", reservation_id: reservation.id, new_end_date: "2026-11-01",
@@ -127,11 +131,17 @@ test("two paid extensions, including additional commission, remain separate", as
   ] });
   assert.equal(await app.render(), true);
   const html = app.offerList.innerHTML;
+  assert.match(html, /Prodloužení<\/span><strong>\+350 Kč/);
+  assert.equal((html.match(/Prodloužení<\/span><strong>/g) || []).length, 1);
   assert.match(html, /Celkem zaplaceno<\/span><strong>800 Kč/);
-  assert.match(html, /Provize Rentulo celkem<\/span><strong>-85 Kč/);
+  assert.match(html, /Provize Rentulo<\/span><strong>-85 Kč/);
   assert.match(html, /Celkem k výplatě<\/span><strong>715 Kč/);
+  assert.equal((html.match(/Převedeno na účet Stripe/g) || []).length, 2);
+  assert.match(html, /Původní převod/);
+  assert.match(html, /Prodloužení do 31\.\s?10\.\s?2026/);
+  assert.match(html, /Prodloužení do 1\.\s?11\.\s?2026/);
   assert.match(html, /Převod se zpracovává/);
-  assert.doesNotMatch(html, /9999|9 999/);
+  assert.doesNotMatch(html, /Stav výplaty|9999|9 999/);
 });
 
 test("unverified, refunded, inconsistent payment evidence cannot create a payout claim", async () => {
@@ -150,6 +160,8 @@ test("unverified, refunded, inconsistent payment evidence cannot create a payout
     assert.equal(await app.render(), true);
     const html = app.offerList.innerHTML;
     assert.match(html, /Finanční údaje se nepodařilo ověřit/);
+    assert.match(html, /Původní cena<\/span><strong>450 Kč/);
+    assert.match(html, /Celková cena<\/span><strong>600 Kč/);
     assert.doesNotMatch(html, /Celkem k výplatě|Převedeno na účet Stripe/);
   }
 });
@@ -159,6 +171,7 @@ test("missing new SQL function does not break existing History and shows an hone
   assert.equal(await app.render(), true);
   assert.match(app.offerList.innerHTML, /simple-reservation-price">600 Kč/);
   assert.match(app.offerList.innerHTML, /Finanční údaje se nepodařilo ověřit/);
+  assert.match(app.offerList.innerHTML, /Celková cena<\/span><strong>600 Kč/);
   assert.doesNotMatch(app.offerList.innerHTML, /Celkem k výplatě/);
 });
 
@@ -198,23 +211,49 @@ test("owner statement handles paid no-show and displays awaiting payout correctl
   });
   assert.equal(await app.render(), true);
   assert.match(app.offerList.innerHTML, /Celkem k výplatě<\/span><strong>530 Kč/);
-  assert.equal((app.offerList.innerHTML.match(/Čeká na výplatu/g) || []).length, 2);
+  assert.equal((app.offerList.innerHTML.match(/Čeká na výplatu/g) || []).length, 1);
+  assert.match(app.offerList.innerHTML, /Stav výplaty<\/span><strong>Čeká na výplatu/);
 });
 
-test("owner statement translations exist for all five languages", async () => {
+test("owner summary is translated in all five languages", async () => {
   const examples = {
-    cs: "Finanční vyúčtování pronájmu",
-    sk: "Finančné vyúčtovanie prenájmu",
-    en: "Rental financial breakdown",
-    de: "Finanzübersicht zur Vermietung",
-    pl: "Rozliczenie finansowe wynajmu"
+    cs: ["Finanční vyúčtování", "Stav výplaty"],
+    sk: ["Finančné vyúčtovanie", "Stav výplaty"],
+    en: ["Financial summary", "Payout status"],
+    de: ["Finanzübersicht", "Auszahlungsstatus"],
+    pl: ["Rozliczenie finansowe", "Status wypłaty"]
   };
-  for (const [language, title] of Object.entries(examples)) {
+  for (const [language, strings] of Object.entries(examples)) {
     const app = harness({ language });
     assert.equal(await app.render(), true);
-    assert.ok(app.offerList.innerHTML.includes(title), language);
-    assert.doesNotMatch(app.offerList.innerHTML, /history\.finance\./);
+    const html = app.offerList.innerHTML;
+    for (const value of strings) assert.ok(html.includes(value), language + ": " + value);
+    assert.doesNotMatch(html, /history\.finance\./);
   }
+});
+
+test("owner with no paid extensions sees one total, commission and transfer state", async () => {
+  const app = harness({ extensions: [] });
+  assert.equal(await app.render(), true);
+  const html = app.offerList.innerHTML;
+  assert.match(html, /Celkem zaplaceno<\/span><strong>450 Kč/);
+  assert.match(html, /Provize Rentulo<\/span><strong>-70 Kč/);
+  assert.match(html, /Celkem k výplatě<\/span><strong>380 Kč/);
+  assert.doesNotMatch(html, /Prodloužení<\/span><strong>/);
+  assert.equal((html.match(/Stav výplaty/g) || []).length, 1);
+});
+
+test("one shared state is displayed only once when all extension payouts match", async () => {
+  const app = harness({ extensions: [
+    extension,
+    { ...extension, id: "extension-2", new_end_date: "2026-11-01", amount_total: 200,
+      platform_fee_amount: 15, owner_payout: 185 }
+  ] });
+  assert.equal(await app.render(), true);
+  const html = app.offerList.innerHTML;
+  assert.match(html, /Prodloužení<\/span><strong>\+350 Kč/);
+  assert.equal((html.match(/Převedeno na účet Stripe/g) || []).length, 1);
+  assert.equal((html.match(/Stav výplaty/g) || []).length, 1);
 });
 
 test("new SQL reader is TEST-guarded, owner-only and read-only", () => {
