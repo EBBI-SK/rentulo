@@ -4,6 +4,7 @@
 // Keep this allowlist explicit: new events require an intentional classification.
 const ESSENTIAL_EVENTS = new Set([
   "new_request",              // Owner must decide before the 24-hour deadline.
+  "extension_requested",      // Owner must decide on the time-sensitive extension request.
   "approved",                 // Renter must pay before the next 24-hour deadline.
   "rejected",                 // Renter must know the request has been declined.
   "cancelled",                // Participants must know dates were released.

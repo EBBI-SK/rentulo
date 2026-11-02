@@ -14,7 +14,7 @@ const policyPath = path.join(root, "supabase/functions/_shared/notification-emai
 const policy = import(pathToFileURL(policyPath).href);
 
 const essential = [
-  "new_request", "approved", "rejected", "cancelled", "paid", "paid_cancelled",
+  "new_request", "extension_requested", "approved", "rejected", "cancelled", "paid", "paid_cancelled",
   "expiry_reminder_pending", "expiry_reminder_approved",
   "expired_pending", "expired_approved", "no_show",
   "return_reminder_30m", "return_reminder_2h", "return_not_received",
