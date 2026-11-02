@@ -51,7 +51,8 @@ type EmailEvent =
   | "no_show"
   | "return_reminder_30m"
   | "return_reminder_2h"
-  | "return_not_received";
+  | "return_not_received"
+  | "extension_requested";
 
 type StandardEmailEvent = Exclude<EmailEvent, "paid_cancelled">;
 
@@ -94,11 +95,13 @@ const eventStatus: Record<EmailEvent, string> = {
   return_reminder_30m: "picked_up",
   return_reminder_2h: "picked_up",
   return_not_received: "picked_up",
+  extension_requested: "picked_up",
 };
 
 const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [string, string]>> = {
   cs: {
     new_request: ["Nová žádost o půjčení", "U vaší nabídky čeká nová žádost o půjčení."],
+    extension_requested: ["Nová žádost o prodloužení pronájmu", "Nájemce požádal o prodloužení pronájmu. Otevřete Moje nabídky a žádost schvalte nebo zamítněte."],
     approved: ["Žádost byla schválena", "Majitel vaši žádost schválil. Rezervaci nyní můžete zaplatit."],
     rejected: ["Žádost byla odmítnuta", "Majitel vaši žádost o půjčení odmítl."],
     cancelled: ["Rezervace byla zrušena", "Rezervace byla zrušena a termín je znovu volný."],
@@ -116,6 +119,7 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
   },
   sk: {
     new_request: ["Nová žiadosť o požičanie", "Pri vašej ponuke čaká nová žiadosť o požičanie."],
+    extension_requested: ["Nová žiadosť o predĺženie prenájmu", "Nájomca požiadal o predĺženie prenájmu. Otvorte Moje ponuky a žiadosť schváľte alebo zamietnite."],
     approved: ["Žiadosť bola schválená", "Majiteľ vašu žiadosť schválil. Rezerváciu teraz môžete zaplatiť."],
     rejected: ["Žiadosť bola odmietnutá", "Majiteľ vašu žiadosť o požičanie odmietol."],
     cancelled: ["Rezervácia bola zrušená", "Rezervácia bola zrušená a termín je znova voľný."],
@@ -133,6 +137,7 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
   },
   en: {
     new_request: ["New rental request", "A new rental request is waiting for your listing."],
+    extension_requested: ["New rental extension request", "The renter requested an extension. Open My listings to approve or reject the request."],
     approved: ["Request approved", "The owner approved your request. You can now complete the payment."],
     rejected: ["Request rejected", "The owner rejected your rental request."],
     cancelled: ["Reservation cancelled", "The reservation was cancelled and the dates are available again."],
@@ -150,6 +155,7 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
   },
   de: {
     new_request: ["Neue Mietanfrage", "Für Ihr Angebot wartet eine neue Mietanfrage."],
+    extension_requested: ["Neue Anfrage zur Mietverlängerung", "Der Mieter hat eine Verlängerung beantragt. Öffnen Sie Meine Angebote, um die Anfrage zu bestätigen oder abzulehnen."],
     approved: ["Anfrage bestätigt", "Der Eigentümer hat Ihre Anfrage bestätigt. Sie können jetzt die Zahlung abschließen."],
     rejected: ["Anfrage abgelehnt", "Der Eigentümer hat Ihre Mietanfrage abgelehnt."],
     cancelled: ["Reservierung storniert", "Die Reservierung wurde storniert und der Zeitraum ist wieder verfügbar."],
@@ -167,6 +173,7 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
   },
   pl: {
     new_request: ["Nowa prośba o wypożyczenie", "Nowa prośba o wypożyczenie oczekuje przy Twojej ofercie."],
+    extension_requested: ["Nowa prośba o przedłużenie najmu", "Najemca poprosił o przedłużenie najmu. Otwórz Moje oferty, aby zatwierdzić lub odrzucić prośbę."],
     approved: ["Prośba została zaakceptowana", "Właściciel zaakceptował Twoją prośbę. Możesz teraz dokończyć płatność."],
     rejected: ["Prośba została odrzucona", "Właściciel odrzucił Twoją prośbę o wypożyczenie."],
     cancelled: ["Rezerwacja została anulowana", "Rezerwacja została anulowana, a termin jest ponownie dostępny."],
@@ -222,6 +229,18 @@ const referenceLabels: Record<SupportedLanguage, { offer: string; reservation: s
   en: { offer: "Listing number", reservation: "Reservation number" },
   de: { offer: "Angebotsnummer", reservation: "Reservierungsnummer" },
   pl: { offer: "Numer oferty", reservation: "Numer rezerwacji" },
+};
+
+// Extension copy is explicit in all supported languages; the button always
+// links to the owner-scoped My listings page, never a public reservation URL.
+const extensionRequestLabels: Record<SupportedLanguage, {
+  requestedReturn: string; decisionDeadline: string; action: string;
+}> = {
+  cs: { requestedReturn: "Požadované datum vrácení", decisionDeadline: "Rozhodněte nejpozději", action: "Moje nabídky" },
+  sk: { requestedReturn: "Požadovaný dátum vrátenia", decisionDeadline: "Rozhodnite najneskôr", action: "Moje ponuky" },
+  en: { requestedReturn: "Requested return date", decisionDeadline: "Decision deadline", action: "My listings" },
+  de: { requestedReturn: "Gewünschtes Rückgabedatum", decisionDeadline: "Entscheidungsfrist", action: "Meine Angebote" },
+  pl: { requestedReturn: "Proponowana data zwrotu", decisionDeadline: "Termin decyzji", action: "Moje oferty" },
 };
 
 const paidCancellationCopy = {
@@ -581,13 +600,20 @@ denoRuntime.serve(async (req) => {
   if (isServiceRoleCall && !isWorkerDelivery && event !== "paid" && event !== "paid_cancelled") {
     return response({ error: "Service role requires a claimed delivery for non-payment email events" }, 403);
   }
+  if (event === "extension_requested" && !isWorkerDelivery) {
+    return response({ error: "Extension request mail requires a claimed worker delivery" }, 403);
+  }
 
+  let claimedExtensionId: string | null = null;
   if (isWorkerDelivery) {
     // The worker must own a real, claimed DB delivery: the server cannot
     // forge the recipient or bypass the transactional event outbox.
+    // PROD has not received the TEST-only extension_id migration. Keep the
+    // legacy reservation mail flow compatible even if this shared sender is
+    // deployed there: request the new column ONLY for extension mail.
     const { data: delivery, error: deliveryError } = await admin
       .from("reservation_notification_deliveries")
-      .select("id")
+      .select(event === "extension_requested" ? "id, extension_id" : "id")
       .eq("id", payload.notification_delivery_id)
       .eq("reservation_id", reservationId)
       .eq("event_type", event)
@@ -597,6 +623,15 @@ denoRuntime.serve(async (req) => {
       .maybeSingle();
     if (deliveryError || !delivery) {
       return response({ error: "Claimed notification delivery not found" }, 403);
+    }
+    claimedExtensionId = event === "extension_requested"
+      ? (delivery as { extension_id?: string | null }).extension_id || null
+      : null;
+    if (event === "extension_requested" && !claimedExtensionId) {
+      return response({ error: "Extension email delivery is not linked to a request" }, 403);
+    }
+    if (event !== "extension_requested" && claimedExtensionId) {
+      return response({ error: "Unexpected extension request on reservation event" }, 403);
     }
   }
 
@@ -612,6 +647,35 @@ denoRuntime.serve(async (req) => {
 
   if (reservationError || !reservation) {
     return response({ error: "Reservation not found" }, 404);
+  }
+
+  let extensionRequest: {
+    id: string; reservation_id: string; owner_id: string; renter_id: string;
+    status: string; new_end_date: string; approval_deadline_at: string;
+  } | null = null;
+  if (event === "extension_requested") {
+    const { data: extension, error: extensionError } = await admin
+      .from("reservation_extensions")
+      .select("id, reservation_id, owner_id, renter_id, status, new_end_date, approval_deadline_at")
+      .eq("id", claimedExtensionId)
+      .eq("reservation_id", reservation.id)
+      .maybeSingle();
+    // A queue row is not sufficient authorization without checking the actual
+    // extension identity, its parent reservation and its intended owner.
+    if (extensionError || !extension || extension.owner_id !== reservation.owner_id ||
+        extension.renter_id !== reservation.renter_id ||
+        payload.recipient_id !== reservation.owner_id) {
+      return response({ error: "Invalid extension request recipient or linkage" }, 403);
+    }
+    extensionRequest = extension;
+    // Do not email an owner to approve a request that is no longer actionable.
+    if (extension.status !== "pending" || reservation.status !== "picked_up" ||
+        !extension.approval_deadline_at ||
+        !(new Date(extension.approval_deadline_at).getTime() > Date.now())) {
+      return response({ ok: true, results: [
+        { recipient_id: payload.recipient_id, status: "skipped" }
+      ] });
+    }
   }
 
   // Queued events are proof of the status *at the transaction time*.
@@ -841,6 +905,14 @@ denoRuntime.serve(async (req) => {
       if (recipientIsOwner && event === "no_show") {
         intro = noShowOwnerIntros[language];
       }
+      if (event === "extension_requested" && extensionRequest) {
+        const labels = extensionRequestLabels[language];
+        const deadline = new Intl.DateTimeFormat(dateLocales[language], {
+          dateStyle: "short", timeStyle: "short", timeZone: "Europe/Prague",
+        }).format(new Date(extensionRequest.approval_deadline_at));
+        extraHtml = `<p><strong>${escapeHtml(labels.requestedReturn)}:</strong> ${escapeHtml(formatReservationDate(extensionRequest.new_end_date, language))}</p>` +
+          `<p><strong>${escapeHtml(labels.decisionDeadline)}:</strong> ${escapeHtml(deadline)} (Praha)</p>`;
+      }
       if (event.startsWith("expiry_reminder_") && reservation.expires_at) {
         const deadline = new Intl.DateTimeFormat(dateLocales[language], {
           dateStyle: "short", timeStyle: "short", timeZone: "Europe/Prague",
@@ -871,6 +943,7 @@ denoRuntime.serve(async (req) => {
       .insert({
         reservation_id: reservation.id,
         event_type: event,
+        ...(extensionRequest ? { extension_id: extensionRequest.id } : {}),
         recipient_id: profile.id,
         recipient_email: profile.email,
         status: "sending",
@@ -885,13 +958,18 @@ denoRuntime.serve(async (req) => {
         return response({ error: "Email delivery log failed" }, 500);
       }
 
-      const { data: existingDelivery, error: existingDeliveryError } = await admin
+      let previousDeliveryQuery = admin
         .from("reservation_email_deliveries")
         .select("id, status, created_at")
         .eq("reservation_id", reservation.id)
         .eq("event_type", event)
-        .eq("recipient_id", profile.id)
-        .single();
+        .eq("recipient_id", profile.id);
+      // Legacy email logs remain unique by reservation/event/recipient.
+      // Never query extension_id on a PROD database that lacks this column.
+      if (extensionRequest) {
+        previousDeliveryQuery = previousDeliveryQuery.eq("extension_id", extensionRequest.id);
+      }
+      const { data: existingDelivery, error: existingDeliveryError } = await previousDeliveryQuery.single();
 
       if (existingDeliveryError || !existingDelivery) {
         return response({ error: "Existing email delivery lookup failed" }, 500);
@@ -937,6 +1015,7 @@ denoRuntime.serve(async (req) => {
       return response({ error: "Email delivery log failed" }, 500);
     }
 
+    const actionText = extensionRequest ? extensionRequestLabels[language].action : "Rentulo";
     const html = `
       <div style="margin:0;padding:32px 16px;background:#f5f8f6;font-family:Arial,Helvetica,sans-serif;color:#102019;">
         <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e5e9e5;border-radius:18px;overflow:hidden;">
@@ -950,7 +1029,7 @@ denoRuntime.serve(async (req) => {
         <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#103f32"><strong>${escapeHtml(offerName)}</strong><br>${escapeHtml(dateText)}</p>
         <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#103f32">${escapeHtml(referenceLabels[language].reservation)}: <strong>${escapeHtml(reservation.reservation_number)}</strong><br>${escapeHtml(referenceLabels[language].offer)}: <strong>${escapeHtml(offerReference.offer_number)}</strong></p>
         ${extraHtml}
-        <p style="margin:18px 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5"><a href="${escapeHtml(detailUrl)}" style="display:inline-block;padding:14px 24px;background:#00835a;color:#ffffff;text-decoration:none;border-radius:10px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.25;font-weight:700">Rentulo</a></p>
+        <p style="margin:18px 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5"><a href="${escapeHtml(detailUrl)}" style="display:inline-block;padding:14px 24px;background:#00835a;color:#ffffff;text-decoration:none;border-radius:10px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.25;font-weight:700">${escapeHtml(actionText)}</a></p>
               </div>
       </div>
       <div style="padding:20px 32px;border-top:1px solid #e5e9e5;font-size:12px;line-height:1.5;color:#64706b;">Rentulo</div>

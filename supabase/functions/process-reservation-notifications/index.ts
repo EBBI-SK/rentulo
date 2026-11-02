@@ -18,7 +18,8 @@ type EventType =
   | "paid" | "picked_up" | "returned" | "paid_cancelled"
   | "expiry_reminder_pending" | "expiry_reminder_approved"
   | "expired_pending" | "expired_approved" | "no_show"
-  | "return_reminder_30m" | "return_reminder_2h" | "return_not_received";
+  | "return_reminder_30m" | "return_reminder_2h" | "return_not_received"
+  | "extension_requested";
 type Status = "sent" | "retry" | "simulated" | "skipped" | "dead";
 type Claim = {
   delivery_id: string;
