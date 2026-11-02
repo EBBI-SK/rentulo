@@ -167,8 +167,9 @@ test('extension requests are essential emails, never SMS', async () => {
   const { shouldDeliverReservationEmail } = await policy;
   assert.equal(shouldDeliverReservationEmail('extension_requested', 'owner@example.test', false), true);
   assert.equal(shouldDeliverReservationEmail('extension_requested', '', true), false);
-  assert.equal(shouldDeliverReservationEmail('extension_approved', 'owner@example.test', true), false);
-  assert.match(worker, /\| "extension_requested";/);
+  // New outcome emails are essential after the separate BOD 8.2 rollout.
+  assert.equal(shouldDeliverReservationEmail('extension_approved', 'owner@example.test', true), true);
+  assert.match(worker, /\| "extension_requested"/);
   const smsSource = read('supabase/functions/_shared/notification-sms.mjs');
   assert.doesNotMatch(smsSource, /extension_requested/);
 });
