@@ -1,6 +1,8 @@
 (function () {
   const extraHistoryTranslations = {
     cs: {
+      "history.price.original": "Původní cena",
+      "history.price.extensionUntil": "Zaplacené prodloužení do",
       "history.subtitle": "Dokončené rezervace, půjčení a hodnocení na jednom místě.",
       "history.rentalsTabShort": "Moje rezervace",
       "history.offersTabShort": "Moje nabídky",
@@ -18,6 +20,8 @@
       "history.review.commentOptional": "Komentář (nepovinný)"
     },
     sk: {
+      "history.price.original": "Pôvodná cena",
+      "history.price.extensionUntil": "Zaplatené predĺženie do",
       "history.subtitle": "Dokončené rezervácie, požičania a hodnotenia na jednom mieste.",
       "history.rentalsTabShort": "Moje rezervácie",
       "history.offersTabShort": "Moje ponuky",
@@ -35,6 +39,8 @@
       "history.review.commentOptional": "Komentár (nepovinný)"
     },
     en: {
+      "history.price.original": "Original price",
+      "history.price.extensionUntil": "Paid extension until",
       "history.subtitle": "Completed reservations, rentals and reviews in one place.",
       "history.rentalsTabShort": "My reservations",
       "history.offersTabShort": "My offers",
@@ -52,6 +58,8 @@
       "history.review.commentOptional": "Comment (optional)"
     },
     de: {
+      "history.price.original": "Ursprünglicher Preis",
+      "history.price.extensionUntil": "Bezahlte Verlängerung bis",
       "history.subtitle": "Abgeschlossene Reservierungen, Ausleihen und Bewertungen an einem Ort.",
       "history.rentalsTabShort": "Meine Reservierungen",
       "history.offersTabShort": "Meine Angebote",
@@ -69,6 +77,8 @@
       "history.review.commentOptional": "Kommentar (optional)"
     },
     pl: {
+      "history.price.original": "Cena pierwotna",
+      "history.price.extensionUntil": "Opłacone przedłużenie do",
       "history.subtitle": "Zakończone rezerwacje, wypożyczenia i oceny w jednym miejscu.",
       "history.rentalsTabShort": "Moje rezerwacje",
       "history.offersTabShort": "Moje oferty",
