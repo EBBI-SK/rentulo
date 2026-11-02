@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Local command: requires Supabase TEST SQL Editor CSV and accountant-approved FX.
+// Local offline command. Requires Supabase TEST SQL CSV and accountant-approved FX.
+// Explicit Stripe review reference is mandatory for positive extension commissions.
 import { readFile, writeFile, mkdir, unlink } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import {
@@ -9,48 +10,65 @@ import {
 
 function cliArgs(argv) {
   const args = {};
+  const supported = ['--month', '--input', '--rates', '--rate', '--out', '--extension-review'];
   for (let i = 0; i < argv.length; i++) {
-    if (!['--month', '--input', '--rates', '--rate', '--out'].includes(argv[i])) {
-      throw new Error(`Neznamy parameter: ${argv[i]}`);
-    }
+    const key = argv[i];
+    if (!supported.includes(key)) throw new Error(`Neznamy parameter: ${key}`);
     const value = argv[++i];
-    if (!value || value.startsWith('--') || args[argv[i - 1]]) throw new Error('Parameter ma chybajucu alebo duplicitnu hodnotu.');
-    args[argv[i - 1]] = value;
+    if (!value || value.startsWith('--') || Object.hasOwn(args, key)) {
+      throw new Error('Parameter ma chybajucu alebo duplicitnu hodnotu.');
+    }
+    args[key] = value;
   }
-  for (const key of ['--month', '--input']) if (!args[key]) throw new Error(`Chyba povinny parameter ${key}`);
-  if ((!!args['--rate']) === (!!args['--rates'])) throw new Error('Pouzi prave jeden z --rate alebo --rates.');
+  for (const key of ['--month', '--input']) {
+    if (!args[key]) throw new Error(`Chyba povinny parameter ${key}`);
+  }
+  if (!!args['--rate'] === !!args['--rates']) {
+    throw new Error('Pouzi prave jeden z --rate alebo --rates.');
+  }
   return args;
 }
 
 async function main() {
   const opts = cliArgs(process.argv.slice(2));
   const csv = await readFile(resolve(opts['--input']), 'utf8');
-  const rows = parseCsv(csv);
-  const rates = opts['--rates'] ? parseRates(await readFile(resolve(opts['--rates']), 'utf8')) : new Map();
-  const documents = prepareCommissions(rows, { month: opts['--month'], rates, fixedRate: opts['--rate'] });
-  if (documents.length === 0) {
-    console.log('Ziadne provizie na export. Nebol vytvoreny prazdny XML subor.');
+  const sourceRows = parseCsv(csv);
+  const rates = opts['--rates'] ?
+    parseRates(await readFile(resolve(opts['--rates']), 'utf8')) : new Map();
+  const documentsAndReconciliation = prepareCommissions(sourceRows, {
+    month: opts['--month'], rates, fixedRate: opts['--rate'],
+    extensionReviewRef: opts['--extension-review'],
+  });
+  if (!documentsAndReconciliation.length) {
+    console.log('Ziadne financne riadky na export. Nevytvorili sa ziadne subory.');
     return;
   }
+  const chargeable = documentsAndReconciliation.filter((x) => x.commission > 0);
   const folder = resolve(opts['--out'] || './pohoda-export');
-  await mkdir(folder, { recursive: true });
   const prefix = `rentulo-provizie-${opts['--month']}`;
   const xmlName = resolve(folder, `${prefix}.xml`);
   const csvName = resolve(folder, `${prefix}-parovanie.csv`);
-  // Fail before either output is written if any record is invalid.
-  const xml = createPohodaXml(documents, opts['--month']);
-  const report = createReconciliationCsv(documents);
-  await writeFile(xmlName, xml, { encoding: 'utf8', flag: 'wx' });
+  // All data checks and XML generation finish BEFORE the first file is created.
+  const xml = chargeable.length ? createPohodaXml(documentsAndReconciliation, opts['--month']) : '';
+  const report = createReconciliationCsv(documentsAndReconciliation);
+  await mkdir(folder, { recursive: true });
+  if (chargeable.length) {
+    await writeFile(xmlName, xml, { encoding: 'utf8', flag: 'wx' });
+  }
   try {
     await writeFile(csvName, report, { encoding: 'utf8', flag: 'wx' });
-  } catch (e) {
-    // Never leave an orphan XML file when the accompanying control CSV failed.
-    await unlink(xmlName).catch(() => {});
-    throw e;
+  } catch (error) {
+    if (chargeable.length) await unlink(xmlName).catch(() => {});
+    throw error;
   }
-  console.log(`OK: ${documents.length} dokladov, provizie ${documents.reduce((sum, x) => sum + x.commission, 0)} CZK`);
-  console.log(`XML: ${xmlName}\nCSV: ${csvName}`);
-  console.log('Pred importom do ostrej POHODY vykonaj skusobny import v testovacej uctovnej jednotke.');
+  console.log(`OK: ${chargeable.length} dokladov, ${documentsAndReconciliation.length} kontrolnych riadkov, provizie ${chargeable.reduce((sum, x) => sum + x.commission, 0)} CZK`);
+  if (chargeable.length) console.log(`XML: ${xmlName}`);
+  else console.log('Len nulove provizie: XML nebol vytvoreny, CSV ano.');
+  console.log(`CSV: ${csvName}`);
+  console.log('Pred ostrym uctovanim skontroluj Stripe/refundy a vykonaj testovaci import POHODA.');
 }
 
-main().catch((error) => { console.error(`Export zastaveny: ${error.message}`); process.exitCode = 1; });
+main().catch((error) => {
+  console.error(`Export zastaveny: ${error.message}`);
+  process.exitCode = 1;
+});
