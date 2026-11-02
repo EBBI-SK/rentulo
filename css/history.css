@@ -476,3 +476,68 @@ html[data-focus-input="pointer"] .history-review-box textarea:focus {
     font-size: 12px;
   }
 }
+
+/* BOD 7.2: owner's financial snapshot; not displayed to renters. */
+.history-owner-finance {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid #d5e8df;
+  border-radius: 12px;
+  background: var(--rentulo-surface, #fff);
+}
+
+.history-owner-finance h3 {
+  margin: 0 0 8px;
+  color: var(--rentulo-green-dark, #0e5037);
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.history-owner-finance .history-detail-grid > div {
+  min-height: 38px;
+}
+
+.history-owner-finance .history-finance-total strong {
+  color: var(--rentulo-green-dark, #0e5037);
+}
+
+.history-owner-transfer-states {
+  margin-top: 8px;
+}
+
+.history-owner-transfer-states > div {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 9px 2px;
+  border-bottom: 1px solid #dbece4;
+}
+
+.history-owner-transfer-states span {
+  color: var(--rentulo-muted, #64706b);
+  font-size: 12px;
+}
+
+.history-owner-transfer-states strong {
+  color: var(--rentulo-ink, #102019);
+  text-align: right;
+  font-size: 13px;
+}
+
+.history-owner-finance-note,
+.history-finance-unavailable {
+  margin: 10px 2px 0;
+  color: var(--rentulo-muted, #64706b);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@media (max-width: 560px) {
+  .history-owner-finance { padding: 10px; }
+  .history-owner-transfer-states > div { gap: 12px; }
+  .history-owner-transfer-states strong {
+    max-width: 55%;
+    overflow-wrap: anywhere;
+  }
+}
