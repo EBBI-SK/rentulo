@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdtempSync, existsSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import {
   parseCsv, parseRates, prepareCommissions, createPohodaXml,
   createReconciliationCsv, escapeXml,
@@ -8,68 +11,111 @@ import {
 } from '../scripts/pohoda-commissions.mjs';
 
 function sample(overrides = {}) {
+  const reservation = overrides.reservation_number ?? 'R-000035';
+  const n = Number(reservation.replace('R-', ''));
+  const payment = overrides.payment_id ?? `22222222-2222-4222-8222-${String(n).padStart(12, '0')}`;
   return {
-    reservation_number: 'R-000035', document_date: '2026-10-18',
+    source_type: 'original', source_id: payment,
+    reservation_number: reservation, document_date: '2026-10-18', document_basis: 'owner_transfer',
     reservation_status: 'returned', payment_status: 'paid', provider: 'stripe',
     stripe_payment_intent_status: 'succeeded', transfer_status: 'succeeded',
     refund_status: 'not_requested', refund_amount_minor: '0',
+    parent_transfer_status: 'succeeded', parent_refund_status: 'not_requested',
+    parent_refund_amount_minor: '0', parent_transfer_at: '2026-10-18T12:00:00Z',
+    source_paid_at: '', card_disputes_count: '0', internal_settlements_count: '0',
     payment_currency: 'czk', rental_total_czk: '250',
     owner_payout_czk: '200', commission_czk: '50',
     owner_id: '11111111-1111-4111-8111-111111111111', owner_name: 'Pavol Testovací',
-    stripe_payment_intent_id: 'pi_123', stripe_transfer_id: 'tr_123',
-    payment_id: '22222222-2222-4222-8222-222222222222',
-    settlement_currency: 'czk', transfer_currency: 'czk', stripe_fee_minor: '845',
-    stripe_transfer_minor: '20000', stripe_charge_balance_minor: '25000', stripe_charge_id: 'ch_123',
+    parent_payment_owner_id: '11111111-1111-4111-8111-111111111111', extension_owner_id: '',
+    stripe_payment_intent_id: `pi_${n}`, stripe_transfer_id: `tr_${n}`,
+    payment_id: payment, settlement_currency: 'czk', transfer_currency: 'czk',
+    stripe_fee_minor: '845', stripe_transfer_minor: '20000',
+    stripe_charge_balance_minor: '25000', stripe_charge_id: `ch_${n}`,
     ...overrides,
   };
 }
-const convert = (rows, opts = {}) => prepareCommissions(rows, { month: '2026-10', fixedRate: 24.50, ...opts });
+function extension(overrides = {}) {
+  return sample({
+    source_type: 'extension', source_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01',
+    extension_owner_id: '11111111-1111-4111-8111-111111111111',
+    document_date: '2026-10-18', document_basis: 'owner_transfer',
+    stripe_payment_intent_status: 'verified_by_webhook',
+    stripe_payment_intent_id: 'pi_extension_1', stripe_charge_id: 'ch_extension_1',
+    stripe_transfer_id: 'tr_extension_1', stripe_transfer_minor: '15000',
+    stripe_fee_minor: '', stripe_charge_balance_minor: '', settlement_currency: '',
+    transfer_currency: 'czk', refund_status: 'not_tracked', refund_amount_minor: '',
+    rental_total_czk: '150', owner_payout_czk: '150', commission_czk: '0',
+    source_paid_at: '2026-10-17T10:00:00Z',
+    ...overrides,
+  });
+}
+function zeroPayoutExtension(overrides = {}) {
+  return extension({
+    rental_total_czk: '150', owner_payout_czk: '0', commission_czk: '150',
+    stripe_transfer_id: '', stripe_transfer_minor: '', transfer_currency: '',
+    transfer_status: 'not_created', document_basis: 'parent_transfer_zero_payout',
+    ...overrides,
+  });
+}
+const convert = (rows, opts = {}) => prepareCommissions(rows, {
+  month: '2026-10', fixedRate: 24.5, ...opts,
+});
 
-test('accountant-approved POHODA shortcut and accounts are exact', () => {
+function csvInput(rows) {
+  const columns = Object.keys(rows[0]);
+  const quote = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
+  return columns.join(',') + '\n' + rows.map((row) => columns.map((key) => quote(row[key])).join(',')).join('\n') + '\n';
+}
+
+function runCli(rows, extra = []) {
+  const root = mkdtempSync(join(tmpdir(), 'rentulo-pohoda-'));
+  const input = join(root, 'data.csv');
+  const output = join(root, 'outputs');
+  writeFileSync(input, csvInput(rows));
+  const args = [resolve('scripts/export-pohoda-commissions.mjs'),
+    '--month', '2026-10', '--input', input, '--rate', '24.50', '--out', output,
+    ...extra];
+  return { root, output, args, run: () => spawnSync(process.execPath, args, { encoding: 'utf8' }) };
+}
+
+test('accountant-approved POHODA shortcut, accounts and stable original documents are exact', () => {
   assert.equal(POHODA_ACCOUNTING_SHORTCUT, 'Provizie Rentulo');
   assert.equal(POHODA_ACCOUNT_DEBIT, '315100');
   assert.equal(POHODA_ACCOUNT_CREDIT, '602100');
+  assert.equal(convert([sample()])[0].documentNumber, 'RP-000035');
 });
 
-test('CSV from Supabase SQL editor parses quoted fields, BOM and CRLF', () => {
-  const data = parseCsv('\uFEFFowner_name,reservation_number\r\n"Novák, Peter",R-000001\r\n"O""Neil",R-000002\r\n');
-  assert.deepEqual(data, [
+test('CSV parsing handles BOM, quoted fields, delimiters and duplicate headers', () => {
+  assert.deepEqual(parseCsv('\uFEFFowner_name,reservation_number\r\n"Novák, Peter",R-000001\r\n"O""Neil",R-000002\r\n'), [
     { owner_name: 'Novák, Peter', reservation_number: 'R-000001' },
     { owner_name: 'O"Neil', reservation_number: 'R-000002' },
   ]);
-});
-
-test('semicolon CSV works for POHODA/Excel locales', () => {
   assert.deepEqual(parseCsv('date;czk_per_eur\n2026-10-18;24,50\n'), [
     { date: '2026-10-18', czk_per_eur: '24,50' },
   ]);
-});
-
-test('CSV rejects invalid field count and duplicate headers', () => {
   assert.throws(() => parseCsv('a,b\nx'), /pocet stlpcov/);
   assert.throws(() => parseCsv('a,a\nx,x'), /duplicitne hlavicky/);
 });
 
-test('rate map supports different approved rates and rejects missing dates', () => {
-  const dates = parseRates('date,czk_per_eur\n2026-10-18,24.50\n2026-10-19,24.60\n');
-  const rows = convert([
-    sample(),
-    sample({ reservation_number: 'R-000036', document_date: '2026-10-19', stripe_transfer_id: 'tr_456' }),
-  ], { fixedRate: undefined, rates: dates });
-  assert.equal(rows[0].fxRate, '24.5');
-  assert.equal(rows[1].fxRate, '24.6');
-  assert.throws(() => convert([sample({ document_date: '2026-10-20' })], { fixedRate: undefined, rates: dates }), /chyba schvaleny kurz/);
-});
-
-test('no Stripe-derived or guessed conversion is allowed', () => {
+test('approved FX is required per invoice date, but not for a zero-commission extension', () => {
+  const rates = parseRates('date,czk_per_eur\n2026-10-18,24.50\n2026-10-19,24.60\n');
+  const entries = convert([
+    sample(), sample({ reservation_number: 'R-000036', document_date: '2026-10-19' }),
+  ], { fixedRate: undefined, rates });
+  assert.equal(entries[0].fxRate, '24.5');
+  assert.equal(entries[1].fxRate, '24.6');
+  assert.throws(() => convert([sample({ document_date: '2026-10-20' })], {
+    fixedRate: undefined, rates,
+  }), /chyba schvaleny kurz/);
   assert.throws(() => convert([sample()], { fixedRate: undefined }), /chyba schvaleny kurz/);
   assert.throws(() => convert([sample()], { fixedRate: '0.04' }), /nerealisticky/);
+  assert.equal(convert([extension()], { fixedRate: undefined })[0].fxRate, '');
   assert.throws(() => parseRates('date,czk_per_eur\n2026-10-18,24.1\n2026-10-18,24.2'), /Duplicitny/);
 });
 
-test('valid finished reservation exported as one receivable with foreign CZK and owner name', () => {
-  const entries = convert([sample({ owner_name: 'Pavol & „Anna" <Tester>' })]);
-  const xml = createPohodaXml(entries, '2026-10');
+test('original commission remains one receivable, CZK foreign currency, no payment flag', () => {
+  const [entry] = convert([sample({ owner_name: 'Pavol & „Anna" <Tester>' })]);
+  const xml = createPohodaXml([entry], '2026-10');
   assert.match(xml, /<inv:invoiceType>receivable<\/inv:invoiceType>/);
   assert.match(xml, /<typ:ids>Provizie Rentulo<\/typ:ids>/);
   assert.match(xml, /<typ:ids>CZK<\/typ:ids>/);
@@ -81,80 +127,237 @@ test('valid finished reservation exported as one receivable with foreign CZK and
   assert.match(xml, /ico="46306374"/);
 });
 
-test('XML is well formed and has one dataPackItem per distinct commission', () => {
-  const a = sample();
-  const b = sample({ reservation_number: 'R-000036', stripe_transfer_id: 'tr_456' });
-  const xml = createPohodaXml(convert([a, b]), '2026-10');
-  // Fast-xml-parser is not installed in this repository; textual tags and Node baseline
-  // are used here; XML syntax is also parsed by Python ElementTree in package validation.
-  assert.equal((xml.match(/<dat:dataPackItem /g) || []).length, 2);
-  assert.equal((xml.match(/<inv:invoiceType>receivable/g) || []).length, 2);
-  assert.equal((xml.match(/<inv:invoiceSummary>/g) || []).length, 2);
-});
-
-test('TEST SQL selects only closed returned or no_show reservations despite legacy picked_up transfers', () => {
-  const sql = readFileSync(new URL('../docs/sql/pohoda_provizie_export_TEST.sql', import.meta.url), 'utf8');
-  assert.match(sql, /WHERE\s+p\.provider\s*=\s*'stripe'\s+AND\s+p\.transfer_status\s*=\s*'succeeded'[\s\S]*?AND\s+r\.status::text\s+IN\s*\('returned',\s*'no_show'\)/i);
-  assert.doesNotMatch(sql, /\b(?:INSERT|UPDATE|DELETE|TRUNCATE|DROP)\s/i);
-});
-
-test('normal finished no-show is supported', () => {
-  assert.equal(convert([sample({ reservation_status: 'no_show' })]).length, 1);
-});
-
-for (const [key, value] of Object.entries({
-  reservation_status: 'picked_up', payment_status: 'pending',
-  transfer_status: 'not_created', stripe_payment_intent_status: 'requires_payment_method',
-  refund_status: 'succeeded', refund_amount_minor: '100', provider: 'manual_test',
-})) {
-  test(`financially unsafe ${key}=${value} blocks whole export`, () => {
-    assert.throws(() => convert([sample({ [key]: value })]), /financne vysporiadanie/);
+test('R-000045: 450+150, base 70 fee and zero extension fee -> one XML invoice, two CSV lines', () => {
+  const base = sample({ reservation_number: 'R-000045', rental_total_czk: '450',
+    owner_payout_czk: '380', commission_czk: '70', stripe_transfer_minor: '38000',
+    stripe_charge_balance_minor: '45000',
   });
-}
+  const ext = extension({ reservation_number: 'R-000045' });
+  const rows = convert([base, ext]);
+  assert.equal(rows.length, 2);
+  assert.equal(rows.reduce((s, r) => s + r.amount, 0), 600);
+  assert.equal(rows.reduce((s, r) => s + r.commission, 0), 70);
+  assert.equal(rows.reduce((s, r) => s + r.ownerPayout, 0), 530);
+  assert.equal(rows.find((r) => r.sourceType === 'extension').documentNumber, '');
+  const xml = createPohodaXml(rows, '2026-10');
+  const csv = createReconciliationCsv(rows);
+  assert.equal((xml.match(/<dat:dataPackItem /g) || []).length, 1);
+  assert.equal((csv.match(/"R-000045"/g) || []).length, 2);
+  assert.match(csv, /NOT_TRACKED_IN_EXTENSION_DB/);
+  assert.match(csv, /NOT_STORED_CHECK_STRIPE/);
+  assert.match(csv, /"NIE";"extension"/);
+  assert.equal(rows.find((r) => r.sourceType === 'extension').stripeFeeMinor, '');
+});
 
-test('different currency or commission arithmetic blocks export', () => {
+test('positive additional commission -> one stable separate extension receivable only after manual Stripe refund review', () => {
+  const extra = extension({ commission_czk: '15', owner_payout_czk: '135',
+    stripe_transfer_minor: '13500',
+  });
+  assert.throws(() => convert([extra]), /extension-review/);
+  const [row] = convert([extra], { extensionReviewRef: 'STRIPE-REVIEW-2026-10' });
+  assert.match(row.documentNumber, /^RE-[0-9A-F]{16}$/);
+  assert.notEqual(row.documentNumber, 'RP-000035');
+  assert.equal(row.extensionReviewRef, 'STRIPE-REVIEW-2026-10');
+  const xml = createPohodaXml([row], '2026-10');
+  assert.match(xml, /<typ:unitPrice>15.00<\/typ:unitPrice>/);
+  assert.match(xml, /predĺženie rezervácie/);
+  assert.match(xml, new RegExp(row.documentNumber));
+  assert.match(createReconciliationCsv([row]), /STRIPE-REVIEW-2026-10/);
+});
+
+test('multiple paid extensions with stable unique documents, zero lines retained', () => {
+  const rows = convert([
+    extension(),
+    extension({ source_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa02',
+      stripe_payment_intent_id: 'pi_extension_2', stripe_charge_id: 'ch_extension_2',
+      stripe_transfer_id: 'tr_extension_2', commission_czk: '20',
+      rental_total_czk: '150', owner_payout_czk: '130', stripe_transfer_minor: '13000',
+    }),
+    sample(),
+  ], { extensionReviewRef: 'STRIPE-REVIEW-2026-10' });
+  assert.equal(rows.length, 3);
+  assert.equal(rows.filter((r) => r.documentNumber).length, 2);
+  assert.equal((createPohodaXml(rows, '2026-10').match(/<dat:dataPackItem /g) || []).length, 2);
+  assert.equal(parseCsv(createReconciliationCsv(rows)).length, 3);
+});
+
+test('zero-owner-payout extension has NO fictitious Stripe transfer and can have an invoice after manual review', () => {
+  const [row] = convert([zeroPayoutExtension()], { extensionReviewRef: 'STRIPE-REVIEW-2026-10' });
+  assert.equal(row.ownerPayout, 0);
+  assert.equal(row.documentBasis, 'parent_transfer_zero_payout');
+  assert.equal(row.transfer, '');
+  assert.equal(row.stripeTransferMinor, '');
+  assert.equal((createPohodaXml([row], '2026-10').match(/<dat:dataPackItem /g) || []).length, 1);
+  assert.throws(() => convert([zeroPayoutExtension({ stripe_transfer_id: 'tr_fake' })], {
+    extensionReviewRef: 'STRIPE-REVIEW-2026-10',
+  }), /nesmie predstierat/);
+});
+
+test('month selection supports extension in a later month without creating a duplicate original invoice', () => {
+  const [row] = prepareCommissions([
+    extension({ document_date: '2026-11-02', source_paid_at: '2026-10-30T10:00:00Z' }),
+  ], { month: '2026-11' });
+  assert.equal(row.documentNumber, '');
+  assert.equal(row.documentDate, '2026-11-02');
+  assert.throws(() => convert([extension({ document_date: '2026-11-02' })]), /nie je v mesiaci/);
+});
+
+test('finished no-show is accepted, picked_up, pending payment and refund reject entire export', () => {
+  assert.equal(convert([sample({ reservation_status: 'no_show' })]).length, 1);
+  for (const [key, value] of Object.entries({
+    reservation_status: 'picked_up', payment_status: 'pending',
+    transfer_status: 'not_created', stripe_payment_intent_status: 'requires_payment_method',
+    refund_status: 'succeeded', refund_amount_minor: '100', provider: 'manual_test',
+  })) {
+    assert.throws(() => convert([sample({ [key]: value })]), /vysporiadanie|transfer/);
+  }
+  assert.throws(() => convert([sample({ parent_refund_status: 'succeeded' })]), /povodna platba/);
+});
+
+test('card dispute or internal settlement, even manually closed, blocks automatic booking export', () => {
+  for (const key of ['card_disputes_count', 'internal_settlements_count']) {
+    assert.throws(() => convert([sample({ [key]: '1' })]), /spor alebo interne vysporiadanie/);
+    assert.throws(() => convert([extension({ [key]: '1' })]), /spor alebo interne vysporiadanie/);
+  }
+  assert.throws(() => convert([sample(), extension({ card_disputes_count: '1' })]), /spor/);
+});
+
+test('invalid fees, amounts, transfer evidence and duplicate identifiers block export', () => {
   assert.throws(() => convert([sample({ payment_currency: 'eur' })]), /nie je v CZK/);
   assert.throws(() => convert([sample({ commission_czk: '51' })]), /nesedi provizia/);
   assert.throws(() => convert([sample({ commission_czk: '0' })]), /neplatna hodnota/);
   assert.throws(() => convert([sample({ commission_czk: '12.99' })]), /ocakavame cele/);
-});
-
-test('duplicate reservation and duplicate Stripe transfer block export', () => {
-  assert.throws(() => convert([sample(), sample()]), /Duplicitna rezervacia/);
-  assert.throws(() => convert([sample(), sample({ reservation_number: 'R-000036' })]), /duplicitny Stripe transfer/);
-});
-
-test('missing Stripe intent, transfer, charge or owner prevents undocumented commission', () => {
-  assert.throws(() => convert([sample({ stripe_payment_intent_id: '' })]), /chyba stripe_payment_intent_id/);
+  assert.throws(() => convert([extension({ stripe_transfer_minor: '14900' })]), /nesuhlasi s vyplatou/);
+  assert.throws(() => convert([extension({ stripe_fee_minor: '0' })]), /neoverene/);
+  assert.throws(() => convert([extension({ refund_status: 'not_requested' })]), /neoverene/);
+  assert.throws(() => convert([sample(), sample()]), /duplicitny zdroj/);
+  assert.throws(() => convert([sample(), sample({
+    reservation_number: 'R-000036', stripe_transfer_id: 'tr_35',
+  })]), /duplicitny Stripe transfer/);
   assert.throws(() => convert([sample({ owner_name: '' })]), /chyba owner_name/);
   assert.throws(() => convert([sample({ owner_name: 'Majitel' })]), /nedostatocna identifikacia/);
-  assert.throws(() => convert([sample({ stripe_transfer_id: 'error' })]), /Stripe identifikatory/);
+  assert.throws(() => convert([sample({ stripe_payment_intent_id: '' })]), /chyba stripe_payment_intent_id/);
   assert.throws(() => convert([sample({ stripe_charge_id: '' })]), /chyba stripe_charge_id/);
-  assert.throws(() => convert([sample({ stripe_transfer_minor: '0' })]), /neplatna hodnota/);
+  assert.throws(() => convert([sample({ stripe_transfer_minor: '0' })]), /platny Stripe transfer/);
   assert.throws(() => convert([sample({ transfer_currency: 'eur' })]), /settlement mena/);
+  assert.throws(() => convert([sample({ stripe_charge_balance_minor: '' })]), /settlement mena/);
 });
 
-test('bad month or inconsistent document date blocks export', () => {
-  assert.throws(() => convert([sample()], { month: '2026-13' }), /Mesiac/);
-  assert.throws(() => convert([sample({ document_date: '2026-11-01' })]), /nie je v mesiaci/);
-  assert.throws(() => convert([sample({ document_date: '2026-02-30' })]), /datum/);
-});
-
-test('CSV protects from Excel injection and still shows reconciled minor-units fee', () => {
-  const a = sample({ owner_name: '=HYPERLINK("http://example.test")' });
-  const csv = createReconciliationCsv(convert([a]));
-  assert.match(csv, /"'=HYPERLINK/);
-  assert.match(csv, /"845"/);
-  assert.match(csv, /"315100";"602100"/);
-});
-
-test('XML escaping prevents markup injection and malformed control characters', () => {
+test('XML strings, dates and CSV are safe', () => {
   assert.equal(escapeXml('<&>"\''), '&lt;&amp;&gt;&quot;&apos;');
   assert.throws(() => escapeXml('bad\u0001'), /Neplatne riadiace znaky/);
   assert.throws(() => convert([sample({ owner_name: 'A\u0003B' })]), /Neplatne riadiace znaky/);
+  assert.throws(() => convert([sample({ document_date: '2026-02-30' })]), /datum/);
+  assert.throws(() => convert([sample()], { month: '2026-13' }), /Mesiac/);
+  assert.match(createReconciliationCsv(convert([sample({ owner_name: '=HYPERLINK("http://x")' })])), /"'=HYPERLINK/);
+  assert.match(createReconciliationCsv(convert([sample()])), /"845"/);
+  assert.match(createReconciliationCsv(convert([sample()])), /"315100";"602100"/);
+  assert.equal((createPohodaXml(convert([]), '2026-10').match(/<dat:dataPackItem /g) || []).length, 0);
 });
 
-test('no commission rows produce no documents in safe generator', () => {
-  assert.deepEqual(convert([]), []);
-  assert.equal((createPohodaXml([], '2026-10').match(/dataPackItem/g) || []).length, 0);
+test('TEST SQL is a read-only UNION ledger of original and paid extensions; never fabricates missing fee', () => {
+  const sql = readFileSync(new URL('../docs/sql/pohoda_provizie_export_TEST.sql', import.meta.url), 'utf8');
+  assert.match(sql, /JOIN\s+public\.reservation_extensions\s+e/i);
+  assert.match(sql, /e\.status\s*=\s*'paid'/);
+  assert.match(sql, /UNION ALL/i);
+  assert.match(sql, /e\.owner_payout\s*=\s*0/);
+  assert.match(sql, /NULL::integer AS stripe_fee_minor/);
+  assert.match(sql, /stripe_card_disputes/);
+  assert.match(sql, /reservation_dispute_settlements/);
+  assert.match(sql, /WHERE\s+p\.provider\s*=\s*'stripe'/i);
+  assert.match(sql, /r\.status::text\s+IN\s*\('returned',\s*'no_show'\)/i);
+  assert.doesNotMatch(sql, /\b(?:INSERT|UPDATE|DELETE|TRUNCATE|DROP)\s/i);
+});
+
+test('CLI outputs both XML and reconciliation; refuses overwrite of an existing month', () => {
+  const scenario = runCli([sample(), extension()]);
+  const first = scenario.run();
+  assert.equal(first.status, 0, first.stderr);
+  assert.equal(existsSync(join(scenario.output, 'rentulo-provizie-2026-10.xml')), true);
+  assert.equal(existsSync(join(scenario.output, 'rentulo-provizie-2026-10-parovanie.csv')), true);
+  const repeat = scenario.run();
+  assert.notEqual(repeat.status, 0);
+  assert.match(repeat.stderr, /EEXIST/);
+});
+
+test('CLI writes only reconciliation CSV when all commissions are zero', () => {
+  const scenario = runCli([extension()]);
+  const result = scenario.run();
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Len nulove provizie/);
+  assert.equal(existsSync(join(scenario.output, 'rentulo-provizie-2026-10.xml')), false);
+  assert.equal(existsSync(join(scenario.output, 'rentulo-provizie-2026-10-parovanie.csv')), true);
+});
+
+test('CLI blocks positive extension invoice without manual refund review and succeeds after explicit reference', () => {
+  const scenario = runCli([extension({ commission_czk: '15', owner_payout_czk: '135', stripe_transfer_minor: '13500' })]);
+  const blocked = scenario.run();
+  assert.notEqual(blocked.status, 0);
+  assert.match(blocked.stderr, /extension-review/);
+  assert.equal(existsSync(join(scenario.output, 'rentulo-provizie-2026-10.xml')), false);
+  scenario.args.push('--extension-review', 'STRIPE-CHECK-2026-11-02');
+  assert.equal(scenario.run().status, 0);
+});
+
+// Additional focused failure-mode cases retain coverage of the original generator.
+for (const [name, changes, error] of [
+  ['wrong payout total', { owner_payout_czk: '199' }, /nesedi provizia/],
+  ['missing bank/Stripe payout ID', { stripe_transfer_id: '' }, /platny Stripe transfer/],
+  ['missing owner uuid', { owner_id: '' }, /chyba owner_id/],
+  ['missing parent transfer event', { parent_transfer_at: '' }, /povodna platba/],
+  ['missing parent status', { parent_transfer_status: 'failed' }, /povodna platba/],
+  ['invalid source id', { source_id: 'abc' }, /UUID zdroja/],
+  ['mislinked original source', { source_id: '12345678-1234-4123-8123-123456789012' }, /nesuhlasi s payment_id/],
+  ['bad original transfer amount', { stripe_transfer_minor: '26000' }, /prevysuje Stripe charge/],
+  ['missing fee permitted but flagged', { stripe_fee_minor: '' }, null],
+  ['unexpected dispute count', { card_disputes_count: '-1' }, /ocakavame cele/],
+  ['unrecognized source', { source_type: 'other' }, /neznamy zdroj/],
+  ['bad settlement currency', { settlement_currency: 'eur' }, /settlement mena/],
+  ['duplicate month', { document_date: '2026-11-01' }, /nie je v mesiaci/],
+]) {
+  test(`original evidence validation: ${name}`, () => {
+    if (error) assert.throws(() => convert([sample(changes)]), error);
+    else assert.equal(convert([sample(changes)])[0].stripeFeeStatus, 'MISSING_CHECK_STRIPE');
+  });
+}
+
+test('extension IDs differing only in last UUID bytes produce distinct stable document numbers', () => {
+  const review = 'VERIFIED-STRIPE-2026-10-18';
+  const a = convert([zeroPayoutExtension()], { extensionReviewRef: review })[0].documentNumber;
+  const b = convert([zeroPayoutExtension({ source_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa02' })], {
+    extensionReviewRef: review,
+  })[0].documentNumber;
+  assert.notEqual(a, b);
+  assert.equal(a, convert([zeroPayoutExtension()], { extensionReviewRef: review })[0].documentNumber);
+  assert.ok(a.length <= 19);
+});
+
+test('unsafe extension refund and missing Stripe identities are never assumed safe', () => {
+  assert.throws(() => convert([extension({ stripe_charge_id: '' })]), /chyba stripe_charge_id/);
+  assert.throws(() => convert([extension({ source_paid_at: '' })]), /neoverene/);
+  assert.throws(() => convert([extension({ transfer_status: 'failed' })]), /platny Stripe transfer/);
+  assert.throws(() => convert([extension({ card_disputes_count: '1' })]), /spor/);
+  assert.throws(() => convert([zeroPayoutExtension({
+    refund_status: 'succeeded',
+  })], { extensionReviewRef: 'VERIFIED-STRIPE-2026-10-18' }), /neoverene/);
+});
+
+test('accounting packet never creates a zero amount invoice even for multiple zero fee extensions', () => {
+  const items = convert([
+    extension(),
+    extension({ source_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa02',
+      stripe_payment_intent_id: 'pi_extension_2', stripe_charge_id: 'ch_extension_2',
+      stripe_transfer_id: 'tr_extension_2',
+    }),
+  ]);
+  assert.equal((createPohodaXml(items, '2026-10').match(/<dat:dataPackItem /g) || []).length, 0);
+  const csvRows = parseCsv(createReconciliationCsv(items));
+  assert.equal(csvRows.length, 2);
+  assert.ok(csvRows.every((r) => r.vytvorit_doklad === 'NIE' && r.cislo_dokladu === ''));
+});
+
+
+test('cross-owner misattribution blocks all accounting documents', () => {
+  assert.throws(() => convert([sample({ parent_payment_owner_id: '99999999-9999-4999-8999-999999999999' })]), /nesuhlasi vlastnik/);
+  assert.throws(() => convert([extension({ extension_owner_id: '99999999-9999-4999-8999-999999999999' })]), /nesuhlasi vlastnik/);
 });
