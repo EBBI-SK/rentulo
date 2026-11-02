@@ -175,11 +175,11 @@ test('extension requests are essential emails, never SMS', async () => {
 });
 
 for (const [language, subject, dateLabel, action] of [
-  ['cs', 'Nová žádost o prodloužení', 'Požadované datum vrácení', 'Moje nabídky'],
-  ['sk', 'Nová žiadosť o predĺženie', 'Požadovaný dátum vrátenia', 'Moje ponuky'],
-  ['en', 'New rental extension request', 'Requested return date', 'My listings'],
-  ['de', 'Neue Anfrage zur Mietverlängerung', 'Gewünschtes Rückgabedatum', 'Meine Angebote'],
-  ['pl', 'Nowa prośba o przedłużenie', 'Proponowana data zwrotu', 'Moje oferty'],
+  ['cs', 'Nová žádost o prodloužení', 'Požadované datum vrácení', 'Otevřít Moje nabídky →'],
+  ['sk', 'Nová žiadosť o predĺženie', 'Požadovaný dátum vrátenia', 'Otvoriť Moje ponuky →'],
+  ['en', 'New rental extension request', 'Requested return date', 'Open My listings →'],
+  ['de', 'Neue Anfrage zur Mietverlängerung', 'Gewünschtes Rückgabedatum', 'Meine Angebote öffnen →'],
+  ['pl', 'Nowa prośba o przedłużenie', 'Proponowana data zwrotu', 'Otwórz Moje oferty →'],
 ]) {
   test(`claimed extension email renders in ${language} with owner action and new return date`, async () => {
     const out = await runEmail({ language });

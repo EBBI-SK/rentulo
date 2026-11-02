@@ -112,7 +112,7 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
     extension_requested: ["Nová žádost o prodloužení pronájmu", "Nájemce požádal o prodloužení pronájmu. Otevřete Moje nabídky a žádost schvalte nebo zamítněte."],
     extension_approved: ["Prodloužení schváleno – zaplaťte doplatek", "Majitel schválil prodloužení pronájmu. Nový termín začne platit až po zaplacení doplatku."],
     extension_rejected: ["Prodloužení zamítnuto", "Majitel vaši žádost o prodloužení zamítl. Původní termín vrácení se nemění."],
-    extension_paid: ["Prodloužení zaplaceno", "Doplatek byl potvrzen. Pronájem je prodloužen do nového termínu vrácení."],
+    extension_paid: ["Prodloužení pronájmu zaplaceno", "Doplatek byl potvrzen. Pronájem je prodloužen do nového termínu vrácení."],
     extension_expired: ["Žádost o prodloužení vypršela", "Prodloužení nebylo dokončeno včas. Původní termín vrácení zůstává v platnosti."],
     approved: ["Žádost byla schválena", "Majitel vaši žádost schválil. Rezervaci nyní můžete zaplatit."],
     rejected: ["Žádost byla odmítnuta", "Majitel vaši žádost o půjčení odmítl."],
@@ -134,7 +134,7 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
     extension_requested: ["Nová žiadosť o predĺženie prenájmu", "Nájomca požiadal o predĺženie prenájmu. Otvorte Moje ponuky a žiadosť schváľte alebo zamietnite."],
     extension_approved: ["Predĺženie schválené – zaplaťte doplatok", "Majiteľ schválil predĺženie prenájmu. Nový termín začne platiť až po zaplatení doplatku."],
     extension_rejected: ["Predĺženie zamietnuté", "Majiteľ vašu žiadosť o predĺženie zamietol. Pôvodný termín vrátenia sa nemení."],
-    extension_paid: ["Predĺženie zaplatené", "Doplatok bol potvrdený. Prenájom sa predĺžil do nového termínu vrátenia."],
+    extension_paid: ["Predĺženie prenájmu zaplatené", "Doplatok bol potvrdený. Prenájom sa predĺžil do nového termínu vrátenia."],
     extension_expired: ["Žiadosť o predĺženie vypršala", "Predĺženie nebolo dokončené včas. Pôvodný termín vrátenia zostáva v platnosti."],
     approved: ["Žiadosť bola schválená", "Majiteľ vašu žiadosť schválil. Rezerváciu teraz môžete zaplatiť."],
     rejected: ["Žiadosť bola odmietnutá", "Majiteľ vašu žiadosť o požičanie odmietol."],
@@ -156,7 +156,7 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
     extension_requested: ["New rental extension request", "The renter requested an extension. Open My listings to approve or reject the request."],
     extension_approved: ["Extension approved – payment required", "The owner approved your extension. The new return date takes effect only after the additional payment succeeds."],
     extension_rejected: ["Extension request rejected", "The owner declined your extension request. The original return date is unchanged."],
-    extension_paid: ["Extension payment confirmed", "Your additional payment was confirmed and the rental now has the new return date."],
+    extension_paid: ["Rental extension payment confirmed", "Your additional payment was confirmed and the rental now has the new return date."],
     extension_expired: ["Extension request expired", "Your extension was not completed in time. The original return date remains in effect."],
     approved: ["Request approved", "The owner approved your request. You can now complete the payment."],
     rejected: ["Request rejected", "The owner rejected your rental request."],
@@ -178,7 +178,7 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
     extension_requested: ["Neue Anfrage zur Mietverlängerung", "Der Mieter hat eine Verlängerung beantragt. Öffnen Sie Meine Angebote, um die Anfrage zu bestätigen oder abzulehnen."],
     extension_approved: ["Verlängerung genehmigt – Nachzahlung erforderlich", "Der Vermieter hat die Verlängerung genehmigt. Das neue Rückgabedatum gilt erst nach erfolgreicher Nachzahlung."],
     extension_rejected: ["Verlängerung abgelehnt", "Der Vermieter hat die Verlängerung abgelehnt. Der ursprüngliche Rückgabetermin bleibt bestehen."],
-    extension_paid: ["Verlängerung bezahlt", "Die Nachzahlung ist bestätigt. Die Miete läuft nun bis zum neuen Rückgabedatum."],
+    extension_paid: ["Mietverlängerung bezahlt", "Die Nachzahlung ist bestätigt. Die Miete läuft nun bis zum neuen Rückgabedatum."],
     extension_expired: ["Verlängerungsanfrage abgelaufen", "Die Verlängerung wurde nicht rechtzeitig abgeschlossen. Der ursprüngliche Rückgabetermin bleibt bestehen."],
     approved: ["Anfrage bestätigt", "Der Eigentümer hat Ihre Anfrage bestätigt. Sie können jetzt die Zahlung abschließen."],
     rejected: ["Anfrage abgelehnt", "Der Eigentümer hat Ihre Mietanfrage abgelehnt."],
@@ -200,7 +200,7 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
     extension_requested: ["Nowa prośba o przedłużenie najmu", "Najemca poprosił o przedłużenie najmu. Otwórz Moje oferty, aby zatwierdzić lub odrzucić prośbę."],
     extension_approved: ["Przedłużenie zatwierdzone – wymagana dopłata", "Właściciel zatwierdził przedłużenie. Nowa data zwrotu będzie obowiązywać dopiero po dokonaniu dopłaty."],
     extension_rejected: ["Przedłużenie odrzucone", "Właściciel odrzucił prośbę o przedłużenie. Pierwotna data zwrotu nie ulega zmianie."],
-    extension_paid: ["Przedłużenie opłacone", "Dopłata została potwierdzona. Najem trwa do nowej daty zwrotu."],
+    extension_paid: ["Przedłużenie najmu opłacone", "Dopłata została potwierdzona. Najem trwa do nowej daty zwrotu."],
     extension_expired: ["Prośba o przedłużenie wygasła", "Przedłużenie nie zostało ukończone w terminie. Pierwotna data zwrotu pozostaje bez zmian."],
     approved: ["Prośba została zaakceptowana", "Właściciel zaakceptował Twoją prośbę. Możesz teraz dokończyć płatność."],
     rejected: ["Prośba została odrzucona", "Właściciel odrzucił Twoją prośbę o wypożyczenie."],
@@ -264,11 +264,11 @@ const referenceLabels: Record<SupportedLanguage, { offer: string; reservation: s
 const extensionRequestLabels: Record<SupportedLanguage, {
   requestedReturn: string; decisionDeadline: string; action: string;
 }> = {
-  cs: { requestedReturn: "Požadované datum vrácení", decisionDeadline: "Rozhodněte nejpozději", action: "Moje nabídky" },
-  sk: { requestedReturn: "Požadovaný dátum vrátenia", decisionDeadline: "Rozhodnite najneskôr", action: "Moje ponuky" },
-  en: { requestedReturn: "Requested return date", decisionDeadline: "Decision deadline", action: "My listings" },
-  de: { requestedReturn: "Gewünschtes Rückgabedatum", decisionDeadline: "Entscheidungsfrist", action: "Meine Angebote" },
-  pl: { requestedReturn: "Proponowana data zwrotu", decisionDeadline: "Termin decyzji", action: "Moje oferty" },
+  cs: { requestedReturn: "Požadované datum vrácení", decisionDeadline: "Rozhodněte nejpozději", action: "Otevřít Moje nabídky →" },
+  sk: { requestedReturn: "Požadovaný dátum vrátenia", decisionDeadline: "Rozhodnite najneskôr", action: "Otvoriť Moje ponuky →" },
+  en: { requestedReturn: "Requested return date", decisionDeadline: "Decision deadline", action: "Open My listings →" },
+  de: { requestedReturn: "Gewünschtes Rückgabedatum", decisionDeadline: "Entscheidungsfrist", action: "Meine Angebote öffnen →" },
+  pl: { requestedReturn: "Proponowana data zwrotu", decisionDeadline: "Termin decyzji", action: "Otwórz Moje oferty →" },
 };
 
 // Outcome emails are independently scoped to the exact extension and participant.
@@ -277,11 +277,11 @@ const extensionOutcomeLabels: Record<SupportedLanguage, {
   amount: string; paymentDeadline: string; newReturn: string; originalReturn: string;
   ownerAction: string; renterAction: string;
 }> = {
-  cs: { amount: "Doplatek", paymentDeadline: "Zaplaťte nejpozději", newReturn: "Nové datum vrácení", originalReturn: "Původní datum vrácení", ownerAction: "Moje nabídky", renterAction: "Moje rezervace" },
-  sk: { amount: "Doplatok", paymentDeadline: "Zaplaťte najneskôr", newReturn: "Nový dátum vrátenia", originalReturn: "Pôvodný dátum vrátenia", ownerAction: "Moje ponuky", renterAction: "Moje rezervácie" },
-  en: { amount: "Additional payment", paymentDeadline: "Pay by", newReturn: "New return date", originalReturn: "Original return date", ownerAction: "My listings", renterAction: "My reservations" },
-  de: { amount: "Nachzahlung", paymentDeadline: "Zahlen bis", newReturn: "Neues Rückgabedatum", originalReturn: "Ursprüngliches Rückgabedatum", ownerAction: "Meine Angebote", renterAction: "Meine Buchungen" },
-  pl: { amount: "Dopłata", paymentDeadline: "Zapłać do", newReturn: "Nowa data zwrotu", originalReturn: "Pierwotna data zwrotu", ownerAction: "Moje oferty", renterAction: "Moje rezerwacje" },
+  cs: { amount: "Doplatek", paymentDeadline: "Zaplaťte nejpozději", newReturn: "Nové datum vrácení", originalReturn: "Původní datum vrácení", ownerAction: "Otevřít Moje nabídky →", renterAction: "Otevřít Moje rezervace →" },
+  sk: { amount: "Doplatok", paymentDeadline: "Zaplaťte najneskôr", newReturn: "Nový dátum vrátenia", originalReturn: "Pôvodný dátum vrátenia", ownerAction: "Otvoriť Moje ponuky →", renterAction: "Otvoriť Moje rezervácie →" },
+  en: { amount: "Additional payment", paymentDeadline: "Pay by", newReturn: "New return date", originalReturn: "Original return date", ownerAction: "Open My listings →", renterAction: "Open My reservations →" },
+  de: { amount: "Nachzahlung", paymentDeadline: "Zahlen bis", newReturn: "Neues Rückgabedatum", originalReturn: "Ursprüngliches Rückgabedatum", ownerAction: "Meine Angebote öffnen →", renterAction: "Meine Buchungen öffnen →" },
+  pl: { amount: "Dopłata", paymentDeadline: "Zapłać do", newReturn: "Nowa data zwrotu", originalReturn: "Pierwotna data zwrotu", ownerAction: "Otwórz Moje oferty →", renterAction: "Otwórz Moje rezerwacje →" },
 };
 const extensionPaidOwnerIntros: Record<SupportedLanguage, readonly [string, string]> = {
   cs: ["Prodloužení pronájmu zaplaceno", "Nájemce zaplatil doplatek. Termín vrácení byl prodloužen."],
