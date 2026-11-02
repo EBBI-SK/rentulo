@@ -175,13 +175,13 @@ test('new outcome emails are essential for every user preference', async () => {
 });
 
 const languages = [
-  ['cs', 'Prodlou', 'Doplatek', 'Moje rezervace', 'Moje nab', 'P', 'prodlou'],
-  ['sk', 'Pred', 'Doplatok', 'Moje rezerv', 'Moje ponuky', 'P', 'pred'],
-  ['en', 'Extension', 'Additional payment', 'My reservations', 'My listings', 'O', 'extension'],
-  ['de', 'Verl', 'Nachzahlung', 'Meine Buchungen', 'Meine Angebote', 'U', 'Verl'],
-  ['pl', 'Przed', 'Dop', 'Moje rezerwacje', 'Moje oferty', 'P', 'przed'],
+  ['cs', 'Prodlou', 'Doplatek', 'Otevřít Moje rezervace →', 'Otevřít Moje nabídky →', 'Prodloužení pronájmu zaplaceno'],
+  ['sk', 'Pred', 'Doplatok', 'Otvoriť Moje rezervácie →', 'Otvoriť Moje ponuky →', 'Predĺženie prenájmu zaplatené'],
+  ['en', 'Extension', 'Additional payment', 'Open My reservations →', 'Open My listings →', 'Rental extension payment confirmed'],
+  ['de', 'Verl', 'Nachzahlung', 'Meine Buchungen öffnen →', 'Meine Angebote öffnen →', 'Mietverlängerung bezahlt'],
+  ['pl', 'Przed', 'Dop', 'Otwórz Moje rezerwacje →', 'Otwórz Moje oferty →', 'Przedłużenie najmu opłacone'],
 ];
-for (const [language, prefix, priceLabel, renterAction, ownerAction, , rejectPrefix] of languages) {
+for (const [language, prefix, priceLabel, renterAction, ownerAction, paidSubject] of languages) {
   test(`BOD 8.2 approved renders action and CZK top-up (${language})`, async () => {
     const output = await runEmail({ event: 'extension_approved', language, currentStatus: 'approved', recipientId: renterId });
     assert.equal(output.status, 200, JSON.stringify(output.body));
@@ -191,7 +191,7 @@ for (const [language, prefix, priceLabel, renterAction, ownerAction, , rejectPre
     assert.equal(message.to[0], 'renter@example.test');
     assert.ok(message.subject.includes(prefix));
     assert.ok(message.html.includes(priceLabel));
-    assert.ok(message.html.includes(renterAction));
+    assert.ok(message.html.includes(`>${renterAction}</a>`));
     assert.match(message.html, /href="https:\/\/rentulo\.eu\/moje-rezervace\.html"/);
     assert.match(message.html, /750[,.]00|750[,.]00|750\s/);
     assert.match(message.html, /Praha/);
@@ -201,6 +201,8 @@ for (const [language, prefix, priceLabel, renterAction, ownerAction, , rejectPre
     const output = await runEmail({ event: 'extension_rejected', language, currentStatus: 'rejected', recipientId: renterId });
     assert.equal(output.status, 200, JSON.stringify(output.body));
     const message = JSON.parse(output.sentEmails[0].body);
+    assert.ok(message.html.includes(`>${renterAction}</a>`));
+    assert.match(message.html, /href="https:\/\/rentulo\.eu\/moje-rezervace\.html"/);
     assert.match(message.html, /(?:5\.\s*11\.\s*2026|5\/11\/2026|Nov(?:ember)? 5, 2026)/);
     assert.match(message.html, /R-000101/);
     assert.equal(message.to[0], 'renter@example.test');
@@ -210,7 +212,8 @@ for (const [language, prefix, priceLabel, renterAction, ownerAction, , rejectPre
     const output = await runEmail({ event: 'extension_paid', language, currentStatus: 'paid', recipientId: renterId });
     assert.equal(output.status, 200, JSON.stringify(output.body));
     const message = JSON.parse(output.sentEmails[0].body);
-    assert.ok(message.html.includes(renterAction));
+    assert.equal(message.subject, paidSubject);
+    assert.ok(message.html.includes(`>${renterAction}</a>`));
     assert.match(message.html, /(?:10\.\s*11\.\s*2026|10\/11\/2026|Nov(?:ember)? 10, 2026)/);
     assert.ok(message.html.includes(priceLabel));
     assert.equal(message.to[0], 'renter@example.test');
@@ -219,7 +222,8 @@ for (const [language, prefix, priceLabel, renterAction, ownerAction, , rejectPre
     const output = await runEmail({ event: 'extension_paid', language, currentStatus: 'paid', recipientId: ownerId });
     assert.equal(output.status, 200, JSON.stringify(output.body));
     const message = JSON.parse(output.sentEmails[0].body);
-    assert.ok(message.html.includes(ownerAction));
+    assert.equal(message.subject, paidSubject);
+    assert.ok(message.html.includes(`>${ownerAction}</a>`));
     assert.match(message.html, /href="https:\/\/rentulo\.eu\/moje-nabidky\.html"/);
     assert.match(message.html, /(?:10\.\s*11\.\s*2026|10\/11\/2026|Nov(?:ember)? 10, 2026)/);
     assert.equal(message.to[0], 'owner@example.test');
@@ -228,6 +232,8 @@ for (const [language, prefix, priceLabel, renterAction, ownerAction, , rejectPre
     const output = await runEmail({ event: 'extension_expired', language, currentStatus: 'expired', recipientId: renterId });
     assert.equal(output.status, 200, JSON.stringify(output.body));
     const message = JSON.parse(output.sentEmails[0].body);
+    assert.ok(message.html.includes(`>${renterAction}</a>`));
+    assert.match(message.html, /href="https:\/\/rentulo\.eu\/moje-rezervace\.html"/);
     assert.match(message.html, /(?:5\.\s*11\.\s*2026|5\/11\/2026|Nov(?:ember)? 5, 2026)/);
     assert.equal(message.to[0], 'renter@example.test');
   });
