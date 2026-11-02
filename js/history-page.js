@@ -43,6 +43,40 @@ function historyFormatMoney(value) {
   return historyFormatNumber(value) + " Kč";
 }
 
+// The original reservation price is a financial snapshot. Paid extensions
+// have their own charges and must be added only for display, never written
+// back into the reservation or counted while pending/approved/rejected.
+function historyPriceBreakdown(reservation) {
+  const original = Number(reservation.total_price ?? reservation.totalPrice ?? 0);
+  const paidExtensions = Array.isArray(reservation.historyPaidExtensions)
+    ? reservation.historyPaidExtensions.filter(function (extension) {
+        return extension.status === "paid";
+      })
+    : [];
+  const extensionsTotal = paidExtensions.reduce(function (sum, extension) {
+    return sum + Number(extension.amount_total);
+  }, 0);
+  return { original, paidExtensions, total: original + extensionsTotal };
+}
+
+function historyAttachPaidExtensions(reservations, extensions) {
+  const byReservation = new Map();
+  const reservationIds = new Set(reservations.map(historyGetReservationId));
+
+  extensions.forEach(function (extension) {
+    const reservationId = String(extension.reservation_id || "");
+    if (extension.status !== "paid" || !reservationIds.has(reservationId)) return;
+    if (!byReservation.has(reservationId)) byReservation.set(reservationId, []);
+    byReservation.get(reservationId).push(extension);
+  });
+
+  return reservations.map(function (reservation) {
+    return Object.assign({}, reservation, {
+      historyPaidExtensions: byReservation.get(historyGetReservationId(reservation)) || []
+    });
+  });
+}
+
 let historySuccessNoticeTimer = null;
 
 function historyShowSuccessNotice(message) {
@@ -344,7 +378,7 @@ function historyRenderDetail(reservation, role) {
   const reservationId = historyGetReservationId(reservation);
   const startDate = reservation.date_from || reservation.start_date || reservation.startDate || "";
   const endDate = reservation.date_to || reservation.end_date || reservation.endDate || "";
-  const price = Number(reservation.total_price || reservation.totalPrice || 0);
+  const price = historyPriceBreakdown(reservation);
   const counterpart = historyGetCounterpart(reservation, role);
   const expiryReason = historyExpirationReasonText(reservation, role);
   const noShowReason = historyNoShowReasonText(reservation, role);
@@ -353,7 +387,13 @@ function historyRenderDetail(reservation, role) {
     <div class="history-detail" id="history-detail-${escapeHtml(reservationId)}-${escapeHtml(role)}">
       <div class="history-detail-grid">
         <div><span>${escapeHtml(historyT("history.detail.term", "Termín"))}</span><strong>${escapeHtml(historyFormatDate(startDate))} – ${escapeHtml(historyFormatDate(endDate))}</strong></div>
-        <div><span>${escapeHtml(historyT("history.detail.total", "Celková cena"))}</span><strong>${escapeHtml(historyFormatMoney(price))}</strong></div>
+        ${price.paidExtensions.length ? `
+          <div><span>${escapeHtml(historyT("history.price.original", "Původní cena"))}</span><strong>${escapeHtml(historyFormatMoney(price.original))}</strong></div>
+          ${price.paidExtensions.map(function (extension) {
+            return `<div><span>${escapeHtml(historyT("history.price.extensionUntil", "Zaplacené prodloužení do"))} ${escapeHtml(historyFormatDate(extension.new_end_date))}</span><strong>+ ${escapeHtml(historyFormatMoney(extension.amount_total))}</strong></div>`;
+          }).join("")}
+        ` : ""}
+        <div><span>${escapeHtml(historyT("history.detail.total", "Celková cena"))}</span><strong>${escapeHtml(historyFormatMoney(price.total))}</strong></div>
         <div><span>${escapeHtml(counterpart.label)}</span><strong>${escapeHtml(counterpart.name)}</strong></div>
         ${reservation.reservation_number ? `<div><span>${escapeHtml(historyT("reference.reservation", "Číslo rezervace"))}</span><strong>${escapeHtml(reservation.reservation_number)}</strong></div>` : ""}
         ${reservation.offer_number ? `<div><span>${escapeHtml(historyT("reference.offer", "Číslo nabídky"))}</span><strong>${escapeHtml(reservation.offer_number)}</strong></div>` : ""}
@@ -373,7 +413,7 @@ function historyRenderRow(reservation, role) {
   const name = reservation.offer_name || reservation.offerName || historyT("history.fallback.offer", "Nabídka");
   const startDate = reservation.date_from || reservation.start_date || reservation.startDate || "";
   const endDate = reservation.date_to || reservation.end_date || reservation.endDate || "";
-  const price = Number(reservation.total_price || reservation.totalPrice || 0);
+  const price = historyPriceBreakdown(reservation);
   const normalizedStatus = historyNormalizeStatus(reservation.status);
   const status = historyStatusText(reservation.status);
   const counterpart = historyGetCounterpart(reservation, role);
@@ -389,7 +429,7 @@ function historyRenderRow(reservation, role) {
           </div>
         </div>
         <div class="simple-reservation-date">${escapeHtml(historyFormatDate(startDate))} – ${escapeHtml(historyFormatDate(endDate))}</div>
-        <div class="simple-reservation-price">${escapeHtml(historyFormatMoney(price))}</div>
+        <div class="simple-reservation-price">${escapeHtml(historyFormatMoney(price.total))}</div>
         <div class="simple-reservation-status status-${escapeHtml(normalizedStatus)}">${escapeHtml(status)}</div>
         <button type="button" class="history-detail-button" data-history-toggle="${escapeHtml(reservationId)}" data-history-role="${escapeHtml(role)}">${escapeHtml(historyT("history.detail.show", "Detail rezervace"))}</button>
       </div>
@@ -582,6 +622,27 @@ async function historyLoadReservations() {
   }
 }
 
+async function historyLoadPaidExtensions() {
+  const client = typeof getSupabaseClient === "function" ? getSupabaseClient() : null;
+  if (!client) {
+    return { data: [], error: new Error("Supabase client is unavailable.") };
+  }
+
+  try {
+    // Same authenticated, participant-scoped reader as "Moje rezervace".
+    // Never query reservation_extensions directly: Stripe details are private.
+    const result = await client.rpc("get_my_reservation_extensions");
+    if (result.error || !Array.isArray(result.data)) {
+      console.warn("Prodloužení v historii se nepodařilo načíst.", result.error);
+      return { data: [], error: result.error || new Error("Reservation extensions response is invalid.") };
+    }
+    return { data: result.data, error: null };
+  } catch (error) {
+    console.warn("Prodloužení v historii se nepodařilo načíst.", error);
+    return { data: [], error };
+  }
+}
+
 async function historyLoadReviews() {
   const client = typeof getSupabaseClient === "function" ? getSupabaseClient() : null;
   if (!client || !historyCurrentUser) {
@@ -615,17 +676,20 @@ async function historyLoadData() {
 
   const results = await Promise.all([
     historyLoadReservations(),
-    historyLoadReviews()
+    historyLoadReviews(),
+    historyLoadPaidExtensions()
   ]);
   const reservationResult = results[0];
   const reviewResult = results[1];
+  const extensionResult = results[2];
 
-  if (reservationResult.error || reviewResult.error) {
+  // Do not show understated totals if the extension reader is unavailable.
+  if (reservationResult.error || reviewResult.error || extensionResult.error) {
     historyRenderLoadErrorState();
     return false;
   }
 
-  historyReservations = reservationResult.data;
+  historyReservations = historyAttachPaidExtensions(reservationResult.data, extensionResult.data);
   historyReviews = reviewResult.data;
   historyRenderAll();
   return true;
