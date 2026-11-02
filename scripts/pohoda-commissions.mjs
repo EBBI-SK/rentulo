@@ -67,7 +67,9 @@ export function escapeXml(value) {
 
 function required(row, key, label) {
   const value = String(row[key] ?? '').trim();
-  if (!value) throw new Error(`${label}: chyba ${key}.`);
+  // Supabase CSV can contain literal "null" for SQL NULL. Never accept that
+  // sentinel as a real owner, payment identifier or other required evidence.
+  if (absent(value)) throw new Error(`${label}: chyba ${key}.`);
   return value;
 }
 
@@ -132,13 +134,21 @@ function normalizedSource(row, reservation) {
   return { kind, id, documentNumber };
 }
 
-function optionalMinor(value, label) {
-  return value === null || value === undefined || String(value).trim() === ''
-    ? '' : String(integer(value, label));
+function absent(value) {
+  // Supabase's downloaded SQL CSV represents missing optional values as
+  // empty cells or the literal text "null" (sometimes with whitespace/case).
+  // Use this only for missing-value checks, never to default required amounts.
+  if (value === null || value === undefined) return true;
+  const text = String(value).trim();
+  return text === '' || text.toLowerCase() === 'null';
 }
 
-function absent(value) {
-  return value === null || value === undefined || String(value).trim() === '';
+function optionalMinor(value, label) {
+  return absent(value) ? '' : String(integer(value, label));
+}
+
+function optionalText(value) {
+  return absent(value) ? '' : String(value).trim();
 }
 
 function count(value, label) {
@@ -239,9 +249,9 @@ export function prepareCommissions(rawRows, {
     const feeMinor = optionalMinor(row.stripe_fee_minor, `${reservation} Stripe fee`);
     const chargeMinor = optionalMinor(row.stripe_charge_balance_minor, `${reservation} Stripe charge`);
     const transferMinor = optionalMinor(row.stripe_transfer_minor, `${reservation} Stripe transfer`);
-    const transferId = String(row.stripe_transfer_id ?? '').trim();
-    const settlementCurrency = String(row.settlement_currency ?? '').trim().toLowerCase();
-    const transferCurrency = String(row.transfer_currency ?? '').trim().toLowerCase();
+    const transferId = optionalText(row.stripe_transfer_id);
+    const settlementCurrency = optionalText(row.settlement_currency).toLowerCase();
+    const transferCurrency = optionalText(row.transfer_currency).toLowerCase();
     const basis = required(row, 'document_basis', reservation);
     let refundVerification = '';
     let rateNeeded = commission > 0;

@@ -361,3 +361,57 @@ test('cross-owner misattribution blocks all accounting documents', () => {
   assert.throws(() => convert([sample({ parent_payment_owner_id: '99999999-9999-4999-8999-999999999999' })]), /nesuhlasi vlastnik/);
   assert.throws(() => convert([extension({ extension_owner_id: '99999999-9999-4999-8999-999999999999' })]), /nesuhlasi vlastnik/);
 });
+
+test('Supabase CSV literal null in optional columns is blank, not fabricated financial evidence', () => {
+  const base = sample({
+    reservation_number: 'R-000045', rental_total_czk: '450', commission_czk: '70',
+    owner_payout_czk: '380', stripe_transfer_minor: '38000',
+    stripe_charge_balance_minor: '45000',
+    stripe_fee_minor: 'null', source_paid_at: 'null', extension_owner_id: 'null',
+  });
+  const extra = extension({
+    reservation_number: 'R-000045', refund_amount_minor: 'null',
+    settlement_currency: ' null ', stripe_fee_minor: 'NULL',
+    stripe_charge_balance_minor: 'null',
+  });
+  const rows = convert(parseCsv(csvInput([base, extra])));
+  assert.equal(rows.length, 2);
+  assert.equal(rows.reduce((sum, x) => sum + x.amount, 0), 600);
+  assert.equal(rows.reduce((sum, x) => sum + x.commission, 0), 70);
+  assert.equal(rows.reduce((sum, x) => sum + x.ownerPayout, 0), 530);
+  assert.equal(rows.find((x) => x.sourceType === 'original').stripeFeeStatus, 'MISSING_CHECK_STRIPE');
+  assert.equal(rows.find((x) => x.sourceType === 'original').stripeFeeMinor, '');
+  assert.equal(rows.find((x) => x.sourceType === 'extension').stripeFeeStatus, 'NOT_STORED_CHECK_STRIPE');
+  assert.equal(rows.find((x) => x.sourceType === 'extension').settlementCurrency, '');
+  assert.equal((createPohodaXml(rows, '2026-10').match(/<dat:dataPackItem /g) || []).length, 1);
+  assert.equal(parseCsv(createReconciliationCsv(rows)).length, 2);
+});
+
+test('zero-payout extension accepts null only for absent transfer evidence', () => {
+  const rows = convert(parseCsv(csvInput([zeroPayoutExtension({
+    stripe_transfer_id: 'null', stripe_transfer_minor: 'null', transfer_currency: ' NULL ',
+    refund_amount_minor: 'null', stripe_fee_minor: 'null',
+    settlement_currency: 'null', stripe_charge_balance_minor: 'null',
+  })])), { extensionReviewRef: 'STRIPE-REVIEW-2026-10' });
+  assert.equal(rows[0].transfer, '');
+  assert.equal(rows[0].stripeTransferMinor, '');
+  assert.equal(rows[0].transferCurrency, '');
+  assert.equal(rows[0].commission, 150);
+  assert.throws(() => convert([extension({ stripe_transfer_id: 'null' })]), /platny Stripe transfer/);
+  assert.throws(() => convert([extension({ stripe_transfer_minor: 'null' })]), /platny Stripe transfer/);
+});
+
+test('literal null in required owner, payment, refund and dispute evidence still blocks the entire export', () => {
+  for (const [key, value] of Object.entries({
+    owner_name: 'null', owner_id: ' NULL ', source_id: 'null',
+    payment_id: 'null', stripe_payment_intent_id: 'null',
+    stripe_charge_id: 'null', stripe_transfer_id: 'null',
+    rental_total_czk: 'null', commission_czk: 'null',
+    refund_amount_minor: 'null', parent_refund_amount_minor: 'null',
+    card_disputes_count: 'null',
+  })) {
+    assert.throws(() => convert([sample({ [key]: value })]), undefined, `${key} must fail closed`);
+  }
+  assert.throws(() => convert([extension({ source_paid_at: 'null' })]), /neoverene/);
+  assert.throws(() => convert([extension({ extension_owner_id: 'null' })]), /chyba extension_owner_id/);
+});
