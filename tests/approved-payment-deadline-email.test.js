@@ -145,25 +145,29 @@ test("Prague summer daylight saving time is applied to UTC deadline", async () =
   assert.doesNotMatch(mail.html, /do 08:00/);
 });
 
-for (const [language, help] of [
-  ["cs", "Potřebujete pomoc? Odpovězte na tento e-mail."],
-  ["sk", "Potrebujete pomoc? Odpovedzte na tento e-mail."],
-  ["en", "Need help? Reply to this email."],
-  ["de", "Benötigen Sie Hilfe? Antworten Sie auf diese E-Mail."],
-  ["pl", "Potrzebujesz pomocy? Odpowiedz na tę wiadomość."],
+for (const [language, help, contact] of [
+  ["cs", "Potřebujete pomoc?", "Kontaktujte nás."],
+  ["sk", "Potrebujete pomoc?", "Kontaktujte nás."],
+  ["en", "Need help?", "Contact us."],
+  ["de", "Brauchen Sie Hilfe?", "Kontaktieren Sie uns."],
+  ["pl", "Potrzebujesz pomocy?", "Skontaktuj się z nami."],
 ]) {
-  test(`reservation emails include a centered reply-friendly footer in ${language}`, async () => {
+  test(`reservation emails include a short, centered clickable support footer in ${language}`, async () => {
     const mail = await sendEmail({ language });
     assert.match(mail.html, /text-align:center/);
     assert.ok(mail.html.includes(`&copy; ${new Date().getUTCFullYear()} Rentulo`));
-    assert.ok(mail.html.includes(help));
+    assert.ok(mail.html.includes(`${help} <a href="mailto:rentulo@rentulo.com"`));
+    assert.ok(mail.html.includes(`>${contact}</a>`));
+    assert.match(mail.html, /href="mailto:rentulo@rentulo.com" style="[^"]*text-decoration:underline/);
+    assert.equal(mail.html.split('href="mailto:rentulo@rentulo.com"').length, 2);
     assert.equal(mail.reply_to, "rentulo@rentulo.com");
-    assert.doesNotMatch(mail.html, /prosím neodpovídejte|do not reply/i);
+    assert.doesNotMatch(mail.html, /Odpovězte na tento e-mail|Reply to this email|do not reply/i);
   });
 }
 
-test("shared footer also appears in a non-approval reservation email", async () => {
+test("clickable shared footer also appears in a non-approval reservation email", async () => {
   const mail = await sendEmail({ language: "cs", event: "paid" });
-  assert.ok(mail.html.includes("Potřebujete pomoc? Odpovězte na tento e-mail."));
+  assert.ok(mail.html.includes('Potřebujete pomoc? <a href="mailto:rentulo@rentulo.com"'));
+  assert.ok(mail.html.includes('>Kontaktujte nás.</a>'));
   assert.equal(mail.reply_to, "rentulo@rentulo.com");
 });

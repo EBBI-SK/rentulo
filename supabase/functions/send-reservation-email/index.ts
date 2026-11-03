@@ -284,14 +284,20 @@ const approvedPaymentDeadlineCopy: Record<SupportedLanguage, {
   },
 };
 
-// The recipient can reply to reservation emails: Reply-To is rentulo@rentulo.com.
-// Keep the shared footer localized and avoid telling customers not to reply.
+// Reply-To stays rentulo@rentulo.com; the footer also provides a direct mailto link.
 const reservationEmailFooterHelp: Record<SupportedLanguage, string> = {
-  cs: "Potřebujete pomoc? Odpovězte na tento e-mail.",
-  sk: "Potrebujete pomoc? Odpovedzte na tento e-mail.",
-  en: "Need help? Reply to this email.",
-  de: "Benötigen Sie Hilfe? Antworten Sie auf diese E-Mail.",
-  pl: "Potrzebujesz pomocy? Odpowiedz na tę wiadomość.",
+  cs: "Potřebujete pomoc?",
+  sk: "Potrebujete pomoc?",
+  en: "Need help?",
+  de: "Brauchen Sie Hilfe?",
+  pl: "Potrzebujesz pomocy?",
+};
+const reservationEmailFooterContact: Record<SupportedLanguage, string> = {
+  cs: "Kontaktujte nás.",
+  sk: "Kontaktujte nás.",
+  en: "Contact us.",
+  de: "Kontaktieren Sie uns.",
+  pl: "Skontaktuj się z nami.",
 };
 
 // Extension copy is explicit in all supported languages. The action labels
@@ -1246,7 +1252,7 @@ denoRuntime.serve(async (req) => {
       </div>
       <div style="padding:20px 32px;border-top:1px solid #e5e9e5;text-align:center;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#64706b;">
         <div style="font-weight:700;color:#37564b;">&copy; ${new Date().getUTCFullYear()} Rentulo</div>
-        <div>${escapeHtml(reservationEmailFooterHelp[language])}</div>
+        <div>${escapeHtml(reservationEmailFooterHelp[language])} <a href="mailto:rentulo@rentulo.com" style="color:#0b6b50;text-decoration:underline;font-weight:600">${escapeHtml(reservationEmailFooterContact[language])}</a></div>
       </div>
       </div>
       </div>`;
