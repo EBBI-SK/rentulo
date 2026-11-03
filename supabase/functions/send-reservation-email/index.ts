@@ -259,6 +259,31 @@ const referenceLabels: Record<SupportedLanguage, { offer: string; reservation: s
   pl: { offer: "Numer oferty", reservation: "Numer rezerwacji" },
 };
 
+const approvedPaymentDeadlineCopy: Record<SupportedLanguage, {
+  payBy: string; at: string; warning: string;
+}> = {
+  cs: {
+    payBy: "Zaplaťte nejpozději", at: "v",
+    warning: "Pokud platbu nedokončíte včas, rezervace vyprší.",
+  },
+  sk: {
+    payBy: "Zaplaťte najneskôr", at: "o",
+    warning: "Ak platbu nedokončíte včas, rezervácia vyprší.",
+  },
+  en: {
+    payBy: "Pay by", at: "at",
+    warning: "If you do not complete payment on time, the reservation will expire.",
+  },
+  de: {
+    payBy: "Bitte zahlen Sie spätestens am", at: "um",
+    warning: "Wenn Sie die Zahlung nicht rechtzeitig abschließen, verfällt die Reservierung.",
+  },
+  pl: {
+    payBy: "Zapłać najpóźniej", at: "o",
+    warning: "Jeśli nie dokonasz płatności na czas, rezerwacja wygaśnie.",
+  },
+};
+
 // Extension copy is explicit in all supported languages. The action labels
 // and role-scoped destination are selected separately below.
 const extensionRequestLabels: Record<SupportedLanguage, {
@@ -561,6 +586,25 @@ function escapeHtml(value: unknown): string {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+// Use the very same DB deadline shown in "Moje rezervace"; do not derive it
+// from the approval time or the pickup date. Legacy rows may not have one.
+function renderApprovedPaymentDeadlineHtml(
+  expiresAt: string | null, language: SupportedLanguage,
+): string {
+  if (!expiresAt || typeof expiresAt !== "string") return "";
+  const instant = new Date(expiresAt);
+  if (!Number.isFinite(instant.getTime())) return "";
+
+  const copy = approvedPaymentDeadlineCopy[language];
+  const date = formatTimestampDate(expiresAt, language);
+  const time = new Intl.DateTimeFormat(dateLocales[language], {
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "Europe/Prague",
+  }).format(instant);
+  return `<div style="margin:0 0 16px;padding:14px 16px;border:1px solid #d8e8e1;background:#f4faf7;border-radius:10px;color:#103f32;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5">` +
+    `<p style="margin:0 0 6px"><strong>${escapeHtml(copy.payBy)} ${escapeHtml(date)} ${escapeHtml(copy.at)} ${escapeHtml(time)} (Praha).</strong></p>` +
+    `<p style="margin:0">${escapeHtml(copy.warning)}</p></div>`;
 }
 
 function response(body: unknown, status = 200): Response {
@@ -1011,6 +1055,9 @@ denoRuntime.serve(async (req) => {
     const emailAction = reservationEmailAction(event, language, recipientIsOwner, siteUrl, reservation.id);
     const offerName = reservation.offer_name || "Rentulo";
     const dateText = `${formatReservationDate(reservation.start_date, language)} \u2013 ${formatReservationDate(reservation.end_date, language)}`;
+    const approvedDeadlineHtml = event === "approved"
+      ? renderApprovedPaymentDeadlineHtml(reservation.expires_at, language)
+      : "";
 
     let subject: string;
     let intro: string;
@@ -1181,6 +1228,7 @@ denoRuntime.serve(async (req) => {
         <h1 style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:24px;line-height:1.25;font-weight:700;color:#103f32">${escapeHtml(subject)}</h1>
         <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#103f32">${escapeHtml(intro)}</p>
         <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#103f32"><strong>${escapeHtml(offerName)}</strong><br>${escapeHtml(dateText)}</p>
+        ${approvedDeadlineHtml}
         <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#103f32">${escapeHtml(referenceLabels[language].reservation)}: <strong>${escapeHtml(reservation.reservation_number)}</strong><br>${escapeHtml(referenceLabels[language].offer)}: <strong>${escapeHtml(offerReference.offer_number)}</strong></p>
         ${extraHtml}
         <p style="margin:18px 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5"><a href="${escapeHtml(emailAction.url)}" style="display:inline-block;padding:14px 24px;background:#00835a;color:#ffffff;text-decoration:none;border-radius:10px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.25;font-weight:700">${escapeHtml(emailAction.label)}</a></p>
