@@ -168,6 +168,7 @@ function reservationsExpirationText(reason) {
       }
     };
     let stripeReturnVerification = null;
+    let emailReservationScrolled = false;
 
     function stripeReturnText(key) {
       const language = typeof window.getRentuloLanguage === "function"
@@ -1864,6 +1865,26 @@ return (
       `;
     }
 
+    function focusEmailReservation() {
+      const reservationId = new URLSearchParams(window.location.search).get("reservation") || "";
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(reservationId)) return;
+      // Details are rendered only for reservations belonging to this renter.
+      const detail = document.getElementById("reservation-detail-" + reservationId.toLowerCase());
+      const button = document.getElementById("detail-toggle-" + reservationId.toLowerCase());
+      if (!detail || !button) return;
+      detail.classList.add("open");
+      button.textContent = reservationsTranslate("reservations.hideDetail", "Skr\u00fdt detail");
+      const card = detail.closest(".simple-reservation-row");
+      if (!card) return;
+      card.classList.add("email-reservation-target");
+      if (!emailReservationScrolled) {
+        emailReservationScrolled = true;
+        window.setTimeout(function () {
+          if (card.isConnected) card.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 0);
+      }
+    }
+
     function renderReservations() {
       const reservations = supabaseReservations;
 
@@ -1885,6 +1906,7 @@ return (
           activeReservations,
           reservationsTranslate("reservations.activeEmpty", "Nemáte žádné aktivní rezervace. Dokončené, zrušené a odmítnuté záznamy najdete v Historii.")
         );
+      focusEmailReservation();
     }
 
     async function initializeReservationsPage() {
