@@ -1,0 +1,48 @@
+name: Rentulo PROD notification monitor
+
+# GitHub-scheduled workflows may be delayed; minute 02 avoids a top-of-hour spike.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '2-59/5 * * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rentulo-prod-notification-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    name: PROD notification health alerts (explicit opt-in)
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    # Fail closed after merge. A repository administrator must explicitly set
+    # RENTULO_PROD_MONITOR_ENABLED=true AFTER the PROD function and secrets work.
+    if: github.ref == 'refs/heads/main' && vars.RENTULO_PROD_MONITOR_ENABLED == 'true'
+    steps:
+      - name: Verify independent PROD monitor secret
+        shell: bash
+        env:
+          MONITOR_SECRET: ${{ secrets.RENTULO_PROD_MONITOR_SECRET }}
+        run: |
+          set -euo pipefail
+          if [[ ${#MONITOR_SECRET} -lt 64 ]]; then
+            echo '::error::Missing/short RENTULO_PROD_MONITOR_SECRET. PROD monitor not invoked.'
+            exit 1
+          fi
+
+      - name: Check PROD notification health and deliver deduplicated support alerts
+        shell: bash
+        env:
+          MONITOR_SECRET: ${{ secrets.RENTULO_PROD_MONITOR_SECRET }}
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error \
+            --max-time 55 \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --header "x-rentulo-monitor-secret: ${MONITOR_SECRET}" \
+            --data '{}' \
+            'https://tfvgxrdjrpicgtvovehl.supabase.co/functions/v1/monitor-reservation-notifications-prod'
