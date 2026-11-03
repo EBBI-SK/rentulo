@@ -259,30 +259,88 @@ const referenceLabels: Record<SupportedLanguage, { offer: string; reservation: s
   pl: { offer: "Numer oferty", reservation: "Numer rezerwacji" },
 };
 
-// Extension copy is explicit in all supported languages; the button always
-// links to the owner-scoped My listings page, never a public reservation URL.
+// Extension copy is explicit in all supported languages. The action labels
+// and role-scoped destination are selected separately below.
 const extensionRequestLabels: Record<SupportedLanguage, {
-  requestedReturn: string; decisionDeadline: string; action: string;
+  requestedReturn: string; decisionDeadline: string;
 }> = {
-  cs: { requestedReturn: "Požadované datum vrácení", decisionDeadline: "Rozhodněte nejpozději", action: "Otevřít Moje nabídky →" },
-  sk: { requestedReturn: "Požadovaný dátum vrátenia", decisionDeadline: "Rozhodnite najneskôr", action: "Otvoriť Moje ponuky →" },
-  en: { requestedReturn: "Requested return date", decisionDeadline: "Decision deadline", action: "Open My listings →" },
-  de: { requestedReturn: "Gewünschtes Rückgabedatum", decisionDeadline: "Entscheidungsfrist", action: "Meine Angebote öffnen →" },
-  pl: { requestedReturn: "Proponowana data zwrotu", decisionDeadline: "Termin decyzji", action: "Otwórz Moje oferty →" },
+  cs: { requestedReturn: "Požadované datum vrácení", decisionDeadline: "Rozhodněte nejpozději" },
+  sk: { requestedReturn: "Požadovaný dátum vrátenia", decisionDeadline: "Rozhodnite najneskôr" },
+  en: { requestedReturn: "Requested return date", decisionDeadline: "Decision deadline" },
+  de: { requestedReturn: "Gewünschtes Rückgabedatum", decisionDeadline: "Entscheidungsfrist" },
+  pl: { requestedReturn: "Proponowana data zwrotu", decisionDeadline: "Termin decyzji" },
 };
 
 // Outcome emails are independently scoped to the exact extension and participant.
 // Approval is an actionable payment request, unlike the final paid receipt.
 const extensionOutcomeLabels: Record<SupportedLanguage, {
   amount: string; paymentDeadline: string; newReturn: string; originalReturn: string;
-  ownerAction: string; renterAction: string;
 }> = {
-  cs: { amount: "Doplatek", paymentDeadline: "Zaplaťte nejpozději", newReturn: "Nové datum vrácení", originalReturn: "Původní datum vrácení", ownerAction: "Otevřít Moje nabídky →", renterAction: "Otevřít Moje rezervace →" },
-  sk: { amount: "Doplatok", paymentDeadline: "Zaplaťte najneskôr", newReturn: "Nový dátum vrátenia", originalReturn: "Pôvodný dátum vrátenia", ownerAction: "Otvoriť Moje ponuky →", renterAction: "Otvoriť Moje rezervácie →" },
-  en: { amount: "Additional payment", paymentDeadline: "Pay by", newReturn: "New return date", originalReturn: "Original return date", ownerAction: "Open My listings →", renterAction: "Open My reservations →" },
-  de: { amount: "Nachzahlung", paymentDeadline: "Zahlen bis", newReturn: "Neues Rückgabedatum", originalReturn: "Ursprüngliches Rückgabedatum", ownerAction: "Meine Angebote öffnen →", renterAction: "Meine Buchungen öffnen →" },
-  pl: { amount: "Dopłata", paymentDeadline: "Zapłać do", newReturn: "Nowa data zwrotu", originalReturn: "Pierwotna data zwrotu", ownerAction: "Otwórz Moje oferty →", renterAction: "Otwórz Moje rezerwacje →" },
+  cs: { amount: "Doplatek", paymentDeadline: "Zaplaťte nejpozději", newReturn: "Nové datum vrácení", originalReturn: "Původní datum vrácení" },
+  sk: { amount: "Doplatok", paymentDeadline: "Zaplaťte najneskôr", newReturn: "Nový dátum vrátenia", originalReturn: "Pôvodný dátum vrátenia" },
+  en: { amount: "Additional payment", paymentDeadline: "Pay by", newReturn: "New return date", originalReturn: "Original return date" },
+  de: { amount: "Nachzahlung", paymentDeadline: "Zahlen bis", newReturn: "Neues Rückgabedatum", originalReturn: "Ursprüngliches Rückgabedatum" },
+  pl: { amount: "Dopłata", paymentDeadline: "Zapłać do", newReturn: "Nowa data zwrotu", originalReturn: "Pierwotna data zwrotu" },
 };
+
+type EmailActionKind =
+  | "request" | "pay" | "reservation" | "history"
+  | "extensionRequest" | "extensionPayment";
+
+const emailActionLabels: Record<SupportedLanguage, Record<EmailActionKind, string>> = {
+  cs: {
+    request: "Zobrazit \u017e\u00e1dost", pay: "Zaplatit rezervaci",
+    reservation: "Zobrazit rezervaci", history: "Zobrazit v historii",
+    extensionRequest: "Zobrazit \u017e\u00e1dost o prodlou\u017een\u00ed", extensionPayment: "Zaplatit doplatek",
+  },
+  sk: {
+    request: "Zobrazi\u0165 \u017eiados\u0165", pay: "Zaplati\u0165 rezerv\u00e1ciu",
+    reservation: "Zobrazi\u0165 rezerv\u00e1ciu", history: "Zobrazi\u0165 v hist\u00f3rii",
+    extensionRequest: "Zobrazi\u0165 \u017eiados\u0165 o pred\u013a\u017eenie", extensionPayment: "Zaplati\u0165 doplatok",
+  },
+  en: {
+    request: "View request", pay: "Pay for reservation",
+    reservation: "View reservation", history: "View in history",
+    extensionRequest: "View extension request", extensionPayment: "Pay additional amount",
+  },
+  de: {
+    request: "Anfrage anzeigen", pay: "Reservierung bezahlen",
+    reservation: "Reservierung anzeigen", history: "Im Verlauf anzeigen",
+    extensionRequest: "Verl\u00e4ngerungsanfrage anzeigen", extensionPayment: "Nachzahlung leisten",
+  },
+  pl: {
+    request: "Zobacz pro\u015bb\u0119", pay: "Op\u0142a\u0107 rezerwacj\u0119",
+    reservation: "Zobacz rezerwacj\u0119", history: "Zobacz w historii",
+    extensionRequest: "Zobacz pro\u015bb\u0119 o przed\u0142u\u017cenie", extensionPayment: "Op\u0142a\u0107 dop\u0142at\u0119",
+  },
+};
+
+const emailHistoryEvents = new Set<EmailEvent>([
+  "rejected", "cancelled", "paid_cancelled", "returned",
+  "expired_pending", "expired_approved", "no_show",
+]);
+
+function reservationEmailAction(
+  event: EmailEvent, language: SupportedLanguage, recipientIsOwner: boolean,
+  siteUrl: string, reservationId: string,
+): { label: string; url: string } {
+  const historical = emailHistoryEvents.has(event);
+  const kind: EmailActionKind = historical ? "history"
+    : event === "new_request" || event === "expiry_reminder_pending" ? "request"
+    : event === "approved" || event === "expiry_reminder_approved" ? "pay"
+    : event === "extension_requested" ? "extensionRequest"
+    : event === "extension_approved" ? "extensionPayment"
+    : "reservation";
+  // The UUID is an identifier, never a bearer token. The destination always
+  // loads participant-scoped data after authentication; no PIN or payment URL
+  // is exposed in the email.
+  const page = historical ? "historie.html"
+    : recipientIsOwner ? "moje-nabidky.html" : "moje-rezervace.html";
+  return {
+    label: emailActionLabels[language][kind],
+    url: `${siteUrl}/${page}?reservation=${encodeURIComponent(reservationId)}`,
+  };
+}
 const extensionPaidOwnerIntros: Record<SupportedLanguage, readonly [string, string]> = {
   cs: ["Prodloužení pronájmu zaplaceno", "Nájemce zaplatil doplatek. Termín vrácení byl prodloužen."],
   sk: ["Predĺženie prenájmu zaplatené", "Nájomca zaplatil doplatok. Termín vrátenia bol predĺžený."],
@@ -950,8 +1008,7 @@ denoRuntime.serve(async (req) => {
 
     const language = normalizeLanguage(profile.preferred_language);
     const recipientIsOwner = profile.id === reservation.owner_id;
-    const isExpirationNotice = event === "expired_pending" || event === "expired_approved" || event === "no_show";
-    const detailUrl = `${siteUrl}/${isExpirationNotice ? "historie.html" : recipientIsOwner ? "moje-nabidky.html" : "moje-rezervace.html"}`;
+    const emailAction = reservationEmailAction(event, language, recipientIsOwner, siteUrl, reservation.id);
     const offerName = reservation.offer_name || "Rentulo";
     const dateText = `${formatReservationDate(reservation.start_date, language)} \u2013 ${formatReservationDate(reservation.end_date, language)}`;
 
@@ -1113,11 +1170,6 @@ denoRuntime.serve(async (req) => {
       return response({ error: "Email delivery log failed" }, 500);
     }
 
-    const actionText = event === "extension_requested"
-      ? extensionRequestLabels[language].action
-      : isExtensionEvent
-      ? extensionOutcomeLabels[language][recipientIsOwner ? "ownerAction" : "renterAction"]
-      : "Rentulo";
     const html = `
       <div style="margin:0;padding:32px 16px;background:#f5f8f6;font-family:Arial,Helvetica,sans-serif;color:#102019;">
         <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e5e9e5;border-radius:18px;overflow:hidden;">
@@ -1131,7 +1183,7 @@ denoRuntime.serve(async (req) => {
         <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#103f32"><strong>${escapeHtml(offerName)}</strong><br>${escapeHtml(dateText)}</p>
         <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#103f32">${escapeHtml(referenceLabels[language].reservation)}: <strong>${escapeHtml(reservation.reservation_number)}</strong><br>${escapeHtml(referenceLabels[language].offer)}: <strong>${escapeHtml(offerReference.offer_number)}</strong></p>
         ${extraHtml}
-        <p style="margin:18px 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5"><a href="${escapeHtml(detailUrl)}" style="display:inline-block;padding:14px 24px;background:#00835a;color:#ffffff;text-decoration:none;border-radius:10px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.25;font-weight:700">${escapeHtml(actionText)}</a></p>
+        <p style="margin:18px 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5"><a href="${escapeHtml(emailAction.url)}" style="display:inline-block;padding:14px 24px;background:#00835a;color:#ffffff;text-decoration:none;border-radius:10px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.25;font-weight:700">${escapeHtml(emailAction.label)}</a></p>
               </div>
       </div>
       <div style="padding:20px 32px;border-top:1px solid #e5e9e5;font-size:12px;line-height:1.5;color:#64706b;">Rentulo</div>

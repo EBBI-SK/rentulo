@@ -155,6 +155,7 @@
   let searchQuery = "";
   let scheduled = false;
   let applying = false;
+  let emailReservationScrolled = false;
 
   function language() {
     const value = String(document.documentElement.lang || "cs")
@@ -466,6 +467,28 @@
 
   function focusActionReservation(section) {
     const params = new URLSearchParams(window.location.search);
+
+    const linkedId = params.get("reservation");
+    if (linkedId !== null) {
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(linkedId)) return;
+      // Only cards already loaded for this signed-in owner can be selected.
+      const card = Array.from(section.querySelectorAll(".owner-reservation-card"))
+        .find(function (item) { return item.id.toLowerCase() === "request-card-" + linkedId.toLowerCase(); });
+      if (!card) return;
+      if (searchQuery) {
+        searchQuery = "";
+        applyReservationFilters(section.parentElement);
+      }
+      if (card.hidden) return;
+      card.classList.add("email-reservation-target");
+      if (!emailReservationScrolled) {
+        emailReservationScrolled = true;
+        window.setTimeout(function () {
+          if (card.isConnected) card.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 0);
+      }
+      return;
+    }
 
     if (params.get("open") !== "actions") {
       return;

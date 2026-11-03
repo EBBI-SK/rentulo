@@ -2,6 +2,7 @@ let historyCurrentUser = null;
 let historyReservations = [];
 let historyReviews = [];
 let historyLoadState = "idle";
+let historyEmailReservationScrolled = false;
 
 const HISTORY_LOCALES = {
   cs: "cs-CZ",
@@ -716,6 +717,40 @@ function historyRerenderForLanguageChange() {
   const uiState = historyCaptureUiState();
   historyRenderAll();
   historyRestoreUiState(uiState);
+  historyFocusEmailReservation();
+}
+
+function historyFocusEmailReservation() {
+  if (typeof URLSearchParams === "undefined" ||
+      typeof window === "undefined" || !window.location || !window.location.search) return;
+  const requested = new URLSearchParams(window.location.search).get("reservation") || "";
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requested)) return;
+  const id = requested.toLowerCase();
+  // Only the signed-in participant's rendered history can be focused.
+  const renterDetail = document.getElementById("history-detail-" + id + "-renter");
+  const ownerDetail = document.getElementById("history-detail-" + id + "-owner");
+  const detail = renterDetail || ownerDetail;
+  if (!detail) return;
+  const role = renterDetail ? "renter" : "owner";
+  const view = role === "owner" ? "offers" : "rentals";
+  document.querySelectorAll(".history-switch-button").forEach(function (button) {
+    button.classList.toggle("active", button.dataset.historyView === view);
+  });
+  document.getElementById("rentalHistorySection").hidden = view !== "rentals";
+  document.getElementById("offerHistorySection").hidden = view !== "offers";
+  detail.classList.add("open");
+  const toggle = Array.from(document.querySelectorAll("[data-history-toggle]"))
+    .find(function (item) { return item.dataset.historyToggle === id && item.dataset.historyRole === role; });
+  if (toggle) toggle.textContent = historyT("history.detail.hide", "Skr\u00fdt detail");
+  const card = detail.closest(".history-record");
+  if (!card) return;
+  card.classList.add("email-reservation-target");
+  if (!historyEmailReservationScrolled) {
+    historyEmailReservationScrolled = true;
+    window.setTimeout(function () {
+      if (card.isConnected) card.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 0);
+  }
 }
 
 function historyRenderAll() {
@@ -881,6 +916,7 @@ async function historyLoadData() {
   }
   historyReviews = reviewResult.data;
   historyRenderAll();
+  historyFocusEmailReservation();
   return true;
 }
 

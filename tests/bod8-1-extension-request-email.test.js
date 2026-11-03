@@ -175,11 +175,11 @@ test('extension requests are essential emails, never SMS', async () => {
 });
 
 for (const [language, subject, dateLabel, action] of [
-  ['cs', 'Nová žádost o prodloužení', 'Požadované datum vrácení', 'Otevřít Moje nabídky →'],
-  ['sk', 'Nová žiadosť o predĺženie', 'Požadovaný dátum vrátenia', 'Otvoriť Moje ponuky →'],
-  ['en', 'New rental extension request', 'Requested return date', 'Open My listings →'],
-  ['de', 'Neue Anfrage zur Mietverlängerung', 'Gewünschtes Rückgabedatum', 'Meine Angebote öffnen →'],
-  ['pl', 'Nowa prośba o przedłużenie', 'Proponowana data zwrotu', 'Otwórz Moje oferty →'],
+  ['cs', 'Nová žádost o prodloužení', 'Požadované datum vrácení', 'Zobrazit žádost o prodloužení'],
+  ['sk', 'Nová žiadosť o predĺženie', 'Požadovaný dátum vrátenia', 'Zobraziť žiadosť o predĺženie'],
+  ['en', 'New rental extension request', 'Requested return date', 'View extension request'],
+  ['de', 'Neue Anfrage zur Mietverlängerung', 'Gewünschtes Rückgabedatum', 'Verlängerungsanfrage anzeigen'],
+  ['pl', 'Nowa prośba o przedłużenie', 'Proponowana data zwrotu', 'Zobacz prośbę o przedłużenie'],
 ]) {
   test(`claimed extension email renders in ${language} with owner action and new return date`, async () => {
     const out = await runEmail({ language });
@@ -195,7 +195,7 @@ for (const [language, subject, dateLabel, action] of [
     assert.ok(email.html.includes(dateLabel));
     assert.match(email.html, /(?:10\.\s*11\.\s*2026|Nov(?:ember)? 10, 2026|10\/11\/2026)/); // Requested date, not the original fifth.
     assert.ok(email.html.includes(`>${action}</a>`));
-    assert.match(email.html, /href="https:\/\/rentulo\.eu\/moje-nabidky\.html"/);
+    assert.ok(email.html.includes('href="https://rentulo.eu/moje-nabidky.html?reservation=' + reservationId + '"'));
     assert.match(email.html, /R-000101/);
     assert.match(email.html, /N-000101/);
     assert.equal(out.entries[0].extension_id, firstExtensionId);

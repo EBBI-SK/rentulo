@@ -237,3 +237,12 @@ html[data-focus-input="pointer"] .reservation-primary-action:focus {
   font-weight: 500;
 }
 .status-expired { background: #f0f1ef; color: #53665e; }
+
+/* A reservation linked from a transactional email is highlighted only after
+   participant-scoped data has been loaded on the destination page. */
+.owner-reservation-card.email-reservation-target,
+.simple-reservation-row.email-reservation-target,
+.history-record.email-reservation-target {
+  outline: 3px solid #00835a;
+  outline-offset: 3px;
+}

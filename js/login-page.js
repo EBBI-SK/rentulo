@@ -62,13 +62,17 @@ function loginNormalizeEmail(email) {
         return "detail.html?" + safeParams.toString();
       }
 
+      // Preserve only the participant-scoped email reservation deep link.
+      // Never forward arbitrary query parameters through authentication.
+      if (["historie.html", "moje-nabidky.html", "moje-rezervace.html"].includes(returnPath)) {
+        const reservationId = returnUrl.searchParams.get("reservation") || "";
+        const safeId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(reservationId);
+        return safeId
+          ? returnPath + "?reservation=" + encodeURIComponent(reservationId)
+          : returnPath;
+      }
+
       switch (returnPath) {
-        case "historie.html":
-          return "historie.html";
-        case "moje-nabidky.html":
-          return "moje-nabidky.html";
-        case "moje-rezervace.html":
-          return "moje-rezervace.html";
         case "nabidnout.html":
           return "nabidnout.html";
         case "nastaveni.html":
