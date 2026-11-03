@@ -23,8 +23,8 @@ for (const filename of sources) {
     assert.match(html, /<div style="padding:28px 32px;background:#e9f4ee;/);
     assert.match(html, /<div style="font-size:30px;font-weight:700;color:#0e5037;">Rentulo<\/div>/);
     assert.match(html, /<div style="padding:20px 32px;border-top:1px solid #e5e9e5;/);
-    // Every rendered action, including the five languages and the fallback, is white on #00835a.
-    const buttons = [...html.matchAll(/<a href="[^"]+" style="[^"]+">/g)];
+    // Action buttons use brand green; a footer mailto text link is not an action button.
+    const buttons = [...html.matchAll(/<a href="(?!mailto:)[^"]+" style="[^"]+">/g)];
     assert.ok(buttons.length > 0, `${filename}: no action buttons`);
     for (const [button] of buttons) {
       assert.match(button, /background:#00835a;color:#ffffff;/, `${filename}: inconsistent action button`);
