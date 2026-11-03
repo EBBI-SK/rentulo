@@ -263,7 +263,7 @@ const approvedPaymentDeadlineCopy: Record<SupportedLanguage, {
   payBy: string; at: string; warning: string;
 }> = {
   cs: {
-    payBy: "Zaplaťte nejpozději", at: "v",
+    payBy: "Zaplaťte nejpozději", at: "do",
     warning: "Pokud platbu nedokončíte včas, rezervace vyprší.",
   },
   sk: {
@@ -282,6 +282,16 @@ const approvedPaymentDeadlineCopy: Record<SupportedLanguage, {
     payBy: "Zapłać najpóźniej", at: "o",
     warning: "Jeśli nie dokonasz płatności na czas, rezerwacja wygaśnie.",
   },
+};
+
+// The recipient can reply to reservation emails: Reply-To is rentulo@rentulo.com.
+// Keep the shared footer localized and avoid telling customers not to reply.
+const reservationEmailFooterHelp: Record<SupportedLanguage, string> = {
+  cs: "Potřebujete pomoc? Odpovězte na tento e-mail.",
+  sk: "Potrebujete pomoc? Odpovedzte na tento e-mail.",
+  en: "Need help? Reply to this email.",
+  de: "Benötigen Sie Hilfe? Antworten Sie auf diese E-Mail.",
+  pl: "Potrzebujesz pomocy? Odpowiedz na tę wiadomość.",
 };
 
 // Extension copy is explicit in all supported languages. The action labels
@@ -603,7 +613,7 @@ function renderApprovedPaymentDeadlineHtml(
     hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "Europe/Prague",
   }).format(instant);
   return `<div style="margin:0 0 16px;padding:14px 16px;border:1px solid #d8e8e1;background:#f4faf7;border-radius:10px;color:#103f32;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5">` +
-    `<p style="margin:0 0 6px"><strong>${escapeHtml(copy.payBy)} ${escapeHtml(date)} ${escapeHtml(copy.at)} ${escapeHtml(time)} (Praha).</strong></p>` +
+    `<p style="margin:0 0 6px"><strong>${escapeHtml(copy.payBy)} ${escapeHtml(date)} ${escapeHtml(copy.at)} ${escapeHtml(time)}.</strong></p>` +
     `<p style="margin:0">${escapeHtml(copy.warning)}</p></div>`;
 }
 
@@ -1234,7 +1244,10 @@ denoRuntime.serve(async (req) => {
         <p style="margin:18px 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5"><a href="${escapeHtml(emailAction.url)}" style="display:inline-block;padding:14px 24px;background:#00835a;color:#ffffff;text-decoration:none;border-radius:10px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.25;font-weight:700">${escapeHtml(emailAction.label)}</a></p>
               </div>
       </div>
-      <div style="padding:20px 32px;border-top:1px solid #e5e9e5;font-size:12px;line-height:1.5;color:#64706b;">Rentulo</div>
+      <div style="padding:20px 32px;border-top:1px solid #e5e9e5;text-align:center;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#64706b;">
+        <div style="font-weight:700;color:#37564b;">&copy; ${new Date().getUTCFullYear()} Rentulo</div>
+        <div>${escapeHtml(reservationEmailFooterHelp[language])}</div>
+      </div>
       </div>
       </div>`;
 

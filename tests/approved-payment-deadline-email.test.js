@@ -103,7 +103,7 @@ async function sendEmail({ language = "cs", event = "approved", expiresAt = "202
 }
 
 for (const [language, label, warning, expectedDate, expectedAt] of [
-  ["cs", "Zaplaťte nejpozději", "Pokud platbu nedokončíte včas, rezervace vyprší.", "16. 11. 2026", "v"],
+  ["cs", "Zaplaťte nejpozději", "Pokud platbu nedokončíte včas, rezervace vyprší.", "16. 11. 2026", "do"],
   ["sk", "Zaplaťte najneskôr", "Ak platbu nedokončíte včas, rezervácia vyprší.", "16. 11. 2026", "o"],
   ["en", "Pay by", "If you do not complete payment on time, the reservation will expire.", "16/11/2026", "at"],
   ["de", "Bitte zahlen Sie spätestens am", "Wenn Sie die Zahlung nicht rechtzeitig abschließen, verfällt die Reservierung.", "16.11.2026", "um"],
@@ -113,7 +113,7 @@ for (const [language, label, warning, expectedDate, expectedAt] of [
     const mail = await sendEmail({ language });
     assert.ok(mail.html.includes(label));
     assert.ok(mail.html.includes(warning));
-    assert.ok(mail.html.includes(`${label} ${expectedDate} ${expectedAt} 10:00 (Praha).`));
+    assert.ok(mail.html.includes(`${label} ${expectedDate} ${expectedAt} 10:00.`));
     assert.equal(mail.html.split(label).length, 2, "deadline appears once");
     assert.ok(mail.html.indexOf(label) > mail.html.indexOf("Vrtačka"));
     assert.ok(mail.html.indexOf(label) < mail.html.indexOf("R-000050"));
@@ -141,6 +141,29 @@ test("only the approved event receives the new deadline callout", async () => {
 
 test("Prague summer daylight saving time is applied to UTC deadline", async () => {
   const mail = await sendEmail({ expiresAt: "2026-07-01T08:00:00Z" });
-  assert.ok(mail.html.includes("1. 7. 2026 v 10:00 (Praha)"));
-  assert.doesNotMatch(mail.html, /v 08:00 \(Praha\)/);
+  assert.ok(mail.html.includes("1. 7. 2026 do 10:00."));
+  assert.doesNotMatch(mail.html, /do 08:00/);
+});
+
+for (const [language, help] of [
+  ["cs", "Potřebujete pomoc? Odpovězte na tento e-mail."],
+  ["sk", "Potrebujete pomoc? Odpovedzte na tento e-mail."],
+  ["en", "Need help? Reply to this email."],
+  ["de", "Benötigen Sie Hilfe? Antworten Sie auf diese E-Mail."],
+  ["pl", "Potrzebujesz pomocy? Odpowiedz na tę wiadomość."],
+]) {
+  test(`reservation emails include a centered reply-friendly footer in ${language}`, async () => {
+    const mail = await sendEmail({ language });
+    assert.match(mail.html, /text-align:center/);
+    assert.ok(mail.html.includes(`&copy; ${new Date().getUTCFullYear()} Rentulo`));
+    assert.ok(mail.html.includes(help));
+    assert.equal(mail.reply_to, "rentulo@rentulo.com");
+    assert.doesNotMatch(mail.html, /prosím neodpovídejte|do not reply/i);
+  });
+}
+
+test("shared footer also appears in a non-approval reservation email", async () => {
+  const mail = await sendEmail({ language: "cs", event: "paid" });
+  assert.ok(mail.html.includes("Potřebujete pomoc? Odpovězte na tento e-mail."));
+  assert.equal(mail.reply_to, "rentulo@rentulo.com");
 });
