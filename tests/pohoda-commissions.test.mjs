@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import {
-  parseCsv, parseRates, prepareCommissions, createPohodaXml,
+  parseCsv, parseRates, parseEcbHistoryXml, loadEcbHistory,
+  prepareCommissions, createPohodaXml,
   createReconciliationCsv, escapeXml,
   POHODA_ACCOUNTING_SHORTCUT, POHODA_ACCOUNT_DEBIT, POHODA_ACCOUNT_CREDIT,
 } from '../scripts/pohoda-commissions.mjs';
@@ -16,7 +17,8 @@ function sample(overrides = {}) {
   const payment = overrides.payment_id ?? `22222222-2222-4222-8222-${String(n).padStart(12, '0')}`;
   return {
     source_type: 'original', source_id: payment,
-    reservation_number: reservation, document_date: '2026-10-18', document_basis: 'owner_transfer',
+    reservation_number: reservation, document_date: '2026-10-18', document_basis: 'confirmed_return',
+    return_confirmed_at: '2026-10-18T10:00:00Z',
     reservation_status: 'returned', payment_status: 'paid', provider: 'stripe',
     stripe_payment_intent_status: 'succeeded', transfer_status: 'succeeded',
     refund_status: 'not_requested', refund_amount_minor: '0',
@@ -38,7 +40,7 @@ function extension(overrides = {}) {
   return sample({
     source_type: 'extension', source_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01',
     extension_owner_id: '11111111-1111-4111-8111-111111111111',
-    document_date: '2026-10-18', document_basis: 'owner_transfer',
+    document_date: '2026-10-18', document_basis: 'confirmed_return',
     stripe_payment_intent_status: 'verified_by_webhook',
     stripe_payment_intent_id: 'pi_extension_1', stripe_charge_id: 'ch_extension_1',
     stripe_transfer_id: 'tr_extension_1', stripe_transfer_minor: '15000',
@@ -53,12 +55,15 @@ function zeroPayoutExtension(overrides = {}) {
   return extension({
     rental_total_czk: '150', owner_payout_czk: '0', commission_czk: '150',
     stripe_transfer_id: '', stripe_transfer_minor: '', transfer_currency: '',
-    transfer_status: 'not_created', document_basis: 'parent_transfer_zero_payout',
+    transfer_status: 'not_created', document_basis: 'confirmed_return',
     ...overrides,
   });
 }
+const DEFAULT_RATES = new Map([
+  ['2026-10-16', '24.5'], ['2026-10-19', '24.6'], ['2026-10-30', '24.353'],
+]);
 const convert = (rows, opts = {}) => prepareCommissions(rows, {
-  month: '2026-10', fixedRate: 24.5, ...opts,
+  month: '2026-10', rates: DEFAULT_RATES, ...opts,
 });
 
 function csvInput(rows) {
@@ -72,8 +77,10 @@ function runCli(rows, extra = []) {
   const input = join(root, 'data.csv');
   const output = join(root, 'outputs');
   writeFileSync(input, csvInput(rows));
+  const rates = join(root, 'ecb-rates.csv');
+  writeFileSync(rates, 'date,czk_per_eur\n2026-10-16,24.50\n2026-10-19,24.60\n');
   const args = [resolve('scripts/export-pohoda-commissions.mjs'),
-    '--month', '2026-10', '--input', input, '--rate', '24.50', '--out', output,
+    '--month', '2026-10', '--input', input, '--rates', rates, '--out', output,
     ...extra];
   return { root, output, args, run: () => spawnSync(process.execPath, args, { encoding: 'utf8' }) };
 }
@@ -97,20 +104,43 @@ test('CSV parsing handles BOM, quoted fields, delimiters and duplicate headers',
   assert.throws(() => parseCsv('a,a\nx,x'), /duplicitne hlavicky/);
 });
 
-test('approved FX is required per invoice date, but not for a zero-commission extension', () => {
-  const rates = parseRates('date,czk_per_eur\n2026-10-18,24.50\n2026-10-19,24.60\n');
+test('ECB rates use latest publication strictly BEFORE delivery date, never same-day', () => {
+  const rates = parseRates('date,czk_per_eur\n2026-10-16,24.50\n2026-10-19,24.60\n2026-10-20,24.70\n');
   const entries = convert([
-    sample(), sample({ reservation_number: 'R-000036', document_date: '2026-10-19' }),
-  ], { fixedRate: undefined, rates });
-  assert.equal(entries[0].fxRate, '24.5');
-  assert.equal(entries[1].fxRate, '24.6');
-  assert.throws(() => convert([sample({ document_date: '2026-10-20' })], {
-    fixedRate: undefined, rates,
-  }), /chyba schvaleny kurz/);
-  assert.throws(() => convert([sample()], { fixedRate: undefined }), /chyba schvaleny kurz/);
-  assert.throws(() => convert([sample()], { fixedRate: '0.04' }), /nerealisticky/);
-  assert.equal(convert([extension()], { fixedRate: undefined })[0].fxRate, '');
-  assert.throws(() => parseRates('date,czk_per_eur\n2026-10-18,24.1\n2026-10-18,24.2'), /Duplicitny/);
+    sample(), // Sunday 18 Oct -> Friday 16 Oct
+    sample({ reservation_number: 'R-000036', document_date: '2026-10-19',
+      return_confirmed_at: '2026-10-19T10:00:00Z', parent_transfer_at: '2026-10-19T12:00:00Z',
+      stripe_payment_intent_id: 'pi_36', stripe_charge_id: 'ch_36', stripe_transfer_id: 'tr_36' }),
+    sample({ reservation_number: 'R-000037', document_date: '2026-10-20',
+      return_confirmed_at: '2026-10-20T10:00:00Z', parent_transfer_at: '2026-10-20T12:00:00Z',
+      stripe_payment_intent_id: 'pi_37', stripe_charge_id: 'ch_37', stripe_transfer_id: 'tr_37' }),
+  ], { rates });
+  assert.deepEqual(entries.map((e) => e.fxPublicationDate),
+    ['2026-10-16', '2026-10-16', '2026-10-19']);
+  assert.deepEqual(entries.map((e) => e.fxRate), ['24.5', '24.5', '24.6']);
+  assert.equal(entries[0].commissionEur, '2.04');
+  assert.throws(() => convert([sample()], { rates: new Map([['2026-10-18', '24.5']]) }),
+    /chyba kurz ECB pred/);
+  assert.throws(() => convert([sample()], { rates: new Map([['2026-10-01', '24.5']]) }),
+    /prilis stary/);
+  assert.equal(convert([extension()], { rates: new Map() })[0].fxRate, '');
+  assert.throws(() => parseRates('date,czk_per_eur\n2026-10-16,24.1\n2026-10-16,24.2'), /Duplicitny/);
+  assert.throws(() => parseRates('date,czk_per_eur\n2026-10-16,0.04'), /nerealisticky/);
+});
+
+test('ECB historical XML loads CZK publications and ignores non-CZK and unpublished days', async () => {
+  const xml = `<gesmes:Envelope><Cube>
+    <Cube time='2026-10-19'><Cube currency='USD' rate='1.1'/><Cube currency='CZK' rate='24.343'/></Cube>
+    <Cube time='2026-10-16'><Cube currency='CZK' rate='24.323'/></Cube>
+  </Cube></gesmes:Envelope>`;
+  const rates = parseEcbHistoryXml(xml);
+  assert.equal(rates.get('2026-10-16'), '24.323');
+  assert.equal(rates.get('2026-10-19'), '24.343');
+  assert.equal((await loadEcbHistory(async (url) => {
+    assert.match(url, /^https:\/\/www\.ecb\.europa\.eu\//);
+    return { ok: true, arrayBuffer: async () => new TextEncoder().encode(xml).buffer };
+  })).get('2026-10-19'), '24.343');
+  assert.throws(() => parseEcbHistoryXml('<Cube time="2026-10-19"><Cube currency="USD" rate="1.1"/></Cube>'), /neobsahuje/);
 });
 
 test('original commission remains one receivable, CZK foreign currency, no payment flag', () => {
@@ -120,6 +150,8 @@ test('original commission remains one receivable, CZK foreign currency, no payme
   assert.match(xml, /<typ:ids>Provizie Rentulo<\/typ:ids>/);
   assert.match(xml, /<typ:ids>CZK<\/typ:ids>/);
   assert.match(xml, /<typ:rate>0.0408163265<\/typ:rate>/);
+  assert.match(xml, /ECB 2026-10-16 1 EUR = 24.5 CZK/);
+  assert.match(createReconciliationCsv([entry]), /"2026-10-16";"2.04"/);
   assert.match(xml, /<typ:unitPrice>50.00<\/typ:unitPrice>/);
   assert.match(xml, /<typ:numberRequested checkDuplicity="true">RP-000035/);
   assert.match(xml, /Pavol &amp; „Anna&quot; &lt;Tester&gt;/);
@@ -184,7 +216,7 @@ test('multiple paid extensions with stable unique documents, zero lines retained
 test('zero-owner-payout extension has NO fictitious Stripe transfer and can have an invoice after manual review', () => {
   const [row] = convert([zeroPayoutExtension()], { extensionReviewRef: 'STRIPE-REVIEW-2026-10' });
   assert.equal(row.ownerPayout, 0);
-  assert.equal(row.documentBasis, 'parent_transfer_zero_payout');
+  assert.equal(row.documentBasis, 'confirmed_return');
   assert.equal(row.transfer, '');
   assert.equal(row.stripeTransferMinor, '');
   assert.equal((createPohodaXml([row], '2026-10').match(/<dat:dataPackItem /g) || []).length, 1);
@@ -195,15 +227,26 @@ test('zero-owner-payout extension has NO fictitious Stripe transfer and can have
 
 test('month selection supports extension in a later month without creating a duplicate original invoice', () => {
   const [row] = prepareCommissions([
-    extension({ document_date: '2026-11-02', source_paid_at: '2026-10-30T10:00:00Z' }),
+    extension({ document_date: '2026-11-02', return_confirmed_at: '2026-11-02T09:00:00Z',
+      parent_transfer_at: '2026-11-02T10:00:00Z', source_paid_at: '2026-10-30T10:00:00Z' }),
   ], { month: '2026-11' });
   assert.equal(row.documentNumber, '');
   assert.equal(row.documentDate, '2026-11-02');
   assert.throws(() => convert([extension({ document_date: '2026-11-02' })]), /nie je v mesiaci/);
 });
 
-test('finished no-show is accepted, picked_up, pending payment and refund reject entire export', () => {
-  assert.equal(convert([sample({ reservation_status: 'no_show' })]).length, 1);
+test('no-show and unknown historical return require review; no false return-date invoices', () => {
+  assert.throws(() => convert([sample({ reservation_status: 'no_show',
+    document_basis: 'no_show_manual_review', return_confirmed_at: '' })]), /no_show bez skutocneho vratenia/);
+  assert.throws(() => convert([sample({ document_basis: 'return_date_unknown_manual_review',
+    return_confirmed_at: '' })]), /doveryhodny datum/);
+  assert.throws(() => convert([sample({ return_confirmed_at: '' })]), /chyba return_confirmed_at/);
+  assert.throws(() => convert([sample({ document_date: '2026-10-19' })]), /nesuhlasi s dnom/);
+  assert.throws(() => convert([sample({ parent_transfer_at: '2026-10-18T09:00:00Z' })]),
+    /predchadza potvrdenemu vrateniu/);
+});
+
+test('picked_up, pending payment and refunds reject entire export', () => {
   for (const [key, value] of Object.entries({
     reservation_status: 'picked_up', payment_status: 'pending',
     transfer_status: 'not_created', stripe_payment_intent_status: 'requires_payment_method',
@@ -266,6 +309,11 @@ test('TEST SQL is a read-only UNION ledger of original and paid extensions; neve
   assert.match(sql, /reservation_dispute_settlements/);
   assert.match(sql, /WHERE\s+p\.provider\s*=\s*'stripe'/i);
   assert.match(sql, /r\.status::text\s+IN\s*\('returned',\s*'no_show'\)/i);
+  assert.match(sql, /r\.gdpr_finalized_at/);
+  assert.match(sql, /accounting_selection_at/);
+  assert.match(sql, /return_confirmed_at/);
+  assert.match(sql, /no_show_manual_review/);
+  assert.match(sql, /return_date_unknown_manual_review/);
   assert.doesNotMatch(sql, /\b(?:INSERT|UPDATE|DELETE|TRUNCATE|DROP)\s/i);
 });
 
@@ -414,4 +462,21 @@ test('literal null in required owner, payment, refund and dispute evidence still
   }
   assert.throws(() => convert([extension({ source_paid_at: 'null' })]), /neoverene/);
   assert.throws(() => convert([extension({ extension_owner_id: 'null' })]), /chyba extension_owner_id/);
+});
+
+
+test('CLI rejects old one-rate-per-month option to prevent wrong ECB accounting', () => {
+  const scenario = runCli([sample()]);
+  scenario.args.push('--rate', '24.5');
+  const result = scenario.run();
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Neznamy parameter/);
+});
+
+test('Prague date respects UTC boundary and DST for trusted returned timestamp', () => {
+  const [oct] = convert([sample({ return_confirmed_at: '2026-10-17T22:30:00Z' })]);
+  assert.equal(oct.documentDate, '2026-10-18');
+  assert.throws(() => convert([sample({ return_confirmed_at: '2026-10-31T23:30:00Z',
+    document_date: '2026-10-31', parent_transfer_at: '2026-11-01T01:00:00Z' })]),
+    /nesuhlasi s dnom/);
 });

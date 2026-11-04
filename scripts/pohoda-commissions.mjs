@@ -95,9 +95,9 @@ function validMonth(month) {
   return month;
 }
 
-// Input is 1 EUR = czkPerEur CZK. For Slovak POHODA home=EUR, foreign=CZK,
-// XML typ:rate is EUR per one CZK (inverse), with typ:amount=1. The source
-// CZK/EUR rate must come from the accountant; never guess from Stripe.
+// ECB publishes 1 EUR = czkPerEur CZK. For Slovak POHODA home=EUR,
+// foreign=CZK, XML typ:rate is EUR per one CZK (inverse), amount=1.
+// Rates are indexed by ECB PUBLICATION DATE, not document date.
 function validRate(value, label) {
   const str = String(value ?? '').trim().replace(',', '.');
   if (!/^\d+(?:\.\d{1,6})?$/.test(str)) throw new Error(`${label}: zadany kurz nie je cislo.`);
@@ -115,6 +115,81 @@ export function parseRates(csv) {
     map.set(date, validRate(row.czk_per_eur, `Kurz ${date}`));
   }
   return map;
+}
+
+// Official ECB historical reference rates XML (no customer data is sent to ECB).
+export const ECB_HISTORY_URL = 'https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.xml';
+
+export function parseEcbHistoryXml(xml) {
+  if (typeof xml !== 'string' || !xml.includes('<Cube')) {
+    throw new Error('Neplatny historicky XML kurzovy listok ECB.');
+  }
+  const dates = new Map();
+  // ECB eurofxref-hist.xml has one nested <Cube time="YYYY-MM-DD"> per
+  // publication day with self-closing <Cube currency="CZK" rate="..."/>.
+  const dateBlocks = /<Cube\s+time=["'](\d{4}-\d{2}-\d{2})["']\s*>([\s\S]*?)<\/Cube>/g;
+  for (const match of xml.matchAll(dateBlocks)) {
+    const date = validDay(match[1], 'Datum publikacie ECB');
+    const czk = match[2].match(/<Cube\s+currency=["']CZK["']\s+rate=["']([^"']+)["']\s*\/>/);
+    if (!czk) continue;
+    if (dates.has(date)) throw new Error(`Duplicitny datum ECB: ${date}`);
+    dates.set(date, validRate(czk[1], `ECB ${date}`));
+  }
+  if (!dates.size) throw new Error('Historicky XML ECB neobsahuje ziadne kurzy CZK/EUR.');
+  return dates;
+}
+
+export async function loadEcbHistory(fetchImpl = fetch) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20000);
+  try {
+    const response = await fetchImpl(ECB_HISTORY_URL, { signal: controller.signal });
+    if (!response.ok) throw new Error(`ECB odpoved HTTP ${response.status}.`);
+    const bytes = await response.arrayBuffer();
+    if (bytes.byteLength > 16 * 1024 * 1024) throw new Error('ECB XML je necakane velky.');
+    return parseEcbHistoryXml(new TextDecoder('utf-8').decode(bytes));
+  } catch (error) {
+    throw new Error(`Kurz ECB sa nepodarilo nacitat (${error.message}). Skus znova alebo pouzi --rates s overenymi dennymi kurzami ECB.`);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function priorEcbRate(rates, documentDate, reservation) {
+  const available = [...rates.keys()].filter((date) => date < documentDate).sort();
+  const publicationDay = available.at(-1);
+  if (!publicationDay) throw new Error(`${reservation}: chyba kurz ECB pred ${documentDate}.`);
+  const daysOld = (Date.parse(`${documentDate}T00:00:00Z`) -
+    Date.parse(`${publicationDay}T00:00:00Z`)) / 86400000;
+  // A truncated, stale or incorrect rates file must never silently fall back
+  // to an arbitrarily old ECB rate. Weekends and TARGET closures fit here.
+  if (daysOld > 7) {
+    throw new Error(`${reservation}: posledny kurz ECB ${publicationDay} je pre ${documentDate} prilis stary.`);
+  }
+  return { rate: validRate(rates.get(publicationDay), `ECB ${publicationDay}`), publicationDay };
+}
+
+function pragueDateFromUtc(value, reservation) {
+  const timestamp = String(value ?? '');
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(timestamp) ||
+      !Number.isFinite(Date.parse(timestamp))) {
+    throw new Error(`${reservation}: chyba doveryhodny cas potvrdenia vratenia.`);
+  }
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit',
+  });
+  const parts = Object.fromEntries(formatter.formatToParts(new Date(timestamp))
+    .filter((p) => p.type !== 'literal').map((p) => [p.type, p.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function commissionEur(czk, rateText) {
+  // Integer arithmetic avoids floating point rounding surprises for the
+  // accountant's 2-decimal EUR preview. rateText has at most six decimals.
+  const [whole, fractional = ''] = rateText.split('.');
+  const micros = BigInt(whole) * 1000000n + BigInt(fractional.padEnd(6, '0'));
+  const euroCents = (BigInt(czk) * 100n * 1000000n + micros / 2n) / micros;
+  return `${euroCents / 100n}.${String(euroCents % 100n).padStart(2, '0')}`;
 }
 
 // Source identity is immutable: original = payment UUID, extension = extension UUID.
@@ -166,11 +241,10 @@ function parentSafe(row, reservation) {
 }
 
 export function prepareCommissions(rawRows, {
-  month, rates = new Map(), fixedRate, extensionReviewRef,
+  month, rates = new Map(), extensionReviewRef,
 } = {}) {
   validMonth(month);
   if (!(rates instanceof Map)) throw new Error('Nespravny format kurzov.');
-  const fallback = fixedRate === undefined ? undefined : validRate(fixedRate, 'Fixny kurz');
   if (!Array.isArray(rawRows)) throw new Error('Vstupom musi byt zoznam financnych riadkov.');
   const results = [];
   const seenSource = new Set();
@@ -199,10 +273,25 @@ export function prepareCommissions(rawRows, {
     if (documentDate.slice(0, 7) !== month) {
       throw new Error(`${reservation}: datum ${documentDate} nie je v mesiaci ${month}.`);
     }
-    const statusOk = ['returned', 'no_show'].includes(row.reservation_status) &&
-      row.payment_status === 'paid' && row.provider === 'stripe';
-    if (!statusOk) throw new Error(`${reservation}: neuplne financne vysporiadanie, export zastaveny.`);
+    if (row.reservation_status === 'no_show') {
+      throw new Error(`${reservation}: no_show bez skutocneho vratenia - datum dodania musi posudit uctovnicka; automaticky doklad sa nevystavi.`);
+    }
+    if (row.reservation_status !== 'returned' ||
+        row.payment_status !== 'paid' || row.provider !== 'stripe') {
+      throw new Error(`${reservation}: neuplne financne vysporiadanie, export zastaveny.`);
+    }
+    const basis = required(row, 'document_basis', reservation);
+    if (basis !== 'confirmed_return') {
+      throw new Error(`${reservation}: chyba doveryhodny datum potvrdeneho vratenia; bezpecny automaticky export nie je mozny.`);
+    }
+    const returnConfirmedAt = required(row, 'return_confirmed_at', reservation);
+    if (pragueDateFromUtc(returnConfirmedAt, reservation) !== documentDate) {
+      throw new Error(`${reservation}: datum dokladu nesuhlasi s dnom potvrdeneho vratenia (Praha).`);
+    }
     parentSafe(row, reservation);
+    if (Date.parse(row.parent_transfer_at) < Date.parse(returnConfirmedAt)) {
+      throw new Error(`${reservation}: Stripe transfer predchadza potvrdenemu vrateniu.`);
+    }
     if (count(row.card_disputes_count, `${reservation} kartove spory`) !== 0 ||
         count(row.internal_settlements_count, `${reservation} interne spory`) !== 0) {
       throw new Error(`${reservation}: evidovany Stripe spor alebo interne vysporiadanie - rucna kontrola.`);
@@ -252,12 +341,10 @@ export function prepareCommissions(rawRows, {
     const transferId = optionalText(row.stripe_transfer_id);
     const settlementCurrency = optionalText(row.settlement_currency).toLowerCase();
     const transferCurrency = optionalText(row.transfer_currency).toLowerCase();
-    const basis = required(row, 'document_basis', reservation);
     let refundVerification = '';
-    let rateNeeded = commission > 0;
+    const rateNeeded = commission > 0;
     if (source.kind === 'original') {
-      if (basis !== 'owner_transfer' ||
-          row.stripe_payment_intent_status !== 'succeeded' ||
+      if (row.stripe_payment_intent_status !== 'succeeded' ||
           row.transfer_status !== 'succeeded' ||
           row.refund_status !== 'not_requested' ||
           count(row.refund_amount_minor, `${reservation} refund`) !== 0) {
@@ -284,7 +371,7 @@ export function prepareCommissions(rawRows, {
     }
 
     if (ownerPayout > 0) {
-      if (basis !== 'owner_transfer' || row.transfer_status !== 'succeeded' ||
+      if (row.transfer_status !== 'succeeded' ||
           !/^tr_[\w-]+$/.test(transferId) || !transferMinor ||
           Number(transferMinor) < 1 || !/^[a-z]{3}$/.test(transferCurrency)) {
         throw new Error(`${reservation}: vyplata nema platny Stripe transfer.`);
@@ -301,28 +388,24 @@ export function prepareCommissions(rawRows, {
         throw new Error(`${reservation}: Stripe transfer predlzenia nesuhlasi s vyplatou v CZK.`);
       }
     } else if (source.kind !== 'extension' ||
-        basis !== 'parent_transfer_zero_payout' ||
         row.transfer_status !== 'not_created' ||
         transferId || transferMinor || transferCurrency) {
       throw new Error(`${reservation}: nulova vyplata nesmie predstierat uspesny Stripe transfer.`);
     }
-    if (source.kind === 'extension' && !absent(row.source_paid_at) &&
-        documentDate < String(row.source_paid_at).slice(0, 10) &&
-        // Prague local dates can precede a UTC date by at most 1 day.
-        (new Date(`${String(row.source_paid_at).slice(0, 10)}T00:00:00Z`).getTime() -
-         new Date(`${documentDate}T00:00:00Z`).getTime()) > 86400000) {
-      throw new Error(`${reservation}: datum dokladu pred datumom zaplatenia predlzenia.`);
+    if (source.kind === 'extension' &&
+        Date.parse(row.source_paid_at) > Date.parse(returnConfirmedAt)) {
+      throw new Error(`${reservation}: predlzenie je zaplatene az po potvrdenom vrateni.`);
     }
-    const fxRate = rateNeeded ? (rates.get(documentDate) || fallback) : '';
-    if (rateNeeded && !fxRate) {
-      throw new Error(`${reservation}: chyba schvaleny kurz CZK/EUR pre ${documentDate}.`);
-    }
+    const ecb = rateNeeded ? priorEcbRate(rates, documentDate, reservation) : null;
+    const fxRate = ecb?.rate ?? '';
+    const fxPublicationDate = ecb?.publicationDay ?? '';
     const output = {
       sourceType: source.kind, sourceId: source.id,
-      reservation, documentDate,
+      reservation, documentDate, returnConfirmedAt,
       documentNumber: commission > 0 ? source.documentNumber : '',
       documentBasis: basis, ownerName, ownerId,
-      amount, ownerPayout, commission, fxRate,
+      amount, ownerPayout, commission, fxRate, fxPublicationDate,
+      commissionEur: ecb ? commissionEur(commission, fxRate) : '',
       paymentId, intent, transfer: transferId, stripeChargeId,
       settlementCurrency, transferCurrency,
       stripeFeeMinor: feeMinor, stripeFeeStatus: source.kind === 'extension'
@@ -361,7 +444,7 @@ export function createPohodaXml(rows, month) {
         <inv:accounting><typ:ids>${escapeXml(POHODA_ACCOUNTING_SHORTCUT)}</typ:ids></inv:accounting>
         <inv:text>${escapeXml(`Provízia Rentulo – ${detail}`)}</inv:text>
         <inv:partnerIdentity><typ:address><typ:name>${escapeXml(r.ownerName)}</typ:name></typ:address></inv:partnerIdentity>
-        <inv:intNote>${escapeXml(`Rezervacia ${r.reservation}; typ ${r.sourceType}; zdroj ${r.sourceId}; Stripe payment ${r.intent}; Stripe charge ${r.stripeChargeId}; Stripe transfer ${r.transfer || 'bez transferu (nulova vyplata)'}; povodny payment_id ${r.paymentId}. Uhradu a dalsie Stripe kontroly vykona uctovnicka.`)}</inv:intNote>
+        <inv:intNote>${escapeXml(`Rezervacia ${r.reservation}; typ ${r.sourceType}; zdroj ${r.sourceId}; Stripe payment ${r.intent}; Stripe charge ${r.stripeChargeId}; Stripe transfer ${r.transfer || 'bez transferu (nulova vyplata)'}; povodny payment_id ${r.paymentId}; ECB ${r.fxPublicationDate} 1 EUR = ${r.fxRate} CZK. Uhradu a dalsie Stripe kontroly vykona uctovnicka.`)}</inv:intNote>
       </inv:invoiceHeader>
       <inv:invoiceDetail>
         <inv:invoiceItem>
@@ -395,9 +478,9 @@ function protectCsvText(value) {
 
 export function createReconciliationCsv(rows) {
   const names = [
-    'cislo_dokladu', 'vytvorit_doklad', 'zdroj', 'zdroj_uuid', 'rezervacia', 'datum', 'datum_basis',
+    'cislo_dokladu', 'vytvorit_doklad', 'zdroj', 'zdroj_uuid', 'rezervacia', 'datum', 'datum_basis', 'vratenie_potvrdene_utc',
     'prenajimatel', 'prenajimatel_uuid', 'cena_prenajmu_czk', 'majitel_czk', 'provizia_czk',
-    'kurz_czk_za_1_eur', 'stripe_payment_intent', 'stripe_charge_id',
+    'kurz_czk_za_1_eur', 'ecb_kurz_publikovany', 'provizia_eur', 'stripe_payment_intent', 'stripe_charge_id',
     'stripe_transfer_id', 'povodny_payment_uuid',
     'stripe_poplatok_minor_jednotky', 'stripe_poplatok_stav',
     'mena_settlementu', 'mena_transferu',
@@ -408,8 +491,8 @@ export function createReconciliationCsv(rows) {
   ];
   const body = rows.map((r) => [
     r.documentNumber, r.commission > 0 ? 'ANO' : 'NIE', r.sourceType, r.sourceId,
-    r.reservation, r.documentDate, r.documentBasis, r.ownerName, r.ownerId,
-    r.amount, r.ownerPayout, r.commission, r.fxRate,
+    r.reservation, r.documentDate, r.documentBasis, r.returnConfirmedAt, r.ownerName, r.ownerId,
+    r.amount, r.ownerPayout, r.commission, r.fxRate, r.fxPublicationDate, r.commissionEur,
     r.intent, r.stripeChargeId, r.transfer, r.paymentId,
     r.stripeFeeMinor, r.stripeFeeStatus,
     r.settlementCurrency, r.transferCurrency, r.stripeTransferMinor,
