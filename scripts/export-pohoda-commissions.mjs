@@ -1,16 +1,17 @@
 #!/usr/bin/env node
-// Local offline command. Requires Supabase TEST SQL CSV and accountant-approved FX.
+// Local PRIVATE command. Downloads only PUBLIC CZK/EUR history from ECB by default;
+// no reservation, customer, Stripe or Supabase data is sent to ECB.
 // Explicit Stripe review reference is mandatory for positive extension commissions.
 import { readFile, writeFile, mkdir, unlink } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import {
-  parseCsv, parseRates, prepareCommissions,
+  parseCsv, parseRates, loadEcbHistory, prepareCommissions,
   createPohodaXml, createReconciliationCsv,
 } from './pohoda-commissions.mjs';
 
 function cliArgs(argv) {
   const args = {};
-  const supported = ['--month', '--input', '--rates', '--rate', '--out', '--extension-review'];
+  const supported = ['--month', '--input', '--rates', '--out', '--extension-review'];
   for (let i = 0; i < argv.length; i++) {
     const key = argv[i];
     if (!supported.includes(key)) throw new Error(`Neznamy parameter: ${key}`);
@@ -23,9 +24,8 @@ function cliArgs(argv) {
   for (const key of ['--month', '--input']) {
     if (!args[key]) throw new Error(`Chyba povinny parameter ${key}`);
   }
-  if (!!args['--rate'] === !!args['--rates']) {
-    throw new Error('Pouzi prave jeden z --rate alebo --rates.');
-  }
+  // --rates is an offline fallback containing ECB PUBLICATION DATES, never
+  // a single monthly rate; without it the official ECB history is fetched.
   return args;
 }
 
@@ -34,9 +34,10 @@ async function main() {
   const csv = await readFile(resolve(opts['--input']), 'utf8');
   const sourceRows = parseCsv(csv);
   const rates = opts['--rates'] ?
-    parseRates(await readFile(resolve(opts['--rates']), 'utf8')) : new Map();
+    parseRates(await readFile(resolve(opts['--rates']), 'utf8')) :
+    (sourceRows.length ? await loadEcbHistory() : new Map());
   const documentsAndReconciliation = prepareCommissions(sourceRows, {
-    month: opts['--month'], rates, fixedRate: opts['--rate'],
+    month: opts['--month'], rates,
     extensionReviewRef: opts['--extension-review'],
   });
   if (!documentsAndReconciliation.length) {
@@ -65,7 +66,7 @@ async function main() {
   if (chargeable.length) console.log(`XML: ${xmlName}`);
   else console.log('Len nulove provizie: XML nebol vytvoreny, CSV ano.');
   console.log(`CSV: ${csvName}`);
-  console.log('Pred ostrym uctovanim skontroluj Stripe/refundy a vykonaj testovaci import POHODA.');
+  console.log('Uctovnicka musi vykonat standardnu kontrolu Stripe/refundov; import POHODA zostava odlozeny.');
 }
 
 main().catch((error) => {
