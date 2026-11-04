@@ -9,7 +9,8 @@ let editSaveInProgress = false;
 let editOwnerProfile = {
   street: "",
   city: "",
-  postalCode: ""
+  postalCode: "",
+  countryCode: ""
 };
 
 const EDIT_OFFER_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
@@ -19,15 +20,8 @@ const EDIT_OFFER_PHOTO_ALLOWED_TYPES = [
   "image/webp"
 ];
 
-const EDIT_ADDRESS_SUGGESTION_MIN_LENGTH = 3;
-const EDIT_ADDRESS_SUGGESTION_DELAY_MS = 450;
 const MINIMUM_OFFER_PRICE_CZK = 100;
 
-let editAddressSuggestions = [];
-let editAddressActiveIndex = -1;
-let editAddressRequestId = 0;
-let editAddressTimer = null;
-let editSelectedPickupCoordinates = null;
 
 function editT(key, fallback) {
   if (typeof window.rentuloTranslate === "function") {
@@ -108,304 +102,6 @@ function editValueOrEmpty(value) {
   return value === undefined || value === null ? "" : value;
 }
 
-
-function closeEditAddressSuggestions() {
-  const streetInput = document.getElementById("edit-pickup-street");
-  const suggestionsBox = document.getElementById("editPickupAddressSuggestions");
-
-  editAddressSuggestions = [];
-  editAddressActiveIndex = -1;
-  editAddressRequestId += 1;
-
-  if (editAddressTimer) {
-    window.clearTimeout(editAddressTimer);
-    editAddressTimer = null;
-  }
-
-  if (suggestionsBox) {
-    suggestionsBox.innerHTML = "";
-    suggestionsBox.hidden = true;
-  }
-
-  if (streetInput) {
-    streetInput.setAttribute("aria-expanded", "false");
-    streetInput.removeAttribute("aria-activedescendant");
-  }
-}
-
-function renderEditAddressSuggestions(items) {
-  const streetInput = document.getElementById("edit-pickup-street");
-  const suggestionsBox = document.getElementById("editPickupAddressSuggestions");
-
-  if (!streetInput || !suggestionsBox) {
-    return;
-  }
-
-  editAddressSuggestions = Array.isArray(items) ? items.slice(0, 5) : [];
-  editAddressActiveIndex = -1;
-
-  if (!editAddressSuggestions.length) {
-    closeEditAddressSuggestions();
-    return;
-  }
-
-  suggestionsBox.innerHTML = editAddressSuggestions
-    .map(function (item, index) {
-      const main = String(item.street || "").trim();
-      const meta = [item.city, item.postalCode]
-        .map(function (part) { return String(part || "").trim(); })
-        .filter(Boolean)
-        .join(", ");
-
-      return `
-        <button
-          type="button"
-          class="address-suggestion"
-          id="editPickupAddressSuggestion${index}"
-          role="option"
-          data-address-index="${index}"
-          aria-selected="false"
-        >
-          <span class="address-suggestion-main">${escapeHtml(main)}</span>
-          <span class="address-suggestion-meta">${escapeHtml(meta)}</span>
-        </button>
-      `;
-    })
-    .join("") +
-    '<div class="address-attribution">© OpenStreetMap contributors</div>';
-
-  suggestionsBox.hidden = false;
-  streetInput.setAttribute("aria-expanded", "true");
-}
-
-function setEditAddressActiveIndex(nextIndex) {
-  const streetInput = document.getElementById("edit-pickup-street");
-  const suggestionButtons = Array.from(
-    document.querySelectorAll("#editPickupAddressSuggestions .address-suggestion")
-  );
-
-  if (!streetInput || !suggestionButtons.length) {
-    return;
-  }
-
-  const maxIndex = suggestionButtons.length - 1;
-  let normalizedIndex = nextIndex;
-
-  if (normalizedIndex < 0) {
-    normalizedIndex = maxIndex;
-  }
-
-  if (normalizedIndex > maxIndex) {
-    normalizedIndex = 0;
-  }
-
-  editAddressActiveIndex = normalizedIndex;
-
-  suggestionButtons.forEach(function (button, index) {
-    const isActive = index === normalizedIndex;
-    button.classList.toggle("is-active", isActive);
-    button.setAttribute("aria-selected", isActive ? "true" : "false");
-  });
-
-  const activeButton = suggestionButtons[normalizedIndex];
-  if (activeButton) {
-    streetInput.setAttribute("aria-activedescendant", activeButton.id);
-    activeButton.scrollIntoView({ block: "nearest" });
-  }
-}
-
-function selectEditAddress(index) {
-  const item = editAddressSuggestions[index];
-  const streetInput = document.getElementById("edit-pickup-street");
-  const cityInput = document.getElementById("edit-city");
-  const postalCodeInput = document.getElementById("edit-postal-code");
-
-  if (!item || !streetInput || !cityInput || !postalCodeInput) {
-    return;
-  }
-
-  streetInput.value = String(item.street || "").trim();
-  cityInput.value = String(item.city || "").trim();
-  postalCodeInput.value = String(item.postalCode || "").trim();
-
-  const latitude = Number(item.latitude);
-  const longitude = Number(item.longitude);
-  editSelectedPickupCoordinates =
-    Number.isFinite(latitude) && Number.isFinite(longitude)
-      ? { latitude: latitude, longitude: longitude }
-      : null;
-
-  [streetInput, cityInput, postalCodeInput].forEach(function (field) {
-    field.classList.remove("input-error");
-  });
-
-  closeEditAddressSuggestions();
-}
-
-async function loadEditAddressSuggestions(query, requestId, city, postalCode) {
-  const supabaseClient = getSupabaseClient();
-
-  if (!supabaseClient) {
-    return;
-  }
-
-  try {
-    const language =
-      typeof window.getRentuloLanguage === "function"
-        ? window.getRentuloLanguage()
-        : "cs";
-
-    const { data, error } = await supabaseClient.functions.invoke(
-      "address-suggestions",
-      {
-        body: {
-          query: query,
-          city: city,
-          postalCode: postalCode,
-          language: language
-        }
-      }
-    );
-
-    if (requestId !== editAddressRequestId) {
-      return;
-    }
-
-    if (error || !data || !Array.isArray(data.suggestions)) {
-      closeEditAddressSuggestions();
-      return;
-    }
-
-    renderEditAddressSuggestions(data.suggestions);
-  } catch (_error) {
-    if (requestId === editAddressRequestId) {
-      closeEditAddressSuggestions();
-    }
-  }
-}
-
-function setupEditPickupAddressAutocomplete() {
-  const streetInput = document.getElementById("edit-pickup-street");
-  const cityInput = document.getElementById("edit-city");
-  const postalCodeInput = document.getElementById("edit-postal-code");
-  const suggestionsBox = document.getElementById("editPickupAddressSuggestions");
-
-  if (!streetInput || !cityInput || !postalCodeInput || !suggestionsBox) {
-    return;
-  }
-
-  function scheduleEditAddressSuggestions() {
-    editSelectedPickupCoordinates = null;
-
-    const query = streetInput.value.trim();
-    const city = cityInput.value.trim();
-    const postalCode = postalCodeInput.value.trim();
-
-    // Don't leave proposals for the previous input visible or accept a late response.
-    closeEditAddressSuggestions();
-    const requestId = editAddressRequestId;
-
-    if (query.length < EDIT_ADDRESS_SUGGESTION_MIN_LENGTH) {
-      return;
-    }
-
-    editAddressTimer = window.setTimeout(function () {
-      loadEditAddressSuggestions(query, requestId, city, postalCode);
-    }, EDIT_ADDRESS_SUGGESTION_DELAY_MS);
-  }
-
-  streetInput.addEventListener("input", scheduleEditAddressSuggestions);
-  cityInput.addEventListener("input", scheduleEditAddressSuggestions);
-  postalCodeInput.addEventListener("input", scheduleEditAddressSuggestions);
-
-  streetInput.addEventListener("keydown", function (event) {
-    if (suggestionsBox.hidden || !editAddressSuggestions.length) {
-      return;
-    }
-
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      setEditAddressActiveIndex(editAddressActiveIndex + 1);
-      return;
-    }
-
-    if (event.key === "ArrowUp") {
-      event.preventDefault();
-      setEditAddressActiveIndex(editAddressActiveIndex - 1);
-      return;
-    }
-
-    if (event.key === "Enter" && editAddressActiveIndex >= 0) {
-      event.preventDefault();
-      selectEditAddress(editAddressActiveIndex);
-      return;
-    }
-
-    if (event.key === "Escape") {
-      event.preventDefault();
-      closeEditAddressSuggestions();
-    }
-  });
-
-  suggestionsBox.addEventListener("mousedown", function (event) {
-    event.preventDefault();
-  });
-
-  suggestionsBox.addEventListener("click", function (event) {
-    const button = event.target.closest("[data-address-index]");
-
-    if (!button) {
-      return;
-    }
-
-    selectEditAddress(Number(button.dataset.addressIndex));
-  });
-
-  document.addEventListener("click", function (event) {
-    if (!event.target.closest(".address-autocomplete")) {
-      closeEditAddressSuggestions();
-    }
-  });
-}
-
-function normalizeEditPickupAddress(pickupAddress) {
-  return [
-    pickupAddress && pickupAddress.street,
-    pickupAddress && pickupAddress.city,
-    pickupAddress && pickupAddress.postalCode
-  ].map(function (value) {
-    return String(value || "").trim().toLowerCase();
-  }).join("|");
-}
-
-function getExistingEditPickupCoordinates(offer) {
-  if (!offer) {
-    return null;
-  }
-
-  const rawLatitude = offer.pickup_latitude;
-  const rawLongitude = offer.pickup_longitude;
-
-  if (
-    rawLatitude === undefined ||
-    rawLatitude === null ||
-    rawLatitude === "" ||
-    rawLongitude === undefined ||
-    rawLongitude === null ||
-    rawLongitude === ""
-  ) {
-    return null;
-  }
-
-  const latitude = Number(rawLatitude);
-  const longitude = Number(rawLongitude);
-
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    return null;
-  }
-
-  return { latitude, longitude };
-}
 
 function getEditToolId() {
   const params = new URLSearchParams(window.location.search);
@@ -710,7 +406,7 @@ async function loadEditOwnerProfile(userId) {
 
   const { data: profile, error } = await supabaseClient
     .from("profiles")
-    .select("street, city, postal_code")
+    .select("street, city, postal_code, country_code")
     .eq("id", userId)
     .maybeSingle();
 
@@ -725,7 +421,8 @@ async function loadEditOwnerProfile(userId) {
   editOwnerProfile = {
     street: profile.street || "",
     city: profile.city || "",
-    postalCode: profile.postal_code || ""
+    postalCode: profile.postal_code || "",
+    countryCode: profile.country_code || ""
   };
 }
 
@@ -813,7 +510,8 @@ function renderEditProfilePickupAddress() {
   const hasCompleteProfileAddress = Boolean(
     editOwnerProfile.street &&
     editOwnerProfile.city &&
-    editOwnerProfile.postalCode
+    editOwnerProfile.postalCode &&
+    editOwnerProfile.countryCode === "CZ"
   );
 
   if (!hasCompleteProfileAddress) {
@@ -833,18 +531,14 @@ function renderEditProfilePickupAddress() {
 function setupEditPickupFields() {
   const pickupUseCustom = document.querySelector("#editPickupUseCustom");
   const pickupCustomFields = document.querySelector("#editPickupCustomFields");
+  setupRentuloCzechPostalCodeBlur(document.getElementById("edit-postal-code"));
 
   if (!pickupUseCustom || !pickupCustomFields) {
     return;
   }
 
   pickupUseCustom.addEventListener("change", function () {
-    editSelectedPickupCoordinates = null;
     pickupCustomFields.classList.toggle("is-visible", pickupUseCustom.checked);
-
-    if (!pickupUseCustom.checked) {
-      closeEditAddressSuggestions();
-    }
 
     renderEditProfilePickupAddress();
   });
@@ -865,18 +559,20 @@ function getEditedPickupAddress() {
 
     return {
       mode: "custom",
+      countryCode: "CZ",
       street: pickupStreetInput ? pickupStreetInput.value.trim() : "",
       city: cityInput ? cityInput.value.trim() : "",
-      postalCode: postalInput ? postalInput.value.trim() : "",
+      postalCode: postalInput ? (formatRentuloCzechPostalCode(postalInput.value) || postalInput.value.trim()) : "",
       note: pickupNoteInput ? pickupNoteInput.value.trim() : ""
     };
   }
 
   return {
     mode: "profile",
+    countryCode: editOwnerProfile.countryCode,
     street: editOwnerProfile.street,
     city: editOwnerProfile.city,
-    postalCode: editOwnerProfile.postalCode,
+    postalCode: formatRentuloCzechPostalCode(editOwnerProfile.postalCode) || editOwnerProfile.postalCode,
     note: ""
   };
 }
@@ -891,6 +587,7 @@ function fillEditForm(offer) {
   const postalInput = document.querySelector("#edit-postal-code");
   const pickupNoteInput = document.querySelector("#edit-pickup-note");
   const priceInput = document.querySelector("#edit-price");
+  const minDaysInput = document.querySelector("#edit-min-rental-days");
   const descriptionInput = document.querySelector("#edit-description");
 
   if (
@@ -903,6 +600,7 @@ function fillEditForm(offer) {
     !postalInput ||
     !pickupNoteInput ||
     !priceInput ||
+    !minDaysInput ||
     !descriptionInput
   ) {
     editShowTranslatedMessage("editOffer.formLoadFailed", "Formulář pro úpravu nabídky se nepodařilo načíst.");
@@ -918,6 +616,7 @@ function fillEditForm(offer) {
   postalInput.value = usesCustomPickup ? (offer.pickup_postal_code || offer.postal_code || "") : "";
   pickupNoteInput.value = usesCustomPickup ? (offer.pickup_note || "") : "";
   priceInput.value = editValueOrEmpty(offer.price_per_day);
+  minDaysInput.value = String(offer.min_rental_days || 1);
   descriptionInput.value = offer.description || "";
 
   pickupUseCustom.checked = usesCustomPickup;
@@ -1044,28 +743,42 @@ function setEditSavingState(isSaving) {
     : editT("editOffer.save", "Uložit změny");
 }
 
-async function geocodeEditedPickupAddress(supabaseClient, pickupAddress) {
+async function geocodeEditedPickupAddress(supabaseClient, pickupAddress, mustVerify = true) {
   const { data, error } = await supabaseClient.functions.invoke("geocode-pickup", {
     body: {
       street: pickupAddress.street,
       city: pickupAddress.city,
-      postalCode: pickupAddress.postalCode
+      postalCode: pickupAddress.postalCode,
+      countryCode: pickupAddress.countryCode
     }
   });
 
   if (error) {
-    console.warn("Pickup geocoding is temporarily unavailable; saving without coordinates.", error);
+    if (mustVerify) {
+      const unavailable = new Error("Pickup verification unavailable");
+      unavailable.code = "PICKUP_GEOCODING_UNAVAILABLE";
+      throw unavailable;
+    }
     return null;
   }
 
   if (!data || data.ok !== true) {
+    if (data && data.reason === "unsupported_country") {
+      const countryError = new Error("Pickup address is outside the Czech Republic");
+      countryError.code = "PICKUP_COUNTRY_UNSUPPORTED";
+      throw countryError;
+    }
     if (data && data.reason === "not_found") {
       const geocodeError = new Error("Pickup address was not found");
       geocodeError.code = "PICKUP_GEOCODING_NOT_FOUND";
       throw geocodeError;
     }
 
-    console.warn("Pickup geocoding is temporarily unavailable; saving without coordinates.");
+    if (mustVerify) {
+      const unavailable = new Error("Pickup verification unavailable");
+      unavailable.code = "PICKUP_GEOCODING_UNAVAILABLE";
+      throw unavailable;
+    }
     return null;
   }
 
@@ -1073,8 +786,9 @@ async function geocodeEditedPickupAddress(supabaseClient, pickupAddress) {
   const longitude = Number(data.longitude);
 
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    console.warn("Pickup geocoding returned invalid coordinates; saving without coordinates.");
-    return null;
+    const unavailable = new Error("Invalid pickup coordinates");
+    unavailable.code = "PICKUP_GEOCODING_UNAVAILABLE";
+    throw unavailable;
   }
 
   return { latitude, longitude };
@@ -1116,7 +830,6 @@ async function initializeEditOfferPage(supabaseUser) {
     editLockPriceFields(editHasBlockingReservation);
     setupEditOfferPhotoUpload();
     setupEditPickupFields();
-    setupEditPickupAddressAutocomplete();
     setupEditOfferSave();
   } catch (error) {
     console.error(error);
@@ -1164,6 +877,7 @@ function setupEditOfferSave() {
     const postalInput = document.querySelector("#edit-postal-code");
     const pickupNoteInput = document.querySelector("#edit-pickup-note");
     const priceInput = document.querySelector("#edit-price");
+    const minDaysInput = document.querySelector("#edit-min-rental-days");
     const descriptionInput = document.querySelector("#edit-description");
 
     if (
@@ -1175,6 +889,7 @@ function setupEditOfferSave() {
       !postalInput ||
       !pickupNoteInput ||
       !priceInput ||
+      !minDaysInput ||
       !descriptionInput
     ) {
       editShowTranslatedMessage("editOffer.formLoadFailed", "Formulář pro úpravu nabídky se nepodařilo načíst.");
@@ -1202,11 +917,30 @@ function setupEditOfferSave() {
           hasError = true;
         }
       });
+    } else if (editOwnerProfile.countryCode !== "CZ") {
+      editShowTranslatedMessage("offer.profilePickupOutsideCz", "Profilová adresa není ověřená jako česká. Zvolte jiné místo vyzvednutí v ČR nebo doplňte zemi bydliště v Nastavení.");
+      return;
     } else if (!editOwnerProfile.street || !editOwnerProfile.city || !editOwnerProfile.postalCode) {
       editShowTranslatedMessage(
         "offer.profilePickupMissing",
         "Ve vašem profilu chybí úplná adresa pro vyzvednutí. Doplňte ji v Nastavení nebo zvolte jiné místo vyzvednutí."
       );
+      return;
+    }
+
+    const enteredPostalCode = pickupUseCustom.checked ? postalInput.value : editOwnerProfile.postalCode;
+    const normalizedPostalCode = formatRentuloCzechPostalCode(enteredPostalCode);
+    if (enteredPostalCode.trim() && !normalizedPostalCode) {
+      if (pickupUseCustom.checked) editMarkError(postalInput);
+      editShowTranslatedMessage("address.invalidPostalCode", "Zadejte české PSČ ve formátu 110 00 (5 číslic).");
+      return;
+    }
+
+    const minDaysRaw = minDaysInput.value.trim();
+    const minDaysValue = Number(minDaysRaw);
+    if (!/^[1-9]\d*$/.test(minDaysRaw) || !Number.isSafeInteger(minDaysValue) || minDaysValue > 365) {
+      editMarkError(minDaysInput);
+      editShowTranslatedMessage("offer.minRentalDaysInvalid", "Minimální délka musí být celé číslo od 1 do 365 dní.");
       return;
     }
 
@@ -1233,12 +967,12 @@ function setupEditOfferSave() {
     }
     if (window.rentuloOfferPolicy.isTransportOffer(nameInput.value, categorySelect.value)) {
       editMarkError(nameInput);
-      editShowTranslatedMessage("offer.transportNotAllowed", "Dopravní prostředky nelze v Rentulu V1 nabízet.");
+      editShowTranslatedMessage("offer.transportNotAllowed", "Dopravní prostředky nelze na Rentulu nabízet.");
       return;
     }
     if (!transportAttestation || !transportAttestation.checked) {
       editMarkError(transportAttestation);
-      editShowTranslatedMessage("offer.transportMustConfirm", "Potvrďte prosím pravidla Rentula V1.");
+      editShowTranslatedMessage("offer.transportMustConfirm", "Potvrďte prosím pravidla Rentula.");
       return;
     }
 
@@ -1255,6 +989,13 @@ function setupEditOfferSave() {
       return;
     }
 
+    if (editCurrentOffer.status === "active" && !String(editOfferPhotoDataUrl || "").trim()) {
+      const message = "Zveřejněná nabídka musí mít alespoň jednu fotografii. Ponechte původní nebo nahrajte novou.";
+      updateEditPhotoStatus(editT("editOffer.photoRequired", message), "error", "editOffer.photoRequired");
+      editShowTranslatedMessage("editOffer.photoRequired", message);
+      return;
+    }
+
     editSaveInProgress = true;
     setEditSavingState(true);
 
@@ -1262,18 +1003,10 @@ function setupEditOfferSave() {
 
     try {
       const pickupAddress = getEditedPickupAddress();
-      const currentPickupAddress = {
-        street: editCurrentOffer.pickup_street || "",
-        city: editCurrentOffer.pickup_city || editCurrentOffer.city || "",
-        postalCode: editCurrentOffer.pickup_postal_code || editCurrentOffer.postal_code || ""
-      };
-      const existingPickupCoordinates = getExistingEditPickupCoordinates(editCurrentOffer);
-      const pickupAddressChanged =
-        normalizeEditPickupAddress(currentPickupAddress) !== normalizeEditPickupAddress(pickupAddress);
-      const pickupCoordinates = !pickupAddressChanged && existingPickupCoordinates
-        ? existingPickupCoordinates
-        : editSelectedPickupCoordinates ||
-          await geocodeEditedPickupAddress(supabaseClient, pickupAddress);
+      // Always re-check edited offers, including unchanged legacy addresses.
+      const pickupCoordinates = await geocodeEditedPickupAddress(
+        supabaseClient, pickupAddress, editCurrentOffer.status !== "draft"
+      );
       const previousPhotoUrl = getEditOfferPhoto(editCurrentOffer);
       const uploadedPhoto = await uploadEditedOfferPhoto(supabaseClient, supabaseUser.id);
       newlyUploadedPhotoPath = uploadedPhoto.isNew ? uploadedPhoto.path : "";
@@ -1284,8 +1017,11 @@ function setupEditOfferSave() {
         city: pickupAddress.city,
         postal_code: pickupAddress.postalCode,
         description: descriptionInput.value.trim(),
+        min_rental_days: minDaysValue,
         photo_url: uploadedPhoto.url,
         pickup_mode: pickupAddress.mode,
+        pickup_country_code: pickupAddress.countryCode,
+        currency_code: "CZK",
         pickup_street: pickupAddress.street,
         pickup_city: pickupAddress.city,
         pickup_postal_code: pickupAddress.postalCode,
@@ -1334,13 +1070,18 @@ function setupEditOfferSave() {
       if (error && String(error.message || "").toLowerCase().includes("rentulo_v1_transport_not_allowed")) {
         editSaveInProgress = false;
         setEditSavingState(false);
-        editShowTranslatedMessage("offer.transportNotAllowed", "Dopravní prostředky nelze v Rentulu V1 nabízet.");
+        editShowTranslatedMessage("offer.transportNotAllowed", "Dopravní prostředky nelze na Rentulu nabízet.");
         return;
       }
 
       console.error(error);
       editSaveInProgress = false;
       setEditSavingState(false);
+
+      if (error && error.code === "PICKUP_COUNTRY_UNSUPPORTED") {
+        editShowTranslatedMessage("offer.pickupOutsideCz", "Místo vyzvednutí musí být v České republice. Zadejte českou adresu.");
+        return;
+      }
 
       if (error && error.code === "PICKUP_GEOCODING_NOT_FOUND") {
         editShowTranslatedMessage(

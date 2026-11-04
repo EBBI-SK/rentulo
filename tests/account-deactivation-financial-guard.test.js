@@ -54,20 +54,20 @@ test("eligibility and finalizer enforce matching reservation, debt, refund, and 
 });
 
 test("Edge Function rejects financial blockers with 409 and rechecks concurrent finalizer rejections", () => {
-  assert.match(edge, /"get_my_account_deactivation_status_v2"/);
+  assert.match(edge, /"get_my_account_deactivation_status_v3"/);
   assert.match(edge, /status\.blocking_reservations_count > 0[\s\S]*?financialBlockResponse\(status\)/);
   assert.match(edge, /code: "ACCOUNT_HAS_FINANCIAL_OBLIGATIONS"/);
   assert.match(edge, /open_owner_debts_count: status\.open_owner_debts_count/);
   assert.match(edge, /unfinished_refunds_count: status\.unfinished_refunds_count/);
   assert.match(edge, /unresolved_owner_transfers_count: status\.unresolved_owner_transfers_count/);
-  assert.match(edge, /Account has unresolved financial obligations[\s\S]*?userClient\.rpc\("get_my_account_deactivation_status_v2"\)/);
+  assert.match(edge, /Account has unresolved financial obligations[\s\S]*?userClient\.rpc\("get_my_account_deactivation_status_v3"\)/);
   assert.match(edge, /function financialBlockResponse\([\s\S]*?\}, 409\)/);
   assert.match(edge, /status\.account_status !== "active" && status\.account_status !== "deactivated"/);
   assert.match(edge, /admin\.auth\.admin\.deleteUser\(actor\.id, true\)/);
 });
 
 test("settings UI shows financial blockers and restores the initial check button after server rejection", () => {
-  assert.match(frontend, /client\.rpc\("get_my_account_deactivation_status_v2"\)/);
+  assert.match(frontend, /client\.rpc\("get_my_account_deactivation_status_v3"\)/);
   assert.match(frontend, /showFinancialCancellationBlock\(message, status\)/);
   assert.match(frontend, /code === "ACCOUNT_HAS_FINANCIAL_OBLIGATIONS"[\s\S]*?resetAccountCancellationAfterBlock\(\)/);
   assert.match(frontend, /checkButton\.hidden = false/);

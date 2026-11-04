@@ -1,12 +1,5 @@
-const ADDRESS_SUGGESTION_MIN_LENGTH = 3;
-const ADDRESS_SUGGESTION_DELAY_MS = 450;
-
 let registrationSubmitInProgress = false;
 let registrationErrorState = null;
-let registrationAddressSuggestions = [];
-let registrationAddressActiveIndex = -1;
-let registrationAddressRequestId = 0;
-let registrationAddressTimer = null;
 
 function registrationT(key, fallback) {
   if (typeof window.rentuloTranslate === "function") {
@@ -59,7 +52,7 @@ function registrationHideError() {
 }
 
 function registrationClearErrors() {
-  const fields = document.querySelectorAll("#registrationForm input");
+  const fields = document.querySelectorAll("#registrationForm input, #registrationForm select");
 
   fields.forEach(function (field) {
     field.classList.remove("input-error");
@@ -76,7 +69,7 @@ function registrationMarkError(input) {
 
 function registrationFocusFirstError() {
   const firstInvalidField = document.querySelector(
-    "#registrationForm input[aria-invalid='true']"
+    "#registrationForm [aria-invalid='true']"
   );
 
   if (firstInvalidField && typeof firstInvalidField.focus === "function") {
@@ -104,262 +97,6 @@ function registrationSetButtonState(isSubmitting) {
 
 function registrationIsEmpty(value) {
   return String(value || "").trim() === "";
-}
-
-function registrationCloseAddressSuggestions() {
-  const streetInput = document.getElementById("street");
-  const suggestionsBox = document.getElementById("addressSuggestions");
-
-  registrationAddressRequestId += 1;
-
-  if (registrationAddressTimer) {
-    window.clearTimeout(registrationAddressTimer);
-    registrationAddressTimer = null;
-  }
-
-  registrationAddressSuggestions = [];
-  registrationAddressActiveIndex = -1;
-
-  if (suggestionsBox) {
-    suggestionsBox.innerHTML = "";
-    suggestionsBox.hidden = true;
-  }
-
-  if (streetInput) {
-    streetInput.setAttribute("aria-expanded", "false");
-    streetInput.removeAttribute("aria-activedescendant");
-  }
-}
-
-function registrationRenderAddressSuggestions(items) {
-  const streetInput = document.getElementById("street");
-  const suggestionsBox = document.getElementById("addressSuggestions");
-
-  if (!streetInput || !suggestionsBox) {
-    return;
-  }
-
-  registrationAddressSuggestions = Array.isArray(items) ? items.slice(0, 5) : [];
-  registrationAddressActiveIndex = -1;
-
-  if (!registrationAddressSuggestions.length) {
-    registrationCloseAddressSuggestions();
-    return;
-  }
-
-  suggestionsBox.innerHTML = registrationAddressSuggestions
-    .map(function (item, index) {
-      const main = String(item.street || "").trim();
-      const meta = [item.city, item.postalCode]
-        .map(function (part) { return String(part || "").trim(); })
-        .filter(Boolean)
-        .join(", ");
-
-      return `
-        <button
-          type="button"
-          class="address-suggestion"
-          id="addressSuggestion${index}"
-          role="option"
-          data-address-index="${index}"
-          aria-selected="false"
-        >
-          <span class="address-suggestion-main">${escapeHtml(main)}</span>
-          <span class="address-suggestion-meta">${escapeHtml(meta)}</span>
-        </button>
-      `;
-    })
-    .join("") +
-    '<div class="address-attribution">© OpenStreetMap contributors</div>';
-
-  suggestionsBox.hidden = false;
-  streetInput.setAttribute("aria-expanded", "true");
-}
-
-function registrationSetAddressActiveIndex(nextIndex) {
-  const streetInput = document.getElementById("street");
-  const suggestionButtons = Array.from(
-    document.querySelectorAll("#addressSuggestions .address-suggestion")
-  );
-
-  if (!streetInput || !suggestionButtons.length) {
-    return;
-  }
-
-  const maxIndex = suggestionButtons.length - 1;
-  let normalizedIndex = nextIndex;
-
-  if (normalizedIndex < 0) {
-    normalizedIndex = maxIndex;
-  }
-
-  if (normalizedIndex > maxIndex) {
-    normalizedIndex = 0;
-  }
-
-  registrationAddressActiveIndex = normalizedIndex;
-
-  suggestionButtons.forEach(function (button, index) {
-    const isActive = index === normalizedIndex;
-    button.classList.toggle("is-active", isActive);
-    button.setAttribute("aria-selected", isActive ? "true" : "false");
-  });
-
-  const activeButton = suggestionButtons[normalizedIndex];
-  if (activeButton) {
-    streetInput.setAttribute("aria-activedescendant", activeButton.id);
-    activeButton.scrollIntoView({ block: "nearest" });
-  }
-}
-
-function registrationSelectAddress(index) {
-  const item = registrationAddressSuggestions[index];
-  const streetInput = document.getElementById("street");
-  const cityInput = document.getElementById("city");
-  const postalCodeInput = document.getElementById("postalCode");
-
-  if (!item || !streetInput || !cityInput || !postalCodeInput) {
-    return;
-  }
-
-  streetInput.value = String(item.street || "").trim();
-  cityInput.value = String(item.city || "").trim();
-  postalCodeInput.value = String(item.postalCode || "").trim();
-  [streetInput, cityInput, postalCodeInput].forEach(function (field) {
-    field.classList.remove("input-error");
-    field.removeAttribute("aria-invalid");
-  });
-
-  registrationCloseAddressSuggestions();
-}
-
-async function registrationLoadAddressSuggestions(query, requestId, city, postalCode) {
-  const supabaseClient = getSupabaseClient();
-
-  if (!supabaseClient) {
-    return;
-  }
-
-  try {
-    const language =
-      typeof window.getRentuloLanguage === "function"
-        ? window.getRentuloLanguage()
-        : "cs";
-
-    const { data, error } = await supabaseClient.functions.invoke(
-      "address-suggestions",
-      {
-        body: {
-          query: query,
-          city: city,
-          postalCode: postalCode,
-          language: language
-        }
-      }
-    );
-
-    if (requestId !== registrationAddressRequestId) {
-      return;
-    }
-
-    if (error || !data || !Array.isArray(data.suggestions)) {
-      registrationCloseAddressSuggestions();
-      return;
-    }
-
-    registrationRenderAddressSuggestions(data.suggestions);
-  } catch (_error) {
-    if (requestId === registrationAddressRequestId) {
-      registrationCloseAddressSuggestions();
-    }
-  }
-}
-
-function setupAddressAutocomplete() {
-  const streetInput = document.getElementById("street");
-  const cityInput = document.getElementById("city");
-  const postalCodeInput = document.getElementById("postalCode");
-  const suggestionsBox = document.getElementById("addressSuggestions");
-
-  if (!streetInput || !cityInput || !postalCodeInput || !suggestionsBox) {
-    return;
-  }
-
-  function scheduleAddressSuggestions() {
-    const query = streetInput.value.trim();
-    const city = cityInput.value.trim();
-    const postalCode = postalCodeInput.value.trim();
-
-    registrationAddressRequestId += 1;
-    const requestId = registrationAddressRequestId;
-
-    if (registrationAddressTimer) {
-      window.clearTimeout(registrationAddressTimer);
-      registrationAddressTimer = null;
-    }
-
-    if (query.length < ADDRESS_SUGGESTION_MIN_LENGTH) {
-      registrationCloseAddressSuggestions();
-      return;
-    }
-
-    registrationAddressTimer = window.setTimeout(function () {
-      registrationLoadAddressSuggestions(query, requestId, city, postalCode);
-    }, ADDRESS_SUGGESTION_DELAY_MS);
-  }
-
-  streetInput.addEventListener("input", scheduleAddressSuggestions);
-  cityInput.addEventListener("input", scheduleAddressSuggestions);
-  postalCodeInput.addEventListener("input", scheduleAddressSuggestions);
-
-  streetInput.addEventListener("keydown", function (event) {
-    if (suggestionsBox.hidden || !registrationAddressSuggestions.length) {
-      return;
-    }
-
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      registrationSetAddressActiveIndex(registrationAddressActiveIndex + 1);
-      return;
-    }
-
-    if (event.key === "ArrowUp") {
-      event.preventDefault();
-      registrationSetAddressActiveIndex(registrationAddressActiveIndex - 1);
-      return;
-    }
-
-    if (event.key === "Enter" && registrationAddressActiveIndex >= 0) {
-      event.preventDefault();
-      registrationSelectAddress(registrationAddressActiveIndex);
-      return;
-    }
-
-    if (event.key === "Escape") {
-      event.preventDefault();
-      registrationCloseAddressSuggestions();
-    }
-  });
-
-  suggestionsBox.addEventListener("mousedown", function (event) {
-    event.preventDefault();
-  });
-
-  suggestionsBox.addEventListener("click", function (event) {
-    const button = event.target.closest("[data-address-index]");
-
-    if (!button) {
-      return;
-    }
-
-    registrationSelectAddress(Number(button.dataset.addressIndex));
-  });
-
-  document.addEventListener("click", function (event) {
-    if (!event.target.closest(".address-autocomplete")) {
-      registrationCloseAddressSuggestions();
-    }
-  });
 }
 
 function resetRegistrationConsentCheckboxes() {
@@ -455,7 +192,6 @@ async function createUserAccount(event) {
 
   registrationHideError();
   registrationClearErrors();
-  registrationCloseAddressSuggestions();
 
   const supabaseClient = getSupabaseClient();
 
@@ -470,6 +206,7 @@ async function createUserAccount(event) {
   const fullNameInput = document.getElementById("fullName");
   const emailInput = document.getElementById("email");
   const phoneInput = document.getElementById("phone");
+  const countryInput = document.getElementById("countryCode");
   const streetInput = document.getElementById("street");
   const cityInput = document.getElementById("city");
   const postalCodeInput = document.getElementById("postalCode");
@@ -482,9 +219,9 @@ async function createUserAccount(event) {
     fullNameInput,
     emailInput,
     phoneInput,
+    countryInput,
     streetInput,
     cityInput,
-    postalCodeInput,
     passwordInput,
     passwordConfirmInput
   ];
@@ -526,6 +263,22 @@ async function createUserAccount(event) {
     registrationFocusFirstError();
     return;
   }
+
+  const countryCode = window.rentuloCountries.validCountry(countryInput.value);
+  if (!countryCode) {
+    registrationMarkError(countryInput);
+    registrationShowError("country.required", "Vyberte zemi bydliště.");
+    registrationFocusFirstError();
+    return;
+  }
+  const normalizedPostalCode = window.rentuloCountries.normalizePostal(countryCode, postalCodeInput.value);
+  if (normalizedPostalCode === null) {
+    registrationMarkError(postalCodeInput);
+    registrationShowError("country.invalidPostalCode", "Zkontrolujte poštovní směrovací číslo pro vybranou zemi.");
+    registrationFocusFirstError();
+    return;
+  }
+  postalCodeInput.value = normalizedPostalCode;
 
   const email = registrationNormalizeEmail(emailInput.value);
 
@@ -592,6 +345,7 @@ async function createUserAccount(event) {
           street: street,
           city: city,
           postal_code: postalCode,
+          country_code: countryCode,
           preferred_language: preferredLanguage,
           terms_business_accepted: true,
           terms_privacy_accepted: true,
@@ -651,11 +405,10 @@ async function createUserAccount(event) {
 function handleRegistrationLanguageChange() {
   registrationRenderError();
   registrationSetButtonState(registrationSubmitInProgress);
-  registrationCloseAddressSuggestions();
 }
 
 document.addEventListener("DOMContentLoaded", function () {
-  setupAddressAutocomplete();
+  window.rentuloCountries.setupSelect("countryCode", "postalCode");
   resetRegistrationConsentCheckboxes();
 
   window.setTimeout(resetRegistrationConsentCheckboxes, 0);
@@ -667,7 +420,7 @@ document.addEventListener("DOMContentLoaded", function () {
     registrationForm.addEventListener("input", function (event) {
       const field = event.target;
 
-      if (field && field.matches("input")) {
+      if (field && field.matches("input, select")) {
         field.classList.remove("input-error");
         field.removeAttribute("aria-invalid");
       }

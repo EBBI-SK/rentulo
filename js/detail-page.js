@@ -199,6 +199,21 @@
       return new URLSearchParams(window.location.search).get("id");
     }
 
+    function getDetailSearchDates() {
+      const params = new URLSearchParams(window.location.search);
+      const from = params.get("od") || "";
+      const to = params.get("do") || "";
+      const iso = /^\d{4}-\d{2}-\d{2}$/;
+      if (!iso.test(from) || !iso.test(to)) return null;
+      const first = new Date(from + "T00:00:00Z");
+      const last = new Date(to + "T00:00:00Z");
+      if (Number.isNaN(first.getTime()) || Number.isNaN(last.getTime())) return null;
+      if (first.toISOString().slice(0, 10) !== from || last.toISOString().slice(0, 10) !== to) return null;
+      const days = (last.getTime() - first.getTime()) / 86400000;
+      if (!Number.isInteger(days) || days < 1 || days > 365) return null;
+      return { from, to };
+    }
+
     function showCanonicalOfferUrl(offer) {
       // Old bookmarks continue to load. After an active offer is confirmed,
       // display the SEO URL so copying the browser address shares its photo.
@@ -207,7 +222,11 @@
       if (!/^https?:$/.test(window.location.protocol)) return;
       if (!/\/detail\.html$/i.test(window.location.pathname)) return;
       if (window.history && typeof window.history.replaceState === "function") {
-        window.history.replaceState(window.history.state, "", "/nabidka/" + id.toLowerCase());
+        const dates = getDetailSearchDates();
+        const dateQuery = dates
+          ? "?" + new URLSearchParams({ od: dates.from, do: dates.to }).toString()
+          : "";
+        window.history.replaceState(window.history.state, "", "/nabidka/" + id.toLowerCase() + dateQuery);
       }
     }
 
@@ -215,7 +234,14 @@
       // The login allowlist already accepts this legacy UUID URL. Keep it so
       // logging in from a public SEO link cannot break reservation checkout.
       const offerId = getOfferIdFromUrl();
-      return offerId ? "detail.html?id=" + encodeURIComponent(offerId) : "detail.html";
+      if (!offerId) return "detail.html";
+      const params = new URLSearchParams({ id: offerId });
+      const dates = getDetailSearchDates();
+      if (dates) {
+        params.set("od", dates.from);
+        params.set("do", dates.to);
+      }
+      return "detail.html?" + params.toString();
     }
 
     function updateOfferBrowserMetadata(offer) {
@@ -301,6 +327,7 @@ owner_id: row.owner_id,
 
         price: row.price_per_day,
         pricePerDay: row.price_per_day,
+        minRentalDays: row.min_rental_days || 1,
         cena: row.price_per_day,
 
         status: row.status === "active" ? "Aktivní" : row.status,
@@ -361,6 +388,18 @@ function getOfferCategory(offer) {
 
     function getOfferCity(offer) {
       return offer.city || offer.mesto || offer.location || "-";
+    }
+
+    function getOfferMinimumDays(offer) {
+      const count = Number(offer.minRentalDays ?? offer.min_rental_days ?? 1);
+      return Number.isInteger(count) && count >= 1 && count <= 365 ? count : 1;
+    }
+
+    function getEarliestReturnDate(startDate, minimumDays) {
+      const date = new Date(`${startDate}T00:00:00Z`);
+      if (Number.isNaN(date.getTime())) return "";
+      date.setUTCDate(date.getUTCDate() + minimumDays);
+      return date.toISOString().slice(0, 10);
     }
 
     function getOfferStatus(offer) {
@@ -744,6 +783,7 @@ function renderDetailImage(offer) {
       const offerCity = getOfferCity(offer);
 
       const price = getOfferPrice(offer);
+      const minimumDays = getOfferMinimumDays(offer);
       updateOfferBrowserMetadata(offer);
 
       const currentUserId = currentUser ? String(currentUser.id || "") : "";
@@ -830,7 +870,7 @@ const hasGps = offerHasGpsLocation(offer);
                 </section>
               ` : ""}
 
-              ${!isOwner ? `<p style="margin: 8px 0 16px;"><a href="mailto:rentulo@rentulo.com?subject=${encodeURIComponent("Rentulo - ohlášení nabídky " + (offer.offerNumber || offer.id || ""))}">${escapeHtml(detailTranslate("detail.reportOffer"))}</a></p>` : ""}
+              ${minimumDays > 1 ? `<p class="min-rental-notice">${escapeHtml(detailTranslate("detail.minRentalDays", { days: minimumDays }))}</p>` : ""}
 
               <div class="info-grid">
                 <div class="section">
@@ -1029,10 +1069,16 @@ const hasGps = offerHasGpsLocation(offer);
       }
 
       const today = new Date().toISOString().split("T")[0];
+      const minimumDays = getOfferMinimumDays(offer);
       let availabilityCheckVersion = 0;
 
       startDateInput.min = today;
       endDateInput.min = getNextDate(today);
+      const searchDates = getDetailSearchDates();
+      if (searchDates && searchDates.from >= today) {
+        startDateInput.value = searchDates.from;
+        endDateInput.value = searchDates.to;
+      }
 
       function updateAvailabilityElement(element, state, title, text) {
         if (!element) {
@@ -1093,10 +1139,10 @@ const hasGps = offerHasGpsLocation(offer);
         const endDate = endDateInput.value;
 
         if (startDate) {
-          const nextDate = getNextDate(startDate);
-          endDateInput.min = nextDate;
+          const earliestReturnDate = getEarliestReturnDate(startDate, minimumDays);
+          endDateInput.min = earliestReturnDate;
 
-          if (endDate && endDate <= startDate) {
+          if (endDate && endDate < earliestReturnDate) {
             endDateInput.value = "";
           }
         } else {
@@ -1120,6 +1166,15 @@ const hasGps = offerHasGpsLocation(offer);
               : detailTranslate("detail.endAfterStart");
           }
           setRentButtonState("invalid");
+          return;
+        }
+
+        if (days < minimumDays) {
+          setAvailabilityDisplay("available");
+          setRentButtonState("invalid");
+          if (bookingDateHelp) {
+            bookingDateHelp.textContent = detailTranslate("detail.minimumDaysError", { days: minimumDays });
+          }
           return;
         }
 
@@ -1221,6 +1276,12 @@ const hasGps = offerHasGpsLocation(offer);
         if (!startDate || !endDate || days <= 0) {
           await updateCalculation();
           showDetailBookingMessage(detailTranslate("detail.error.validDates"));
+          return;
+        }
+
+        if (days < minimumDays) {
+          await updateCalculation();
+          showDetailBookingMessage(detailTranslate("detail.minimumDaysError", { days: minimumDays }));
           return;
         }
 

@@ -71,8 +71,7 @@
       }
 
       .edit-basics-grid > .form-group:nth-child(3) {
-        grid-column: 1 / -1;
-        max-width: 280px;
+        grid-column: 1 / 2;
       }
 
       .edit-card-body > .form-group.full {
@@ -181,6 +180,11 @@
               <input id="edit-price" type="text" placeholder="např. 250 Kč" data-i18n-placeholder="editOffer.pricePlaceholder" aria-describedby="editCommissionInfo" />
               <p class="offer-commission-note" id="editCommissionInfo" data-i18n="offer.commissionNote">Provize Rentulo je 10 % z půjčovného za zaplacenou rezervaci, minimálně 70 Kč za rezervaci.</p>
             </div>
+            <div class="form-group">
+              <label for="edit-min-rental-days" data-i18n="offer.minRentalDays">Minimální délka pronájmu (dní)</label>
+              <input id="edit-min-rental-days" type="number" min="1" max="365" step="1" value="1" required aria-describedby="editMinRentalDaysHint" />
+              <p class="offer-commission-note" id="editMinRentalDaysHint" data-i18n="offer.minRentalDaysHint">1 až 365 dní.</p>
+            </div>
           </div>
 
           <div class="form-group full">
@@ -195,6 +199,7 @@
           <section class="pickup-options">
             <div class="pickup-options-header">
               <strong data-i18n="offer.pickupTitle">Místo vyzvednutí</strong>
+              <p class="pickup-market-note" data-i18n="offer.pickupCountryNote">Země vyzvednutí: Česká republika. Nabídky v dalších zemích zatím nejsou dostupné.</p>
               <p data-i18n="offer.pickupDescription">
                 Místo vyzvednutí určuje také polohu nabídky na mapě. Standardně se použijí údaje z vašeho profilu; jiné místo můžete zadat níže.
               </p>
@@ -213,26 +218,16 @@
 
               <div class="pickup-custom-fields" id="editPickupCustomFields">
                 <div class="form-grid">
-                  <div class="form-group address-autocomplete">
+                  <div class="form-group">
                     <label for="edit-pickup-street" data-i18n="offer.streetLabel">Ulice a číslo</label>
                     <input
                       id="edit-pickup-street"
                       type="text"
                       autocomplete="off"
                       maxlength="160"
-                      aria-autocomplete="list"
-                      aria-controls="editPickupAddressSuggestions"
-                      aria-expanded="false"
-                      role="combobox"
                       placeholder="např. Zahradnická 5"
                       data-i18n-placeholder="offer.streetPlaceholder"
                     />
-                    <div
-                      class="address-suggestions"
-                      id="editPickupAddressSuggestions"
-                      role="listbox"
-                      hidden
-                    ></div>
                   </div>
 
                   <div class="form-group">
@@ -242,7 +237,7 @@
 
                   <div class="form-group">
                     <label for="edit-postal-code" data-i18n="offer.postalCodeLabel">PSČ</label>
-                    <input id="edit-postal-code" type="text" autocomplete="off" maxlength="20" placeholder="např. 602 00" data-i18n-placeholder="offer.postalCodePlaceholder" />
+                    <input id="edit-postal-code" type="text" autocomplete="off" inputmode="numeric" maxlength="6" placeholder="např. 602 00" data-i18n-placeholder="offer.postalCodePlaceholder" />
                   </div>
 
                   <div class="form-group">
@@ -257,7 +252,7 @@
           <div class="form-group full" style="margin-top: 14px;">
             <label class="pickup-checkbox" for="editTransportConfirmation">
               <input type="checkbox" id="editTransportConfirmation" required />
-              <span data-i18n="offer.transportConfirmation">Potvrzuji, že nenabízím dopravní prostředek ani věc zakázanou podmínkami Rentula V1.</span>
+              <span data-i18n="offer.transportConfirmation">Potvrzuji, že nenabízím dopravní prostředek ani věc zakázanou podmínkami Rentula.</span>
             </label>
           </div>
 

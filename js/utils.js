@@ -75,3 +75,24 @@ function normalizeText(value) {
     .toLowerCase()
     .trim();
 }
+
+// Czech V1 addresses are entered manually. Check the PSČ format only;
+// this does not claim the street or address physically exists.
+function formatRentuloCzechPostalCode(value) {
+  const match = String(value === null || value === undefined ? "" : value)
+    .trim().match(/^(\d{3}) ?(\d{2})$/);
+  return match ? match[1] + " " + match[2] : null;
+}
+
+function setupRentuloCzechPostalCodeBlur(input) {
+  if (!input || typeof input.addEventListener !== "function") {
+    return;
+  }
+
+  input.addEventListener("blur", function () {
+    const postalCode = formatRentuloCzechPostalCode(input.value);
+    if (postalCode) {
+      input.value = postalCode;
+    }
+  });
+}

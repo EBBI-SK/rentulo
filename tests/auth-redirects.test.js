@@ -131,6 +131,16 @@ test("login redirect allowlist rejects external, executable and malformed destin
   }
 });
 
+test("email reservation links survive login without carrying untrusted parameters", () => {
+  for (const page of ["moje-nabidky.html", "moje-rezervace.html", "historie.html"]) {
+    assert.equal(getLoginSafeReturnTo(`${page}?reservation=${safeUuid}`), `${page}?reservation=${safeUuid}`);
+    assert.equal(getLoginSafeReturnTo(`${page}?reservation=not-a-uuid`), page);
+    assert.equal(getLoginSafeReturnTo(`${page}?reservation=${safeUuid}&next=https://evil.example`),
+      `${page}?reservation=${safeUuid}`);
+  }
+  assert.equal(getLoginSafeReturnTo("https://evil.example/moje-nabidky.html?reservation=" + safeUuid), "");
+});
+
 test("password recovery keeps the same safe return target when going back to login", async () => {
   assert.equal(
     await getRecoveryBackLink("nastaveni.html"),

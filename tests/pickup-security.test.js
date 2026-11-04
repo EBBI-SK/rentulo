@@ -74,9 +74,13 @@ test("global owner PIN lookup locks after three wrong attempts for fifteen minut
   assert.match(sql, /grant execute on function public\.register_failed_owner_pickup_pin\(uuid\) to service_role/i);
 });
 
-test("successful owner PIN lookup clears previous lookup failures", () => {
+test("successful owner PIN lookup resets failures only through the atomic attempt finalizer", () => {
   const source = read(RESOLVE);
-  assert.match(source, /from\("owner_pickup_pin_security"\)[\s\S]*\.delete\(\)[\s\S]*\.eq\("owner_id", actor\.id\)/);
+  assert.match(source, /admin\.rpc\("begin_owner_pickup_pin_attempt"/);
+  assert.match(source, /admin\.rpc\("finish_owner_pickup_pin_attempt"/);
+  assert.match(source, /p_attempt_id: attemptId/);
+  assert.match(source, /lookupAttemptError\(await finishAttempt\("success"\)\)/);
+  assert.doesNotMatch(source, /\.delete\(/);
 });
 
 test("owner confirmation accepts exactly six digits and verifies owner identity", () => {

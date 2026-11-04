@@ -70,8 +70,8 @@ button {
 
 .btn-register,
 .logout-link {
-  background: #7ED957;
-  color: #173A22 !important;
+  background: #00835a;
+  color: #ffffff !important;
   padding: 10px 20px;
   border-radius: 999px;
   font-weight: 800;
@@ -219,14 +219,14 @@ h1 {
   padding: 7px 10px;
   font-size: 12px;
   font-weight: 800;
-  background: #7ED957;
-  color: #173A22;
+  background: var(--rentulo-action-green, #00835a);
+  color: #ffffff;
   white-space: nowrap;
   min-height: 32px;
 }
 
 .small-button:hover {
-  background: #68C547;
+  background: var(--rentulo-action-green-hover, #006846);
 }
 
 .small-button.light {
@@ -395,13 +395,13 @@ h1 {
 }
 
 .reservation-cancel-action {
-  background: #fff7f5;
-  border: 1px solid #efc7be;
-  color: #9a3f2d;
+  background: #fff0f1;
+  border: 1px solid #f0b2bb;
+  color: #9d2634;
 }
 
 .reservation-cancel-action:hover {
-  background: #fcece8;
+  background: #fce4e8;
 }
 
 body.reservation-modal-open {
@@ -474,13 +474,13 @@ body.reservation-modal-open {
 }
 
 .reservation-modal-cancel {
-  border-color: #efc7be;
-  background: #fff7f5;
-  color: #9a3f2d;
+  border-color: #f0b2bb;
+  background: #fff0f1;
+  color: #9d2634;
 }
 
 .reservation-modal-cancel:hover {
-  background: #fcece8;
+  background: #fce4e8;
 }
 
 .reservation-modal-button:focus-visible {
@@ -528,8 +528,8 @@ body.reservation-modal-open {
   padding: 10px 17px;
   border: 0;
   border-radius: 12px;
-  background: #eee9e1;
-  color: #173f35;
+  background: var(--rentulo-action-green, #00835a);
+  color: #ffffff;
   font-weight: 800;
   cursor: pointer;
 }
@@ -609,3 +609,47 @@ body.reservation-modal-open {
     flex: 1;
   }
 }
+
+/* RENTULO V1 BOD 1: extension form is confined to the opened reservation row. */
+.reservation-extension-panel {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #d6e6dc;
+  border-radius: 10px;
+  background: #f8fbf9;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.reservation-extension-state { margin: 0; flex-basis: 100%; }
+.reservation-extension-form {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.reservation-extension-form[hidden] { display: none; }
+.reservation-extension-form input[type="date"] {
+  min-height: 40px;
+  border: 1px solid #bacdc1;
+  border-radius: 6px;
+  padding: 8px;
+  color: #22342a;
+  background: white;
+}
+.reservation-extension-form small { width: 100%; }
+
+/* BOD 1: show approved extension payment deadline directly in the compact row. */
+.simple-reservation-info .reservation-extension-payment-note {
+  display: block;
+  margin-top: 5px;
+  color: #9d2634;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.4;
+  white-space: normal;
+}
+
+.simple-reservation-info .reservation-extension-approval-note { display:block; margin-top:5px; color:#42564e; font-size:11px; font-weight:800; line-height:1.4; }

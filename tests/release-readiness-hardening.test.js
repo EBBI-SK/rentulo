@@ -63,7 +63,7 @@ test("owner lookup verifies paid reservations only inside the exact scheduled re
   assert.match(lookup, /\.select\("id, renter_id, owner_id, status, start_date, end_date, pickup_time"\)/);
   assert.match(lookup, /rentalHandoverOpen\(reservation\.start_date, reservation\.end_date, reservation\.pickup_time\)/);
   assert.match(lookup, /if \(matchedOutsideRentalPeriod\) \{[\s\S]*?code: "pickup_wrong_day"/);
-  assert.ok(lookup.indexOf("if (matchedOutsideRentalPeriod)") < lookup.indexOf('admin.rpc("register_failed_owner_pickup_pin"'));
+  assert.ok(lookup.indexOf("if (matchedOutsideRentalPeriod)") < lookup.indexOf('const state = await finishAttempt("failure")'));
   assert.match(lookup, /reservation_id: matches\[0\], status: "verified"/);
 });
 
@@ -154,5 +154,5 @@ test("CI checks both main and production, executes TEST build and Deno typecheck
   assert.match(ci, /run: npm test/);
   assert.match(ci, /RENTULO_DEPLOY_TARGET=test npm run build/);
   assert.match(ci, /denoland\/setup-deno@v2/);
-  assert.match(ci, /deno check "\$\{functions\[@\]\}"/);
+  assert.match(ci, /deno check --node-modules-dir=auto "\$\{functions\[@\]\}"/);
 });

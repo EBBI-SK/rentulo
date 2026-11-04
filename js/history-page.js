@@ -2,6 +2,7 @@ let historyCurrentUser = null;
 let historyReservations = [];
 let historyReviews = [];
 let historyLoadState = "idle";
+let historyEmailReservationScrolled = false;
 
 const HISTORY_LOCALES = {
   cs: "cs-CZ",
@@ -41,6 +42,192 @@ function historyFormatNumber(value) {
 
 function historyFormatMoney(value) {
   return historyFormatNumber(value) + " Kč";
+}
+
+// The original reservation price is a financial snapshot. Paid extensions
+// have their own charges and must be added only for display, never written
+// back into the reservation or counted while pending/approved/rejected.
+function historyPriceBreakdown(reservation) {
+  const original = Number(reservation.total_price ?? reservation.totalPrice ?? 0);
+  const paidExtensions = Array.isArray(reservation.historyPaidExtensions)
+    ? reservation.historyPaidExtensions.filter(function (extension) {
+        return extension.status === "paid";
+      })
+    : [];
+  const extensionsTotal = paidExtensions.reduce(function (sum, extension) {
+    return sum + Number(extension.amount_total);
+  }, 0);
+  return { original, paidExtensions, total: original + extensionsTotal };
+}
+
+function historyAttachPaidExtensions(reservations, extensions) {
+  const byReservation = new Map();
+  const reservationIds = new Set(reservations.map(historyGetReservationId));
+
+  extensions.forEach(function (extension) {
+    const reservationId = String(extension.reservation_id || "");
+    if (extension.status !== "paid" || !reservationIds.has(reservationId)) return;
+    if (!byReservation.has(reservationId)) byReservation.set(reservationId, []);
+    byReservation.get(reservationId).push(extension);
+  });
+
+  return reservations.map(function (reservation) {
+    return Object.assign({}, reservation, {
+      historyPaidExtensions: byReservation.get(historyGetReservationId(reservation)) || []
+    });
+  });
+}
+
+// The private financial read is limited by SQL to the authenticated owner.
+// A missing or invalid payment snapshot must not be rendered as a payout.
+function historyAttachOwnerTransfers(reservations, ownerTransfers) {
+  const byReservation = new Map();
+  ownerTransfers.forEach(function (record) {
+    const id = String(record.reservation_id || "");
+    if (id) byReservation.set(id, record);
+  });
+  const currentUserId = String(historyCurrentUser && historyCurrentUser.id || "");
+  return reservations.map(function (reservation) {
+    const owned = currentUserId && historyGetOwnerId(reservation) === currentUserId;
+    return Object.assign({}, reservation, {
+      historyOwnerTransfer: owned ? (byReservation.get(historyGetReservationId(reservation)) || null) : null
+    });
+  });
+}
+
+function historyWholeCzk(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function historyOwnerFinanceSnapshot(reservation) {
+  const payment = reservation.historyOwnerTransfer;
+  if (!payment || payment.payment_provider !== "stripe" ||
+      payment.payment_status !== "paid" ||
+      payment.stripe_payment_intent_status !== "succeeded" ||
+      payment.refund_status !== "not_requested") return null;
+
+  const original = historyWholeCzk(payment.original_amount_total);
+  const originalFee = historyWholeCzk(payment.original_platform_fee_amount);
+  const originalPayout = historyWholeCzk(payment.original_owner_payout);
+  if (original === null || original <= 0 || originalFee === null ||
+      originalPayout === null || originalFee + originalPayout !== original ||
+      historyWholeCzk(reservation.total_price ?? reservation.totalPrice) !== original) return null;
+
+  // An altered reservation snapshot must never pass as a financial statement.
+  const storedFee = reservation.platform_fee_amount ?? reservation.platformFeeAmount;
+  const storedPayout = reservation.owner_payout ?? reservation.ownerPayout;
+  if ((storedFee !== undefined && historyWholeCzk(storedFee) !== originalFee) ||
+      (storedPayout !== undefined && historyWholeCzk(storedPayout) !== originalPayout)) return null;
+
+  const paidExtensions = historyPriceBreakdown(reservation).paidExtensions;
+  let extensionTotal = 0;
+  let extensionFees = 0;
+  let extensionPayouts = 0;
+  for (const extension of paidExtensions) {
+    const amount = historyWholeCzk(extension.amount_total);
+    const fee = historyWholeCzk(extension.platform_fee_amount);
+    const payout = historyWholeCzk(extension.owner_payout);
+    if (amount === null || amount <= 0 || fee === null || payout === null ||
+        fee + payout !== amount) return null;
+    extensionTotal += amount;
+    extensionFees += fee;
+    extensionPayouts += payout;
+  }
+  const total = original + extensionTotal;
+  const commission = originalFee + extensionFees;
+  const payout = originalPayout + extensionPayouts;
+  if (![total, commission, payout].every(Number.isSafeInteger) ||
+      commission + payout !== total) return null;
+
+  return {
+    original, originalFee, originalPayout, paidExtensions,
+    extensionTotal, commission, total, payout,
+    originalTransferStatus: payment.original_transfer_status,
+    payoutBlocked: payment.payout_blocked === true
+  };
+}
+
+function historyOwnerTransferStatus(status, blocked) {
+  // A card dispute cannot erase a transfer already created in Stripe.
+  if (status === "succeeded") {
+    return historyT("history.finance.status.succeeded", "Převedeno na účet Stripe");
+  }
+  if (status === "reversed") {
+    return historyT("history.finance.status.reversed", "Převod byl vrácen");
+  }
+  if (blocked) {
+    return historyT("history.finance.status.blocked", "Výplata pozastavena (spor)");
+  }
+  const statuses = {
+    not_created: ["history.finance.status.waiting", "Čeká na výplatu"],
+    pending: ["history.finance.status.pending", "Převod se zpracovává"],
+    failed: ["history.finance.status.failed", "Převod se nezdařil"],
+    reversed: ["history.finance.status.reversed", "Převod byl vrácen"]
+  };
+  const copy = statuses[String(status || "")];
+  return copy
+    ? historyT(copy[0], copy[1])
+    : historyT("history.finance.status.unknown", "Stav nelze ověřit");
+}
+
+function historyOwnerFinanceEligible(reservation, role) {
+  return role === "owner" && Boolean(historyCurrentUser) &&
+    historyGetOwnerId(reservation) === String(historyCurrentUser.id) &&
+    ["returned", "no_show"].includes(historyNormalizeStatus(reservation.status));
+}
+
+function historyRenderOwnerFinance(reservation, role, finance) {
+  if (!historyOwnerFinanceEligible(reservation, role)) return "";
+
+  const heading = escapeHtml(historyT("history.finance.heading", "Finanční vyúčtování"));
+  if (!finance) {
+    return `<section class="history-owner-finance"><h3>${heading}</h3><p class="history-finance-unavailable">${escapeHtml(historyT("history.finance.unavailable", "Finanční údaje se nepodařilo ověřit. Zkuste stránku obnovit."))}</p></section>`;
+  }
+
+  const line = function (label, amount, klass = "", prefix = "") {
+    return `<div class="${klass}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(prefix + historyFormatMoney(amount))}</strong></div>`;
+  };
+  const statusLine = function (label, result) {
+    return `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(result)}</strong></div>`;
+  };
+  const transfers = [{
+    label: historyT("history.finance.originalStatus", "Původní převod"),
+    result: historyOwnerTransferStatus(finance.originalTransferStatus, finance.payoutBlocked)
+  }].concat(finance.paidExtensions.map(function (extension) {
+    return {
+      label: historyT("history.finance.extensionStatus", "Prodloužení do") + " " + historyFormatDate(extension.new_end_date),
+      result: historyOwnerTransferStatus(extension.transfer_status, finance.payoutBlocked)
+    };
+  }));
+  // A single status suffices when every transfer has the same effective result.
+  // Different outcomes must remain visible for the original and each extension.
+  const sameStatus = transfers.every(function (transfer) {
+    return transfer.result === transfers[0].result;
+  });
+  const transferMarkup = sameStatus
+    ? statusLine(historyT("history.finance.statusLabel", "Stav výplaty"), transfers[0].result)
+    : transfers.map(function (transfer) {
+        return statusLine(transfer.label, transfer.result);
+      }).join("");
+
+  return `
+    <section class="history-owner-finance">
+      <h3>${heading}</h3>
+      <div class="history-detail-grid">
+        ${line(historyT("history.finance.original", "Původní pronájem"), finance.original)}
+        ${finance.extensionTotal > 0
+          ? line(historyT("history.finance.extension", "Prodloužení"), finance.extensionTotal, "", "+")
+          : ""}
+        ${line(historyT("history.finance.paidTotal", "Celkem zaplaceno"), finance.total, "history-finance-total")}
+        ${line(historyT("history.finance.commission", "Provize Rentulo"), -finance.commission)}
+        ${line(historyT("history.finance.totalPayout", "Celkem k výplatě"), finance.payout, "history-finance-total")}
+      </div>
+      <div class="history-owner-transfer-states">${transferMarkup}</div>
+      <p class="history-owner-finance-note">${escapeHtml(historyT("history.finance.stripeNote", "Převod na Stripe neznamená připsání na bankovní účet."))}</p>
+    </section>
+  `;
 }
 
 let historySuccessNoticeTimer = null;
@@ -344,22 +531,34 @@ function historyRenderDetail(reservation, role) {
   const reservationId = historyGetReservationId(reservation);
   const startDate = reservation.date_from || reservation.start_date || reservation.startDate || "";
   const endDate = reservation.date_to || reservation.end_date || reservation.endDate || "";
-  const price = Number(reservation.total_price || reservation.totalPrice || 0);
+  const price = historyPriceBreakdown(reservation);
   const counterpart = historyGetCounterpart(reservation, role);
   const expiryReason = historyExpirationReasonText(reservation, role);
   const noShowReason = historyNoShowReasonText(reservation, role);
+  const ownerFinance = historyOwnerFinanceEligible(reservation, role)
+    ? historyOwnerFinanceSnapshot(reservation)
+    : null;
 
   return `
     <div class="history-detail" id="history-detail-${escapeHtml(reservationId)}-${escapeHtml(role)}">
       <div class="history-detail-grid">
         <div><span>${escapeHtml(historyT("history.detail.term", "Termín"))}</span><strong>${escapeHtml(historyFormatDate(startDate))} – ${escapeHtml(historyFormatDate(endDate))}</strong></div>
-        <div><span>${escapeHtml(historyT("history.detail.total", "Celková cena"))}</span><strong>${escapeHtml(historyFormatMoney(price))}</strong></div>
+        ${!ownerFinance ? `
+          ${price.paidExtensions.length ? `
+            <div><span>${escapeHtml(historyT("history.price.original", "Původní cena"))}</span><strong>${escapeHtml(historyFormatMoney(price.original))}</strong></div>
+            ${price.paidExtensions.map(function (extension) {
+              return `<div><span>${escapeHtml(historyT("history.price.extensionUntil", "Zaplacené prodloužení do"))} ${escapeHtml(historyFormatDate(extension.new_end_date))}</span><strong>+ ${escapeHtml(historyFormatMoney(extension.amount_total))}</strong></div>`;
+            }).join("")}
+          ` : ""}
+          <div><span>${escapeHtml(historyT("history.detail.total", "Celková cena"))}</span><strong>${escapeHtml(historyFormatMoney(price.total))}</strong></div>
+        ` : ""}
         <div><span>${escapeHtml(counterpart.label)}</span><strong>${escapeHtml(counterpart.name)}</strong></div>
         ${reservation.reservation_number ? `<div><span>${escapeHtml(historyT("reference.reservation", "Číslo rezervace"))}</span><strong>${escapeHtml(reservation.reservation_number)}</strong></div>` : ""}
         ${reservation.offer_number ? `<div><span>${escapeHtml(historyT("reference.offer", "Číslo nabídky"))}</span><strong>${escapeHtml(reservation.offer_number)}</strong></div>` : ""}
         ${expiryReason ? `<div><span>${escapeHtml(historyT("history.detail.expiryReason", "Důvod vypršení"))}</span><strong>${escapeHtml(expiryReason)}</strong></div>` : ""}
         ${noShowReason ? `<div><span>${escapeHtml(historyT("history.detail.noShowReason", "Důvod ukončení"))}</span><strong>${escapeHtml(noShowReason)}</strong></div>` : ""}
       </div>
+      ${historyRenderOwnerFinance(reservation, role, ownerFinance)}
       <div class="history-review-grid">
         ${historyRenderReviewForm(reservation, role)}
         ${historyRenderReceivedReview(reservation, role)}
@@ -373,7 +572,7 @@ function historyRenderRow(reservation, role) {
   const name = reservation.offer_name || reservation.offerName || historyT("history.fallback.offer", "Nabídka");
   const startDate = reservation.date_from || reservation.start_date || reservation.startDate || "";
   const endDate = reservation.date_to || reservation.end_date || reservation.endDate || "";
-  const price = Number(reservation.total_price || reservation.totalPrice || 0);
+  const price = historyPriceBreakdown(reservation);
   const normalizedStatus = historyNormalizeStatus(reservation.status);
   const status = historyStatusText(reservation.status);
   const counterpart = historyGetCounterpart(reservation, role);
@@ -389,7 +588,7 @@ function historyRenderRow(reservation, role) {
           </div>
         </div>
         <div class="simple-reservation-date">${escapeHtml(historyFormatDate(startDate))} – ${escapeHtml(historyFormatDate(endDate))}</div>
-        <div class="simple-reservation-price">${escapeHtml(historyFormatMoney(price))}</div>
+        <div class="simple-reservation-price">${escapeHtml(historyFormatMoney(price.total))}</div>
         <div class="simple-reservation-status status-${escapeHtml(normalizedStatus)}">${escapeHtml(status)}</div>
         <button type="button" class="history-detail-button" data-history-toggle="${escapeHtml(reservationId)}" data-history-role="${escapeHtml(role)}">${escapeHtml(historyT("history.detail.show", "Detail rezervace"))}</button>
       </div>
@@ -518,6 +717,40 @@ function historyRerenderForLanguageChange() {
   const uiState = historyCaptureUiState();
   historyRenderAll();
   historyRestoreUiState(uiState);
+  historyFocusEmailReservation();
+}
+
+function historyFocusEmailReservation() {
+  if (typeof URLSearchParams === "undefined" ||
+      typeof window === "undefined" || !window.location || !window.location.search) return;
+  const requested = new URLSearchParams(window.location.search).get("reservation") || "";
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requested)) return;
+  const id = requested.toLowerCase();
+  // Only the signed-in participant's rendered history can be focused.
+  const renterDetail = document.getElementById("history-detail-" + id + "-renter");
+  const ownerDetail = document.getElementById("history-detail-" + id + "-owner");
+  const detail = renterDetail || ownerDetail;
+  if (!detail) return;
+  const role = renterDetail ? "renter" : "owner";
+  const view = role === "owner" ? "offers" : "rentals";
+  document.querySelectorAll(".history-switch-button").forEach(function (button) {
+    button.classList.toggle("active", button.dataset.historyView === view);
+  });
+  document.getElementById("rentalHistorySection").hidden = view !== "rentals";
+  document.getElementById("offerHistorySection").hidden = view !== "offers";
+  detail.classList.add("open");
+  const toggle = Array.from(document.querySelectorAll("[data-history-toggle]"))
+    .find(function (item) { return item.dataset.historyToggle === id && item.dataset.historyRole === role; });
+  if (toggle) toggle.textContent = historyT("history.detail.hide", "Skr\u00fdt detail");
+  const card = detail.closest(".history-record");
+  if (!card) return;
+  card.classList.add("email-reservation-target");
+  if (!historyEmailReservationScrolled) {
+    historyEmailReservationScrolled = true;
+    window.setTimeout(function () {
+      if (card.isConnected) card.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 0);
+  }
 }
 
 function historyRenderAll() {
@@ -582,6 +815,44 @@ async function historyLoadReservations() {
   }
 }
 
+async function historyLoadPaidExtensions() {
+  const client = typeof getSupabaseClient === "function" ? getSupabaseClient() : null;
+  if (!client) {
+    return { data: [], error: new Error("Supabase client is unavailable.") };
+  }
+
+  try {
+    // Same authenticated, participant-scoped reader as "Moje rezervace".
+    // Never query reservation_extensions directly: Stripe details are private.
+    const result = await client.rpc("get_my_reservation_extensions");
+    if (result.error || !Array.isArray(result.data)) {
+      console.warn("Prodloužení v historii se nepodařilo načíst.", result.error);
+      return { data: [], error: result.error || new Error("Reservation extensions response is invalid.") };
+    }
+    return { data: result.data, error: null };
+  } catch (error) {
+    console.warn("Prodloužení v historii se nepodařilo načíst.", error);
+    return { data: [], error };
+  }
+}
+
+async function historyLoadOwnerTransfers() {
+  const client = typeof getSupabaseClient === "function" ? getSupabaseClient() : null;
+  if (!client) return { data: [], error: new Error("Supabase client is unavailable.") };
+  try {
+    // New TEST-only, owner-scoped SQL reader. Never expose payments table.
+    const result = await client.rpc("get_my_history_owner_transfers");
+    if (result.error || !Array.isArray(result.data)) {
+      console.warn("Stavy výplat v historii se nepodařilo načíst.", result.error);
+      return { data: [], error: result.error || new Error("Owner transfer response is invalid.") };
+    }
+    return { data: result.data, error: null };
+  } catch (error) {
+    console.warn("Stavy výplat v historii se nepodařilo načíst.", error);
+    return { data: [], error };
+  }
+}
+
 async function historyLoadReviews() {
   const client = typeof getSupabaseClient === "function" ? getSupabaseClient() : null;
   if (!client || !historyCurrentUser) {
@@ -615,19 +886,37 @@ async function historyLoadData() {
 
   const results = await Promise.all([
     historyLoadReservations(),
-    historyLoadReviews()
+    historyLoadReviews(),
+    historyLoadPaidExtensions()
   ]);
   const reservationResult = results[0];
   const reviewResult = results[1];
+  const extensionResult = results[2];
 
-  if (reservationResult.error || reviewResult.error) {
+  // Do not show understated totals if the extension reader is unavailable.
+  if (reservationResult.error || reviewResult.error || extensionResult.error) {
     historyRenderLoadErrorState();
     return false;
   }
 
-  historyReservations = reservationResult.data;
+  historyReservations = historyAttachPaidExtensions(reservationResult.data, extensionResult.data);
+  // Owners of completed reservations get a separate payment-status snapshot.
+  // When the TEST migration has not yet been deployed, only this optional
+  // statement is unavailable; renter prices and History must keep working.
+  const userId = String(historyCurrentUser && historyCurrentUser.id || "");
+  const needsOwnerFinance = historyReservations.some(function (reservation) {
+    return historyGetOwnerId(reservation) === userId &&
+      ["returned", "no_show"].includes(historyNormalizeStatus(reservation.status));
+  });
+  if (needsOwnerFinance) {
+    const transfersResult = await historyLoadOwnerTransfers();
+    historyReservations = historyAttachOwnerTransfers(
+      historyReservations, transfersResult.error ? [] : transfersResult.data
+    );
+  }
   historyReviews = reviewResult.data;
   historyRenderAll();
+  historyFocusEmailReservation();
   return true;
 }
 
