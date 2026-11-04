@@ -78,6 +78,12 @@ test("Resend delivery is idempotent per overdue debt and failed sends remain ret
   assert.match(worker, /provider_message_id/);
 });
 
+test("overdue reminder sender and replies both use rentulo inbox", () => {
+  assert.match(worker, /const emailFrom = "Rentulo <rentulo@rentulo\.com>"/);
+  assert.match(worker, /from: emailFrom,\s*to: \[recipientEmail\],\s*reply_to: "rentulo@rentulo\.com"/);
+  assert.match(worker, /"Idempotency-Key": `owner-debt-overdue\/\$\{claim\.debt_id\}`/);
+});
+
 test("overdue reminder explains the block and supports all five languages", () => {
   for (const language of ["cs", "sk", "en", "de", "pl"]) {
     assert.match(worker, new RegExp(`\\n  ${language}: \\{`));
@@ -90,10 +96,10 @@ test("overdue reminder explains the block and supports all five languages", () =
   assert.match(worker, /moje-nabidky\.html/);
 });
 
-test("overdue reminder email keeps the existing Rentulo email visual language", () => {
+test("overdue reminder email matches Rentulo branding and preserves debt details", () => {
   assert.match(worker, /font-family:Arial,Helvetica,sans-serif/);
   assert.match(worker, /background:#f7fbf9/);
-  assert.match(worker, /background:#75d94f/);
+  assert.match(worker, /background:#00835a;color:#ffffff/);
   assert.match(worker, /color:#103f32/);
   assert.match(worker, /formatCurrencyMinor/);
   assert.match(worker, /formatTimestampDate/);
