@@ -199,17 +199,17 @@ input {
 .auth-button {
   min-height: 48px;
   padding: 0 20px;
-  color: #102019;
-  background: #70d84b;
+  color: #ffffff;
+  background: var(--rentulo-action-green, #00835a);
   border: 0;
   border-radius: 12px;
   font-weight: 800;
   cursor: pointer;
-  transition: filter 0.15s ease, transform 0.15s ease;
+  transition: background-color 0.15s ease, transform 0.15s ease;
 }
 
 .auth-button:hover:not(:disabled) {
-  filter: brightness(0.96);
+  background: var(--rentulo-action-green-hover, #006846);
 }
 
 .auth-button:active:not(:disabled) {

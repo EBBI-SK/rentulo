@@ -160,6 +160,8 @@
 .owner-offer-manage-summary::-webkit-details-marker { display: none; }
 .owner-offer-manage-summary::after { content: "\2304"; margin-left: 7px; }
 .owner-offer-manage[open] .owner-offer-manage-summary { background: #e2efe9; }
+.owner-offer-manage-summary:hover,
+.owner-offer-manage[open] .owner-offer-manage-summary:hover { background: #e2f0e9; }
 .owner-offer-manage[open] .owner-offer-manage-summary::after { content: "\2303"; }
 .owner-offer-manage-panel {
   position: absolute;
@@ -193,9 +195,10 @@
   box-shadow: none !important;
 }
 .owner-offer-manage-panel a:hover,
-.owner-offer-manage-panel button:hover { background: #f3f8f5 !important; }
-.owner-offer-manage-panel .danger { color: #a43b2f !important; }
-.owner-offer-manage-panel .danger:hover { background: #fff3f0 !important; }
+.owner-offer-manage-panel button:hover { background: #e2f0e9 !important; }
+.owner-offer-manage-panel .offer-visibility-action.deactivate:hover { background: #e2f0e9 !important; }
+.owner-offer-manage-panel .danger { color: #9d2634 !important; }
+.owner-offer-manage-panel .danger:hover { background: #fce4e8 !important; }
 
 /* Each active reservation has a compact row, with contact details after payment. */
 .owner-reservation-card {
@@ -206,11 +209,11 @@
   box-shadow: 0 5px 15px rgba(23, 63, 53, .035);
 }
 .owner-reservation-card[data-owner-status="pending"] {
-  border-color: #e7c69e !important;
+  border-color: #f0b2bb !important;
 }
 .owner-reservation-card > .request-row {
   display: grid;
-  grid-template-columns: minmax(235px, 1.6fr) minmax(160px, 180px) minmax(110px, 130px) minmax(185px, auto) !important;
+  grid-template-columns: minmax(225px, 1.6fr) minmax(140px, 180px) minmax(75px, 95px) minmax(100px, 120px) minmax(185px, auto) !important;
   gap: 9px !important;
   align-items: center !important;
   min-height: 60px !important;
@@ -220,7 +223,7 @@
 .owner-reservation-field::before { display: none; }
 .owner-reservation-party {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
   column-gap: 8px;
   row-gap: 3px;
   align-content: center;
@@ -228,7 +231,7 @@
 }
 .owner-reservation-offer {
   display: block;
-  grid-column: 1 / -1;
+  grid-column: 2 / -1;
   margin: 0;
   color: #173f35;
   font-size: 14px;
@@ -239,13 +242,13 @@
   white-space: nowrap;
 }
 .owner-reservation-card .request-name {
-  grid-column: 1;
+  grid-column: 2;
   font-size: 12px !important;
   font-weight: 750 !important;
 }
 .owner-reservation-card .owner-reservation-contact-preview { display: none !important; }
 .owner-reservation-card .owner-reservation-reference {
-  grid-column: 2;
+  grid-column: 3;
   margin: 0 !important;
   color: #68776e;
   font-size: 11px !important;
@@ -312,21 +315,52 @@
   font-size: 12px !important;
 }
 .owner-reservation-actions .small-button:first-of-type {
-  background: #73d64f !important;
-  color: #173a22 !important;
+  background: #00835a !important;
+  color: #ffffff !important;
 }
 .owner-reservation-actions .small-button:disabled {
   cursor: not-allowed;
-  opacity: .55;
+  opacity: .70;
 }
 .owner-reservation-actions .small-button.light,
 .owner-reservation-actions .history-toggle-button {
   background: #edf5f1 !important;
   color: #173f35 !important;
 }
+.owner-reservation-actions .small-button.light:hover,
+.owner-reservation-actions .history-toggle-button:hover {
+  background: #e2f0e9 !important;
+  color: #173f35 !important;
+}
+/* Reject reservation and extension like renter cancellation: muted red, not mint. */
+.owner-reservation-actions .small-button[data-offers-action="reject-reservation"],
+.owner-reservation-actions .small-button[data-offers-action="reject-extension"] {
+  background: #fff0f1 !important;
+  color: #9d2634 !important;
+  border: 1px solid #f0b2bb !important;
+}
+.owner-reservation-actions .small-button[data-offers-action="reject-reservation"]:hover,
+.owner-reservation-actions .small-button[data-offers-action="reject-extension"]:hover {
+  background: #fce4e8 !important;
+  color: #9d2634 !important;
+  border-color: #f0b2bb !important;
+}
 .owner-reservation-actions .small-button.owner-handover-launch {
-  background: #73d64f !important;
-  color: #173a22 !important;
+  background: #00835a !important;
+  color: #ffffff !important;
+}
+.owner-reservation-actions .small-button:not(.light):first-of-type:hover,
+.owner-reservation-actions .small-button.owner-handover-launch:hover {
+  background: #006846 !important;
+  color: #ffffff !important;
+}
+/* Approved extension is a primary Rentulo action, not the pale-green default. */
+.owner-reservation-actions .small-button[data-offers-action="approve-extension"] {
+  background: #00835a !important;
+  color: #fff !important;
+}
+.owner-reservation-actions .small-button[data-offers-action="approve-extension"]:hover {
+  background: #006846 !important;
 }
 .owner-reservation-card > .owner-reservation-contacts {
   display: flex;
@@ -374,7 +408,7 @@
     grid-template-columns: minmax(0, 1fr) 110px 95px minmax(165px, auto) !important;
   }
   .owner-reservation-card > .request-row {
-    grid-template-columns: minmax(185px, 1.5fr) minmax(145px, 160px) minmax(106px, 120px) minmax(155px, auto) !important;
+    grid-template-columns: minmax(185px, 1.5fr) minmax(130px, 160px) minmax(75px, 95px) minmax(90px, 110px) minmax(155px, auto) !important;
   }
 }
 @media (max-width: 920px) {
@@ -458,9 +492,9 @@
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  border: 1px solid #efc69f;
+  border: 1px solid #f0b2bb;
   border-radius: 14px;
-  background: #fffaf5;
+  background: #fff0f1;
   box-shadow: 0 8px 22px rgba(23, 63, 53, 0.04);
 }
 
@@ -574,10 +608,10 @@
 
 .owner-debts-load-error {
   padding: 12px 14px;
-  border: 1px solid #efc1b7;
+  border: 1px solid #f0b2bb;
   border-radius: 14px;
-  background: #fff8f6;
-  color: #6f2d25;
+  background: #fff0f1;
+  color: #9d2634;
   font-size: 13px;
   font-weight: 700;
 }
@@ -633,3 +667,15 @@
   border-color: #00835a !important;
   box-shadow: 0 0 0 2px rgba(0, 131, 90, .12) !important;
 }
+
+/* RENTULO V1 BOD 1: prioritize an awaiting extension decision. */
+.owner-extension-summary { display: block; font-weight: 600; margin-top: 4px; }
+.owner-extension-state { font-size: 0.85em; font-weight: 600; }
+
+.owner-reservation-thumb { width:40px; height:40px; object-fit:cover; border-radius:9px; grid-row:1 / span 2; grid-column:1; }
+.owner-reservation-party .owner-extension-summary { grid-column:2 / -1; margin-top:2px; color:#9d2634; font-weight:800; }
+.owner-reservation-card .owner-reservation-price { display:flex; justify-content:flex-start; align-items:center; }
+.owner-reservation-card .owner-reservation-price strong { white-space:nowrap; }
+.owner-reservation-group-inProgress .owner-reservation-group-title { color:#176747; }
+.owner-debt-row:not(.is-settled) { border-color:#f0b2bb; background:#fff0f1; }
+@media (max-width:920px) { .owner-reservation-card .owner-reservation-price { grid-column:2; justify-content:flex-end; } }

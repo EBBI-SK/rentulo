@@ -168,6 +168,7 @@ function reservationsExpirationText(reason) {
       }
     };
     let stripeReturnVerification = null;
+    let emailReservationScrolled = false;
 
     function stripeReturnText(key) {
       const language = typeof window.getRentuloLanguage === "function"
@@ -270,6 +271,11 @@ function reservationsExpirationText(reason) {
       clearStripePendingCheckout();
       removeStripeReturnQuery();
       renderReservations();
+      // Stripe can confirm the payment after the navigation initially counted
+      // the reservation as approved. Refresh only after server verification.
+      if (typeof window.refreshRentuloNotificationBadge === "function") {
+        void window.refreshRentuloNotificationBadge();
+      }
       if (result === "confirmed") {
         showReservationsNotice(stripeReturnText("confirmed"));
       } else {
@@ -499,11 +505,19 @@ const data = Array.isArray(reservationsData)
     })
   : [];
 
+      // Extension rows are read through a participant-scoped RPC. Missing
+      // migration or permission failure must not silently show wrong totals.
+      const extensionsResult = await supabaseClient.rpc("get_my_reservation_extensions");
+      if (extensionsResult.error || !Array.isArray(extensionsResult.data)) {
+        console.error("Reservation extensions could not be loaded", extensionsResult.error);
+        reservationsLoadState = "error";
+        return [];
+      }
       reservationsLoadState = "ready";
-
-      return Array.isArray(data)
-        ? data.map(normalizeSupabaseReservation)
-        : [];
+      return RentuloReservationExtensions.attachPaidExtensions(
+        Array.isArray(data) ? data.map(normalizeSupabaseReservation) : [],
+        extensionsResult.data
+      );
     }
 
     function getSafeReservationStatus(reservation) {
@@ -1325,6 +1339,73 @@ return (
       window.location.href = checkoutUrl;
     }
 
+    async function requestRentalExtension(reservationId) {
+      const dateInput = document.getElementById("extension-date-" + reservationId);
+      if (!dateInput || !dateInput.value || !dateInput.checkValidity()) {
+        if (dateInput) dateInput.reportValidity();
+        return;
+      }
+      const client = getSupabaseClient();
+      const result = await client.rpc("request_reservation_extension", {
+        p_reservation_id: reservationId, p_new_end_date: dateInput.value,
+      });
+      if (result.error || !result.data) {
+        console.error("Extension request failed", result.error);
+        showReservationsNotice(extensionText("error"), "error");
+        return;
+      }
+      await retryLoadReservations();
+      showReservationsNotice(extensionText("requested"));
+    }
+
+    async function payRentalExtension(extensionId) {
+      const client = getSupabaseClient();
+      const { data, error } = await client.functions.invoke("create-extension-checkout", {
+        body: { extension_id: extensionId,
+          locale: typeof window.getRentuloLanguage === "function" ? window.getRentuloLanguage() : "cs" },
+      });
+      if (error || !data || typeof data.url !== "string" ||
+          !/^https:\/\/checkout\.stripe\.com\//.test(data.url)) {
+        // Non-2xx Edge Function responses arrive in error.context as a
+        // Response, not necessarily in data. Do not label a busy payment failed.
+        let code = data && typeof data.code === "string" ? data.code : "";
+        if (!code && error && error.context && typeof error.context.json === "function") {
+          try {
+            const details = await error.context.json();
+            code = details && typeof details.code === "string" ? details.code : "";
+          } catch (_parseError) { /* Generic localized fallback below. */ }
+        }
+        const label = code === "checkout_busy" ? "paymentBusy"
+          : code === "payment_deadline" ? "deadlineElapsed"
+          : code === "checkout_retry" ? "checkoutRetry" : "error";
+        console.error("Stripe extension checkout failed", code || error);
+        showReservationsNotice(extensionText(label), "error");
+        if (code === "payment_deadline") await retryLoadReservations();
+        return;
+      }
+      // The redirect query itself is not payment evidence. Keep the exact
+      // extension identifier so the return page cannot confirm another rental.
+      try {
+        window.sessionStorage.setItem("rentuloPendingExtensionCheckout", extensionId);
+      } catch (_storageError) {
+        // Payment can continue; missing local state simply prevents a false
+        // confirmation banner. The database is always authoritative.
+      }
+      window.location.href = data.url;
+    }
+
+    function openRentalExtensionForm(reservationId) {
+      const detail = document.getElementById("reservation-detail-" + reservationId);
+      const form = document.getElementById("extension-form-" + reservationId);
+      if (!detail || !form) return;
+      detail.classList.add("open");
+      form.hidden = false;
+      const button = document.getElementById("detail-toggle-" + reservationId);
+      if (button) button.textContent = reservationsTranslate("reservations.hideDetail", "Skrýt detail");
+      const date = form.querySelector('input[type="date"]');
+      if (date) date.focus();
+    }
+
     function openReservationDetail(reservationId) {
       setTimeout(function () {
         const detail = document.getElementById("reservation-detail-" + reservationId);
@@ -1529,18 +1610,67 @@ return (
 
     function renderReservationDeadline(reservation, status) {
       const normalized = normalizeReservationStatus(status);
-      if (normalized !== RESERVATION_STATUS_PENDING &&
-          normalized !== RESERVATION_STATUS_APPROVED) return "";
+      if (normalized !== RESERVATION_STATUS_APPROVED) return "";
       if (!reservation.expiresAt) return ""; // grandfathered TEST reservations
       const deadlineText = formatReservationExpiry(reservation.expiresAt);
       if (!deadlineText) return "";
       const passed = new Date(reservation.expiresAt).getTime() <= Date.now();
-      const key = passed ? "reservations.expiration.review" :
-        normalized === RESERVATION_STATUS_PENDING
-          ? "reservations.expiration.ownerDeadline" : "reservations.expiration.paymentDeadline";
-      const label = passed ? "Lhůta uplynula – ověřujeme stav" :
-        normalized === RESERVATION_STATUS_PENDING ? "Schválit do" : "Zaplatit do";
+      const key = passed ? "reservations.expiration.review" : "reservations.expiration.paymentDeadline";
+      const label = passed ? "Lhůta uplynula – ověřujeme stav" : "Zaplatit do";
       return `<small class="reservation-expiration-note">${escapeHtml(reservationsTranslate(key, label))}: ${escapeHtml(deadlineText)}</small>`;
+    }
+
+    function extensionText(key) {
+      return RentuloReservationExtensions.t(key);
+    }
+
+    function latestReservationExtension(reservation) {
+      const rows = reservation.extensions || [];
+      return rows.length ? rows[rows.length - 1] : null;
+    }
+
+    function canRequestAnotherExtension(reservation) {
+      const status = normalizeReservationStatus(getSafeReservationStatus(reservation));
+      const latest = latestReservationExtension(reservation);
+      if (status !== RESERVATION_STATUS_PICKED_UP) return false;
+      if (latest && ["pending","approved"].includes(latest.status)) return false;
+      // The authoritative Europe/Prague return cutoff is validated in the
+      // database under the offer advisory lock (including daylight saving).
+      return true;
+    }
+
+    function renderRentalExtensionPanel(reservation) {
+      const id = String(reservation.id);
+      const extension = latestReservationExtension(reservation);
+      const safeId = escapeHtml(id);
+      const allowed = canRequestAnotherExtension(reservation);
+      const minDate = RentuloReservationExtensions.nextDate(getSafeReservationDateTo(reservation));
+      const pending = extension && extension.status === "pending";
+      const approved = extension && extension.status === "approved";
+      const active = pending || approved;
+      const info = extension ? `
+        <p class="reservation-extension-state"><strong>${escapeHtml(extensionText(extension.status))}</strong>
+          · ${escapeHtml(extensionText("until"))}: ${escapeHtml(formatReservationsDate(extension.new_end_date))}
+          · ${escapeHtml(extensionText("extra"))}: ${escapeHtml(formatReservationsMoney(extension.amount_total))}
+        </p>
+      ` : "";
+      const pay = approved ? `
+        <small>${escapeHtml(extensionText("deadline"))}: ${escapeHtml(formatReservationExpiry(extension.payment_deadline_at))}</small>
+      ` : "";
+      const form = allowed ? `
+        <div class="reservation-extension-form" id="extension-form-${safeId}" hidden>
+          <label for="extension-date-${safeId}">${escapeHtml(extensionText("newReturn"))}</label>
+          <input id="extension-date-${safeId}" data-extension-date="${safeId}" type="date"
+            min="${escapeHtml(minDate)}" required>
+          <button class="reservation-primary-action" type="button"
+            data-reservations-action="request-extension" data-reservation-id="${safeId}">
+            ${escapeHtml(extensionText("submit"))}</button>
+          <small>${escapeHtml(extensionText("priceInfo"))}</small>
+        </div>` : "";
+      if (!active && !allowed && !extension) return "";
+      return `<section class="reservation-extension-panel" aria-label="${escapeHtml(extensionText("extend"))}">
+        ${info}${pay}${form}
+      </section>`;
     }
 
     function renderReservationDetailPanel(reservation) {
@@ -1601,6 +1731,7 @@ return (
           ${renderPaymentBox(reservation, status)}
 
           ${renderContactBox(reservation, status)}
+          ${typeof renderRentalExtensionPanel === "function" ? renderRentalExtensionPanel(reservation) : ""}
         </div>
       `;
     }
@@ -1637,6 +1768,27 @@ return (
         : "";
 
       const cancellationAction = renderRenterReservationCancellationAction(reservation);
+      const latestExtension = latestReservationExtension(reservation);
+      const extensionApprovalNote = latestExtension && latestExtension.status === "pending" ? `<small class="reservation-extension-approval-note">${escapeHtml(extensionText("pending"))} · ${escapeHtml(extensionText("until"))}: ${escapeHtml(formatReservationsDate(latestExtension.new_end_date))}</small>` : "";
+      const awaitingExtensionPayment = latestExtension && latestExtension.status === "approved";
+      const extensionDeadline = awaitingExtensionPayment
+        ? formatReservationExpiry(latestExtension.payment_deadline_at) : "";
+      const extensionPaymentNote = awaitingExtensionPayment ? `
+        <small class="reservation-extension-payment-note">
+          ${escapeHtml(extensionText("paymentDue"))}${extensionDeadline
+            ? ` · ${escapeHtml(extensionText("deadline"))}: ${escapeHtml(extensionDeadline)}` : ""}
+        </small>` : "";
+      const extensionPaymentAction = awaitingExtensionPayment ? `
+        <button class="reservation-primary-action orange" type="button"
+          data-reservations-action="pay-extension"
+          data-reservation-id="${escapeHtml(reservationId)}"
+          data-extension-id="${escapeHtml(latestExtension.id)}">
+          ${escapeHtml(extensionText("pay"))} ${escapeHtml(formatReservationsMoney(latestExtension.amount_total))}
+        </button>` : "";
+      const extensionAction = canRequestAnotherExtension(reservation) ? `
+        <button class="reservation-primary-action" type="button" data-reservations-action="open-extension"
+          data-reservation-id="${escapeHtml(reservationId)}">${escapeHtml(extensionText("extend"))}</button>
+      ` : "";
 
       const detailAction = `
         <button class="reservation-primary-action" id="detail-toggle-${escapeHtml(reservationId)}" type="button" data-reservations-action="toggle-detail" data-reservation-id="${escapeHtml(reservationId)}">
@@ -1653,6 +1805,8 @@ return (
         <strong>${escapeHtml(toolName)}</strong>
         <span>${escapeHtml(city)}${reservation.reservationNumber ? ` · ${escapeHtml(reservationsTranslate("reference.reservation", "Číslo rezervace"))}: ${escapeHtml(reservation.reservationNumber)}` : ""}</span>
         ${renderReservationDeadline(reservation, normalizedStatus)}
+        ${extensionApprovalNote}
+        ${extensionPaymentNote}
       </div>
     </div>
 
@@ -1672,6 +1826,8 @@ return (
     <div class="simple-reservation-actions">
       ${paymentAction}
       ${cancellationAction}
+      ${extensionPaymentAction}
+      ${extensionAction}
       <div class="reservation-detail-action-group">
         ${detailAction}
       </div>
@@ -1709,6 +1865,26 @@ return (
       `;
     }
 
+    function focusEmailReservation() {
+      const reservationId = new URLSearchParams(window.location.search).get("reservation") || "";
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(reservationId)) return;
+      // Details are rendered only for reservations belonging to this renter.
+      const detail = document.getElementById("reservation-detail-" + reservationId.toLowerCase());
+      const button = document.getElementById("detail-toggle-" + reservationId.toLowerCase());
+      if (!detail || !button) return;
+      detail.classList.add("open");
+      button.textContent = reservationsTranslate("reservations.hideDetail", "Skr\u00fdt detail");
+      const card = detail.closest(".simple-reservation-row");
+      if (!card) return;
+      card.classList.add("email-reservation-target");
+      if (!emailReservationScrolled) {
+        emailReservationScrolled = true;
+        window.setTimeout(function () {
+          if (card.isConnected) card.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 0);
+      }
+    }
+
     function renderReservations() {
       const reservations = supabaseReservations;
 
@@ -1730,6 +1906,7 @@ return (
           activeReservations,
           reservationsTranslate("reservations.activeEmpty", "Nemáte žádné aktivní rezervace. Dokončené, zrušené a odmítnuté záznamy najdete v Historii.")
         );
+      focusEmailReservation();
     }
 
     async function initializeReservationsPage() {
@@ -1739,6 +1916,12 @@ return (
         return;
       }
 
+      const extensionPaymentReturn = new URLSearchParams(window.location.search).get("extension_payment");
+      if (extensionPaymentReturn === "success") {
+        showReservationsNotice(extensionText("checking"));
+      } else if (extensionPaymentReturn === "cancelled") {
+        showReservationsNotice(extensionText("cancelled"));
+      }
       stripeReturnVerification = readStripeReturnVerification(verifiedUser);
       if (stripeReturnVerification) {
         showStripeReturnNotice("checking");
@@ -1766,6 +1949,40 @@ return (
       }
       if (stripeReturnVerification) {
         scheduleStripeReturnPoll(verifiedUser);
+      }
+      if (extensionPaymentReturn === "success") {
+        // Re-read server evidence after redirect. URL parameters never imply
+        // a paid extension; the webhook alone changes the agreed return date.
+        let attempts = 0;
+        const verify = async function () {
+          attempts += 1;
+          await retryLoadReservations();
+          let requestedExtensionId = "";
+          try {
+            requestedExtensionId = window.sessionStorage.getItem("rentuloPendingExtensionCheckout") || "";
+          } catch (_storageError) { /* Show the server state without asserting a payment. */ }
+          const confirmed = requestedExtensionId && supabaseReservations.some(function (r) {
+            return (r.extensions || []).some(function (e) {
+              return e.id === requestedExtensionId && e.status === "paid";
+            });
+          });
+          if (confirmed) {
+            showReservationsNotice(extensionText("paid"));
+            try { window.sessionStorage.removeItem("rentuloPendingExtensionCheckout"); }
+            catch (_storageError) { /* Storage may be unavailable. */ }
+            window.history.replaceState(null,"",window.location.pathname);
+          } else if (attempts < 15) {
+            window.setTimeout(verify,2000);
+          } else {
+            showReservationsNotice(extensionText("checking"));
+            window.history.replaceState(null,"",window.location.pathname);
+          }
+        };
+        window.setTimeout(verify,2000);
+      } else if (extensionPaymentReturn === "cancelled") {
+        try { window.sessionStorage.removeItem("rentuloPendingExtensionCheckout"); }
+        catch (_storageError) { /* Storage may be unavailable. */ }
+        window.history.replaceState(null,"",window.location.pathname);
       }
     }
 
@@ -1842,7 +2059,11 @@ return (
         return;
       }
 
-      const mutationActions = new Set(["pay", "cancel"]);
+      if (action === "open-extension") {
+        openRentalExtensionForm(reservationId);
+        return;
+      }
+      const mutationActions = new Set(["pay", "cancel", "request-extension", "pay-extension"]);
       const isMutationAction = mutationActions.has(action);
 
       if (isMutationAction && actionButton.dataset.busy === "true") {
@@ -1855,6 +2076,14 @@ return (
       }
 
       try {
+        if (action === "request-extension") {
+          await requestRentalExtension(reservationId);
+          return;
+        }
+        if (action === "pay-extension") {
+          await payRentalExtension(actionButton.dataset.extensionId);
+          return;
+        }
         if (action === "pay") {
           if (stripeReturnBlocksAction(reservationId)) {
             showStripeReturnNotice("checking");

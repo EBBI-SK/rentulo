@@ -71,6 +71,7 @@ function makeStripeReturnHarness(statuses, options = {}) {
   const queuedTimers = [];
   let readCount = 0;
   let invalidations = 0;
+  let badgeRefreshes = 0;
   const historyCalls = [];
   const user = { id: TEST_RENTER_ID };
   const window = {
@@ -91,6 +92,7 @@ function makeStripeReturnHarness(statuses, options = {}) {
     getRentuloLanguage() { return options.language || "cs"; },
     rentuloAuthGuard: { async requireUser() { return user; } },
     invalidateRentuloReservationsData() { invalidations += 1; },
+    async refreshRentuloNotificationBadge() { badgeRefreshes += 1; },
     async getRentuloReservationsData() {
       const status = statuses[Math.min(readCount, statuses.length - 1)];
       readCount += 1;
@@ -114,7 +116,15 @@ function makeStripeReturnHarness(statuses, options = {}) {
   const context = vm.createContext({
     window, document, Date, URL, URLSearchParams,
     console: { log() {}, warn() {}, error() {} },
-    getSupabaseClient() { return {}; },
+    getSupabaseClient() { return {
+      async rpc(name) {
+        if (name === "get_my_reservation_extensions") return { data: [], error: null };
+        throw new Error("Unexpected RPC: " + name);
+      }
+    }; },
+    RentuloReservationExtensions: {
+      attachPaidExtensions(reservations) { return reservations; }
+    },
     escapeHtml(value) { return String(value); },
     canRenterPayReservation(reservation) { return reservation.status === "approved"; },
     canRenterCancelReservation() { return false; }
@@ -127,6 +137,7 @@ function makeStripeReturnHarness(statuses, options = {}) {
     context, window, store, notice, historyCalls, queuedTimers,
     get readCount() { return readCount; },
     get invalidations() { return invalidations; },
+    get badgeRefreshes() { return badgeRefreshes; },
     async init() { await vm.runInContext("initializeReservationsPage()", context); },
     async poll() {
       await vm.runInContext("pollStripeReturnVerification(window.__testUser)", context);
@@ -142,6 +153,7 @@ test("Stripe return invalidates prefetched data, waits for webhook and refreshes
   await h.init();
   assert.equal(h.readCount, 1);
   assert.equal(h.invalidations, 1);
+  assert.equal(h.badgeRefreshes, 0, "an unconfirmed checkout must not clear the alert");
   assert.equal(h.blocking(), true);
   assert.match(h.notice.textContent, /Ověřujeme dokončení platby/);
   assert.equal(h.queuedTimers.filter((timer) => timer.ms === 2000).length, 1);
@@ -149,6 +161,7 @@ test("Stripe return invalidates prefetched data, waits for webhook and refreshes
   await h.poll();
   assert.equal(h.readCount, 2);
   assert.equal(h.invalidations, 2);
+  assert.equal(h.badgeRefreshes, 1, "the alert is recalculated after the webhook confirms payment");
   assert.equal(h.blocking(), false);
   assert.equal(h.store.has("rentuloPendingStripeCheckout"), false);
   assert.deepEqual(h.historyCalls, ["/moje-rezervace.html"]);
@@ -165,6 +178,7 @@ test("Stripe success URL is not treated as payment confirmation without paid ser
   assert.equal(h.historyCalls.length, 0);
   assert.match(h.notice.textContent, /Neplaťte znovu/);
   assert.doesNotMatch(h.notice.textContent, /Platba byla potvrzena/);
+  assert.equal(h.badgeRefreshes, 0);
 });
 
 test("already completed webhook is recognized on the first fresh read", async () => {
@@ -173,6 +187,7 @@ test("already completed webhook is recognized on the first fresh read", async ()
   assert.equal(h.readCount, 1);
   assert.equal(h.blocking(), false);
   assert.equal(h.queuedTimers.filter((timer) => timer.ms === 2000).length, 0);
+  assert.equal(h.badgeRefreshes, 1);
   assert.match(h.notice.textContent, /Platba byla potvrzena/);
 });
 
@@ -183,6 +198,17 @@ test("cancelled Stripe Checkout does not start confirmation polling", async () =
   assert.equal(h.blocking(), false);
   assert.equal(h.store.has("rentuloPendingStripeCheckout"), false);
   assert.equal(h.queuedTimers.filter((timer) => timer.ms === 2000).length, 0);
+  assert.equal(h.badgeRefreshes, 0);
+});
+
+test("expired reservation clears the stale payment alert only after server confirmation", async () => {
+  const h = makeStripeReturnHarness(["approved", "expired"]);
+  await h.init();
+  assert.equal(h.badgeRefreshes, 0);
+  await h.poll();
+  assert.equal(h.badgeRefreshes, 1);
+  assert.equal(h.blocking(), false);
+  assert.match(h.notice.textContent, /Stav platby se nepodařilo potvrdit/);
 });
 
 test("Stripe return with missing or different-user session never claims an unrelated payment", async () => {

@@ -7,7 +7,8 @@ let offerSaveInProgress = false;
       phone: "",
       street: "",
       city: "",
-      postalCode: ""
+      postalCode: "",
+      countryCode: ""
     };
 
     const OFFER_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
@@ -16,15 +17,8 @@ let offerSaveInProgress = false;
       "image/png",
       "image/webp"
     ];
-    const OFFER_ADDRESS_SUGGESTION_MIN_LENGTH = 3;
-    const OFFER_ADDRESS_SUGGESTION_DELAY_MS = 450;
     const MINIMUM_OFFER_PRICE_CZK = 100;
 
-    let offerAddressSuggestions = [];
-    let offerAddressActiveIndex = -1;
-    let offerAddressRequestId = 0;
-    let offerAddressTimer = null;
-    let offerSelectedPickupCoordinates = null;
 
     function offerTranslate(key, fallback) {
       if (typeof window.rentuloTranslate === "function") {
@@ -40,274 +34,6 @@ let offerSaveInProgress = false;
       return input ? input.value.trim() : "";
     }
 
-    function offerEscapeHtml(value) {
-      return String(value || "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-    }
-
-    function closeOfferAddressSuggestions() {
-      const streetInput = document.getElementById("pickupStreet");
-      const suggestionsBox = document.getElementById("pickupAddressSuggestions");
-
-      offerAddressSuggestions = [];
-      offerAddressActiveIndex = -1;
-      offerAddressRequestId += 1; // Invalidate any older in-flight response.
-
-      if (offerAddressTimer) {
-        window.clearTimeout(offerAddressTimer);
-        offerAddressTimer = null;
-      }
-
-      if (suggestionsBox) {
-        suggestionsBox.innerHTML = "";
-        suggestionsBox.hidden = true;
-      }
-
-      if (streetInput) {
-        streetInput.setAttribute("aria-expanded", "false");
-        streetInput.removeAttribute("aria-activedescendant");
-      }
-    }
-
-    function renderOfferAddressSuggestions(items) {
-      const streetInput = document.getElementById("pickupStreet");
-      const suggestionsBox = document.getElementById("pickupAddressSuggestions");
-
-      if (!streetInput || !suggestionsBox) {
-        return;
-      }
-
-      offerAddressSuggestions = Array.isArray(items) ? items.slice(0, 5) : [];
-      offerAddressActiveIndex = -1;
-
-      if (!offerAddressSuggestions.length) {
-        closeOfferAddressSuggestions();
-        return;
-      }
-
-      suggestionsBox.innerHTML = offerAddressSuggestions
-        .map(function (item, index) {
-          const main = String(item.street || "").trim();
-          const meta = [item.city, item.postalCode]
-            .map(function (part) { return String(part || "").trim(); })
-            .filter(Boolean)
-            .join(", ");
-
-          return `
-            <button
-              type="button"
-              class="address-suggestion"
-              id="pickupAddressSuggestion${index}"
-              role="option"
-              data-address-index="${index}"
-              aria-selected="false"
-            >
-              <span class="address-suggestion-main">${offerEscapeHtml(main)}</span>
-              <span class="address-suggestion-meta">${offerEscapeHtml(meta)}</span>
-            </button>
-          `;
-        })
-        .join("") +
-        '<div class="address-attribution">© OpenStreetMap contributors</div>';
-
-      suggestionsBox.hidden = false;
-      streetInput.setAttribute("aria-expanded", "true");
-    }
-
-    function setOfferAddressActiveIndex(nextIndex) {
-      const streetInput = document.getElementById("pickupStreet");
-      const suggestionButtons = Array.from(
-        document.querySelectorAll("#pickupAddressSuggestions .address-suggestion")
-      );
-
-      if (!streetInput || !suggestionButtons.length) {
-        return;
-      }
-
-      const maxIndex = suggestionButtons.length - 1;
-      let normalizedIndex = nextIndex;
-
-      if (normalizedIndex < 0) {
-        normalizedIndex = maxIndex;
-      }
-
-      if (normalizedIndex > maxIndex) {
-        normalizedIndex = 0;
-      }
-
-      offerAddressActiveIndex = normalizedIndex;
-
-      suggestionButtons.forEach(function (button, index) {
-        const isActive = index === normalizedIndex;
-        button.classList.toggle("is-active", isActive);
-        button.setAttribute("aria-selected", isActive ? "true" : "false");
-      });
-
-      const activeButton = suggestionButtons[normalizedIndex];
-      if (activeButton) {
-        streetInput.setAttribute("aria-activedescendant", activeButton.id);
-        activeButton.scrollIntoView({ block: "nearest" });
-      }
-    }
-
-    function selectOfferAddress(index) {
-      const item = offerAddressSuggestions[index];
-      const streetInput = document.getElementById("pickupStreet");
-      const cityInput = document.getElementById("pickupCity");
-      const postalCodeInput = document.getElementById("pickupPostalCode");
-
-      if (!item || !streetInput || !cityInput || !postalCodeInput) {
-        return;
-      }
-
-      streetInput.value = String(item.street || "").trim();
-      cityInput.value = String(item.city || "").trim();
-      postalCodeInput.value = String(item.postalCode || "").trim();
-
-      const latitude = Number(item.latitude);
-      const longitude = Number(item.longitude);
-      offerSelectedPickupCoordinates =
-        Number.isFinite(latitude) && Number.isFinite(longitude)
-          ? { latitude: latitude, longitude: longitude }
-          : null;
-
-      [streetInput, cityInput, postalCodeInput].forEach(function (field) {
-        field.classList.remove("input-error");
-      });
-
-      closeOfferAddressSuggestions();
-    }
-
-    async function loadOfferAddressSuggestions(query, requestId, city, postalCode) {
-      const supabaseClient = getSupabaseClient();
-
-      if (!supabaseClient) {
-        return;
-      }
-
-      try {
-        const language =
-          typeof window.getRentuloLanguage === "function"
-            ? window.getRentuloLanguage()
-            : "cs";
-
-        const { data, error } = await supabaseClient.functions.invoke(
-          "address-suggestions",
-          {
-            body: {
-              query: query,
-              city: city,
-              postalCode: postalCode,
-              language: language
-            }
-          }
-        );
-
-        if (requestId !== offerAddressRequestId) {
-          return;
-        }
-
-        if (error || !data || !Array.isArray(data.suggestions)) {
-          closeOfferAddressSuggestions();
-          return;
-        }
-
-        renderOfferAddressSuggestions(data.suggestions);
-      } catch (_error) {
-        if (requestId === offerAddressRequestId) {
-          closeOfferAddressSuggestions();
-        }
-      }
-    }
-
-    function setupPickupAddressAutocomplete() {
-      const streetInput = document.getElementById("pickupStreet");
-      const cityInput = document.getElementById("pickupCity");
-      const postalCodeInput = document.getElementById("pickupPostalCode");
-      const suggestionsBox = document.getElementById("pickupAddressSuggestions");
-
-      if (!streetInput || !cityInput || !postalCodeInput || !suggestionsBox) {
-        return;
-      }
-
-      function scheduleOfferAddressSuggestions() {
-        offerSelectedPickupCoordinates = null;
-
-        const query = streetInput.value.trim();
-        const city = cityInput.value.trim();
-        const postalCode = postalCodeInput.value.trim();
-
-        // Don't leave proposals for the previous input visible or accept a late response.
-        closeOfferAddressSuggestions();
-        const requestId = offerAddressRequestId;
-
-        if (query.length < OFFER_ADDRESS_SUGGESTION_MIN_LENGTH) {
-          return;
-        }
-
-        offerAddressTimer = window.setTimeout(function () {
-          loadOfferAddressSuggestions(query, requestId, city, postalCode);
-        }, OFFER_ADDRESS_SUGGESTION_DELAY_MS);
-      }
-
-      streetInput.addEventListener("input", scheduleOfferAddressSuggestions);
-      cityInput.addEventListener("input", scheduleOfferAddressSuggestions);
-      postalCodeInput.addEventListener("input", scheduleOfferAddressSuggestions);
-
-      streetInput.addEventListener("keydown", function (event) {
-        if (suggestionsBox.hidden || !offerAddressSuggestions.length) {
-          return;
-        }
-
-        if (event.key === "ArrowDown") {
-          event.preventDefault();
-          setOfferAddressActiveIndex(offerAddressActiveIndex + 1);
-          return;
-        }
-
-        if (event.key === "ArrowUp") {
-          event.preventDefault();
-          setOfferAddressActiveIndex(offerAddressActiveIndex - 1);
-          return;
-        }
-
-        if (event.key === "Enter" && offerAddressActiveIndex >= 0) {
-          event.preventDefault();
-          selectOfferAddress(offerAddressActiveIndex);
-          return;
-        }
-
-        if (event.key === "Escape") {
-          event.preventDefault();
-          closeOfferAddressSuggestions();
-        }
-      });
-
-      suggestionsBox.addEventListener("mousedown", function (event) {
-        event.preventDefault();
-      });
-
-      suggestionsBox.addEventListener("click", function (event) {
-        const button = event.target.closest("[data-address-index]");
-
-        if (!button) {
-          return;
-        }
-
-        selectOfferAddress(Number(button.dataset.addressIndex));
-      });
-
-      document.addEventListener("click", function (event) {
-        if (!event.target.closest(".address-autocomplete")) {
-          closeOfferAddressSuggestions();
-        }
-      });
-    }
-
     async function fillProfileAddressAsDefault(authenticatedUser) {
       const supabaseClient = getSupabaseClient();
 
@@ -317,11 +43,13 @@ let offerSaveInProgress = false;
 
       const { data: profile, error } = await supabaseClient
         .from("profiles")
-        .select("phone, street, city, postal_code")
+        .select("phone, street, city, postal_code, country_code")
         .eq("id", authenticatedUser.id)
         .maybeSingle();
 
       if (error || !profile) {
+        // Without a confirmed Czech profile address, require a separate CZ pickup place.
+        renderProfilePickupAddress();
         return;
       }
 
@@ -332,9 +60,13 @@ let offerSaveInProgress = false;
         phone: profile.phone || "",
         street: profile.street || "",
         city: userCity,
-        postalCode: userPostalCode
+        postalCode: userPostalCode,
+        countryCode: profile.country_code || ""
       };
 
+      // Start from the profile address only if it is complete and Czech.
+      const custom = document.getElementById("pickupUseCustom");
+      if (custom) custom.checked = false;
       renderProfilePickupAddress();
     }
 
@@ -342,23 +74,37 @@ let offerSaveInProgress = false;
       const summary = document.getElementById("profilePickupSummary");
       const address = document.getElementById("profilePickupAddress");
       const pickupUseCustom = document.getElementById("pickupUseCustom");
+      const customToggle = document.getElementById("pickupCustomToggle");
+      const customFields = document.getElementById("pickupCustomFields");
+      const notice = document.getElementById("pickupProfileAddressNotice");
 
-      if (!summary || !address) {
-        return;
-      }
-
-      const hasCompleteProfileAddress = Boolean(
+      const hasCompleteCzechProfileAddress = Boolean(
         offerOwnerProfile.street &&
         offerOwnerProfile.city &&
-        offerOwnerProfile.postalCode
+        offerOwnerProfile.postalCode &&
+        offerOwnerProfile.countryCode === "CZ" &&
+        formatRentuloCzechPostalCode(offerOwnerProfile.postalCode)
       );
 
-      if (!hasCompleteProfileAddress) {
+      // No valid Czech profile pickup: use separate fields without showing a misleading toggle.
+      if (pickupUseCustom && !hasCompleteCzechProfileAddress) {
+        pickupUseCustom.checked = true;
+      }
+      if (customToggle) customToggle.hidden = !hasCompleteCzechProfileAddress;
+      if (customFields) {
+        customFields.classList.toggle("is-visible", Boolean(pickupUseCustom && pickupUseCustom.checked));
+      }
+      if (notice) {
+        // A single clear instruction is enough when the user is entering a pickup address.
+        notice.hidden = !(pickupUseCustom && pickupUseCustom.checked);
+      }
+
+      if (!summary || !address) return;
+      if (!hasCompleteCzechProfileAddress) {
         summary.hidden = true;
         address.textContent = "";
         return;
       }
-
       address.textContent = [
         offerOwnerProfile.street,
         offerOwnerProfile.city,
@@ -646,9 +392,10 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
       if (useCustomPickup) {
         return {
           mode: "custom",
+          countryCode: "CZ",
           street: getInputValue("pickupStreet"),
           city: getInputValue("pickupCity"),
-          postalCode: getInputValue("pickupPostalCode"),
+          postalCode: formatRentuloCzechPostalCode(getInputValue("pickupPostalCode")) || getInputValue("pickupPostalCode"),
           note: getInputValue("pickupNote"),
           phone: offerOwnerProfile.phone
         };
@@ -656,9 +403,10 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
 
       return {
         mode: "profile",
+        countryCode: offerOwnerProfile.countryCode,
         street: offerOwnerProfile.street,
         city: offerOwnerProfile.city,
-        postalCode: offerOwnerProfile.postalCode,
+        postalCode: formatRentuloCzechPostalCode(offerOwnerProfile.postalCode) || offerOwnerProfile.postalCode,
         note: "",
         phone: offerOwnerProfile.phone
       };
@@ -678,6 +426,8 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
       let hasError = false;
       let hasMissingRequired = false;
       let hasInvalidPrice = false;
+      let hasInvalidMinimumDays = false;
+      let hasInvalidPostalCode = false;
 
       requiredFields.forEach(function (fieldId) {
         if (!getInputValue(fieldId)) {
@@ -701,6 +451,14 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
         }
       }
 
+      const minimumDaysRaw = getInputValue("toolMinRentalDays");
+      const minimumDays = Number(minimumDaysRaw);
+      if (!/^[1-9]\d*$/.test(minimumDaysRaw) || !Number.isSafeInteger(minimumDays) || minimumDays > 365) {
+        markOfferFormError("toolMinRentalDays");
+        hasError = true;
+        hasInvalidMinimumDays = true;
+      }
+
       const pickupUseCustom = document.getElementById("pickupUseCustom");
       const useCustomPickup = pickupUseCustom ? pickupUseCustom.checked : false;
 
@@ -712,15 +470,28 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
             hasMissingRequired = true;
           }
         });
+        if (getInputValue("pickupPostalCode") && !formatRentuloCzechPostalCode(getInputValue("pickupPostalCode"))) {
+          markOfferFormError("pickupPostalCode");
+          hasError = true;
+          hasInvalidPostalCode = true;
+        }
       } else {
         const profilePickup = getPickupAddress();
 
+        if (profilePickup.countryCode !== "CZ") {
+          showOfferTranslatedFormMessage("offer.profilePickupOutsideCz", "Profilová adresa není ověřená jako česká. Zvolte jiné místo vyzvednutí v ČR nebo doplňte zemi bydliště v Nastavení.", "error");
+          return false;
+        }
         if (!profilePickup.street || !profilePickup.city || !profilePickup.postalCode) {
           showOfferTranslatedFormMessage(
             "offer.profilePickupMissing",
             "Ve vašem profilu chybí úplná adresa pro vyzvednutí. Doplňte ji v Nastavení nebo zvolte jiné místo vyzvednutí.",
             "error"
           );
+          return false;
+        }
+        if (!formatRentuloCzechPostalCode(profilePickup.postalCode)) {
+          showOfferTranslatedFormMessage("address.invalidPostalCode", "Zadejte české PSČ ve formátu 110 00 (5 číslic).", "error");
           return false;
         }
       }
@@ -732,17 +503,21 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
       }
       if (window.rentuloOfferPolicy.isTransportOffer(getInputValue("toolName"), getInputValue("toolCategory"))) {
         markOfferFormError("toolName");
-        showOfferTranslatedFormMessage("offer.transportNotAllowed", "Dopravní prostředky nelze v Rentulu V1 nabízet.", "error");
+        showOfferTranslatedFormMessage("offer.transportNotAllowed", "Dopravní prostředky nelze na Rentulu nabízet.", "error");
         return false;
       }
       if (!transportAttestation || !transportAttestation.checked) {
         if (transportAttestation) markOfferFormError("offerTransportConfirmation");
-        showOfferTranslatedFormMessage("offer.transportMustConfirm", "Potvrďte prosím pravidla Rentula V1.", "error");
+        showOfferTranslatedFormMessage("offer.transportMustConfirm", "Potvrďte prosím pravidla Rentula.", "error");
         return false;
       }
 
       if (hasError) {
-        if (hasInvalidPrice) {
+        if (hasInvalidPostalCode) {
+          showOfferTranslatedFormMessage("address.invalidPostalCode", "Zadejte české PSČ ve formátu 110 00 (5 číslic).", "error");
+        } else if (hasInvalidMinimumDays) {
+          showOfferTranslatedFormMessage("offer.minRentalDaysInvalid", "Minimální délka musí být celé číslo od 1 do 365 dní.", "error");
+        } else if (hasInvalidPrice) {
           showOfferTranslatedFormMessage("offer.validationCorrectFields", "Opravte prosím označená pole.", "error");
         } else if (hasMissingRequired) {
           showOfferTranslatedFormMessage("offer.validationRequired", "Vyplňte prosím všechna povinná pole.", "error");
@@ -821,28 +596,43 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
       };
     }
 
-    async function geocodePickupAddress(supabaseClient, pickupAddress) {
+    async function geocodePickupAddress(supabaseClient, pickupAddress, mustVerify = true) {
       const { data, error } = await supabaseClient.functions.invoke("geocode-pickup", {
         body: {
-  street: pickupAddress.street,
-  city: pickupAddress.city,
-  postalCode: pickupAddress.postalCode
-}
+          street: pickupAddress.street,
+          city: pickupAddress.city,
+          postalCode: pickupAddress.postalCode,
+          countryCode: pickupAddress.countryCode
+        }
       });
 
       if (error) {
-        console.warn("Pickup geocoding is temporarily unavailable; saving without coordinates.", error);
+        if (mustVerify) {
+          const unavailable = new Error("Pickup verification unavailable");
+          unavailable.code = "PICKUP_GEOCODING_UNAVAILABLE";
+          throw unavailable;
+        }
+        console.warn("Pickup verification unavailable; draft will have no coordinates.");
         return null;
       }
 
       if (!data || data.ok !== true) {
+        if (data && data.reason === "unsupported_country") {
+          const countryError = new Error("Pickup address is outside the Czech Republic");
+          countryError.code = "PICKUP_COUNTRY_UNSUPPORTED";
+          throw countryError;
+        }
         if (data && data.reason === "not_found") {
           const geocodeError = new Error("Pickup address was not found");
           geocodeError.code = "PICKUP_GEOCODING_NOT_FOUND";
           throw geocodeError;
         }
 
-        console.warn("Pickup geocoding is temporarily unavailable; saving without coordinates.");
+        if (mustVerify) {
+          const unavailable = new Error("Pickup verification unavailable");
+          unavailable.code = "PICKUP_GEOCODING_UNAVAILABLE";
+          throw unavailable;
+        }
         return null;
       }
 
@@ -850,8 +640,9 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
       const longitude = Number(data.longitude);
 
       if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-        console.warn("Pickup geocoding returned invalid coordinates; saving without coordinates.");
-        return null;
+        const invalid = new Error("Pickup verification returned invalid coordinates");
+        invalid.code = "PICKUP_GEOCODING_UNAVAILABLE";
+        throw invalid;
       }
 
       return {
@@ -869,11 +660,14 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
         city: pickupAddress.city,
         postal_code: pickupAddress.postalCode,
         price_per_day: parseMoneyValue(getInputValue("toolPrice")),
+        min_rental_days: Number(getInputValue("toolMinRentalDays")),
 
         status: status,
         photo_url: photoUrl || null,
 
         pickup_mode: pickupAddress.mode,
+        pickup_country_code: pickupAddress.countryCode,
+        currency_code: "CZK",
         pickup_street: pickupAddress.street,
         pickup_city: pickupAddress.city,
         pickup_postal_code: pickupAddress.postalCode,
@@ -926,6 +720,13 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
         return;
       }
 
+      if (status !== "draft" && !offerPhotoDataUrl) {
+        const message = "Pro zveřejnění nabídky vyberte alespoň jednu fotografii věci. Koncept lze uložit bez fotky.";
+        updatePhotoStatusByKey("offer.photoRequired", message, "error");
+        showOfferTranslatedFormMessage("offer.photoRequired", message, "error");
+        return;
+      }
+
       offerSaveInProgress = true;
       setOfferSavingState(true, status);
 
@@ -942,8 +743,7 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
         }
 
         const pickupAddress = getPickupAddress();
-        const pickupCoordinates = offerSelectedPickupCoordinates ||
-          await geocodePickupAddress(supabaseClient, pickupAddress);
+        const pickupCoordinates = await geocodePickupAddress(supabaseClient, pickupAddress, status !== "draft");
         const uploadedPhoto = await uploadOfferPhoto(supabaseClient, supabaseUser.id);
         uploadedPhotoPath = uploadedPhoto.path;
         const supabaseOffer = createSupabaseOfferObject(
@@ -988,6 +788,11 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
           ? String(error.message).toLowerCase()
           : "";
 
+        if (error && error.code === "PICKUP_COUNTRY_UNSUPPORTED") {
+          showOfferTranslatedFormMessage("offer.pickupOutsideCz", "Místo vyzvednutí musí být v České republice. Zadejte českou adresu.", "error");
+          return;
+        }
+
         if (error && error.code === "PICKUP_GEOCODING_NOT_FOUND") {
           showOfferTranslatedFormMessage(
             "offer.geocodeNotFound",
@@ -1007,7 +812,7 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
         }
 
         if (message.includes("rentulo_v1_transport_not_allowed")) {
-          showOfferTranslatedFormMessage("offer.transportNotAllowed", "Dopravní prostředky nelze v Rentulu V1 nabízet.", "error");
+          showOfferTranslatedFormMessage("offer.transportNotAllowed", "Dopravní prostředky nelze na Rentulu nabízet.", "error");
           return;
         }
 
@@ -1034,13 +839,11 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
       }
 
       pickupUseCustom.addEventListener("change", function () {
-        offerSelectedPickupCoordinates = null;
 
         if (pickupUseCustom.checked) {
           pickupCustomFields.classList.add("is-visible");
         } else {
           pickupCustomFields.classList.remove("is-visible");
-          closeOfferAddressSuggestions();
         }
 
         renderProfilePickupAddress();
@@ -1052,6 +855,7 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
     function setupOfferForm() {
       const offerForm = document.getElementById("offerForm");
       const saveDraftButton = document.getElementById("saveDraftButton");
+      setupRentuloCzechPostalCodeBlur(document.getElementById("pickupPostalCode"));
 
       if (offerForm) {
         offerForm.addEventListener("submit", function (event) {
@@ -1068,6 +872,7 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
     }
 
     function refreshOfferDynamicTranslations() {
+      renderProfilePickupAddress();
       renderPhotoPreview(offerPhotoDataUrl);
       refreshDynamicTranslatedText(document.getElementById("toolPhotoStatus"));
       refreshDynamicTranslatedText(document.getElementById("offerFormMessage"));
@@ -1081,7 +886,6 @@ preview.innerHTML = `<img src="${dataUrl}" alt="${offerTranslate("offer.photoAlt
         return;
       }
 
-      setupPickupAddressAutocomplete();
       await fillProfileAddressAsDefault(authenticatedUser);
       setupOfferPhotoUpload();
       setupPickupCustomFields();

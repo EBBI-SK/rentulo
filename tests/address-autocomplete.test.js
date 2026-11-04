@@ -213,77 +213,16 @@ test("provider secret is mandatory and stays off the browser JSON response", asy
   assert.equal(result.status, 503);
 });
 
-function slice(source, start, end) {
-  const i = source.indexOf(start), j = source.indexOf(end, i + start.length);
-  assert.ok(i >= 0 && j > i, `Missing markers: ${start} / ${end}`);
-  return source.slice(i, j);
-}
-
-function createFormHarness(source, kind) {
-  const isCreate = kind === "create";
-  const counter = isCreate ? "offerAddressRequestId" : "editAddressRequestId";
-  const variable = isCreate ? "offerAddressSuggestions" : "editAddressSuggestions";
-  const selected = isCreate ? "offerSelectedPickupCoordinates" : "editSelectedPickupCoordinates";
-  const timer = isCreate ? "offerAddressTimer" : "editAddressTimer";
-  const active = isCreate ? "offerAddressActiveIndex" : "editAddressActiveIndex";
-  const close = isCreate ? "closeOfferAddressSuggestions" : "closeEditAddressSuggestions";
-  const select = isCreate ? "selectOfferAddress" : "selectEditAddress";
-  const setup = isCreate ? "setupPickupAddressAutocomplete" : "setupEditPickupAddressAutocomplete";
-  const fields = isCreate
-    ? ["pickupStreet", "pickupCity", "pickupPostalCode", "pickupAddressSuggestions"]
-    : ["edit-pickup-street", "edit-city", "edit-postal-code", "editPickupAddressSuggestions"];
-  const elements = Object.fromEntries(fields.map(id => [id, {
-    value: "", innerHTML: "old", hidden: false, listeners: {},
-    classList: { remove() {} },
-    setAttribute() {}, removeAttribute() {},
-    addEventListener(type, fn) { this.listeners[type] = fn; }
-  }]));
-  elements[fields[0]].value = "Václavské náměstí 1";
-  elements[fields[1]].value = "Praha";
-  let timerNumber = 0;
-  const context = {
-    document: {
-      getElementById(id) { return elements[id] || null; },
-      addEventListener() {}, querySelectorAll() { return []; }
-    },
-    window: { clearTimeout() {}, setTimeout() { return ++timerNumber; } }
-  };
-  const code = [
-    `let ${variable} = [{street:"U Lomu 1",city:"Praha",postalCode:"110 00",latitude:50,longitude:14}];`,
-    `let ${counter} = 4; let ${timer} = null; let ${active} = -1;`,
-    `let ${selected} = {latitude: 50, longitude: 14};`,
-    `const ${isCreate ? "OFFER" : "EDIT"}_ADDRESS_SUGGESTION_MIN_LENGTH = 3;`,
-    `const ${isCreate ? "OFFER" : "EDIT"}_ADDRESS_SUGGESTION_DELAY_MS = 450;`,
-    slice(source, `function ${close}() {`, isCreate ? "function renderOfferAddressSuggestions(" : "function renderEditAddressSuggestions("),
-    slice(source, `function ${select}(index) {`, isCreate ? "async function loadOfferAddressSuggestions(" : "async function loadEditAddressSuggestions("),
-    slice(source, `function ${setup}() {`, isCreate ? "async function fillProfileAddressAsDefault(" : "function normalizeEditPickupAddress("),
-    `globalThis.harness = { setup: ${setup}, select: ${select}, getState: () => ({request: ${counter}, selected: ${selected}, suggestions: ${variable}.length}) };`
-  ].join("\n");
-  vm.runInNewContext(code, context);
-  return { elements, fields, harness: context.harness };
-}
-
-for (const [label, source] of [["create", createSource], ["edit", editSource]]) {
-  test(`${label} form hides old suggestions and invalidates pending search when city changes`, () => {
-    const { elements, fields, harness } = createFormHarness(source, label);
-    harness.setup();
-    elements[fields[1]].value = "Brno";
-    elements[fields[1]].listeners.input();
-    assert.equal(elements[fields[3]].hidden, true);
-    assert.equal(elements[fields[3]].innerHTML, "");
-    assert.equal(harness.getState().suggestions, 0);
-    assert.equal(harness.getState().selected, null);
-    assert.equal(harness.getState().request, 5);
-  });
-
-  test(`${label} form fills street, city, postcode and coordinates upon selection`, () => {
-    const { elements, fields, harness } = createFormHarness(source, label);
-    harness.select(0);
-    assert.equal(elements[fields[0]].value, "U Lomu 1");
-    assert.equal(elements[fields[1]].value, "Praha");
-    assert.equal(elements[fields[2]].value, "110 00");
-    assert.deepEqual(JSON.parse(JSON.stringify(harness.getState().selected)), { latitude: 50, longitude: 14 });
-    assert.equal(elements[fields[3]].hidden, true);
-    assert.equal(harness.getState().request, 5);
+// The endpoint is retained temporarily for safe TEST retirement; clients must not call it.
+for (const [name, htmlPath, code] of [
+  ["create offer", "nabidnout.html", createSource],
+  ["edit offer", "edit-nabidka.html", editSource]
+]) {
+  test(`${name} accepts typed address fields without suggestions`, () => {
+    const html = fs.readFileSync(path.join(root, htmlPath), "utf8");
+    assert.doesNotMatch(html, /address-suggestions|aria-autocomplete|role="combobox"|address-attribution/);
+    assert.doesNotMatch(code, /address-suggestions|AddressAutocomplete|SelectAddress|AddressSuggestions/);
+    assert.match(html, /autocomplete="off"/);
+    assert.match(html, /inputmode="numeric" maxlength="6"/);
   });
 }

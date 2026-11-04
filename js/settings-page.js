@@ -160,6 +160,7 @@
       left.phone === right.phone &&
       left.street === right.street &&
       left.city === right.city &&
+      left.countryCode === right.countryCode &&
       left.postalCode === right.postalCode
     );
   }
@@ -193,6 +194,7 @@
       profilePhone: profile && profile.phone ? profile.phone : "",
       profileStreet: profile && profile.street ? profile.street : "",
       profileCity: profile && profile.city ? profile.city : "",
+      profileCountryCode: profile && profile.country_code ? profile.country_code : "",
       profilePostalCode: profile && profile.postal_code ? profile.postal_code : ""
     };
 
@@ -204,12 +206,18 @@
       }
     });
 
+    window.rentuloCountries.syncPostalInput(
+      document.getElementById("profileCountryCode"),
+      document.getElementById("profilePostalCode")
+    );
+
     savedProfileValues = {
       fullName: normalizeText(values.profileFullName),
       email: normalizeEmail(values.profileEmail),
       phone: normalizeText(values.profilePhone),
       street: normalizeText(values.profileStreet),
       city: normalizeText(values.profileCity),
+      countryCode: values.profileCountryCode,
       postalCode: normalizeText(values.profilePostalCode)
     };
   }
@@ -227,7 +235,7 @@
       const response = await client
         .from("profiles")
         .select(
-          "full_name, email, phone, street, city, postal_code, preferred_language, sms_notifications"
+          "full_name, email, phone, street, city, postal_code, country_code, preferred_language, sms_notifications"
         )
         .eq("id", user.id)
         .maybeSingle();
@@ -244,7 +252,7 @@
       // the user can retry the same protected operation after reloading the page.
       try {
         const { data: statusData, error: statusError } = await client.rpc(
-          "get_my_account_deactivation_status_v2"
+          "get_my_account_deactivation_status_v3"
         );
         const status = !statusError ? firstResultRow(statusData) : null;
         if (status && status.account_status === "deactivated") {
@@ -325,6 +333,7 @@
     const streetInput = document.getElementById("profileStreet");
     const cityInput = document.getElementById("profileCity");
     const postalCodeInput = document.getElementById("profilePostalCode");
+    const countryInput = document.getElementById("profileCountryCode");
     const button = document.getElementById("saveProfileButton");
     const message = document.getElementById("profileMessage");
 
@@ -333,14 +342,17 @@
     const phone = normalizeText(phoneInput && phoneInput.value);
     const street = normalizeText(streetInput && streetInput.value);
     const city = normalizeText(cityInput && cityInput.value);
-    const postalCode = normalizeText(postalCodeInput && postalCodeInput.value);
+    const postalCodeRaw = normalizeText(postalCodeInput && postalCodeInput.value);
+    const countryCode = window.rentuloCountries.validCountry(countryInput && countryInput.value);
+    const postalCode = window.rentuloCountries.normalizePostal(countryCode, postalCodeRaw);
     const profileValues = {
       fullName: fullName,
       email: email,
       phone: phone,
       street: street,
       city: city,
-      postalCode: postalCode
+      countryCode: countryCode,
+      postalCode: postalCode === null ? postalCodeRaw : postalCode
     };
     const phoneChanged = savedProfileValues && savedProfileValues.phone !== phone;
 
@@ -350,7 +362,7 @@
 
     setMessage(message, "", "");
 
-    if (!fullName || !email || !phone || !street || !city || !postalCode) {
+    if (!fullName || !email || !phone || !street || !city) {
       setTranslatedMessage(
         message,
         "settings.profileRequired",
@@ -359,6 +371,20 @@
       );
       return user;
     }
+
+    if (!countryCode) {
+      setTranslatedMessage(message, "country.required", "Vyberte zemi bydliště.", "error");
+      if (countryInput) countryInput.focus();
+      return user;
+    }
+
+    if (postalCode === null) {
+      setTranslatedMessage(message, "country.invalidPostalCode", "Zkontrolujte poštovní směrovací číslo pro vybranou zemi.", "error");
+      if (postalCodeInput) postalCodeInput.focus();
+      return user;
+    }
+
+    if (postalCodeInput) postalCodeInput.value = postalCode;
 
     if (!isValidEmail(email)) {
       setTranslatedMessage(
@@ -396,7 +422,8 @@
             phone: phone,
             street: street,
             city: city,
-            postal_code: postalCode
+            postal_code: postalCode,
+            country_code: countryCode
           }
         });
 
@@ -427,7 +454,8 @@
             phone: phone,
             street: street,
             city: city,
-            postal_code: postalCode
+            postal_code: postalCode,
+            country_code: countryCode
           }
         });
 
@@ -444,6 +472,7 @@
         street: street,
         city: city,
         postal_code: postalCode,
+        country_code: countryCode,
         updated_at: new Date().toISOString()
       };
 
@@ -470,7 +499,8 @@
             phone: phone,
             street: street,
             city: city,
-            postal_code: postalCode
+            postal_code: postalCode,
+            country_code: countryCode
           }
         };
 
@@ -762,7 +792,31 @@
     );
   }
 
+  function hasBod6DeactivationBlockers(status) {
+    const fields = [
+      "pending_extensions_count",
+      "unresolved_extension_payouts_count",
+      "active_card_disputes_count",
+      "unresolved_internal_settlements_count",
+      "active_legal_holds_count",
+      "unresolved_return_incidents_count",
+      "open_platform_incidents_count"
+    ];
+    return Boolean(status && fields.some(function (key) {
+      return Number(status[key]) > 0;
+    }));
+  }
+
   function showFinancialCancellationBlock(message, status) {
+    if (hasBod6DeactivationBlockers(status)) {
+      setTranslatedMessage(
+        message,
+        "settings.cancelAccountFinancialBlockedGeneric",
+        "Účet zatím nelze zrušit kvůli nedokončeným finančním operacím. Zkuste kontrolu opakovat později nebo kontaktujte podporu.",
+        "error"
+      );
+      return;
+    }
     const fields = [
       "open_owner_debts_count",
       "unfinished_refunds_count",
@@ -852,7 +906,7 @@
     setButtonLoading(button, true);
 
     try {
-      const { data, error } = await client.rpc("get_my_account_deactivation_status_v2");
+      const { data, error } = await client.rpc("get_my_account_deactivation_status_v3");
 
       if (error) {
         throw error;
@@ -885,7 +939,8 @@
         } else if (
           status.open_owner_debts_count > 0 ||
           status.unfinished_refunds_count > 0 ||
-          status.unresolved_owner_transfers_count > 0
+          status.unresolved_owner_transfers_count > 0 ||
+          hasBod6DeactivationBlockers(status)
         ) {
           showFinancialCancellationBlock(message, status);
         } else {
@@ -1129,6 +1184,7 @@
     let currentUser = user;
 
     if (profileForm) {
+      window.rentuloCountries.setupSelect("profileCountryCode", "profilePostalCode");
       profileForm.addEventListener("submit", async function (event) {
         event.preventDefault();
         currentUser = await saveProfile(client, currentUser);

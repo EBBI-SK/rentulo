@@ -80,18 +80,24 @@
             </div>
 
             <div class="field">
+              <label for="profileCountryCode" data-i18n="country.residenceLabel">Země bydliště</label>
+              <select id="profileCountryCode" autocomplete="country" required>
+                <option value="" data-i18n="country.choose">Vyberte zemi</option>
+              </select>
+            </div>
+            <div class="field">
               <label for="profileStreet" data-i18n="settings.street">Ulice a číslo</label>
-              <input type="text" id="profileStreet" autocomplete="street-address" maxlength="160" required />
+              <input type="text" id="profileStreet" autocomplete="off" maxlength="160" required />
             </div>
 
             <div class="field">
               <label for="profileCity" data-i18n="settings.city">Město</label>
-              <input type="text" id="profileCity" autocomplete="address-level2" maxlength="100" required />
+              <input type="text" id="profileCity" autocomplete="off" maxlength="100" required />
             </div>
 
             <div class="field">
               <label for="profilePostalCode" data-i18n="settings.postalCode">PSČ</label>
-              <input type="text" id="profilePostalCode" autocomplete="postal-code" inputmode="text" maxlength="20" required />
+              <input type="text" id="profilePostalCode" autocomplete="off" maxlength="20" required />
             </div>
           </div>
 
@@ -288,6 +294,7 @@
   <script src="js/navigation.js"></script>
   <script src="js/auth-guard.js"></script>
   <script src="js/password-visibility.js"></script>
+  <script src="js/country-address.js"></script>
   <script src="js/settings-page.js"></script>
   <script src="js/settings-language.js"></script>
   <script src="js/connect-settings.js"></script>

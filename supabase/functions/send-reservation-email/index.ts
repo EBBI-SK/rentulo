@@ -51,7 +51,12 @@ type EmailEvent =
   | "no_show"
   | "return_reminder_30m"
   | "return_reminder_2h"
-  | "return_not_received";
+  | "return_not_received"
+  | "extension_requested"
+  | "extension_approved"
+  | "extension_rejected"
+  | "extension_paid"
+  | "extension_expired";
 
 type StandardEmailEvent = Exclude<EmailEvent, "paid_cancelled">;
 
@@ -94,11 +99,21 @@ const eventStatus: Record<EmailEvent, string> = {
   return_reminder_30m: "picked_up",
   return_reminder_2h: "picked_up",
   return_not_received: "picked_up",
+  extension_requested: "picked_up",
+  extension_approved: "picked_up",
+  extension_rejected: "picked_up",
+  extension_paid: "picked_up",
+  extension_expired: "picked_up",
 };
 
 const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [string, string]>> = {
   cs: {
     new_request: ["Nová žádost o půjčení", "U vaší nabídky čeká nová žádost o půjčení."],
+    extension_requested: ["Nová žádost o prodloužení pronájmu", "Nájemce požádal o prodloužení pronájmu. Otevřete Moje nabídky a žádost schvalte nebo zamítněte."],
+    extension_approved: ["Prodloužení schváleno – zaplaťte doplatek", "Majitel schválil prodloužení pronájmu. Nový termín začne platit až po zaplacení doplatku."],
+    extension_rejected: ["Prodloužení zamítnuto", "Majitel vaši žádost o prodloužení zamítl. Původní termín vrácení se nemění."],
+    extension_paid: ["Prodloužení pronájmu zaplaceno", "Doplatek byl potvrzen. Pronájem je prodloužen do nového termínu vrácení."],
+    extension_expired: ["Žádost o prodloužení vypršela", "Prodloužení nebylo dokončeno včas. Původní termín vrácení zůstává v platnosti."],
     approved: ["Žádost byla schválena", "Majitel vaši žádost schválil. Rezervaci nyní můžete zaplatit."],
     rejected: ["Žádost byla odmítnuta", "Majitel vaši žádost o půjčení odmítl."],
     cancelled: ["Rezervace byla zrušena", "Rezervace byla zrušena a termín je znovu volný."],
@@ -116,6 +131,11 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
   },
   sk: {
     new_request: ["Nová žiadosť o požičanie", "Pri vašej ponuke čaká nová žiadosť o požičanie."],
+    extension_requested: ["Nová žiadosť o predĺženie prenájmu", "Nájomca požiadal o predĺženie prenájmu. Otvorte Moje ponuky a žiadosť schváľte alebo zamietnite."],
+    extension_approved: ["Predĺženie schválené – zaplaťte doplatok", "Majiteľ schválil predĺženie prenájmu. Nový termín začne platiť až po zaplatení doplatku."],
+    extension_rejected: ["Predĺženie zamietnuté", "Majiteľ vašu žiadosť o predĺženie zamietol. Pôvodný termín vrátenia sa nemení."],
+    extension_paid: ["Predĺženie prenájmu zaplatené", "Doplatok bol potvrdený. Prenájom sa predĺžil do nového termínu vrátenia."],
+    extension_expired: ["Žiadosť o predĺženie vypršala", "Predĺženie nebolo dokončené včas. Pôvodný termín vrátenia zostáva v platnosti."],
     approved: ["Žiadosť bola schválená", "Majiteľ vašu žiadosť schválil. Rezerváciu teraz môžete zaplatiť."],
     rejected: ["Žiadosť bola odmietnutá", "Majiteľ vašu žiadosť o požičanie odmietol."],
     cancelled: ["Rezervácia bola zrušená", "Rezervácia bola zrušená a termín je znova voľný."],
@@ -133,6 +153,11 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
   },
   en: {
     new_request: ["New rental request", "A new rental request is waiting for your listing."],
+    extension_requested: ["New rental extension request", "The renter requested an extension. Open My listings to approve or reject the request."],
+    extension_approved: ["Extension approved – payment required", "The owner approved your extension. The new return date takes effect only after the additional payment succeeds."],
+    extension_rejected: ["Extension request rejected", "The owner declined your extension request. The original return date is unchanged."],
+    extension_paid: ["Rental extension payment confirmed", "Your additional payment was confirmed and the rental now has the new return date."],
+    extension_expired: ["Extension request expired", "Your extension was not completed in time. The original return date remains in effect."],
     approved: ["Request approved", "The owner approved your request. You can now complete the payment."],
     rejected: ["Request rejected", "The owner rejected your rental request."],
     cancelled: ["Reservation cancelled", "The reservation was cancelled and the dates are available again."],
@@ -150,6 +175,11 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
   },
   de: {
     new_request: ["Neue Mietanfrage", "Für Ihr Angebot wartet eine neue Mietanfrage."],
+    extension_requested: ["Neue Anfrage zur Mietverlängerung", "Der Mieter hat eine Verlängerung beantragt. Öffnen Sie Meine Angebote, um die Anfrage zu bestätigen oder abzulehnen."],
+    extension_approved: ["Verlängerung genehmigt – Nachzahlung erforderlich", "Der Vermieter hat die Verlängerung genehmigt. Das neue Rückgabedatum gilt erst nach erfolgreicher Nachzahlung."],
+    extension_rejected: ["Verlängerung abgelehnt", "Der Vermieter hat die Verlängerung abgelehnt. Der ursprüngliche Rückgabetermin bleibt bestehen."],
+    extension_paid: ["Mietverlängerung bezahlt", "Die Nachzahlung ist bestätigt. Die Miete läuft nun bis zum neuen Rückgabedatum."],
+    extension_expired: ["Verlängerungsanfrage abgelaufen", "Die Verlängerung wurde nicht rechtzeitig abgeschlossen. Der ursprüngliche Rückgabetermin bleibt bestehen."],
     approved: ["Anfrage bestätigt", "Der Eigentümer hat Ihre Anfrage bestätigt. Sie können jetzt die Zahlung abschließen."],
     rejected: ["Anfrage abgelehnt", "Der Eigentümer hat Ihre Mietanfrage abgelehnt."],
     cancelled: ["Reservierung storniert", "Die Reservierung wurde storniert und der Zeitraum ist wieder verfügbar."],
@@ -167,6 +197,11 @@ const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [
   },
   pl: {
     new_request: ["Nowa prośba o wypożyczenie", "Nowa prośba o wypożyczenie oczekuje przy Twojej ofercie."],
+    extension_requested: ["Nowa prośba o przedłużenie najmu", "Najemca poprosił o przedłużenie najmu. Otwórz Moje oferty, aby zatwierdzić lub odrzucić prośbę."],
+    extension_approved: ["Przedłużenie zatwierdzone – wymagana dopłata", "Właściciel zatwierdził przedłużenie. Nowa data zwrotu będzie obowiązywać dopiero po dokonaniu dopłaty."],
+    extension_rejected: ["Przedłużenie odrzucone", "Właściciel odrzucił prośbę o przedłużenie. Pierwotna data zwrotu nie ulega zmianie."],
+    extension_paid: ["Przedłużenie najmu opłacone", "Dopłata została potwierdzona. Najem trwa do nowej daty zwrotu."],
+    extension_expired: ["Prośba o przedłużenie wygasła", "Przedłużenie nie zostało ukończone w terminie. Pierwotna data zwrotu pozostaje bez zmian."],
     approved: ["Prośba została zaakceptowana", "Właściciel zaakceptował Twoją prośbę. Możesz teraz dokończyć płatność."],
     rejected: ["Prośba została odrzucona", "Właściciel odrzucił Twoją prośbę o wypożyczenie."],
     cancelled: ["Rezerwacja została anulowana", "Rezerwacja została anulowana, a termin jest ponownie dostępny."],
@@ -222,6 +257,137 @@ const referenceLabels: Record<SupportedLanguage, { offer: string; reservation: s
   en: { offer: "Listing number", reservation: "Reservation number" },
   de: { offer: "Angebotsnummer", reservation: "Reservierungsnummer" },
   pl: { offer: "Numer oferty", reservation: "Numer rezerwacji" },
+};
+
+const approvedPaymentDeadlineCopy: Record<SupportedLanguage, {
+  payBy: string; at: string; warning: string;
+}> = {
+  cs: {
+    payBy: "Zaplaťte nejpozději", at: "do",
+    warning: "Pokud platbu nedokončíte včas, rezervace vyprší.",
+  },
+  sk: {
+    payBy: "Zaplaťte najneskôr", at: "o",
+    warning: "Ak platbu nedokončíte včas, rezervácia vyprší.",
+  },
+  en: {
+    payBy: "Pay by", at: "at",
+    warning: "If you do not complete payment on time, the reservation will expire.",
+  },
+  de: {
+    payBy: "Bitte zahlen Sie spätestens am", at: "um",
+    warning: "Wenn Sie die Zahlung nicht rechtzeitig abschließen, verfällt die Reservierung.",
+  },
+  pl: {
+    payBy: "Zapłać najpóźniej", at: "o",
+    warning: "Jeśli nie dokonasz płatności na czas, rezerwacja wygaśnie.",
+  },
+};
+
+// Reply-To stays rentulo@rentulo.com; the footer also provides a direct mailto link.
+const reservationEmailFooterHelp: Record<SupportedLanguage, string> = {
+  cs: "Potřebujete pomoc?",
+  sk: "Potrebujete pomoc?",
+  en: "Need help?",
+  de: "Brauchen Sie Hilfe?",
+  pl: "Potrzebujesz pomocy?",
+};
+const reservationEmailFooterContact: Record<SupportedLanguage, string> = {
+  cs: "Kontaktujte nás.",
+  sk: "Kontaktujte nás.",
+  en: "Contact us.",
+  de: "Kontaktieren Sie uns.",
+  pl: "Skontaktuj się z nami.",
+};
+
+// Extension copy is explicit in all supported languages. The action labels
+// and role-scoped destination are selected separately below.
+const extensionRequestLabels: Record<SupportedLanguage, {
+  requestedReturn: string; decisionDeadline: string;
+}> = {
+  cs: { requestedReturn: "Požadované datum vrácení", decisionDeadline: "Rozhodněte nejpozději" },
+  sk: { requestedReturn: "Požadovaný dátum vrátenia", decisionDeadline: "Rozhodnite najneskôr" },
+  en: { requestedReturn: "Requested return date", decisionDeadline: "Decision deadline" },
+  de: { requestedReturn: "Gewünschtes Rückgabedatum", decisionDeadline: "Entscheidungsfrist" },
+  pl: { requestedReturn: "Proponowana data zwrotu", decisionDeadline: "Termin decyzji" },
+};
+
+// Outcome emails are independently scoped to the exact extension and participant.
+// Approval is an actionable payment request, unlike the final paid receipt.
+const extensionOutcomeLabels: Record<SupportedLanguage, {
+  amount: string; paymentDeadline: string; newReturn: string; originalReturn: string;
+}> = {
+  cs: { amount: "Doplatek", paymentDeadline: "Zaplaťte nejpozději", newReturn: "Nové datum vrácení", originalReturn: "Původní datum vrácení" },
+  sk: { amount: "Doplatok", paymentDeadline: "Zaplaťte najneskôr", newReturn: "Nový dátum vrátenia", originalReturn: "Pôvodný dátum vrátenia" },
+  en: { amount: "Additional payment", paymentDeadline: "Pay by", newReturn: "New return date", originalReturn: "Original return date" },
+  de: { amount: "Nachzahlung", paymentDeadline: "Zahlen bis", newReturn: "Neues Rückgabedatum", originalReturn: "Ursprüngliches Rückgabedatum" },
+  pl: { amount: "Dopłata", paymentDeadline: "Zapłać do", newReturn: "Nowa data zwrotu", originalReturn: "Pierwotna data zwrotu" },
+};
+
+type EmailActionKind =
+  | "request" | "pay" | "reservation" | "history"
+  | "extensionRequest" | "extensionPayment";
+
+const emailActionLabels: Record<SupportedLanguage, Record<EmailActionKind, string>> = {
+  cs: {
+    request: "Zobrazit \u017e\u00e1dost", pay: "Zaplatit rezervaci",
+    reservation: "Zobrazit rezervaci", history: "Zobrazit v historii",
+    extensionRequest: "Zobrazit \u017e\u00e1dost o prodlou\u017een\u00ed", extensionPayment: "Zaplatit doplatek",
+  },
+  sk: {
+    request: "Zobrazi\u0165 \u017eiados\u0165", pay: "Zaplati\u0165 rezerv\u00e1ciu",
+    reservation: "Zobrazi\u0165 rezerv\u00e1ciu", history: "Zobrazi\u0165 v hist\u00f3rii",
+    extensionRequest: "Zobrazi\u0165 \u017eiados\u0165 o pred\u013a\u017eenie", extensionPayment: "Zaplati\u0165 doplatok",
+  },
+  en: {
+    request: "View request", pay: "Pay for reservation",
+    reservation: "View reservation", history: "View in history",
+    extensionRequest: "View extension request", extensionPayment: "Pay additional amount",
+  },
+  de: {
+    request: "Anfrage anzeigen", pay: "Reservierung bezahlen",
+    reservation: "Reservierung anzeigen", history: "Im Verlauf anzeigen",
+    extensionRequest: "Verl\u00e4ngerungsanfrage anzeigen", extensionPayment: "Nachzahlung leisten",
+  },
+  pl: {
+    request: "Zobacz pro\u015bb\u0119", pay: "Op\u0142a\u0107 rezerwacj\u0119",
+    reservation: "Zobacz rezerwacj\u0119", history: "Zobacz w historii",
+    extensionRequest: "Zobacz pro\u015bb\u0119 o przed\u0142u\u017cenie", extensionPayment: "Op\u0142a\u0107 dop\u0142at\u0119",
+  },
+};
+
+const emailHistoryEvents = new Set<EmailEvent>([
+  "rejected", "cancelled", "paid_cancelled", "returned",
+  "expired_pending", "expired_approved", "no_show",
+]);
+
+function reservationEmailAction(
+  event: EmailEvent, language: SupportedLanguage, recipientIsOwner: boolean,
+  siteUrl: string, reservationId: string,
+): { label: string; url: string } {
+  const historical = emailHistoryEvents.has(event);
+  const kind: EmailActionKind = historical ? "history"
+    : event === "new_request" || event === "expiry_reminder_pending" ? "request"
+    : event === "approved" || event === "expiry_reminder_approved" ? "pay"
+    : event === "extension_requested" ? "extensionRequest"
+    : event === "extension_approved" ? "extensionPayment"
+    : "reservation";
+  // The UUID is an identifier, never a bearer token. The destination always
+  // loads participant-scoped data after authentication; no PIN or payment URL
+  // is exposed in the email.
+  const page = historical ? "historie.html"
+    : recipientIsOwner ? "moje-nabidky.html" : "moje-rezervace.html";
+  return {
+    label: emailActionLabels[language][kind],
+    url: `${siteUrl}/${page}?reservation=${encodeURIComponent(reservationId)}`,
+  };
+}
+const extensionPaidOwnerIntros: Record<SupportedLanguage, readonly [string, string]> = {
+  cs: ["Prodloužení pronájmu zaplaceno", "Nájemce zaplatil doplatek. Termín vrácení byl prodloužen."],
+  sk: ["Predĺženie prenájmu zaplatené", "Nájomca zaplatil doplatok. Termín vrátenia bol predĺžený."],
+  en: ["Rental extension payment confirmed", "The renter has paid the additional amount. The return date has been extended."],
+  de: ["Mietverlängerung bezahlt", "Der Mieter hat die Nachzahlung geleistet. Das Rückgabedatum wurde verlängert."],
+  pl: ["Przedłużenie najmu opłacone", "Najemca dokonał dopłaty. Data zwrotu została przedłużona."],
 };
 
 const paidCancellationCopy = {
@@ -438,6 +604,25 @@ function escapeHtml(value: unknown): string {
     .replaceAll("'", "&#039;");
 }
 
+// Use the very same DB deadline shown in "Moje rezervace"; do not derive it
+// from the approval time or the pickup date. Legacy rows may not have one.
+function renderApprovedPaymentDeadlineHtml(
+  expiresAt: string | null, language: SupportedLanguage,
+): string {
+  if (!expiresAt || typeof expiresAt !== "string") return "";
+  const instant = new Date(expiresAt);
+  if (!Number.isFinite(instant.getTime())) return "";
+
+  const copy = approvedPaymentDeadlineCopy[language];
+  const date = formatTimestampDate(expiresAt, language);
+  const time = new Intl.DateTimeFormat(dateLocales[language], {
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "Europe/Prague",
+  }).format(instant);
+  return `<div style="margin:0 0 16px;padding:14px 16px;border:1px solid #d8e8e1;background:#f4faf7;border-radius:10px;color:#103f32;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5">` +
+    `<p style="margin:0 0 6px"><strong>${escapeHtml(copy.payBy)} ${escapeHtml(date)} ${escapeHtml(copy.at)} ${escapeHtml(time)}.</strong></p>` +
+    `<p style="margin:0">${escapeHtml(copy.warning)}</p></div>`;
+}
+
 function response(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -524,10 +709,11 @@ denoRuntime.serve(async (req) => {
   const anonKey = denoRuntime.env.get("SUPABASE_ANON_KEY");
   const serviceRoleKey = denoRuntime.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const resendApiKey = denoRuntime.env.get("RESEND_API_KEY");
-  const emailFrom = denoRuntime.env.get("EMAIL_FROM");
+  // Customer email identity must not inherit the ambiguous legacy EMAIL_FROM setting.
+  const emailFrom = "Rentulo <rentulo@rentulo.com>";
   const siteUrl = resolveRentuloSiteUrl(supabaseUrl, denoRuntime.env.get("SITE_URL"));
 
-  if (!supabaseUrl || !anonKey || !serviceRoleKey || !resendApiKey || !emailFrom || !siteUrl) {
+  if (!supabaseUrl || !anonKey || !serviceRoleKey || !resendApiKey || !siteUrl) {
     console.error("send-reservation-email: missing or mismatched server configuration");
     return response({ error: "Missing or invalid server configuration" }, 500);
   }
@@ -573,6 +759,7 @@ denoRuntime.serve(async (req) => {
   const isWorkerDelivery = isServiceRoleCall &&
     typeof payload.recipient_id === "string" &&
     typeof payload.notification_delivery_id === "string";
+  const isExtensionEvent = event.startsWith("extension_");
 
   if (!isServiceRoleCall && (payload.recipient_id || payload.notification_delivery_id)) {
     return response({ error: "Only the trusted notification worker can select recipients" }, 403);
@@ -581,13 +768,20 @@ denoRuntime.serve(async (req) => {
   if (isServiceRoleCall && !isWorkerDelivery && event !== "paid" && event !== "paid_cancelled") {
     return response({ error: "Service role requires a claimed delivery for non-payment email events" }, 403);
   }
+  if (isExtensionEvent && !isWorkerDelivery) {
+    return response({ error: "Extension email requires a claimed worker delivery" }, 403);
+  }
 
+  let claimedExtensionId: string | null = null;
   if (isWorkerDelivery) {
     // The worker must own a real, claimed DB delivery: the server cannot
     // forge the recipient or bypass the transactional event outbox.
+    // PROD has not received the TEST-only extension_id migration. Keep the
+    // legacy reservation mail flow compatible even if this shared sender is
+    // deployed there: request the new column ONLY for extension mail.
     const { data: delivery, error: deliveryError } = await admin
       .from("reservation_notification_deliveries")
-      .select("id")
+      .select(isExtensionEvent ? "id, extension_id" : "id")
       .eq("id", payload.notification_delivery_id)
       .eq("reservation_id", reservationId)
       .eq("event_type", event)
@@ -597,6 +791,15 @@ denoRuntime.serve(async (req) => {
       .maybeSingle();
     if (deliveryError || !delivery) {
       return response({ error: "Claimed notification delivery not found" }, 403);
+    }
+    claimedExtensionId = isExtensionEvent
+      ? (delivery as { extension_id?: string | null }).extension_id || null
+      : null;
+    if (isExtensionEvent && !claimedExtensionId) {
+      return response({ error: "Extension email delivery is not linked to a request" }, 403);
+    }
+    if (!isExtensionEvent && claimedExtensionId) {
+      return response({ error: "Unexpected extension request on reservation event" }, 403);
     }
   }
 
@@ -612,6 +815,61 @@ denoRuntime.serve(async (req) => {
 
   if (reservationError || !reservation) {
     return response({ error: "Reservation not found" }, 404);
+  }
+
+  let extensionRequest: {
+    id: string; reservation_id: string; owner_id: string; renter_id: string;
+    status: string; previous_end_date: string; new_end_date: string;
+    approval_deadline_at: string; payment_deadline_at: string | null;
+    amount_total: number; currency: string; paid_at: string | null;
+    stripe_payment_intent_id: string | null; stripe_charge_id: string | null;
+  } | null = null;
+  if (isExtensionEvent) {
+    const { data: extension, error: extensionError } = await admin
+      .from("reservation_extensions")
+      .select("id, reservation_id, owner_id, renter_id, status, previous_end_date, new_end_date, approval_deadline_at, payment_deadline_at, amount_total, currency, paid_at, stripe_payment_intent_id, stripe_charge_id")
+      .eq("id", claimedExtensionId)
+      .eq("reservation_id", reservation.id)
+      .maybeSingle();
+    // A queue row is not sufficient authorization without checking the actual
+    // extension identity, its parent reservation and its intended owner.
+    if (extensionError || !extension || extension.owner_id !== reservation.owner_id ||
+        extension.renter_id !== reservation.renter_id ||
+        (event === "extension_requested" && payload.recipient_id !== reservation.owner_id) ||
+        (event !== "extension_requested" && event !== "extension_paid" &&
+          payload.recipient_id !== reservation.renter_id) ||
+        (event === "extension_paid" && payload.recipient_id !== reservation.renter_id &&
+          payload.recipient_id !== reservation.owner_id)) {
+      return response({ error: "Invalid extension email recipient or linkage" }, 403);
+    }
+    extensionRequest = extension;
+    // Do not notify about actions that have become stale, especially a payment
+    // link after its deadline or after the renter has already paid.
+    const expectedExtensionStatus: Record<string, string> = {
+      extension_requested: "pending", extension_approved: "approved",
+      extension_rejected: "rejected", extension_paid: "paid",
+      extension_expired: "expired",
+    };
+    const activeAction = event === "extension_requested" || event === "extension_approved";
+    const deadline = event === "extension_requested"
+      ? extension.approval_deadline_at : extension.payment_deadline_at;
+    if (extension.status !== expectedExtensionStatus[event] ||
+        (activeAction && (reservation.status !== "picked_up" || !deadline ||
+          !(new Date(deadline).getTime() > Date.now())))) {
+      return response({ ok: true, results: [
+        { recipient_id: payload.recipient_id, status: "skipped" }
+      ] });
+    }
+    // Receipts MUST be backed by the paid extension and verified Stripe evidence.
+    // Transient incompleteness is a retryable 409, never a fake paid email.
+    if (event === "extension_paid" && (
+      !extension.paid_at || extension.currency !== "czk" ||
+      !Number.isSafeInteger(extension.amount_total) || extension.amount_total <= 0 ||
+      !/^pi_[A-Za-z0-9]+$/.test(extension.stripe_payment_intent_id || "") ||
+      !/^ch_[A-Za-z0-9]+$/.test(extension.stripe_charge_id || "")
+    )) {
+      return response({ error: "Extension payment evidence not finalized" }, 409);
+    }
   }
 
   // Queued events are proof of the status *at the transaction time*.
@@ -810,10 +1068,12 @@ denoRuntime.serve(async (req) => {
 
     const language = normalizeLanguage(profile.preferred_language);
     const recipientIsOwner = profile.id === reservation.owner_id;
-    const isExpirationNotice = event === "expired_pending" || event === "expired_approved" || event === "no_show";
-    const detailUrl = `${siteUrl}/${isExpirationNotice ? "historie.html" : recipientIsOwner ? "moje-nabidky.html" : "moje-rezervace.html"}`;
+    const emailAction = reservationEmailAction(event, language, recipientIsOwner, siteUrl, reservation.id);
     const offerName = reservation.offer_name || "Rentulo";
     const dateText = `${formatReservationDate(reservation.start_date, language)} \u2013 ${formatReservationDate(reservation.end_date, language)}`;
+    const approvedDeadlineHtml = event === "approved"
+      ? renderApprovedPaymentDeadlineHtml(reservation.expires_at, language)
+      : "";
 
     let subject: string;
     let intro: string;
@@ -840,6 +1100,36 @@ denoRuntime.serve(async (req) => {
       }
       if (recipientIsOwner && event === "no_show") {
         intro = noShowOwnerIntros[language];
+      }
+      if (event === "extension_requested" && extensionRequest) {
+        const labels = extensionRequestLabels[language];
+        const deadline = new Intl.DateTimeFormat(dateLocales[language], {
+          dateStyle: "short", timeStyle: "short", timeZone: "Europe/Prague",
+        }).format(new Date(extensionRequest.approval_deadline_at));
+        extraHtml = `<p><strong>${escapeHtml(labels.requestedReturn)}:</strong> ${escapeHtml(formatReservationDate(extensionRequest.new_end_date, language))}</p>` +
+          `<p><strong>${escapeHtml(labels.decisionDeadline)}:</strong> ${escapeHtml(deadline)} (Praha)</p>`;
+      }
+      if (isExtensionEvent && event !== "extension_requested" && extensionRequest) {
+        const labels = extensionOutcomeLabels[language];
+        const isConfirmed = event === "extension_paid";
+        const isApproved = event === "extension_approved";
+        const returnLabel = isConfirmed || isApproved ? labels.newReturn : labels.originalReturn;
+        const returnDate = isConfirmed || isApproved
+          ? extensionRequest.new_end_date : extensionRequest.previous_end_date;
+        extraHtml = `<p><strong>${escapeHtml(returnLabel)}:</strong> ${escapeHtml(formatReservationDate(returnDate, language))}</p>`;
+        if (isApproved || isConfirmed) {
+          const amount = formatCurrencyMinor(extensionRequest.amount_total * 100, language);
+          extraHtml += `<p><strong>${escapeHtml(labels.amount)}:</strong> ${escapeHtml(amount)}</p>`;
+        }
+        if (isApproved && extensionRequest.payment_deadline_at) {
+          const deadline = new Intl.DateTimeFormat(dateLocales[language], {
+            dateStyle: "short", timeStyle: "short", timeZone: "Europe/Prague",
+          }).format(new Date(extensionRequest.payment_deadline_at));
+          extraHtml += `<p><strong>${escapeHtml(labels.paymentDeadline)}:</strong> ${escapeHtml(deadline)} (Praha)</p>`;
+        }
+        if (isConfirmed && recipientIsOwner) {
+          [subject, intro] = extensionPaidOwnerIntros[language];
+        }
       }
       if (event.startsWith("expiry_reminder_") && reservation.expires_at) {
         const deadline = new Intl.DateTimeFormat(dateLocales[language], {
@@ -871,6 +1161,7 @@ denoRuntime.serve(async (req) => {
       .insert({
         reservation_id: reservation.id,
         event_type: event,
+        ...(extensionRequest ? { extension_id: extensionRequest.id } : {}),
         recipient_id: profile.id,
         recipient_email: profile.email,
         status: "sending",
@@ -885,13 +1176,18 @@ denoRuntime.serve(async (req) => {
         return response({ error: "Email delivery log failed" }, 500);
       }
 
-      const { data: existingDelivery, error: existingDeliveryError } = await admin
+      let previousDeliveryQuery = admin
         .from("reservation_email_deliveries")
         .select("id, status, created_at")
         .eq("reservation_id", reservation.id)
         .eq("event_type", event)
-        .eq("recipient_id", profile.id)
-        .single();
+        .eq("recipient_id", profile.id);
+      // Legacy email logs remain unique by reservation/event/recipient.
+      // Never query extension_id on a PROD database that lacks this column.
+      if (extensionRequest) {
+        previousDeliveryQuery = previousDeliveryQuery.eq("extension_id", extensionRequest.id);
+      }
+      const { data: existingDelivery, error: existingDeliveryError } = await previousDeliveryQuery.single();
 
       if (existingDeliveryError || !existingDelivery) {
         return response({ error: "Existing email delivery lookup failed" }, 500);
@@ -938,14 +1234,27 @@ denoRuntime.serve(async (req) => {
     }
 
     const html = `
-      <div style="font-family:Arial,Helvetica,sans-serif;max-width:620px;margin:0 auto;color:#103f32;font-size:16px;line-height:1.5">
+      <div style="margin:0;padding:32px 16px;background:#f5f8f6;font-family:Arial,Helvetica,sans-serif;color:#102019;">
+        <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e5e9e5;border-radius:18px;overflow:hidden;">
+          <div style="padding:28px 32px;background:#e9f4ee;">
+            <div style="font-size:30px;font-weight:700;color:#0e5037;">Rentulo</div>
+          </div>
+          <div style="padding:32px;">
+            <div style="font-family:Arial,Helvetica,sans-serif;max-width:620px;margin:0 auto;color:#103f32;font-size:16px;line-height:1.5">
         <h1 style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:24px;line-height:1.25;font-weight:700;color:#103f32">${escapeHtml(subject)}</h1>
         <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#103f32">${escapeHtml(intro)}</p>
         <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#103f32"><strong>${escapeHtml(offerName)}</strong><br>${escapeHtml(dateText)}</p>
+        ${approvedDeadlineHtml}
         <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#103f32">${escapeHtml(referenceLabels[language].reservation)}: <strong>${escapeHtml(reservation.reservation_number)}</strong><br>${escapeHtml(referenceLabels[language].offer)}: <strong>${escapeHtml(offerReference.offer_number)}</strong></p>
         ${extraHtml}
-        <p style="margin:18px 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5"><a href="${escapeHtml(detailUrl)}" style="display:inline-block;padding:12px 18px;background:#75d94f;color:#103f32;text-decoration:none;border-radius:10px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.25;font-weight:700">Rentulo</a></p>
-        <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.5;color:#66736f">Rentulo</p>
+        <p style="margin:18px 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5"><a href="${escapeHtml(emailAction.url)}" style="display:inline-block;padding:14px 24px;background:#00835a;color:#ffffff;text-decoration:none;border-radius:10px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.25;font-weight:700">${escapeHtml(emailAction.label)}</a></p>
+              </div>
+      </div>
+      <div style="padding:20px 32px;border-top:1px solid #e5e9e5;text-align:center;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#64706b;">
+        <div style="font-weight:700;color:#37564b;">&copy; ${new Date().getUTCFullYear()} Rentulo</div>
+        <div>${escapeHtml(reservationEmailFooterHelp[language])} <a href="mailto:rentulo@rentulo.com" style="color:#0b6b50;text-decoration:underline;font-weight:600">${escapeHtml(reservationEmailFooterContact[language])}</a></div>
+      </div>
+      </div>
       </div>`;
 
     const resendResponse = await fetch("https://api.resend.com/emails", {
@@ -958,6 +1267,7 @@ denoRuntime.serve(async (req) => {
       body: JSON.stringify({
         from: emailFrom,
         to: [profile.email],
+        reply_to: "rentulo@rentulo.com",
         subject,
         html,
       }),

@@ -20,6 +20,7 @@ type StripeChargeResponse = {
   currency?: string;
   paid?: boolean;
   captured?: boolean;
+  disputed?: boolean;
   refunded?: boolean;
   payment_intent?: string | { id?: string } | null;
   error?: { message?: string; type?: string };
@@ -302,6 +303,15 @@ denoRuntime.serve(async (req) => {
     return jsonResponse({ error: "Existing transfer state is inconsistent" }, 409);
   }
 
+  const cardHold = await admin.rpc("bod5_reservation_has_card_dispute", {
+    p_reservation_id: reservation.id,
+  });
+  if (cardHold.error || cardHold.data !== false) {
+    return jsonResponse({ error: cardHold.error
+      ? "Card dispute payout guard unavailable" : "Payout blocked by card dispute" },
+      cardHold.error ? 503 : 409);
+  }
+
   const claimResult = await admin.rpc("claim_stripe_owner_transfer_attempt", {
     p_payment_id: payment.id,
     p_reservation_id: reservation.id,
@@ -495,6 +505,18 @@ denoRuntime.serve(async (req) => {
     );
   }
 
+  // A Charge may remain disputed=true even after a WON dispute was manually
+  // verified and released. No unrecorded/lost dispute may ever be paid out.
+  if (charge.disputed === true) {
+    const cleared = await admin.rpc("bod5_charge_dispute_cleared", {
+      p_reservation_id: reservation.id, p_charge_id: payment.stripe_charge_id,
+    });
+    if (cleared.error || cleared.data !== true) {
+      return await failAttempt("BOD5: disputed Stripe charge is not cleared", true,
+        "Payout blocked by card dispute", cleared.error ? 503 : 409);
+    }
+  }
+
   let balanceResponse: Response;
   let balance: StripeBalanceTransactionResponse;
   try {
@@ -672,6 +694,16 @@ denoRuntime.serve(async (req) => {
   params.set("metadata[owner_id]", payment.owner_id);
 
   if (!transfer) {
+    // A dispute can arrive after the claim. Recheck the whole reservation
+    // immediately before a NEW external payout; existing transfer reconciliation
+    // remains allowed so that we never lose evidence of actual money movement.
+    const finalCardHold = await admin.rpc("bod5_reservation_has_card_dispute", {
+      p_reservation_id: reservation.id,
+    });
+    if (finalCardHold.error || finalCardHold.data !== false) {
+      return await failAttempt("BOD5: card dispute blocks new owner transfer", true,
+        "Payout blocked by card dispute", finalCardHold.error ? 503 : 409);
+    }
     let transferResponse: Response;
     let createdTransfer: StripeTransferResponse;
     try {

@@ -38,20 +38,17 @@ test("address suggestions preserve Geoapify coordinates", () => {
   assert.match(ADDRESS_SOURCE, /suggestions\.push\(item\)/);
 });
 
-test("create offer reuses selected suggestion coordinates and invalidates them after manual edits", () => {
-  assert.match(OFFER_SOURCE, /let offerSelectedPickupCoordinates = null;/);
-  assert.match(OFFER_SOURCE, /offerSelectedPickupCoordinates =\s*Number\.isFinite\(latitude\)[\s\S]*longitude/);
-  assert.match(OFFER_SOURCE, /function scheduleOfferAddressSuggestions\(\) \{\s*offerSelectedPickupCoordinates = null;/);
-  assert.match(OFFER_SOURCE, /const pickupCoordinates = offerSelectedPickupCoordinates \|\|[\s\S]*await geocodePickupAddress/);
+test("create offer geocodes manually entered pickup address on save", () => {
+  assert.doesNotMatch(OFFER_SOURCE, /offerSelectedPickupCoordinates|address-suggestions/);
+  assert.match(OFFER_SOURCE, /const pickupCoordinates = await geocodePickupAddress\(supabaseClient, pickupAddress, status !== "draft"\)/);
   assert.match(OFFER_SOURCE, /pickup_latitude: pickupCoordinates \? pickupCoordinates\.latitude : null/);
   assert.match(OFFER_SOURCE, /pickup_longitude: pickupCoordinates \? pickupCoordinates\.longitude : null/);
 });
 
-test("edit offer reuses selected suggestion coordinates and invalidates them after manual edits", () => {
-  assert.match(EDIT_SOURCE, /let editSelectedPickupCoordinates = null;/);
-  assert.match(EDIT_SOURCE, /editSelectedPickupCoordinates =\s*Number\.isFinite\(latitude\)[\s\S]*longitude/);
-  assert.match(EDIT_SOURCE, /function scheduleEditAddressSuggestions\(\) \{\s*editSelectedPickupCoordinates = null;/);
-  assert.match(EDIT_SOURCE, /editSelectedPickupCoordinates \|\|[\s\S]*await geocodeEditedPickupAddress/);
+test("edit offer re-verifies coordinates even when old address is unchanged", () => {
+  assert.doesNotMatch(EDIT_SOURCE, /editSelectedPickupCoordinates|address-suggestions/);
+  assert.doesNotMatch(EDIT_SOURCE, /pickupAddressChanged|existingPickupCoordinates/);
+  assert.match(EDIT_SOURCE, /await geocodeEditedPickupAddress\(/);
   assert.match(EDIT_SOURCE, /pickup_latitude: pickupCoordinates \? pickupCoordinates\.latitude : null/);
   assert.match(EDIT_SOURCE, /pickup_longitude: pickupCoordinates \? pickupCoordinates\.longitude : null/);
 });
@@ -60,7 +57,7 @@ for (const [label, source, startMarker, endMarker, functionName] of [
   ["create", OFFER_SOURCE, "async function geocodePickupAddress(", "function createSupabaseOfferObject", "geocodePickupAddress"],
   ["edit", EDIT_SOURCE, "async function geocodeEditedPickupAddress(", "async function initializeEditOfferPage", "geocodeEditedPickupAddress"]
 ]) {
-  test(label + " geocoding does not block saving during provider outages", async () => {
+  test(label + " geocoding blocks publishing during provider outages, but permits drafts", async () => {
     const geocode = loadAsyncFunction(source, startMarker, endMarker, functionName);
     const client = {
       functions: {
@@ -70,7 +67,10 @@ for (const [label, source, startMarker, endMarker, functionName] of [
       }
     };
 
-    assert.equal(await geocode(client, { street: "A 1", city: "Praha", postalCode: "110 00" }), null);
+    const address = { street: "A 1", city: "Praha", postalCode: "110 00", countryCode: "CZ" };
+    await assert.rejects(geocode(client, address, true),
+      (error) => error && error.code === "PICKUP_GEOCODING_UNAVAILABLE");
+    assert.equal(await geocode(client, address, false), null);
   });
 
   test(label + " geocoding still rejects a confirmed not-found address", async () => {
