@@ -85,3 +85,29 @@ test("TEST-only server migration aligns signup legal version without rewriting o
   assert.doesNotMatch(sql, /\b(?:DROP TRIGGER|CREATE TRIGGER|cron\.schedule)\b/i);
   assert.match(production, /NEW\.id, '1\.0', '1\.0'/);
 });
+
+
+test("Czech terms and privacy notice keep a single accurate public text", () => {
+  const t = dictionary();
+  const keys = {
+    "obchodni-podminky.html": ["terms.section3.item1", "terms.section12.item1"],
+    "ochrana-osobnich-udaju.html": ["privacy.s4p1", "privacy.s4p2", "privacy.s6p3", "privacy.s10p6", "privacy.s11p1"]
+  };
+  for (const [file, translationKeys] of Object.entries(keys)) {
+    const html = read(file).replace(/\s+/g, " ");
+    for (const key of translationKeys) {
+      assert.ok(html.includes(t(key, "cs").replace(/\s+/g, " ")), `${file}: ${key} fallback matches CS translation`);
+    }
+  }
+  assert.doesNotMatch(t("terms.section3.item1", "cs"), /ve verzi 1/i);
+  assert.doesNotMatch(t("terms.section12.item1", "cs"), /ve verzi 1/i);
+  assert.match(t("privacy.s4p1", "cs"), /policy|registraci/);
+  assert.match(t("privacy.s4p1", "cs"), /Bez pot/);
+  assert.match(t("privacy.s4p2", "cs"), /p\u0159ed jeho odvol/);
+  assert.match(t("privacy.s6p3", "cs"), /policy@rentulo\.com/);
+  assert.match(t("privacy.s6p3", "cs"), /Vercel.*Stripe.*Resend.*Spojen/);
+  assert.match(t("privacy.s6p3", "cs"), /standardn/);
+  assert.doesNotMatch(t("privacy.s10p6", "cs"), /testech|Mazac/);
+  assert.doesNotMatch(t("privacy.s11p1", "cs"), /lh\S*tu prodlou/);
+  assert.match(t("privacy.s11p3", "cs"), /dva dal/);
+});
