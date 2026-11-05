@@ -183,10 +183,10 @@ test("private-party disclosure remains in terms; illegal content reports stay in
   assert.match(contact, /rentulo@rentulo\.com/);
 });
 
-test("registration captures exact displayed TEST legal version and locale", () => {
+test("registration captures exact displayed V1.0 legal version and locale", () => {
   const registration = read("js/registration-page.js");
-  assert.match(registration, /terms_version:\s*"1\.0-test-2026-10-20"/);
-  assert.match(registration, /privacy_notice_version:\s*"1\.0-test-2026-10-20"/);
+  assert.match(registration, /terms_version:\s*"1\.0"/);
+  assert.match(registration, /privacy_notice_version:\s*"1\.0"/);
   assert.match(registration, /terms_language:\s*preferredLanguage/);
   assert.match(registration, /terms_accepted_at:\s*now/);
   assert.match(registration, /private_individual_confirmed:\s*true/);
@@ -212,8 +212,8 @@ test("Rentulo V1 legal notices consistently use the first document version 1.0",
     assert.doesNotMatch(read(page), /\b1\.1\b/, page);
   }
   const registration = read("js/registration-page.js");
-  assert.match(registration, /terms_version:\s*"1\.0-test-2026-10-20"/);
-  assert.match(registration, /privacy_notice_version:\s*"1\.0-test-2026-10-20"/);
+  assert.match(registration, /terms_version:\s*"1\.0"/);
+  assert.match(registration, /privacy_notice_version:\s*"1\.0"/);
 });
 
 test("public copy does not show internal V1 label while legal versions remain 1.0", () => {
