@@ -111,3 +111,50 @@ test("Czech terms and privacy notice keep a single accurate public text", () => 
   assert.doesNotMatch(t("privacy.s11p1", "cs"), /lh\S*tu prodlou/);
   assert.match(t("privacy.s11p3", "cs"), /dva dal/);
 });
+
+test("legal V1.0 wording is consistent in SK EN DE and PL", () => {
+  const t = dictionary();
+  for (const lang of ["sk", "en", "de", "pl"]) {
+    const status = t("terms.section3.item1", lang);
+    const prohibited = t("terms.section12.item1", lang);
+    assert.match(status, /Rentulo/, `${lang}: platform name`);
+    assert.doesNotMatch(status + prohibited, /vo verzii 1|ve verzi 1|version 1|in version 1|w wersji 1/i, `${lang}: internal version label`);
+    assert.ok(prohibited.length > 90, `${lang}: prohibited activities remain described`);
+  }
+});
+
+test("legal V1.0 GDPR translations disclose mandatory data, transfers and consent withdrawal", () => {
+  const t = dictionary();
+  const required = {
+    sk: ["registr", "telef", "heslo", "PS", "Bez"],
+    en: ["registration", "phone", "password", "postal code", "Without"],
+    de: ["Registrierung", "Telefonnummer", "Passwort", "Postleitzahl", "Ohne"],
+    pl: ["rejestracji", "telefonu", "has", "pocztowy", "Bez"]
+  };
+  const us = {sk: "Spojen", en: "United States", de: "Vereinigten Staaten", pl: "Stanach Zjednoczonych"};
+  const withdrawal = {sk: "pred jeho", en: "before its withdrawal", de: "vor dem Widerruf", pl: "przed jej wycofaniem"};
+  for (const lang of ["sk", "en", "de", "pl"]) {
+    const legalBasis = t("privacy.s4p1", lang);
+    for (const needle of required[lang]) assert.ok(legalBasis.includes(needle), `${lang}: mandatory signup data: ${needle}`);
+    assert.ok(t("privacy.s4p2", lang).includes(withdrawal[lang]), `${lang}: consent withdrawal cannot work retroactively`);
+    const transfers = t("privacy.s6p3", lang);
+    for (const needle of ["Vercel", "Stripe", "Resend", "Supabase", "Data Privacy Framework", "46", "policy@rentulo.com", us[lang]]) {
+      assert.ok(transfers.includes(needle), `${lang}: international transfers: ${needle}`);
+    }
+  }
+});
+
+test("legal V1.0 GDPR translations contain retention rules without internal TEST rollout notes or duplicated deadlines", () => {
+  const t = dictionary();
+  const duration = {sk: "tri roky", en: "three years", de: "drei Jahre", pl: "trzy lata"};
+  for (const lang of ["sk", "en", "de", "pl"]) {
+    const retention = t("privacy.s10p6", lang);
+    assert.ok(retention.includes(duration[lang]), `${lang}: acceptance record period`);
+    assert.match(retention, /90/, `${lang}: technical logs`);
+    assert.doesNotMatch(retention, /testovac|testdaten|test data|dane testowe|mazacie mechanizmy|automated deletion|L.schmechanismen/i, `${lang}: no internal rollout statements`);
+    const rights = t("privacy.s11p1", lang);
+    assert.match(rights, /policy@rentulo\.com/, `${lang}: privacy contact`);
+    assert.doesNotMatch(rights, /one month|within a month|ein(?:em|es) Monat|miesi|jedn.ho mesiaca|gesetzliche Verl.ngerungen/i, `${lang}: no duplicate response deadline`);
+    assert.ok(t("privacy.s11p3", lang).length > 120, `${lang}: the detailed response deadline is retained`);
+  }
+});
