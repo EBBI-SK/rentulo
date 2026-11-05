@@ -183,3 +183,79 @@ test("AUTH hook server requires signed events, returns success only after provid
   assert.doesNotMatch(src, /console\.log|console\.error/);
   assert.doesNotMatch(src, /service_role|SUPABASE_SERVICE_ROLE_KEY/);
 });
+
+
+test("AUTH e-mails use the approved localized footer and real mailto link in every path", async () => {
+  const { buildAuthEmailMessages } = await load();
+  const labels = {
+  "cs": [
+    "Potřebujete pomoc?",
+    "Kontaktujte nás."
+  ],
+  "sk": [
+    "Potrebujete pomoc?",
+    "Kontaktujte nás."
+  ],
+  "en": [
+    "Need help?",
+    "Contact us."
+  ],
+  "de": [
+    "Brauchen Sie Hilfe?",
+    "Kontaktieren Sie uns."
+  ],
+  "pl": [
+    "Potrzebujesz pomocy?",
+    "Skontaktuj się z nami."
+  ]
+};
+  const kinds = [
+    "signup", "recovery", "email_change", "magiclink", "invite", "reauthentication",
+    "password_changed_notification", "email_changed_notification",
+    "phone_changed_notification", "identity_linked_notification",
+    "identity_unlinked_notification", "mfa_factor_enrolled_notification",
+    "mfa_factor_unenrolled_notification",
+  ];
+  for (const lang of Object.keys(labels)) {
+    for (const kind of kinds) {
+      const e = clone();
+      e.user.user_metadata.preferred_language = lang;
+      e.email_data.email_action_type = kind;
+      if (kind === "email_change") {
+        e.user.new_email = "new@example.org";
+        e.email_data.token_hash_new = "b".repeat(64);
+      }
+      if (kind === "reauthentication") e.email_data.token = "291042";
+      if (kind.endsWith("_notification")) e.email_data = { email_action_type: kind };
+      const messages = buildAuthEmailMessages(e, options);
+      for (const m of messages) {
+        assert.match(m.html, /&copy; 2026 Rentulo/, `${kind}/${lang}`);
+        assert.match(m.html, /mailto:rentulo@rentulo\.com/, `${kind}/${lang}`);
+        assert.match(m.html, /text-align:center/, `${kind}/${lang}`);
+        assert.ok(m.html.includes(labels[lang][0]), `${kind}/${lang}: missing help text`);
+        assert.ok(m.html.includes(labels[lang][1]), `${kind}/${lang}: missing contact label`);
+        assert.equal((m.html.match(/mailto:rentulo@rentulo\.com/g) || []).length, 1, `${kind}/${lang}: duplicate contact link`);
+        assert.doesNotMatch(m.html, /Tento e-mail byl odeslán automaticky službou Rentulo|This email was sent automatically by Rentulo/);
+        assert.doesNotMatch(m.html, /{{|<script/i);
+      }
+    }
+  }
+});
+
+test("AUTH e-mail footer keeps documented fallback languages and does not touch links", async () => {
+  const { buildAuthEmailMessages } = await load();
+  for (const [kind, help] of [["signup", "Need help?"], ["recovery", "Potřebujete pomoc?"], ["email_change", "Need help?"]]) {
+    const e = clone();
+    e.user.user_metadata = {};
+    e.email_data.email_action_type = kind;
+    if (kind === "email_change") {
+      e.user.new_email = "new@example.org";
+      e.email_data.token_hash_new = "b".repeat(64);
+    }
+    const messages = buildAuthEmailMessages(e, options);
+    for (const m of messages) {
+      assert.ok(m.html.includes(help));
+      assert.match(m.html, /auth\/v1\/verify/);
+    }
+  }
+});
