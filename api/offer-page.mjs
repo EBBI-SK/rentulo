@@ -61,6 +61,8 @@ export function getOfferSeoConfig(env = process.env) {
 export function getOfferSeoValues(offer, id, config) {
   const name = safePublicText(offer?.name, 100);
   const city = safePublicText(offer?.city, 40);
+  const category = safePublicText(offer?.category, 80) || 'Ostatn\u00ed';
+  const offerDescription = safePublicText(offer?.description, 6000);
   const price = Number(offer?.price_per_day);
   if (!name || !Number.isSafeInteger(price) || price <= 0) return null;
 
@@ -81,7 +83,43 @@ export function getOfferSeoValues(offer, id, config) {
       }
     } catch { /* Invalid image URLs use the Rentulo logo instead. */ }
   }
-  return { title, description, canonicalUrl, imageUrl, name };
+  return { title, description, canonicalUrl, imageUrl, name, city, category, offerDescription, priceText: price.toLocaleString('cs-CZ') };
+}
+
+// Initial public offer content is visible without executing browser JavaScript.
+// Do not render private pickup details, owner contacts, PINs, or availability claims.
+export function renderOfferPublicContent(values) {
+  return `
+        <div class="detail-layout">
+          <section class="detail-main-card">
+            <div class="detail-hero">
+              <div class="image-box has-photo">
+                <img src="${escapeHtml(values.imageUrl)}" alt="${escapeHtml(values.name)}" />
+              </div>
+              <div class="detail-hero-copy">
+                <h1>${escapeHtml(values.name)}</h1>
+                <div class="category-line">${escapeHtml(values.category)}</div>
+              </div>
+            </div>
+            <div class="detail-content">
+              ${values.offerDescription ? `<section class="description-section">
+                <h2>Popis věci</h2>
+                <p class="description">${escapeHtml(values.offerDescription)}</p>
+              </section>` : ''}
+              <div class="info-grid">
+                <div class="section">
+                  <h2>Místo vyzvednutí</h2>
+                  <p>${escapeHtml(values.city || '-')}</p>
+                </div>
+              </div>
+            </div>
+          </section>
+          <aside class="sidebar">
+            <div class="price">${escapeHtml(values.priceText)}</div>
+            <div class="price-small">Kč / den</div>
+            <noscript><p>Pro rezervaci povolte JavaScript.</p></noscript>
+          </aside>
+        </div>`;
 }
 
 export function renderOfferSeoHtml(html, values, target) {
@@ -110,7 +148,9 @@ export function renderOfferSeoHtml(html, values, target) {
   return htmlWithRootBase
     .replace(/(<title\b[^>]*>)[\s\S]*?(<\/title>)/i,
       (_, opening, closing) => `${opening}${escapeHtml(values.title)}${closing}`)
-    .replace(/<\/head>/i, `  ${head.join('\n  ')}\n</head>`);
+    .replace(/<\/head>/i, `  ${head.join('\n  ')}\n</head>`)
+    .replace('<div id="detailContent"></div>',
+      `<div id="detailContent" data-server-rendered-offer="true">${renderOfferPublicContent(values)}</div>`);
 }
 
 function sendHtml(res, status, html, headOnly = false) {
@@ -150,7 +190,7 @@ export default async function handler(req, res) {
     }
 
     const endpoint = new URL('/rest/v1/public_offers', config.supabaseOrigin);
-    endpoint.searchParams.set('select', 'id,name,city,price_per_day,photo_url');
+    endpoint.searchParams.set('select', 'id,name,category,description,city,price_per_day,photo_url');
     endpoint.searchParams.set('id', `eq.${id}`);
     endpoint.searchParams.set('limit', '1');
 
