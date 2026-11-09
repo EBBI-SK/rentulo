@@ -33,12 +33,22 @@ async function request(data, options = {}) {
   }
 }
 
-test('the crawlable directory route and safe home links exist without JavaScript', () => {
+test('crawlable SEO directory stays intact and homepage browse reuses existing results page', () => {
   const vercel=JSON.parse(readFileSync(path.join(root,'vercel.json'),'utf8'));
   assert.deepEqual(vercel.rewrites.find(x=>x.source==='/nabidky'),{source:'/nabidky',destination:'/api/offers-directory'});
   assert.match(vercel.functions['api/offers-directory.mjs'].includeFiles,/js\/supabase-config.js/);
   const home=readFileSync(path.join(root,'index.html'),'utf8');
-  assert.match(home,/<a class="home-directory-link" href="\/nabidky">Prohlédnout všechny nabídky<\/a>/);
+  assert.match(home,/<a class="home-directory-link" href="vysledky\.html">\s*<span data-i18n="nav\.browse">Prohlédnout nabídky<\/span>\s*<span class="home-directory-link-arrow" aria-hidden="true">→<\/span>\s*<\/a>/);
+  assert.match(home,/body\[data-navigation-page="uvod"\] \.home-directory-link\s*\{\s*order: 8;/);
+  assert.match(home,/body\[data-navigation-page="uvod"\] \.home-map-previews \{ order: 7;/);
+  const navigation=readFileSync(path.join(root,'js/navigation.js'),'utf8');
+  assert.match(navigation,/<a href="vysledky\.html"[^>]*>\$\{navEscapeHtml\(navTranslate\("nav\.browse"/);
+  const i18n=readFileSync(path.join(root,'js/i18n.js'),'utf8');
+  assert.equal((i18n.match(/"nav\.browse"/g)||[]).length,5);
+  const sitemap=readFileSync(path.join(root,'api/sitemap.mjs'),'utf8');
+  assert.match(sitemap,/['"]\/nabidky['"]/);
+  const categoryPage=readFileSync(path.join(root,'api/category-page.mjs'),'utf8');
+  assert.match(categoryPage,/href=\"\/nabidky\"/);
   const map=readFileSync(path.join(root,'js/home-page.js'),'utf8');
   assert.doesNotMatch(map,/"detail\.html\?id=" \+ encodeURIComponent/);
   assert.equal((map.match(/"\/nabidka\/" \+ encodeURIComponent\(/g)||[]).length,2);
