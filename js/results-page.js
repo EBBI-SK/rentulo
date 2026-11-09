@@ -528,6 +528,16 @@
         " " + getResultsRatingLabel(ratingCount) + ")";
     }
 
+    function updateDisplayedOwnerRatings() {
+      const list = document.getElementById("resultsList");
+      if (!list) return;
+
+      // Update only rating text; rebuilding cards would restart image loads.
+      list.querySelectorAll("[data-owner-rating-id]").forEach(function (element) {
+        element.textContent = formatOwnerRating({ ownerId: element.getAttribute("data-owner-rating-id") });
+      });
+    }
+
     function getOfferDistanceKm(offer) {
       if (!isNearbySearchMode()) {
         return null;
@@ -733,7 +743,7 @@ function getOfferPhoto(offer) {
 
               <div class="result-info-box">
                 <span>${escapeHtml(resultsTranslate("results.ownerRating", "Hodnocení majitele"))}</span>
-                <strong>${escapeHtml(formatOwnerRating(offer))}</strong>
+                <strong data-owner-rating-id="${escapeHtml(getOfferOwnerId(offer))}">${escapeHtml(formatOwnerRating(offer))}</strong>
               </div>
 
               ${renderDistanceBox(offer)}
@@ -1211,9 +1221,15 @@ const HOME_CATEGORY_GROUPS = {
 
       resultsOffers = await loadOffersFromSupabase();
       resultsOffers = await attachPublicGpsLocations(resultsOffers);
-      await loadRatingSummariesForOffers(resultsOffers);
-
       renderResults();
+
+      // Ratings are supplementary; they must not delay the first offer images.
+      try {
+        await loadRatingSummariesForOffers(resultsOffers);
+        updateDisplayedOwnerRatings();
+      } catch (error) {
+        console.warn("Hodnocení majitelů se nepodařilo načíst.");
+      }
     }
 
     document.addEventListener("DOMContentLoaded", function () {
