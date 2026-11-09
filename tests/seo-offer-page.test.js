@@ -9,7 +9,7 @@ const root = path.join(__dirname, '..');
 const offerId = 'cbf1184a-97fd-4fd1-8b62-e084a4452d28';
 const pageModulePromise = import(pathToFileURL(path.join(root, 'api/offer-page.mjs')).href);
 const publicImage = 'https://vspposovhdgvbeukoivh.supabase.co/storage/v1/object/public/offer-photos/user/test-offer.jpg';
-const offer = { id: offerId, name: 'Aku vrtačka Bosch', city: 'Praha', price_per_day: 250, photo_url: publicImage };
+const offer = { id: offerId, name: 'Aku vrtačka Bosch', category: 'Dílna a nářadí', description: 'Aku vrtačka v dobrém stavu s nabíječkou.', city: 'Praha', price_per_day: 250, photo_url: publicImage };
 const testOrigin = 'https://vspposovhdgvbeukoivh.supabase.co';
 
 function responseMock() {
@@ -109,9 +109,18 @@ test('active public offer responds with unique canonical, description, original 
   assert.ok(res.body.includes('property="og:title" content="Aku vrtačka Bosch – Praha | Rentulo"'));
   assert.ok(res.body.includes(`property="og:image" content="${publicImage}"`));
   assert.ok(res.body.includes('za 250 Kč/den'));
+  // These elements must be present in the initial HTTP HTML, without JS.
+  const publicBody = res.body.slice(res.body.indexOf('<body'));
+  assert.match(publicBody, /<div id="detailContent" data-server-rendered-offer="true">/);
+  assert.match(publicBody, /<h1>Aku vrtačka Bosch<\/h1>/);
+  assert.match(publicBody, /<div class="category-line">Dílna a nářadí<\/div>/);
+  assert.match(publicBody, /<p class="description">Aku vrtačka v dobrém stavu s nabíječkou\.<\/p>/);
+  assert.match(publicBody, /<p>Praha<\/p>/);
+  assert.match(publicBody, /<div class="price">250<\/div>/);
+  assert.ok(publicBody.includes(`<img src="${publicImage}" alt="Aku vrtačka Bosch"`));
   assert.match(seen.url, /\/rest\/v1\/public_offers\?/);
   const search = new URL(seen.url);
-  assert.equal(search.searchParams.get('select'), 'id,name,city,price_per_day,photo_url');
+  assert.equal(search.searchParams.get('select'), 'id,name,category,description,city,price_per_day,photo_url');
   assert.equal(search.searchParams.get('id'), `eq.${offerId}`);
   assert.ok(seen.options.headers.apikey.startsWith('sb_publishable_'));
   assert.equal(seen.options.headers.Authorization, undefined);
@@ -133,13 +142,31 @@ test('PROD URL and metadata can be rendered without TEST noindex', async () => {
 });
 
 test('script injection is HTML-escaped and personal reservation data is never included', async () => testEnvironment(async () => {
-  const malicious = { ...offer, name: 'Vrtačka <script>alert(1)</script> & "Akce"', city: '<Praha>', pickup_street: 'Private street 77', pickup_phone: '+420000000000', email: 'private@example.com', pin: '123456', photo_url: 'https://evil.example/bad.jpg' };
+  const malicious = { ...offer, name: 'Vrtačka <script>alert(1)</script> & "Akce"', city: '<Praha>', category: '<img src=x onerror=alert(7)>', description: '<svg onload=alert(8)>', pickup_street: 'Private street 77', pickup_phone: '+420000000000', email: 'private@example.com', pin: '123456', photo_url: 'https://evil.example/bad.jpg' };
   const { res } = await renderRequest(malicious);
   assert.equal(res.statusCode, 200);
   assert.doesNotMatch(res.body, /<script>alert\(1\)<\/script>|Private street|private@example\.com|\+420000000000|123456|evil\.example/);
   assert.match(res.body, /Vrtačka &lt;script&gt;alert\(1\)&lt;\/script&gt; &amp; &quot;Akce&quot;/);
+  assert.match(res.body, /&lt;img src=x onerror=alert\(7\)&gt;/);
+  assert.match(res.body, /&lt;svg onload=alert\(8\)&gt;/);
+  assert.doesNotMatch(res.body, /<img src=x onerror=alert\(7\)>|<svg onload=alert\(8\)>/);
   assert.match(res.body, /rentulo\.eu\/assets\/rentulo-logo-mark\.png/);
 }));
+
+test('missing optional description still renders a useful public detail', async () => testEnvironment(async () => {
+  const { res } = await renderRequest({ ...offer, description: '', category: null });
+  assert.equal(res.statusCode, 200);
+  assert.match(res.body, /<h1>Aku vrtačka Bosch<\/h1>/);
+  assert.match(res.body, /<div class="category-line">Ostatní<\/div>/);
+  assert.doesNotMatch(res.body, /<p class="description">/);
+}));
+
+test('client preserves initial server offer and metadata during initial load', () => {
+  const code = readFileSync(path.join(root, 'js/detail-page.js'), 'utf8');
+  assert.match(code, /const hasServerOffer = document\.getElementById\("detailContent"\)\?\.dataset\.serverRenderedOffer === "true"/);
+  assert.match(code, /if \(!hasServerOffer\) document\.title =/);
+  assert.match(code, /if \(!hasServerOffer\) renderLoading\(\)/);
+});
 
 test('unpublished, removed or invalid offer returns 404/noindex rather than a public SEO page', async () => testEnvironment(async () => {
   const notFound = await renderRequest(null);

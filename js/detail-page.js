@@ -1335,10 +1335,13 @@ const hasGps = offerHasGpsLocation(offer);
 
     async function initializeDetailPage() {
       detailPageState = "loading";
-      document.title = detailTranslate("detail.documentTitle");
+      // Keep the server-rendered public offer visible (and its SEO title intact)
+      // until the interactive reservation view has finished loading.
+      const hasServerOffer = document.getElementById("detailContent")?.dataset.serverRenderedOffer === "true";
+      if (!hasServerOffer) document.title = detailTranslate("detail.documentTitle");
       renderSharedNavigation("");
       setupBackLink();
-      renderLoading();
+      if (!hasServerOffer) renderLoading();
 
       const offerId = getOfferIdFromUrl();
 
