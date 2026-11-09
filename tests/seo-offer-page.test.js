@@ -45,12 +45,12 @@ async function renderRequest(row, { method = 'GET', id = offerId, host = 'rentul
   } finally { global.fetch = oldFetch; }
 }
 
-test('SEO route is a dedicated server function; legacy HTML path stays untouched', () => {
+test('SEO route remains dedicated; legacy HTML template and conditional redirects coexist', () => {
   const vercel = JSON.parse(readFileSync(path.join(root, 'vercel.json'), 'utf8'));
   assert.deepEqual(vercel.rewrites.find(rule => rule.source === '/nabidka/:id'), { source: '/nabidka/:id', destination: '/api/offer-page?id=:id' });
   assert.ok(vercel.functions['api/offer-page.mjs'].includeFiles.includes('detail.html'));
   assert.ok(vercel.functions['api/offer-page.mjs'].includeFiles.includes('js/supabase-config.js'));
-  assert.equal(vercel.redirects.some(rule => rule.source === '/detail.html'), false);
+  assert.equal(vercel.redirects.filter(rule => rule.source === '/detail.html').length, 2);
 });
 
 test('legacy offer detail keeps relative navigation at the site root after SEO URL replacement', () => {
@@ -237,4 +237,98 @@ test('legacy and SEO offer URLs resolve safely and copying the URL uses the cano
   context.location.search = '?id=invalid';
   context.showCanonicalOfferUrl({ id: 'invalid' });
   assert.equal(stateChanges.length, 1, 'Invalid IDs must never enter history');
+});
+
+
+// This tests the vercel.json matching contract; actual CDN redirect behavior
+// still requires one authorized preview check because Vercel SSO protects TEST.
+function simulatedVercelRedirect(href) {
+  const rules = JSON.parse(readFileSync(path.join(root, 'vercel.json'), 'utf8')).redirects;
+  const from = new URL(href);
+  for (const rule of rules) {
+    if (rule.source !== from.pathname) continue;
+    const params = {};
+    let matched = true;
+    for (const condition of rule.has || []) {
+      if (condition.type !== 'query') { matched = false; break; }
+      const value = from.searchParams.get(condition.key);
+      const result = value == null ? null : new RegExp('^(?:' + condition.value + ')$').exec(value);
+      if (!result) { matched = false; break; }
+      Object.assign(params, result.groups || {});
+    }
+    if (!matched) continue;
+    const target = rule.destination.replace(/:([A-Za-z][A-Za-z0-9]*)/g, (segment, name) => {
+      assert.ok(Object.hasOwn(params, name), `Missing Vercel named capture ${name}`);
+      return encodeURIComponent(params[name]);
+    });
+    return { status: rule.permanent ? 308 : 307, location: new URL(target, from).href };
+  }
+  return null;
+}
+
+test('homepage /index.html redirects to the canonical root on TEST and PROD', () => {
+  for (const origin of ['https://rentulo.eu', 'https://rentulo.com']) {
+    assert.deepEqual(simulatedVercelRedirect(origin + '/index.html'), {
+      status: 308, location: origin + '/'
+    });
+    assert.equal(simulatedVercelRedirect(origin + '/'), null);
+  }
+});
+
+test('legacy offer URL redirects to its canonical detail with both booking dates intact', () => {
+  const source = `https://rentulo.eu/detail.html?id=${offerId}&od=2026-12-10&do=2026-12-12`;
+  assert.deepEqual(simulatedVercelRedirect(source), {
+    status: 308,
+    location: `https://rentulo.eu/nabidka/${offerId}?od=2026-12-10&do=2026-12-12`
+  });
+  assert.equal(simulatedVercelRedirect(source.replace('rentulo.eu', 'rentulo.com')).location,
+    `https://rentulo.com/nabidka/${offerId}?od=2026-12-10&do=2026-12-12`);
+});
+
+test('legacy offer link without a full valid date pair retains the offer ID', () => {
+  const withoutDates = `https://rentulo.eu/detail.html?id=${offerId}`;
+  assert.equal(simulatedVercelRedirect(withoutDates).location, `https://rentulo.eu/nabidka/${offerId}`);
+  assert.equal(simulatedVercelRedirect(withoutDates + '&od=2026-12-10').location,
+    `https://rentulo.eu/nabidka/${offerId}`);
+  assert.equal(simulatedVercelRedirect(withoutDates + '&od=invalid&do=2026-12-12').location,
+    `https://rentulo.eu/nabidka/${offerId}`);
+});
+
+test('missing or malformed legacy offer ID does not trigger a broad redirect', () => {
+  for (const value of [
+    'https://rentulo.eu/detail.html',
+    'https://rentulo.eu/detail.html?id=invalid',
+    'https://rentulo.eu/detail.html?id=00000000-0000-0000-0000-0000000000000',
+    `https://rentulo.eu/edit-nabidka.html?id=${offerId}`,
+    `https://rentulo.eu/prihlaseni.html?returnTo=detail.html%3Fid%3D${offerId}`
+  ]) assert.equal(simulatedVercelRedirect(value), null, value);
+});
+
+test('login return-to still validates legacy offer ID and dates before server redirect', () => {
+  const login = readFileSync(path.join(root, 'js/login-page.js'), 'utf8');
+  const context = {
+    URL, URLSearchParams,
+    document: { addEventListener() {} },
+    window: { location: { origin: 'https://rentulo.eu', search: '' } }
+  };
+  vm.runInNewContext(login, context);
+  const target = `detail.html?id=${offerId}&od=2026-12-10&do=2026-12-12`;
+  context.window.location.search = '?returnTo=' + encodeURIComponent(target);
+  assert.equal(context.loginGetSafeReturnTo(), target);
+  const redirected = simulatedVercelRedirect('https://rentulo.eu/' + target);
+  assert.equal(redirected.location, `https://rentulo.eu/nabidka/${offerId}?od=2026-12-10&do=2026-12-12`);
+  context.window.location.search = '?returnTo=' + encodeURIComponent('https://evil.example/detail.html?id=' + offerId);
+  assert.equal(context.loginGetSafeReturnTo(), '');
+});
+
+test('SEO redirects leave current production controls and canonical routes untouched', () => {
+  const vercel = JSON.parse(readFileSync(path.join(root, 'vercel.json'), 'utf8'));
+  assert.deepEqual(vercel.rewrites.find(x => x.source === '/nabidka/:id'), {
+    source: '/nabidka/:id', destination: '/api/offer-page?id=:id'
+  });
+  assert.ok(vercel.redirects.some(x => x.source === '/muj-ucet' && x.destination === '/'));
+  assert.ok(vercel.headers.some(x => x.has?.some(h => h.type === 'host' &&
+    String(h.value?.re || '').includes('rentulo') && String(h.value?.re || '').includes('com')) &&
+    x.headers?.some(h => h.key === 'X-Robots-Tag' && h.value === 'noindex')));
+  assert.equal(simulatedVercelRedirect('https://rentulo.eu/nabidka/' + offerId), null);
 });
