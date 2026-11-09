@@ -157,6 +157,10 @@
       "destination": "/api/offers-directory"
     },
     {
+      "source": "/kategorie/:slug/mesto/:city",
+      "destination": "/api/city-page?slug=:slug&city=:city"
+    },
+    {
       "source": "/kategorie/:slug/:subslug",
       "destination": "/api/subcategory-page?slug=:slug&subslug=:subslug"
     },
@@ -183,6 +187,9 @@
       "includeFiles": "{detail.html,js/supabase-config.js}"
     },
     "api/subcategory-page.mjs": {
+      "includeFiles": "{detail.html,js/supabase-config.js}"
+    },
+    "api/city-page.mjs": {
       "includeFiles": "{detail.html,js/supabase-config.js}"
     }
   }

@@ -170,7 +170,7 @@ test('live PROD sitemap contains five static public paths, the offers directory 
   const request = new URL(calls[0].url);
   assert.equal(request.origin, 'https://tfvgxrdjrpicgtvovehl.supabase.co');
   assert.equal(request.pathname, '/rest/v1/public_offers');
-  assert.equal(request.searchParams.get('select'), 'id,updated_at,category,subcategory_slug');
+  assert.equal(request.searchParams.get('select'), 'id,updated_at,category,subcategory_slug,city,seo_city_slug');
   assert.equal(request.searchParams.get('status'), 'eq.active');
   assert.equal(request.searchParams.get('order'), 'id.asc');
   assert.equal(request.searchParams.get('limit'), '500');

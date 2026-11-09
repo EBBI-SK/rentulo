@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { getOfferSeoConfig } from './offer-page.mjs';
 import { SEO_CATEGORIES, getSeoCategorySlug } from './seo-categories.mjs';
 import { SEO_SUBCATEGORIES, getSeoSubcategory } from './seo-subcategories.mjs';
+import { getSeoCitySlug, isSeoCitySlug } from './seo-cities.mjs';
 
 const PUBLIC_PAGES = [
   ...Object.values(JSON.parse(
@@ -13,7 +14,7 @@ const PUBLIC_PAGES = [
 ];
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PAGE_SIZE = 500;
-const MAX_OFFERS = 49_000; // Leave room for public static pages within sitemap limits.
+const MAX_OFFERS = 24_900; // Up to one category+city URL per offer; stay below 50,000 URLs.
 
 const escapeXml = value => String(value).replace(/[&<>"']/g, character => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;'
@@ -30,7 +31,7 @@ export async function listSitemapOffers(config, fetcher = fetch) {
   let afterId = '';
   for (;;) {
     const endpoint = new URL('/rest/v1/public_offers', config.supabaseOrigin);
-    endpoint.searchParams.set('select', 'id,updated_at,category,subcategory_slug');
+    endpoint.searchParams.set('select', 'id,updated_at,category,subcategory_slug,city,seo_city_slug');
     endpoint.searchParams.set('status', 'eq.active');
     endpoint.searchParams.set('order', 'id.asc');
     endpoint.searchParams.set('limit', String(PAGE_SIZE));
@@ -57,7 +58,10 @@ export async function listSitemapOffers(config, fetcher = fetch) {
       }
       const categorySlug = getSeoCategorySlug(row.category);
       const subcategory = getSeoSubcategory(categorySlug, row.subcategory_slug);
-      offers.push({ id, lastmod: lastModified(row.updated_at), categorySlug, subcategorySlug: subcategory?.slug || null });
+      const citySlug = categorySlug && isSeoCitySlug(row.seo_city_slug) &&
+        getSeoCitySlug(row.city) === row.seo_city_slug ? row.seo_city_slug : null;
+      offers.push({ id, lastmod: lastModified(row.updated_at), categorySlug,
+        subcategorySlug: subcategory?.slug || null, citySlug });
       afterId = id;
     }
     if (rows.length < PAGE_SIZE) return offers;
@@ -79,10 +83,17 @@ export function renderSitemapXml(offers, origin = 'https://rentulo.com') {
       paths.push({ url: `${origin}/kategorie/${subcategory.categorySlug}/${subcategory.slug}` });
     }
   }
+  // Exactly one city landing per distinct category+city pair with a real active offer.
+  const usedCities = new Set(offers.filter(offer => offer.categorySlug && isSeoCitySlug(offer.citySlug))
+    .map(offer => `${offer.categorySlug}/mesto/${offer.citySlug}`));
+  for (const cityPath of [...usedCities].sort()) {
+    paths.push({ url: `${origin}/kategorie/${cityPath}` });
+  }
   for (const offer of offers) {
     if (!UUID_PATTERN.test(offer.id)) throw new Error('Invalid sitemap offer ID');
     paths.push({ url: `${origin}/nabidka/${offer.id.toLowerCase()}`, lastmod: offer.lastmod });
   }
+  if (paths.length > 50_000) throw new Error('Sitemap URL limit exceeded');
   const items = paths.map(entry =>
     `  <url><loc>${escapeXml(entry.url)}</loc>${entry.lastmod ? `<lastmod>${escapeXml(entry.lastmod)}</lastmod>` : ''}</url>`
   );
