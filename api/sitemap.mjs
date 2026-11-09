@@ -1,11 +1,14 @@
-// Live production sitemap: five canonical public pages plus active public offers.
+// Live production sitemap: five static public pages, the public offers directory, and active offers.
 // No service-role key, private tables, personal data, or TEST offers are used.
 import { readFileSync } from 'node:fs';
 import { getOfferSeoConfig } from './offer-page.mjs';
 
-const PUBLIC_PAGES = Object.values(JSON.parse(
-  readFileSync(new URL('../scripts/seo-pages.json', import.meta.url), 'utf8')
-).public).map(page => page.path);
+const PUBLIC_PAGES = [
+  ...Object.values(JSON.parse(
+    readFileSync(new URL('../scripts/seo-pages.json', import.meta.url), 'utf8')
+  ).public).map(page => page.path),
+  '/nabidky' // Dynamic public directory is not a static HTML page in seo-pages.json.
+];
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PAGE_SIZE = 500;
 const MAX_OFFERS = 49_000; // Leave room for public static pages within sitemap limits.

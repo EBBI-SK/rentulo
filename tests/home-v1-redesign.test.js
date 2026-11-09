@@ -115,7 +115,7 @@ test("latest three public map offers react to the visible bounds without dummy d
   `, env);
   assert.equal(preview.hidden, false);
   assert.equal(preview.children.length, 3);
-  assert.deepEqual(preview.children.map(n => n.href), ["detail.html?id=b", "detail.html?id=e", "detail.html?id=d"]);
+  assert.deepEqual(preview.children.map(n => n.href), ["/nabidka/b", "/nabidka/e", "/nabidka/d"]);
   assert.deepEqual(preview.children.map(n => n.children[1].children[0].textContent), ["newest", "second", "middle"]);
   vm.runInContext('homeMap.getBounds = function () { return { contains() { return false; } }; }; renderHomeMapPreviews();', env);
   assert.equal(preview.hidden, true);

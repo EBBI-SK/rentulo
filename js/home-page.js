@@ -701,7 +701,7 @@ function renderHomeMapPreviews() {
   latest.forEach(function (offer) {
     const card = document.createElement("a");
     card.className = "home-map-preview";
-    card.href = "detail.html?id=" + encodeURIComponent(offer.id);
+    card.href = "/nabidka/" + encodeURIComponent(offer.id);
     card.addEventListener("click", saveHomeMapViewForReturn);
 
     const photo = document.createElement("div");
@@ -799,7 +799,7 @@ function buildMapPopup(group) {
 
   const link = document.createElement("a");
   link.className = "home-map-popup-link";
-  link.href = "detail.html?id=" + encodeURIComponent(best.id);
+  link.href = "/nabidka/" + encodeURIComponent(best.id);
   link.textContent = homeTranslate("home.mapOpenDetail", "Zobrazit detail");
   link.addEventListener("click", function () {
     saveHomeMapViewForReturn();
