@@ -2,6 +2,7 @@
 // No service-role key, private tables, personal data, or TEST offers are used.
 import { readFileSync } from 'node:fs';
 import { getOfferSeoConfig } from './offer-page.mjs';
+import { SEO_CATEGORIES, getSeoCategorySlug } from './seo-categories.mjs';
 
 const PUBLIC_PAGES = [
   ...Object.values(JSON.parse(
@@ -28,7 +29,7 @@ export async function listSitemapOffers(config, fetcher = fetch) {
   let afterId = '';
   for (;;) {
     const endpoint = new URL('/rest/v1/public_offers', config.supabaseOrigin);
-    endpoint.searchParams.set('select', 'id,updated_at');
+    endpoint.searchParams.set('select', 'id,updated_at,category');
     endpoint.searchParams.set('status', 'eq.active');
     endpoint.searchParams.set('order', 'id.asc');
     endpoint.searchParams.set('limit', String(PAGE_SIZE));
@@ -53,7 +54,7 @@ export async function listSitemapOffers(config, fetcher = fetch) {
       if (afterId && id <= afterId) {
         throw new Error('Public offers are not strictly ordered');
       }
-      offers.push({ id, lastmod: lastModified(row.updated_at) });
+      offers.push({ id, lastmod: lastModified(row.updated_at), categorySlug: getSeoCategorySlug(row.category) });
       afterId = id;
     }
     if (rows.length < PAGE_SIZE) return offers;
@@ -62,6 +63,11 @@ export async function listSitemapOffers(config, fetcher = fetch) {
 
 export function renderSitemapXml(offers, origin = 'https://rentulo.com') {
   const paths = PUBLIC_PAGES.map(path => ({ url: `${origin}${path}` }));
+  // Publish only categories which actually have active public offers.
+  const usedCategorySlugs = new Set(offers.map(offer => offer.categorySlug).filter(Boolean));
+  for (const category of SEO_CATEGORIES) {
+    if (usedCategorySlugs.has(category.slug)) paths.push({ url: `${origin}/kategorie/${category.slug}` });
+  }
   for (const offer of offers) {
     if (!UUID_PATTERN.test(offer.id)) throw new Error('Invalid sitemap offer ID');
     paths.push({ url: `${origin}/nabidka/${offer.id.toLowerCase()}`, lastmod: offer.lastmod });

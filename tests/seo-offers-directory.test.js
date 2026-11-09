@@ -54,6 +54,8 @@ test('first page lists active offers in initial HTML and TEST stays noindex',asy
   assert.match(res.body,/<h2><a href="\/nabidka\/cbf1184a-97fd-4fd1-8b62-e084a4452d28">Aku vrtačka Bosch<\/a><\/h2>/);
   assert.match(res.body,/Praha/);
   assert.match(res.body,/Stavba/);
+  assert.match(res.body,/href="\/kategorie\/stavba"/);
+  assert.equal((res.body.match(/href="\/kategorie\/(?:domacnost|zahrada|stavba|hobby|party|ostatni)"/g)||[]).length,7);
   assert.match(res.body,/250 Kč \/ den/);
   assert.match(res.body,/rel="canonical" href="https:\/\/rentulo.eu\/nabidky"/);
   const query = new URL(upstreamUrl).searchParams;
@@ -68,6 +70,7 @@ test('page 1 with no active offers is useful and has no fabricated links',async(
   assert.equal(res.statusCode,200);
   assert.match(res.body,/Zatím nejsou zveřejněny žádné nabídky/);
   assert.doesNotMatch(res.body,/<article class="offer-card">/);
+  assert.match(res.body,/<nav class="categories"/);
 });
 
 test('pagination provides crawlable next and prev links with stable canonical URLs',async()=>{

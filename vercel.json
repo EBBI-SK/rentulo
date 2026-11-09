@@ -157,6 +157,10 @@
       "destination": "/api/offers-directory"
     },
     {
+      "source": "/kategorie/:slug",
+      "destination": "/api/category-page?slug=:slug"
+    },
+    {
       "source": "/sitemap.xml",
       "destination": "/api/sitemap"
     }
@@ -169,6 +173,9 @@
       "includeFiles": "{detail.html,js/supabase-config.js,scripts/seo-pages.json}"
     },
     "api/offers-directory.mjs": {
+      "includeFiles": "{detail.html,js/supabase-config.js}"
+    },
+    "api/category-page.mjs": {
       "includeFiles": "{detail.html,js/supabase-config.js}"
     }
   }
