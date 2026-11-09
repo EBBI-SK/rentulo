@@ -9,7 +9,7 @@ const root = path.join(__dirname, '..');
 const offerId = 'cbf1184a-97fd-4fd1-8b62-e084a4452d28';
 const pageModulePromise = import(pathToFileURL(path.join(root, 'api/offer-page.mjs')).href);
 const publicImage = 'https://vspposovhdgvbeukoivh.supabase.co/storage/v1/object/public/offer-photos/user/test-offer.jpg';
-const offer = { id: offerId, name: 'Aku vrtačka Bosch', city: 'Praha', price_per_day: 250, photo_url: publicImage };
+const offer = { id: offerId, name: 'Aku vrtačka Bosch', category: 'Dílna a nářadí', description: 'Aku vrtačka v dobrém stavu s nabíječkou.', city: 'Praha', price_per_day: 250, photo_url: publicImage };
 const testOrigin = 'https://vspposovhdgvbeukoivh.supabase.co';
 
 function responseMock() {
@@ -45,12 +45,12 @@ async function renderRequest(row, { method = 'GET', id = offerId, host = 'rentul
   } finally { global.fetch = oldFetch; }
 }
 
-test('SEO route is a dedicated server function; legacy HTML path stays untouched', () => {
+test('SEO route remains dedicated; legacy HTML template and conditional redirects coexist', () => {
   const vercel = JSON.parse(readFileSync(path.join(root, 'vercel.json'), 'utf8'));
   assert.deepEqual(vercel.rewrites.find(rule => rule.source === '/nabidka/:id'), { source: '/nabidka/:id', destination: '/api/offer-page?id=:id' });
   assert.ok(vercel.functions['api/offer-page.mjs'].includeFiles.includes('detail.html'));
   assert.ok(vercel.functions['api/offer-page.mjs'].includeFiles.includes('js/supabase-config.js'));
-  assert.equal(vercel.redirects.some(rule => rule.source === '/detail.html'), false);
+  assert.equal(vercel.redirects.filter(rule => rule.source === '/detail.html').length, 2);
 });
 
 test('legacy offer detail keeps relative navigation at the site root after SEO URL replacement', () => {
@@ -109,9 +109,18 @@ test('active public offer responds with unique canonical, description, original 
   assert.ok(res.body.includes('property="og:title" content="Aku vrtačka Bosch – Praha | Rentulo"'));
   assert.ok(res.body.includes(`property="og:image" content="${publicImage}"`));
   assert.ok(res.body.includes('za 250 Kč/den'));
+  // These elements must be present in the initial HTTP HTML, without JS.
+  const publicBody = res.body.slice(res.body.indexOf('<body'));
+  assert.match(publicBody, /<div id="detailContent" data-server-rendered-offer="true">/);
+  assert.match(publicBody, /<h1>Aku vrtačka Bosch<\/h1>/);
+  assert.match(publicBody, /<div class="category-line">Dílna a nářadí<\/div>/);
+  assert.match(publicBody, /<p class="description">Aku vrtačka v dobrém stavu s nabíječkou\.<\/p>/);
+  assert.match(publicBody, /<p>Praha<\/p>/);
+  assert.match(publicBody, /<div class="price">250<\/div>/);
+  assert.ok(publicBody.includes(`<img src="${publicImage}" alt="Aku vrtačka Bosch"`));
   assert.match(seen.url, /\/rest\/v1\/public_offers\?/);
   const search = new URL(seen.url);
-  assert.equal(search.searchParams.get('select'), 'id,name,city,price_per_day,photo_url');
+  assert.equal(search.searchParams.get('select'), 'id,name,category,description,city,price_per_day,photo_url');
   assert.equal(search.searchParams.get('id'), `eq.${offerId}`);
   assert.ok(seen.options.headers.apikey.startsWith('sb_publishable_'));
   assert.equal(seen.options.headers.Authorization, undefined);
@@ -133,13 +142,31 @@ test('PROD URL and metadata can be rendered without TEST noindex', async () => {
 });
 
 test('script injection is HTML-escaped and personal reservation data is never included', async () => testEnvironment(async () => {
-  const malicious = { ...offer, name: 'Vrtačka <script>alert(1)</script> & "Akce"', city: '<Praha>', pickup_street: 'Private street 77', pickup_phone: '+420000000000', email: 'private@example.com', pin: '123456', photo_url: 'https://evil.example/bad.jpg' };
+  const malicious = { ...offer, name: 'Vrtačka <script>alert(1)</script> & "Akce"', city: '<Praha>', category: '<img src=x onerror=alert(7)>', description: '<svg onload=alert(8)>', pickup_street: 'Private street 77', pickup_phone: '+420000000000', email: 'private@example.com', pin: '123456', photo_url: 'https://evil.example/bad.jpg' };
   const { res } = await renderRequest(malicious);
   assert.equal(res.statusCode, 200);
   assert.doesNotMatch(res.body, /<script>alert\(1\)<\/script>|Private street|private@example\.com|\+420000000000|123456|evil\.example/);
   assert.match(res.body, /Vrtačka &lt;script&gt;alert\(1\)&lt;\/script&gt; &amp; &quot;Akce&quot;/);
+  assert.match(res.body, /&lt;img src=x onerror=alert\(7\)&gt;/);
+  assert.match(res.body, /&lt;svg onload=alert\(8\)&gt;/);
+  assert.doesNotMatch(res.body, /<img src=x onerror=alert\(7\)>|<svg onload=alert\(8\)>/);
   assert.match(res.body, /rentulo\.eu\/assets\/rentulo-logo-mark\.png/);
 }));
+
+test('missing optional description still renders a useful public detail', async () => testEnvironment(async () => {
+  const { res } = await renderRequest({ ...offer, description: '', category: null });
+  assert.equal(res.statusCode, 200);
+  assert.match(res.body, /<h1>Aku vrtačka Bosch<\/h1>/);
+  assert.match(res.body, /<div class="category-line">Ostatní<\/div>/);
+  assert.doesNotMatch(res.body, /<p class="description">/);
+}));
+
+test('client preserves initial server offer and metadata during initial load', () => {
+  const code = readFileSync(path.join(root, 'js/detail-page.js'), 'utf8');
+  assert.match(code, /const hasServerOffer = document\.getElementById\("detailContent"\)\?\.dataset\.serverRenderedOffer === "true"/);
+  assert.match(code, /if \(!hasServerOffer\) document\.title =/);
+  assert.match(code, /if \(!hasServerOffer\) renderLoading\(\)/);
+});
 
 test('unpublished, removed or invalid offer returns 404/noindex rather than a public SEO page', async () => testEnvironment(async () => {
   const notFound = await renderRequest(null);
@@ -210,4 +237,98 @@ test('legacy and SEO offer URLs resolve safely and copying the URL uses the cano
   context.location.search = '?id=invalid';
   context.showCanonicalOfferUrl({ id: 'invalid' });
   assert.equal(stateChanges.length, 1, 'Invalid IDs must never enter history');
+});
+
+
+// This tests the vercel.json matching contract; actual CDN redirect behavior
+// still requires one authorized preview check because Vercel SSO protects TEST.
+function simulatedVercelRedirect(href) {
+  const rules = JSON.parse(readFileSync(path.join(root, 'vercel.json'), 'utf8')).redirects;
+  const from = new URL(href);
+  for (const rule of rules) {
+    if (rule.source !== from.pathname) continue;
+    const params = {};
+    let matched = true;
+    for (const condition of rule.has || []) {
+      if (condition.type !== 'query') { matched = false; break; }
+      const value = from.searchParams.get(condition.key);
+      const result = value == null ? null : new RegExp('^(?:' + condition.value + ')$').exec(value);
+      if (!result) { matched = false; break; }
+      Object.assign(params, result.groups || {});
+    }
+    if (!matched) continue;
+    const target = rule.destination.replace(/:([A-Za-z][A-Za-z0-9]*)/g, (segment, name) => {
+      assert.ok(Object.hasOwn(params, name), `Missing Vercel named capture ${name}`);
+      return encodeURIComponent(params[name]);
+    });
+    return { status: rule.permanent ? 308 : 307, location: new URL(target, from).href };
+  }
+  return null;
+}
+
+test('homepage /index.html redirects to the canonical root on TEST and PROD', () => {
+  for (const origin of ['https://rentulo.eu', 'https://rentulo.com']) {
+    assert.deepEqual(simulatedVercelRedirect(origin + '/index.html'), {
+      status: 308, location: origin + '/'
+    });
+    assert.equal(simulatedVercelRedirect(origin + '/'), null);
+  }
+});
+
+test('legacy offer URL redirects to its canonical detail with both booking dates intact', () => {
+  const source = `https://rentulo.eu/detail.html?id=${offerId}&od=2026-12-10&do=2026-12-12`;
+  assert.deepEqual(simulatedVercelRedirect(source), {
+    status: 308,
+    location: `https://rentulo.eu/nabidka/${offerId}?od=2026-12-10&do=2026-12-12`
+  });
+  assert.equal(simulatedVercelRedirect(source.replace('rentulo.eu', 'rentulo.com')).location,
+    `https://rentulo.com/nabidka/${offerId}?od=2026-12-10&do=2026-12-12`);
+});
+
+test('legacy offer link without a full valid date pair retains the offer ID', () => {
+  const withoutDates = `https://rentulo.eu/detail.html?id=${offerId}`;
+  assert.equal(simulatedVercelRedirect(withoutDates).location, `https://rentulo.eu/nabidka/${offerId}`);
+  assert.equal(simulatedVercelRedirect(withoutDates + '&od=2026-12-10').location,
+    `https://rentulo.eu/nabidka/${offerId}`);
+  assert.equal(simulatedVercelRedirect(withoutDates + '&od=invalid&do=2026-12-12').location,
+    `https://rentulo.eu/nabidka/${offerId}`);
+});
+
+test('missing or malformed legacy offer ID does not trigger a broad redirect', () => {
+  for (const value of [
+    'https://rentulo.eu/detail.html',
+    'https://rentulo.eu/detail.html?id=invalid',
+    'https://rentulo.eu/detail.html?id=00000000-0000-0000-0000-0000000000000',
+    `https://rentulo.eu/edit-nabidka.html?id=${offerId}`,
+    `https://rentulo.eu/prihlaseni.html?returnTo=detail.html%3Fid%3D${offerId}`
+  ]) assert.equal(simulatedVercelRedirect(value), null, value);
+});
+
+test('login return-to still validates legacy offer ID and dates before server redirect', () => {
+  const login = readFileSync(path.join(root, 'js/login-page.js'), 'utf8');
+  const context = {
+    URL, URLSearchParams,
+    document: { addEventListener() {} },
+    window: { location: { origin: 'https://rentulo.eu', search: '' } }
+  };
+  vm.runInNewContext(login, context);
+  const target = `detail.html?id=${offerId}&od=2026-12-10&do=2026-12-12`;
+  context.window.location.search = '?returnTo=' + encodeURIComponent(target);
+  assert.equal(context.loginGetSafeReturnTo(), target);
+  const redirected = simulatedVercelRedirect('https://rentulo.eu/' + target);
+  assert.equal(redirected.location, `https://rentulo.eu/nabidka/${offerId}?od=2026-12-10&do=2026-12-12`);
+  context.window.location.search = '?returnTo=' + encodeURIComponent('https://evil.example/detail.html?id=' + offerId);
+  assert.equal(context.loginGetSafeReturnTo(), '');
+});
+
+test('SEO redirects leave current production controls and canonical routes untouched', () => {
+  const vercel = JSON.parse(readFileSync(path.join(root, 'vercel.json'), 'utf8'));
+  assert.deepEqual(vercel.rewrites.find(x => x.source === '/nabidka/:id'), {
+    source: '/nabidka/:id', destination: '/api/offer-page?id=:id'
+  });
+  assert.ok(vercel.redirects.some(x => x.source === '/muj-ucet' && x.destination === '/'));
+  assert.ok(vercel.headers.some(x => x.has?.some(h => h.type === 'host' &&
+    String(h.value?.re || '').includes('rentulo') && String(h.value?.re || '').includes('com')) &&
+    x.headers?.some(h => h.key === 'X-Robots-Tag' && h.value === 'noindex')));
+  assert.equal(simulatedVercelRedirect('https://rentulo.eu/nabidka/' + offerId), null);
 });
