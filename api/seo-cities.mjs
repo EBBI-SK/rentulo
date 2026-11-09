@@ -22,22 +22,24 @@ export function getSeoCitySlug(value) {
   return isSeoCitySlug(slug) ? slug : null;
 }
 
-// No grammatical location suffixes: Czech city names have irregular declensions.
-// An exact, natural city label is taken only from an active public offer.
+// Keep the stored, real Czech city name unchanged; many names cannot be
+// grammatically inflected by replacing a suffix. City pages exist only for
+// public offers in that city, never for generated/empty location combinations.
+const CITY_TOPICS = Object.freeze({
+  domacnost: Object.freeze({ title: 'Vybavení do domácnosti', description: 'Vybavení do domácnosti' }),
+  zahrada: Object.freeze({ title: 'Zahradní technika a vybavení', description: 'Zahradní technika a vybavení' }),
+  stavba: Object.freeze({ title: 'Nářadí a stavební vybavení', description: 'Nářadí a stavební vybavení' }),
+  hobby: Object.freeze({ title: 'Vybavení pro hobby a volný čas', description: 'Vybavení pro hobby a volný čas' }),
+  party: Object.freeze({ title: 'Vybavení na oslavy a akce', description: 'Vybavení na oslavy a akce' }),
+  ostatni: Object.freeze({ title: 'Další věci', description: 'Další věci' })
+});
+
 export function citySeoTitle(category, cityName) {
-  const subjects = {
-    domacnost: 'Vybaven\u00ed dom\u00e1cnosti',
-    zahrada: 'Zahradn\u00ed technika',
-    stavba: 'Stavebn\u00ed n\u00e1\u0159ad\u00ed',
-    hobby: 'Vybaven\u00ed pro hobby',
-    party: 'P\u00e1rty vybaven\u00ed',
-    ostatni: 'Dal\u0161\u00ed v\u011bci'
-  };
-  const subject = subjects[category?.slug] || category?.name || 'V\u011bci';
-  return `${subject} k p\u016fj\u010den\u00ed \u2013 ${cityName}`;
+  const subject = CITY_TOPICS[category?.slug]?.title || category?.name || 'Věci';
+  return `${subject} k půjčení – ${cityName}`;
 }
 
 export function citySeoDescription(category, cityName) {
-  return `Prohl\u00e9dn\u011bte si aktu\u00e1ln\u00ed ve\u0159ejn\u00e9 nab\u00eddky v kategorii ${category.name} ` +
-    `v lokalit\u011b ${cityName}. P\u016fj\u010dte si v\u011bci od lid\u00ed jednodu\u0161e p\u0159es Rentulo.`;
+  const subject = CITY_TOPICS[category?.slug]?.description || category?.name || 'Věci';
+  return `${subject} k půjčení – ${cityName}. Prohlédněte si veřejné nabídky od lidí, denní ceny a podrobnosti zveřejněných nabídek na Rentulu.`;
 }

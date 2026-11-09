@@ -133,8 +133,8 @@ test('TEST has canonical, accurate description, category breadcrumbs and noindex
   assert.equal(res.statusCode, 200);
   assert.equal(res.headers['x-robots-tag'], 'noindex');
   assert.equal(res.headers['cache-control'], 'private, no-store');
-  assert.match(res.body, /<h1>Stavebn\u00ed n\u00e1\u0159ad\u00ed k p\u016fj\u010den\u00ed \u2013 Zl\u00edn<\/h1>/);
-  assert.match(res.body, /<meta name="description" content="Prohl\u00e9dn\u011bte si aktu\u00e1ln\u00ed ve\u0159ejn\u00e9 nab\u00eddky/);
+  assert.match(res.body, /<h1>Nářadí a stavební vybavení k půjčení – Zlín<\/h1>/);
+  assert.match(res.body, /<meta name="description" content="Nářadí a stavební vybavení k půjčení – Zlín/);
   assert.match(res.body, /<link rel="canonical" href="https:\/\/rentulo.eu\/kategorie\/stavba\/mesto\/zlin"/);
   assert.match(res.body, /href="\/kategorie\/stavba"/);
   assert.match(res.body, /<meta name="robots" content="noindex">/);
