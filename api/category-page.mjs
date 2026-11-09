@@ -3,6 +3,7 @@
 import { getOfferSeoConfig, getOfferSeoValues } from './offer-page.mjs';
 import { SEO_CATEGORIES, getSeoCategoryBySlug } from './seo-categories.mjs';
 import { getSeoSubcategory } from './seo-subcategories.mjs';
+import { getSeoCitySlug, citySeoTitle, citySeoDescription } from './seo-cities.mjs';
 
 const PAGE_SIZE = 20;
 const MAX_PAGE = 500;
@@ -11,18 +12,19 @@ const escapeHtml = value => String(value).replace(/[&<>"']/g, character => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 })[character]);
 
-const categoryPath = (category, page, subcategory = null) =>
-  `/kategorie/${category.slug}${subcategory ? `/${subcategory.slug}` : ''}${page > 1 ? `?page=${page}` : ''}`;
+const categoryPath = (category, page, subcategory = null, city = null) =>
+  `/kategorie/${category.slug}${city ? `/mesto/${city.slug}` : subcategory ? `/${subcategory.slug}` : ''}${page > 1 ? `?page=${page}` : ''}`;
 
-export function renderCategoryHtml(category, rows, page, hasNext, config, subcategory = null) {
-  const baseTitle = `${subcategory ? subcategory.name : category.name} k půjčení`;
+export function renderCategoryHtml(category, rows, page, hasNext, config, subcategory = null, city = null) {
+  const baseTitle = city ? citySeoTitle(category, city.name) : `${subcategory ? subcategory.name : category.name} k půjčení`;
   const title = `${baseTitle}${page > 1 ? ` – strana ${page}` : ''} | Rentulo`;
-  const canonical = config.siteOrigin + categoryPath(category, page, subcategory);
-  const description = subcategory ? subcategory.description : category.description;
+  const canonical = config.siteOrigin + categoryPath(category, page, subcategory, city);
+  const description = city ? citySeoDescription(category, city.name) : subcategory ? subcategory.description : category.description;
   const noOffers = rows.length === 0;
   const cards = rows.map(row => {
     if (!UUID_PATTERN.test(String(row?.id || '')) || row?.category !== category.name ||
-        (subcategory && row?.subcategory_slug !== subcategory.slug)) {
+        (subcategory && row?.subcategory_slug !== subcategory.slug) ||
+        (city && (row?.seo_city_slug !== city.slug || getSeoCitySlug(row?.city) !== city.slug))) {
       throw new Error('Invalid public category offer data');
     }
     const values = getOfferSeoValues(row, row.id, config);
@@ -48,8 +50,20 @@ export function renderCategoryHtml(category, rows, page, hasNext, config, subcat
       ? `<nav class="subcategories" aria-label="Podkategorie s nabídkami">${linkedSubcategories.map(item =>
           `<a href="/kategorie/${category.slug}/${item.slug}">${escapeHtml(item.name)}</a>`).join(' ')}</nav>`
       : '';
-  const previous = page > 1 ? `<a href="${categoryPath(category, page - 1, subcategory)}" rel="prev">Předchozí stránka</a>` : '';
-  const next = hasNext ? `<a href="${categoryPath(category, page + 1, subcategory)}" rel="next">Další nabídky</a>` : '';
+  // Every city link comes from a currently visible public, active offer.
+  const linkedCities = new Map();
+  if (!city) for (const row of rows) {
+    const slug = getSeoCitySlug(row?.city);
+    if (slug && !linkedCities.has(slug)) linkedCities.set(slug, row.city.trim());
+  }
+  const cityLinks = city
+    ? `<nav class="cities" aria-label="Zpět na kategorii"><a href="/kategorie/${category.slug}">← ${escapeHtml(category.name)}</a></nav>`
+    : linkedCities.size
+      ? `<nav class="cities" aria-label="Nabídky v městech">${[...linkedCities].map(([slug, cityName]) =>
+          `<a href="/kategorie/${category.slug}/mesto/${slug}">${escapeHtml(cityName)}</a>`).join(' ')}</nav>`
+      : '';
+  const previous = page > 1 ? `<a href="${categoryPath(category, page - 1, subcategory, city)}" rel="prev">Předchozí stránka</a>` : '';
+  const next = hasNext ? `<a href="${categoryPath(category, page + 1, subcategory, city)}" rel="next">Další nabídky</a>` : '';
   return `<!doctype html>
 <html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)}</title>
@@ -65,7 +79,7 @@ header img{width:38px;height:38px}h1{font-size:clamp(26px,4vw,38px);margin:24px 
 .lead{margin:0 0 20px;color:#4f6158}.categories{display:flex;flex-wrap:wrap;gap:9px;margin:0 0 26px}
 .categories a{padding:7px 12px;background:#fff;border:1px solid #c5dcd0;border-radius:20px;text-decoration:none}
 .categories a[aria-current="page"]{background:#126846;color:#fff;border-color:#126846}
-.subcategories{display:flex;flex-wrap:wrap;gap:9px;margin:0 0 22px}.subcategories a{padding:7px 12px;background:#e4f3e9;border-radius:20px;text-decoration:none}
+.subcategories,.cities{display:flex;flex-wrap:wrap;gap:9px;margin:0 0 22px}.subcategories a,.cities a{padding:7px 12px;background:#e4f3e9;border-radius:20px;text-decoration:none}
 .offers{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
 .offer-card{min-width:0;background:white;border:1px solid #dce7df;border-radius:15px;overflow:hidden}
 .offer-photo{display:block;background:#edf3ef;height:190px}.offer-photo img{width:100%;height:100%;object-fit:contain}
@@ -78,6 +92,7 @@ header img{width:38px;height:38px}h1{font-size:clamp(26px,4vw,38px);margin:24px 
 <p class="lead">${escapeHtml(description)}${page > 1 ? ` · strana ${page}` : ''}</p>
 <nav class="categories" aria-label="Kategorie nabídek">${categoryLinks}</nav>
 ${subcategoryLinks}
+${cityLinks}
 ${cards ? `<section class="offers" aria-label="Aktuální nabídky: ${escapeHtml(baseTitle)}">${cards}</section>` : '<p class="empty">V této kategorii zatím nejsou zveřejněny žádné nabídky. Prohlédněte si <a href="/nabidky">všechny nabídky</a>.</p>'}
 <nav class="pagination" aria-label="Stránkování kategorie">${previous}${next}</nav>
 </main></body></html>`;
