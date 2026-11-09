@@ -114,6 +114,10 @@
       "destination": "/api/offer-page?id=:id"
     },
     {
+      "source": "/nabidky",
+      "destination": "/api/offers-directory"
+    },
+    {
       "source": "/sitemap.xml",
       "destination": "/api/sitemap"
     }
@@ -124,6 +128,9 @@
     },
     "api/sitemap.mjs": {
       "includeFiles": "{detail.html,js/supabase-config.js,scripts/seo-pages.json}"
+    },
+    "api/offers-directory.mjs": {
+      "includeFiles": "{detail.html,js/supabase-config.js}"
     }
   }
 }
