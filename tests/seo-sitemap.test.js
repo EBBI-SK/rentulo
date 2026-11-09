@@ -170,12 +170,28 @@ test('live PROD sitemap contains five static public paths, the offers directory 
   const request = new URL(calls[0].url);
   assert.equal(request.origin, 'https://tfvgxrdjrpicgtvovehl.supabase.co');
   assert.equal(request.pathname, '/rest/v1/public_offers');
-  assert.equal(request.searchParams.get('select'), 'id,updated_at');
+  assert.equal(request.searchParams.get('select'), 'id,updated_at,category');
   assert.equal(request.searchParams.get('status'), 'eq.active');
   assert.equal(request.searchParams.get('order'), 'id.asc');
   assert.equal(request.searchParams.get('limit'), '500');
   assert.ok(calls[0].options.headers.apikey.startsWith('sb_publishable_'));
   assert.equal(calls[0].options.headers.Authorization, undefined);
+});
+
+test('sitemap includes only real categories with active public offers, never empty categories', async () => {
+  const { res } = await callSitemap({
+    env: prodEnvironment, host: 'rentulo.com',
+    rows: [
+      { id: exampleId, updated_at: '2026-10-08T13:01:00Z', category: 'Stavba' },
+      { id: secondId, updated_at: '2026-10-09T09:00:00Z', category: 'Stavba' }
+    ]
+  });
+  assert.equal(res.statusCode, 200);
+  const urls = [...res.body.matchAll(/<loc>([^<>]+)<\/loc>/g)].map(match => match[1]);
+  assert.equal(urls.filter(url => url === 'https://rentulo.com/kategorie/stavba').length, 1);
+  assert.ok(!urls.some(url => url.includes('/kategorie/party')));
+  assert.ok(!urls.some(url => url.includes('/kategorie/domacnost')));
+  assert.ok(urls.includes(`https://rentulo.com/nabidka/${exampleId}`));
 });
 
 test('production never queries TEST Supabase and requires explicitly provided PROD credentials', async () => {

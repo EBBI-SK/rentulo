@@ -1,6 +1,7 @@
 // Public, crawlable directory of active offers; no browser JavaScript required.
 // Read only the restricted public_offers view with a publishable Supabase key.
 import { getOfferSeoConfig, getOfferSeoValues } from './offer-page.mjs';
+import { SEO_CATEGORIES, getSeoCategorySlug } from './seo-categories.mjs';
 
 const PAGE_SIZE = 20;
 const MAX_PAGE = 500;
@@ -21,13 +22,20 @@ export function renderDirectoryHtml(rows, page, hasNext, config) {
     if (!UUID_PATTERN.test(String(row?.id || ''))) throw new Error('Invalid public offer identifier');
     const values = getOfferSeoValues(row, row.id, config);
     if (!values) throw new Error('Invalid public offer data');
+    const categorySlug = getSeoCategorySlug(values.category);
+    const categoryLabel = categorySlug
+      ? `<a href="/kategorie/${categorySlug}">${escapeHtml(values.category)}</a>`
+      : escapeHtml(values.category);
     return `<article class="offer-card">
       <a class="offer-photo" href="/nabidka/${row.id.toLowerCase()}"><img src="${escapeHtml(values.imageUrl)}" alt="${escapeHtml(values.name)}" loading="lazy"></a>
       <div class="offer-info"><h2><a href="/nabidka/${row.id.toLowerCase()}">${escapeHtml(values.name)}</a></h2>
-      <p>${escapeHtml(values.category)} · ${escapeHtml(values.city || 'Česká republika')}</p>
+      <p>${categoryLabel} · ${escapeHtml(values.city || 'Česká republika')}</p>
       <strong>${escapeHtml(values.priceText)} Kč / den</strong></div>
     </article>`;
   }).join('\n');
+  const categoryLinks = SEO_CATEGORIES.map(category =>
+    `<a href="/kategorie/${category.slug}">${escapeHtml(category.name)}</a>`
+  ).join(' ');
   const previous = page > 1 ? `<a href="${directoryPath(page - 1)}" rel="prev">Předchozí stránka</a>` : '';
   const next = hasNext ? `<a href="${directoryPath(page + 1)}" rel="next">Další nabídky</a>` : '';
   return `<!doctype html>
@@ -46,12 +54,14 @@ header img{width:38px;height:38px}h1{font-size:clamp(26px,4vw,38px);margin:24px 
 .offer-card{min-width:0;background:white;border:1px solid #dce7df;border-radius:15px;overflow:hidden}
 .offer-photo{display:block;background:#edf3ef;height:190px}.offer-photo img{width:100%;height:100%;object-fit:contain}
 .offer-info{padding:15px}.offer-info h2 a{text-decoration:none}.offer-info p{margin:0 0 12px;color:#586b60}.offer-info strong{color:#116746}
+.categories{display:flex;flex-wrap:wrap;gap:9px;margin:0 0 26px}.categories a{padding:7px 12px;background:#fff;border:1px solid #c5dcd0;border-radius:20px;text-decoration:none}
 .pagination{display:flex;gap:16px;margin:30px 0}.pagination a{padding:10px 16px;background:white;border:1px solid #c5dcd0;border-radius:9px;text-decoration:none}
 .empty{padding:22px;background:white;border:1px solid #dce7df;border-radius:12px}
 </style></head><body>
 <header><div class="container"><a href="/"><img src="/assets/rentulo-logo-mark.png" alt="">Rentulo</a></div></header>
 <main class="container"><a href="/">← Úvodní stránka</a><h1>Aktuální nabídky věcí k půjčení</h1>
 <p class="lead">Skutečné nabídky od lidí v České republice${page > 1 ? ` · strana ${page}` : ''}.</p>
+<nav class="categories" aria-label="Procházet nabídky podle kategorie">${categoryLinks}</nav>
 ${cards ? `<section class="offers" aria-label="Aktuální nabídky">${cards}</section>` : '<p class="empty">Zatím nejsou zveřejněny žádné nabídky.</p>'}
 <nav class="pagination" aria-label="Stránkování nabídek">${previous}${next}</nav>
 </main></body></html>`;
