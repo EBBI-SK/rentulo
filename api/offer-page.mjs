@@ -1,6 +1,7 @@
 // Public, server-rendered SEO preview for an active Rentulo offer.
 // Uses only the restricted public_offers view and a Supabase publishable key.
 import { readFileSync } from 'node:fs';
+import { renderOfferJsonLd } from './seo-structured-data.mjs';
 
 const DETAIL_TEMPLATE = readFileSync(new URL('../detail.html', import.meta.url), 'utf8');
 const SOURCE_CONFIG = readFileSync(new URL('../js/supabase-config.js', import.meta.url), 'utf8');
@@ -83,7 +84,11 @@ export function getOfferSeoValues(offer, id, config) {
       }
     } catch { /* Invalid image URLs use the Rentulo logo instead. */ }
   }
-  return { title, description, canonicalUrl, imageUrl, name, city, category, offerDescription, priceText: price.toLocaleString('cs-CZ') };
+  return {
+    title, description, canonicalUrl, imageUrl, name, city, category,
+    offerDescription, priceText: price.toLocaleString('cs-CZ'),
+    pricePerDay: price, hasOfferPhoto: imageUrl !== fallbackImage
+  };
 }
 
 // Initial public offer content is visible without executing browser JavaScript.
@@ -139,7 +144,8 @@ export function renderOfferSeoHtml(html, values, target) {
     `<meta property="og:url" content="${escapeHtml(values.canonicalUrl)}" />`,
     `<meta property="og:image" content="${escapeHtml(values.imageUrl)}" />`,
     `<meta property="og:image:alt" content="${escapeHtml(values.name)}" />`,
-    '<meta property="og:locale" content="cs_CZ" />'
+    '<meta property="og:locale" content="cs_CZ" />',
+    renderOfferJsonLd(values)
   ];
   if (target === 'test') head.unshift('<meta name="robots" content="noindex" />');
   const htmlWithRootBase = /<base\b[^>]*href=["']\/["'][^>]*>/i.test(html)

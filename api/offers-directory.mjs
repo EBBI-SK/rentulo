@@ -2,6 +2,7 @@
 // Read only the restricted public_offers view with a publishable Supabase key.
 import { getOfferSeoConfig, getOfferSeoValues } from './offer-page.mjs';
 import { SEO_CATEGORIES, getSeoCategorySlug } from './seo-categories.mjs';
+import { renderCollectionJsonLd } from './seo-structured-data.mjs';
 
 const PAGE_SIZE = 20;
 const MAX_PAGE = 500;
@@ -18,6 +19,7 @@ export function renderDirectoryHtml(rows, page, hasNext, config) {
   const title = `${page === 1 ? 'Aktuální nabídky věcí k půjčení' : `Nabídky věcí k půjčení – strana ${page}`} | Rentulo`;
   const description = 'Prohlédněte si aktuální nabídky věcí k půjčení od lidí v České republice. Vyberte věc a podívejte se na detail na Rentulu.';
   const canonical = config.siteOrigin + directoryPath(page);
+  const structuredItems = [];
   const cards = rows.map(row => {
     if (!UUID_PATTERN.test(String(row?.id || ''))) throw new Error('Invalid public offer identifier');
     const values = getOfferSeoValues(row, row.id, config);
@@ -26,6 +28,7 @@ export function renderDirectoryHtml(rows, page, hasNext, config) {
     const categoryLabel = categorySlug
       ? `<a href="/kategorie/${categorySlug}">${escapeHtml(values.category)}</a>`
       : escapeHtml(values.category);
+    structuredItems.push({ name: values.name, url: `${config.siteOrigin}/nabidka/${row.id.toLowerCase()}` });
     return `<article class="offer-card">
       <a class="offer-photo" href="/nabidka/${row.id.toLowerCase()}"><img src="${escapeHtml(values.imageUrl)}" alt="${escapeHtml(values.name)}" loading="lazy"></a>
       <div class="offer-info"><h2><a href="/nabidka/${row.id.toLowerCase()}">${escapeHtml(values.name)}</a></h2>
@@ -38,6 +41,13 @@ export function renderDirectoryHtml(rows, page, hasNext, config) {
   ).join(' ');
   const previous = page > 1 ? `<a href="${directoryPath(page - 1)}" rel="prev">Předchozí stránka</a>` : '';
   const next = hasNext ? `<a href="${directoryPath(page + 1)}" rel="next">Další nabídky</a>` : '';
+  const structuredData = renderCollectionJsonLd({
+    canonical, title, description, items: structuredItems,
+    crumbs: [
+      { name: 'Rentulo', url: config.siteOrigin + '/' },
+      { name: 'Všechny nabídky', url: canonical }
+    ]
+  });
   return `<!doctype html>
 <html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)}</title>
@@ -45,6 +55,7 @@ export function renderDirectoryHtml(rows, page, hasNext, config) {
 <link rel="canonical" href="${escapeHtml(canonical)}">
 ${config.target !== 'prod' ? '<meta name="robots" content="noindex">' : ''}
 <link rel="icon" href="/assets/rentulo-logo-mark.png" type="image/png">
+${structuredData}
 <style>
 *{box-sizing:border-box}body{margin:0;background:#f6f8f6;font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;color:#173c2f}
 a{color:#126846}a:hover{text-decoration:underline}.container{max-width:1080px;margin:auto;padding:20px}
