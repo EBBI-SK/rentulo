@@ -144,7 +144,7 @@ test('live sitemap remains 404/noindex on TEST and never queries offers', async 
   assert.equal(calls.length, 0);
 });
 
-test('live PROD sitemap contains only the five public canonical paths and active offers', async () => {
+test('live PROD sitemap contains five static public paths, the offers directory and active offers', async () => {
   const { res, calls } = await callSitemap({
     env: prodEnvironment,
     host: 'rentulo.com',
@@ -159,6 +159,7 @@ test('live PROD sitemap contains only the five public canonical paths and active
   assert.ok(res.body.includes('<lastmod>2026-10-08</lastmod>'));
   const expected = [
     ...Object.values(catalog.public).map(page => `https://rentulo.com${page.path}`),
+    'https://rentulo.com/nabidky',
     `https://rentulo.com/nabidka/${exampleId}`,
     `https://rentulo.com/nabidka/${secondId}`
   ];
