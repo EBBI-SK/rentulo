@@ -117,7 +117,8 @@ test('category HTML lists real filtered offers without JS and links to all categ
   assert.match(res.body, /Zlín/);
   assert.match(res.body, /350 Kč \/ den/);
   assert.match(res.body, /rel="canonical" href="https:\/\/rentulo.eu\/kategorie\/stavba"/);
-  assert.match(res.body, /name="description" content="Prohlédněte si vybavení na stavbu/);
+  assert.match(res.body, /<title>Nářadí a stavební vybavení k půjčení \| Rentulo<\/title>/);
+  assert.match(res.body, /name="description" content="Nářadí a vybavení pro stavbu/);
   assert.equal((res.body.match(/<a href="\/kategorie\/(?:domacnost|zahrada|stavba|hobby|party|ostatni)"/g) || []).length, 6);
   assertOnlySafeJsonLd(res.body);
   const u = new URL(upstreamUrl);

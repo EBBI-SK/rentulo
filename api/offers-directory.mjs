@@ -17,7 +17,7 @@ function directoryPath(page) {
 
 export function renderDirectoryHtml(rows, page, hasNext, config) {
   const title = `${page === 1 ? 'Aktuální nabídky věcí k půjčení' : `Nabídky věcí k půjčení – strana ${page}`} | Rentulo`;
-  const description = 'Prohlédněte si aktuální nabídky věcí k půjčení od lidí v České republice. Vyberte věc a podívejte se na detail na Rentulu.';
+  const description = `Věci k půjčení od lidí z celé České republiky. Prohlédněte si zveřejněné nabídky, ceny za den a města vyzvednutí na Rentulu${page > 1 ? ` – strana ${page}` : ''}.`;
   const canonical = config.siteOrigin + directoryPath(page);
   const structuredItems = [];
   const cards = rows.map((row, index) => {

@@ -80,7 +80,8 @@ test('26 stable subcategories across the six real V1 categories; Jiné is manual
     assert.ok(!seen.has(path), path);
     seen.add(path);
     assert.equal(getSeoSubcategory(definition.categorySlug, definition.slug), definition);
-    assert.match(definition.description, /k půjčení na Rentulu/);
+    assert.match(definition.seoTitle, /k půjčení$/);
+    assert.ok(definition.description.length >= 85 && definition.description.length <= 160);
   }
   for (const item of ['unknown', 'vrtacky/../../settings']) assert.equal(getSeoSubcategory('stavba', item), null);
   assert.equal(getSeoSubcategory('hobby', 'vrtacky'), null);

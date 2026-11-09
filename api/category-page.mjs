@@ -17,8 +17,11 @@ const categoryPath = (category, page, subcategory = null, city = null) =>
   `/kategorie/${category.slug}${city ? `/mesto/${city.slug}` : subcategory ? `/${subcategory.slug}` : ''}${page > 1 ? `?page=${page}` : ''}`;
 
 export function renderCategoryHtml(category, rows, page, hasNext, config, subcategory = null, city = null) {
+  // Keep the established visible heading and URL structure. Editorial SEO
+  // titles can be more descriptive without renaming real Rentulo categories.
   const baseTitle = city ? citySeoTitle(category, city.name) : `${subcategory ? subcategory.name : category.name} k půjčení`;
-  const title = `${baseTitle}${page > 1 ? ` – strana ${page}` : ''} | Rentulo`;
+  const seoBaseTitle = city ? baseTitle : (subcategory?.seoTitle || category.seoTitle || baseTitle);
+  const title = `${seoBaseTitle}${page > 1 ? ` – strana ${page}` : ''} | Rentulo`;
   const canonical = config.siteOrigin + categoryPath(category, page, subcategory, city);
   const description = city ? citySeoDescription(category, city.name) : subcategory ? subcategory.description : category.description;
   const noOffers = rows.length === 0;

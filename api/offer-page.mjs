@@ -19,6 +19,16 @@ function safePublicText(value, maxLength) {
   return String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, maxLength);
 }
 
+// Cut at a word boundary when possible; never take private contact or booking
+// fields into SEO metadata. Public user descriptions remain on the detail only.
+function clipSeoWords(text, maxLength) {
+  if (text.length <= maxLength) return text;
+  const fragment = text.slice(0, maxLength);
+  const lastSpace = fragment.lastIndexOf(' ');
+  return (lastSpace >= maxLength * 0.55 ? fragment.slice(0, lastSpace) : fragment)
+    .replace(/[\s,.;:–-]+$/u, '');
+}
+
 function readSourceConstant(name) {
   const match = SOURCE_CONFIG.match(new RegExp(`^const ${name} = ("[^"\\n]*");$`, 'm'));
   if (!match) throw new Error(`Missing public TEST configuration: ${name}`);
@@ -67,8 +77,16 @@ export function getOfferSeoValues(offer, id, config) {
   const price = Number(offer?.price_per_day);
   if (!name || !Number.isSafeInteger(price) || price <= 0) return null;
 
-  const title = `${name.slice(0, 72)}${city ? ` – ${city}` : ''} | Rentulo`;
-  const description = `Půjčte si ${name.slice(0, 65)}${city ? ` v lokalitě ${city}` : ''} za ${price.toLocaleString('cs-CZ')} Kč/den. Prohlédněte si nabídku a rezervujte jednoduše na Rentulo.`.slice(0, 200);
+  // A lease listing, not an e-shop sale: use the real public name, city and
+  // day rate. Avoid duplicating "k půjčení" when it is in the user's name.
+  const rentalSuffix = /(?:^|\s)k\s+půjčení(?:$|[\s.,!])/iu.test(name) ? '' : ' k půjčení';
+  const placeSuffix = city ? ` – ${city}` : '';
+  const brandSuffix = ' | Rentulo';
+  const titleName = clipSeoWords(name, Math.max(18, 74 - rentalSuffix.length - placeSuffix.length - brandSuffix.length));
+  const title = `${titleName}${rentalSuffix}${placeSuffix}${brandSuffix}`;
+  const descriptionName = clipSeoWords(name, 55);
+  const descriptionCategory = clipSeoWords(category, 35);
+  const description = `${descriptionName}${city ? ` – ${city}` : ''}. Cena půjčení ${price.toLocaleString('cs-CZ')} Kč/den. Kategorie ${descriptionCategory}. Podrobnosti veřejné nabídky na Rentulu.`;
   const canonicalUrl = `${config.siteOrigin}/nabidka/${id.toLowerCase()}`;
   const fallbackImage = `${config.siteOrigin}/assets/rentulo-logo-mark.png`;
   let imageUrl = fallbackImage;
