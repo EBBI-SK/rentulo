@@ -4,6 +4,7 @@ import { getOfferSeoConfig, getOfferSeoValues } from './offer-page.mjs';
 import { SEO_CATEGORIES, getSeoCategoryBySlug } from './seo-categories.mjs';
 import { getSeoSubcategory } from './seo-subcategories.mjs';
 import { getSeoCitySlug, citySeoTitle, citySeoDescription } from './seo-cities.mjs';
+import { renderCollectionJsonLd } from './seo-structured-data.mjs';
 
 const PAGE_SIZE = 20;
 const MAX_PAGE = 500;
@@ -21,6 +22,7 @@ export function renderCategoryHtml(category, rows, page, hasNext, config, subcat
   const canonical = config.siteOrigin + categoryPath(category, page, subcategory, city);
   const description = city ? citySeoDescription(category, city.name) : subcategory ? subcategory.description : category.description;
   const noOffers = rows.length === 0;
+  const structuredItems = [];
   const cards = rows.map(row => {
     if (!UUID_PATTERN.test(String(row?.id || '')) || row?.category !== category.name ||
         (subcategory && row?.subcategory_slug !== subcategory.slug) ||
@@ -30,6 +32,7 @@ export function renderCategoryHtml(category, rows, page, hasNext, config, subcat
     const values = getOfferSeoValues(row, row.id, config);
     if (!values) throw new Error('Invalid public offer values');
     const offerUrl = `/nabidka/${row.id.toLowerCase()}`;
+    structuredItems.push({ name: values.name, url: config.siteOrigin + offerUrl });
     return `<article class="offer-card">
       <a class="offer-photo" href="${offerUrl}"><img src="${escapeHtml(values.imageUrl)}" alt="${escapeHtml(values.name)}" loading="lazy" decoding="async"></a>
       <div class="offer-info"><h2><a href="${offerUrl}">${escapeHtml(values.name)}</a></h2>
@@ -64,6 +67,14 @@ export function renderCategoryHtml(category, rows, page, hasNext, config, subcat
       : '';
   const previous = page > 1 ? `<a href="${categoryPath(category, page - 1, subcategory, city)}" rel="prev">Předchozí stránka</a>` : '';
   const next = hasNext ? `<a href="${categoryPath(category, page + 1, subcategory, city)}" rel="next">Další nabídky</a>` : '';
+  const crumbs = [
+    { name: 'Rentulo', url: config.siteOrigin + '/' },
+    { name: 'Všechny nabídky', url: config.siteOrigin + '/nabidky' },
+    { name: category.name, url: config.siteOrigin + `/kategorie/${category.slug}` }
+  ];
+  if (subcategory) crumbs.push({ name: subcategory.name, url: config.siteOrigin + `/kategorie/${category.slug}/${subcategory.slug}` });
+  if (city) crumbs.push({ name: city.name, url: config.siteOrigin + `/kategorie/${category.slug}/mesto/${city.slug}` });
+  const structuredData = renderCollectionJsonLd({ canonical, title, description, items: structuredItems, crumbs });
   return `<!doctype html>
 <html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)}</title>
@@ -71,6 +82,7 @@ export function renderCategoryHtml(category, rows, page, hasNext, config, subcat
 <link rel="canonical" href="${escapeHtml(canonical)}">
 ${config.target !== 'prod' || noOffers ? '<meta name="robots" content="noindex">' : ''}
 <link rel="icon" href="/assets/rentulo-logo-mark.png" type="image/png">
+${structuredData}
 <style>
 *{box-sizing:border-box}body{margin:0;background:#f6f8f6;font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;color:#173c2f}
 a{color:#126846}a:hover{text-decoration:underline}.container{max-width:1080px;margin:auto;padding:20px}

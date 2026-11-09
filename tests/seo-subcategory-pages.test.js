@@ -4,6 +4,17 @@ const { readFileSync } = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
+// JSON-LD is the only permitted script on server-rendered SEO collection pages.
+// Still reject executable scripts and any unescaped markup inside structured data.
+function assertOnlySafeJsonLd(html) {
+  const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
+  assert.equal(scripts.length, 1, 'Exactly one JSON-LD script is expected');
+  assert.match(scripts[0][0], /^<script type="application\/ld\+json">/);
+  assert.doesNotMatch(scripts[0][1], /[<>]/, 'JSON-LD must escape HTML delimiters');
+  assert.doesNotThrow(() => JSON.parse(scripts[0][1]), 'JSON-LD must be valid JSON');
+  assert.doesNotMatch(html.replace(scripts[0][0], ''), /<\/?script\b/i);
+}
+
 const root = path.join(__dirname, '..');
 const modulePromise = import(pathToFileURL(path.join(root, 'api/subcategory-page.mjs')).href);
 const definitionsPromise = import(pathToFileURL(path.join(root, 'api/seo-subcategories.mjs')).href);
@@ -104,7 +115,7 @@ test('all 26 route slugs are accepted under their exact real parent and use filt
     assert.equal(new URL(upstream).searchParams.get('subcategory_slug'), `eq.${sub.slug}`);
     assert.equal(new URL(upstream).searchParams.get('status'), 'eq.active');
     assert.equal(new URL(upstream).searchParams.get('select'), 'id,name,category,city,price_per_day,photo_url,subcategory_slug');
-    assert.doesNotMatch(res.body, /<script\b/);
+    assertOnlySafeJsonLd(res.body);
   }
 });
 
@@ -119,7 +130,7 @@ test('active TEST listings render with correct title, canonical, internal links 
   assert.match(res.body, /href="\/nabidka\/cbf1184a-97fd-4fd1-8b62-e084a4452d28"/);
   assert.match(res.body, /https:\/\/rentulo.eu\/kategorie\/stavba\/vrtacky/);
   assert.match(upstream, /vspposovhdgvbeukoivh\.supabase\.co/);
-  assert.doesNotMatch(res.body, /<script\b/);
+  assertOnlySafeJsonLd(res.body);
 });
 
 test('populated PROD uses only production config and relies on global prelaunch noindex', async () => {

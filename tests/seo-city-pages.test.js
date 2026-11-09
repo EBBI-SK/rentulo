@@ -4,6 +4,17 @@ const { readFileSync } = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
+// JSON-LD is the only permitted script on server-rendered SEO collection pages.
+// Still reject executable scripts and any unescaped markup inside structured data.
+function assertOnlySafeJsonLd(html) {
+  const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
+  assert.equal(scripts.length, 1, 'Exactly one JSON-LD script is expected');
+  assert.match(scripts[0][0], /^<script type="application\/ld\+json">/);
+  assert.doesNotMatch(scripts[0][1], /[<>]/, 'JSON-LD must escape HTML delimiters');
+  assert.doesNotThrow(() => JSON.parse(scripts[0][1]), 'JSON-LD must be valid JSON');
+  assert.doesNotMatch(html.replace(scripts[0][0], ''), /<\/?script\b/i);
+}
+
 const root = path.join(__dirname, '..');
 const cityPagePromise = import(pathToFileURL(path.join(root, 'api/city-page.mjs')).href);
 const cityDefinitionsPromise = import(pathToFileURL(path.join(root, 'api/seo-cities.mjs')).href);
@@ -113,7 +124,7 @@ test('six real category+city routes use both exact public filters and original p
     assert.match(res.body, /<h1>[^<]+Zl\u00edn<\/h1>/);
     assert.match(res.body, /href="\/nabidka\/cbf1184a-97fd-4fd1-8b62-e084a4452d28"/);
     assert.match(res.body, /\/storage\/v1\/object\/public\/offer-photos\/a.jpg/);
-    assert.doesNotMatch(res.body, /<script\b/);
+    assertOnlySafeJsonLd(res.body);
   }
 });
 

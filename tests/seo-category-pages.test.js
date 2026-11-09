@@ -4,6 +4,17 @@ const { readFileSync } = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
+// JSON-LD is the only permitted script on server-rendered SEO collection pages.
+// Still reject executable scripts and any unescaped markup inside structured data.
+function assertOnlySafeJsonLd(html) {
+  const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
+  assert.equal(scripts.length, 1, 'Exactly one JSON-LD script is expected');
+  assert.match(scripts[0][0], /^<script type="application\/ld\+json">/);
+  assert.doesNotMatch(scripts[0][1], /[<>]/, 'JSON-LD must escape HTML delimiters');
+  assert.doesNotThrow(() => JSON.parse(scripts[0][1]), 'JSON-LD must be valid JSON');
+  assert.doesNotMatch(html.replace(scripts[0][0], ''), /<\/?script\b/i);
+}
+
 const root = path.join(__dirname, '..');
 const categoryModule = import(pathToFileURL(path.join(root, 'api/category-page.mjs')).href);
 const categoryDefinitions = import(pathToFileURL(path.join(root, 'api/seo-categories.mjs')).href);
@@ -108,7 +119,7 @@ test('category HTML lists real filtered offers without JS and links to all categ
   assert.match(res.body, /rel="canonical" href="https:\/\/rentulo.eu\/kategorie\/stavba"/);
   assert.match(res.body, /name="description" content="Prohlédněte si vybavení na stavbu/);
   assert.equal((res.body.match(/<a href="\/kategorie\/(?:domacnost|zahrada|stavba|hobby|party|ostatni)"/g) || []).length, 6);
-  assert.ok(!res.body.includes('<script'));
+  assertOnlySafeJsonLd(res.body);
   const u = new URL(upstreamUrl);
   assert.equal(u.origin, 'https://vspposovhdgvbeukoivh.supabase.co');
   assert.equal(u.pathname, '/rest/v1/public_offers');
