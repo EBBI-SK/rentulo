@@ -99,7 +99,7 @@ export function renderOfferPublicContent(values) {
           <section class="detail-main-card">
             <div class="detail-hero">
               <div class="image-box has-photo">
-                <img src="${escapeHtml(values.imageUrl)}" alt="${escapeHtml(values.name)}" />
+                <img src="${escapeHtml(values.imageUrl)}" alt="${escapeHtml(values.name)}" loading="eager" decoding="async"${values.hasOfferPhoto ? ' fetchpriority="high"' : ''} />
               </div>
               <div class="detail-hero-copy">
                 <h1>${escapeHtml(values.name)}</h1>

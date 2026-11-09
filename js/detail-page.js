@@ -425,7 +425,7 @@ function renderDetailImage(offer) {
       if (photo) {
         return `
           <div class="image-box has-photo">
-            <img src="${escapeHtml(photo)}" alt="${escapeHtml(offerName)}">
+            <img src="${escapeHtml(photo)}" alt="${escapeHtml(offerName)}" loading="eager" decoding="async" fetchpriority="high">
             <div class="image-label">${escapeHtml(offerName)}</div>
           </div>
         `;

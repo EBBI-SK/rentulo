@@ -23,7 +23,7 @@ export function renderCategoryHtml(category, rows, page, hasNext, config, subcat
   const description = city ? citySeoDescription(category, city.name) : subcategory ? subcategory.description : category.description;
   const noOffers = rows.length === 0;
   const structuredItems = [];
-  const cards = rows.map(row => {
+  const cards = rows.map((row, index) => {
     if (!UUID_PATTERN.test(String(row?.id || '')) || row?.category !== category.name ||
         (subcategory && row?.subcategory_slug !== subcategory.slug) ||
         (city && (row?.seo_city_slug !== city.slug || getSeoCitySlug(row?.city) !== city.slug))) {
@@ -33,8 +33,10 @@ export function renderCategoryHtml(category, rows, page, hasNext, config, subcat
     if (!values) throw new Error('Invalid public offer values');
     const offerUrl = `/nabidka/${row.id.toLowerCase()}`;
     structuredItems.push({ name: values.name, url: config.siteOrigin + offerUrl });
+    // Only the first visible listing image is prioritized; offscreen images stay lazy.
+    const imageHints = index === 0 ? 'loading="eager"' + (values.hasOfferPhoto ? ' fetchpriority="high"' : '') : 'loading="lazy"';
     return `<article class="offer-card">
-      <a class="offer-photo" href="${offerUrl}"><img src="${escapeHtml(values.imageUrl)}" alt="${escapeHtml(values.name)}" loading="lazy" decoding="async"></a>
+      <a class="offer-photo" href="${offerUrl}"><img src="${escapeHtml(values.imageUrl)}" alt="${escapeHtml(values.name)}" ${imageHints} decoding="async"></a>
       <div class="offer-info"><h2><a href="${offerUrl}">${escapeHtml(values.name)}</a></h2>
       <p>${escapeHtml(values.city || 'Česká republika')}</p>
       <strong>${escapeHtml(values.priceText)} Kč / den</strong></div>
@@ -94,7 +96,7 @@ header img{width:38px;height:38px}h1{font-size:clamp(26px,4vw,38px);margin:24px 
 .subcategories,.cities{display:flex;flex-wrap:wrap;gap:9px;margin:0 0 22px}.subcategories a,.cities a{padding:7px 12px;background:#e4f3e9;border-radius:20px;text-decoration:none}
 .offers{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
 .offer-card{min-width:0;background:white;border:1px solid #dce7df;border-radius:15px;overflow:hidden}
-.offer-photo{display:block;background:#edf3ef;height:190px}.offer-photo img{width:100%;height:100%;object-fit:contain}
+.offer-photo{display:block;background:#edf3ef;height:190px}.offer-photo img{display:block;width:100%;height:100%;object-fit:contain}
 .offer-info{padding:15px}.offer-info h2 a{text-decoration:none}.offer-info p{margin:0 0 12px;color:#586b60}.offer-info strong{color:#116746}
 .pagination{display:flex;gap:16px;margin:30px 0}.pagination a{padding:10px 16px;background:white;border:1px solid #c5dcd0;border-radius:9px;text-decoration:none}
 .empty{padding:22px;background:white;border:1px solid #dce7df;border-radius:12px}

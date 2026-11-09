@@ -622,14 +622,16 @@ function getOfferPhoto(offer) {
       );
     }
 
-    function renderResultImage(offer) {
+    function renderResultImage(offer, prioritized = false) {
       const photo = getOfferPhoto(offer);
       const name = getOfferName(offer);
 
       if (photo) {
+        // Prioritize the first visible result; the remaining images load near the viewport.
+        const imageHints = prioritized ? 'loading="eager" fetchpriority="high"' : 'loading="lazy"';
         return `
           <div class="result-image">
-            <img src="${escapeHtml(photo)}" alt="${escapeHtml(name)}">
+            <img src="${escapeHtml(photo)}" alt="${escapeHtml(name)}" ${imageHints} decoding="async">
           </div>
         `;
       }
@@ -699,7 +701,7 @@ function getOfferPhoto(offer) {
       `;
     }
 
-    function renderOfferCard(offer) {
+    function renderOfferCard(offer, index) {
       const offerId = getOfferId(offer);
       const name = getOfferName(offer);
       const city = getOfferCity(offer);
@@ -708,7 +710,7 @@ function getOfferPhoto(offer) {
 
       return `
         <article class="result-card">
-          ${renderResultImage(offer)}
+          ${renderResultImage(offer, index === 0)}
 
           <div class="result-main">
             <div class="result-heading">
