@@ -56,6 +56,27 @@ test('crawlable SEO directory stays intact and homepage browse reuses existing r
   assert.match(results,/"\/nabidka\/" \+ encodeURIComponent\(offerId\)/);
 });
 
+test('homepage browse CTA is aligned with categories on desktop and full-width below offers on mobile', () => {
+  const home=readFileSync(path.join(root,'index.html'),'utf8');
+  const style=home.match(/\/\* Secondary browse action:[\s\S]*?<\/style>/)?.[0];
+  assert.ok(style,'browse link styling must be present');
+  assert.match(style, /\.home-directory-link\s*\{[^}]*justify-content:\s*space-between;[^}]*align-self:\s*flex-start;[^}]*width:\s*250px;[^}]*min-height:\s*48px;[^}]*border-radius:\s*14px;/);
+  assert.match(style, /@media \(min-width:\s*1101px\)\s*\{[^}]*\.home-map-card\s*\{\s*gap:\s*12px;/);
+  assert.match(style, /@media \(max-width:\s*1100px\)[\s\S]*?\.home-directory-link\s*\{[^}]*order:\s*8;[^}]*margin:\s*12px 0 20px;/);
+  assert.match(style, /@media \(max-width:\s*640px\)[\s\S]*?\.home-directory-link\s*\{[^}]*width:\s*100%;/);
+  assert.match(home, /class="home-map-previews"[^>]*><\/div>\s*<a class="home-directory-link" href="vysledky\.html">/);
+  assert.match(home, /<p class="home-text" data-i18n="home\.heroSupportingText">Půjčuj své věci lidem v okolí a vydělávej\. Nebo si jednoduše půjč to, co právě potřebuješ\.<\/p>/);
+  const dictionaries=readFileSync(path.join(root,'js/i18n.js'),'utf8');
+  assert.equal((dictionaries.match(/"home\.heroSupportingText"/g)||[]).length,5);
+  for(const phrase of [
+    'Půjčuj své věci lidem v okolí a vydělávej.',
+    'Požičiavaj svoje veci ľuďom v okolí a zarábaj.',
+    'Rent out your things to people nearby and earn money.',
+    'Vermiete deine Sachen an Menschen in deiner Nähe und verdiene Geld.',
+    'Wynajmuj swoje rzeczy osobom z okolicy i zarabiaj.'
+  ]) assert.ok(dictionaries.includes(`"home.heroSupportingText": "${phrase}`),phrase);
+});
+
 test('first page lists active offers in initial HTML and TEST stays noindex',async()=>{
   const {res,upstreamUrl}=await request([original]);
   assert.equal(res.statusCode,200);
