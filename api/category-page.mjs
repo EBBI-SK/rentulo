@@ -2,6 +2,7 @@
 // Read only the restricted public_offers view using a Supabase publishable key.
 import { getOfferSeoConfig, getOfferSeoValues } from './offer-page.mjs';
 import { SEO_CATEGORIES, getSeoCategoryBySlug } from './seo-categories.mjs';
+import { getSeoSubcategory } from './seo-subcategories.mjs';
 
 const PAGE_SIZE = 20;
 const MAX_PAGE = 500;
@@ -10,16 +11,18 @@ const escapeHtml = value => String(value).replace(/[&<>"']/g, character => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 })[character]);
 
-const categoryPath = (category, page) =>
-  `/kategorie/${category.slug}${page > 1 ? `?page=${page}` : ''}`;
+const categoryPath = (category, page, subcategory = null) =>
+  `/kategorie/${category.slug}${subcategory ? `/${subcategory.slug}` : ''}${page > 1 ? `?page=${page}` : ''}`;
 
-export function renderCategoryHtml(category, rows, page, hasNext, config) {
-  const baseTitle = `${category.name} k půjčení`;
+export function renderCategoryHtml(category, rows, page, hasNext, config, subcategory = null) {
+  const baseTitle = `${subcategory ? subcategory.name : category.name} k půjčení`;
   const title = `${baseTitle}${page > 1 ? ` – strana ${page}` : ''} | Rentulo`;
-  const canonical = config.siteOrigin + categoryPath(category, page);
+  const canonical = config.siteOrigin + categoryPath(category, page, subcategory);
+  const description = subcategory ? subcategory.description : category.description;
   const noOffers = rows.length === 0;
   const cards = rows.map(row => {
-    if (!UUID_PATTERN.test(String(row?.id || '')) || row?.category !== category.name) {
+    if (!UUID_PATTERN.test(String(row?.id || '')) || row?.category !== category.name ||
+        (subcategory && row?.subcategory_slug !== subcategory.slug)) {
       throw new Error('Invalid public category offer data');
     }
     const values = getOfferSeoValues(row, row.id, config);
@@ -35,12 +38,22 @@ export function renderCategoryHtml(category, rows, page, hasNext, config) {
   const categoryLinks = SEO_CATEGORIES.map(item =>
     `<a href="/kategorie/${item.slug}"${item.slug === category.slug ? ' aria-current="page"' : ''}>${escapeHtml(item.name)}</a>`
   ).join(' ');
-  const previous = page > 1 ? `<a href="${categoryPath(category, page - 1)}" rel="prev">Předchozí stránka</a>` : '';
-  const next = hasNext ? `<a href="${categoryPath(category, page + 1)}" rel="next">Další nabídky</a>` : '';
+  // Only link to subcategories represented by genuine, currently visible offers.
+  // Later pages and sitemap expose further matches without empty SEO links.
+  const linkedSubcategories = subcategory ? [] : [...new Set(rows.map(row => row?.subcategory_slug))]
+    .map(slug => getSeoSubcategory(category.slug, slug)).filter(Boolean);
+  const subcategoryLinks = subcategory
+    ? `<nav class="subcategories" aria-label="Zpět na kategorii"><a href="/kategorie/${category.slug}">← ${escapeHtml(category.name)}</a></nav>`
+    : linkedSubcategories.length
+      ? `<nav class="subcategories" aria-label="Podkategorie s nabídkami">${linkedSubcategories.map(item =>
+          `<a href="/kategorie/${category.slug}/${item.slug}">${escapeHtml(item.name)}</a>`).join(' ')}</nav>`
+      : '';
+  const previous = page > 1 ? `<a href="${categoryPath(category, page - 1, subcategory)}" rel="prev">Předchozí stránka</a>` : '';
+  const next = hasNext ? `<a href="${categoryPath(category, page + 1, subcategory)}" rel="next">Další nabídky</a>` : '';
   return `<!doctype html>
 <html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)}</title>
-<meta name="description" content="${escapeHtml(category.description)}">
+<meta name="description" content="${escapeHtml(description)}">
 <link rel="canonical" href="${escapeHtml(canonical)}">
 ${config.target !== 'prod' || noOffers ? '<meta name="robots" content="noindex">' : ''}
 <link rel="icon" href="/assets/rentulo-logo-mark.png" type="image/png">
@@ -52,6 +65,7 @@ header img{width:38px;height:38px}h1{font-size:clamp(26px,4vw,38px);margin:24px 
 .lead{margin:0 0 20px;color:#4f6158}.categories{display:flex;flex-wrap:wrap;gap:9px;margin:0 0 26px}
 .categories a{padding:7px 12px;background:#fff;border:1px solid #c5dcd0;border-radius:20px;text-decoration:none}
 .categories a[aria-current="page"]{background:#126846;color:#fff;border-color:#126846}
+.subcategories{display:flex;flex-wrap:wrap;gap:9px;margin:0 0 22px}.subcategories a{padding:7px 12px;background:#e4f3e9;border-radius:20px;text-decoration:none}
 .offers{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
 .offer-card{min-width:0;background:white;border:1px solid #dce7df;border-radius:15px;overflow:hidden}
 .offer-photo{display:block;background:#edf3ef;height:190px}.offer-photo img{width:100%;height:100%;object-fit:contain}
@@ -61,9 +75,10 @@ header img{width:38px;height:38px}h1{font-size:clamp(26px,4vw,38px);margin:24px 
 </style></head><body>
 <header><div class="container"><a href="/"><img src="/assets/rentulo-logo-mark.png" alt="">Rentulo</a></div></header>
 <main class="container"><a href="/nabidky">← Všechny nabídky</a><h1>${escapeHtml(baseTitle)}</h1>
-<p class="lead">${escapeHtml(category.description)}${page > 1 ? ` · strana ${page}` : ''}</p>
+<p class="lead">${escapeHtml(description)}${page > 1 ? ` · strana ${page}` : ''}</p>
 <nav class="categories" aria-label="Kategorie nabídek">${categoryLinks}</nav>
-${cards ? `<section class="offers" aria-label="Aktuální nabídky v kategorii ${escapeHtml(category.name)}">${cards}</section>` : '<p class="empty">V této kategorii zatím nejsou zveřejněny žádné nabídky. Prohlédněte si <a href="/nabidky">všechny nabídky</a>.</p>'}
+${subcategoryLinks}
+${cards ? `<section class="offers" aria-label="Aktuální nabídky: ${escapeHtml(baseTitle)}">${cards}</section>` : '<p class="empty">V této kategorii zatím nejsou zveřejněny žádné nabídky. Prohlédněte si <a href="/nabidky">všechny nabídky</a>.</p>'}
 <nav class="pagination" aria-label="Stránkování kategorie">${previous}${next}</nav>
 </main></body></html>`;
 }
@@ -109,7 +124,7 @@ export default async function handler(req, res) {
       return;
     }
     const endpoint = new URL('/rest/v1/public_offers', config.supabaseOrigin);
-    endpoint.searchParams.set('select', 'id,name,category,city,price_per_day,photo_url');
+    endpoint.searchParams.set('select', 'id,name,category,city,price_per_day,photo_url,subcategory_slug');
     endpoint.searchParams.set('status', 'eq.active');
     endpoint.searchParams.set('category', `eq.${category.name}`);
     endpoint.searchParams.set('order', 'id.asc');

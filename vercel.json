@@ -157,6 +157,10 @@
       "destination": "/api/offers-directory"
     },
     {
+      "source": "/kategorie/:slug/:subslug",
+      "destination": "/api/subcategory-page?slug=:slug&subslug=:subslug"
+    },
+    {
       "source": "/kategorie/:slug",
       "destination": "/api/category-page?slug=:slug"
     },
@@ -176,6 +180,9 @@
       "includeFiles": "{detail.html,js/supabase-config.js}"
     },
     "api/category-page.mjs": {
+      "includeFiles": "{detail.html,js/supabase-config.js}"
+    },
+    "api/subcategory-page.mjs": {
       "includeFiles": "{detail.html,js/supabase-config.js}"
     }
   }

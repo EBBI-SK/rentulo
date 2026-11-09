@@ -112,7 +112,7 @@ test('category HTML lists real filtered offers without JS and links to all categ
   const u = new URL(upstreamUrl);
   assert.equal(u.origin, 'https://vspposovhdgvbeukoivh.supabase.co');
   assert.equal(u.pathname, '/rest/v1/public_offers');
-  assert.equal(u.searchParams.get('select'), 'id,name,category,city,price_per_day,photo_url');
+  assert.equal(u.searchParams.get('select'), 'id,name,category,city,price_per_day,photo_url,subcategory_slug');
   assert.equal(u.searchParams.get('status'), 'eq.active');
   assert.equal(u.searchParams.get('category'), 'eq.Stavba');
   assert.equal(u.searchParams.get('limit'), '21');

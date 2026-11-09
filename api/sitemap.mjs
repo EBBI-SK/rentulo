@@ -3,6 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { getOfferSeoConfig } from './offer-page.mjs';
 import { SEO_CATEGORIES, getSeoCategorySlug } from './seo-categories.mjs';
+import { SEO_SUBCATEGORIES, getSeoSubcategory } from './seo-subcategories.mjs';
 
 const PUBLIC_PAGES = [
   ...Object.values(JSON.parse(
@@ -29,7 +30,7 @@ export async function listSitemapOffers(config, fetcher = fetch) {
   let afterId = '';
   for (;;) {
     const endpoint = new URL('/rest/v1/public_offers', config.supabaseOrigin);
-    endpoint.searchParams.set('select', 'id,updated_at,category');
+    endpoint.searchParams.set('select', 'id,updated_at,category,subcategory_slug');
     endpoint.searchParams.set('status', 'eq.active');
     endpoint.searchParams.set('order', 'id.asc');
     endpoint.searchParams.set('limit', String(PAGE_SIZE));
@@ -54,7 +55,9 @@ export async function listSitemapOffers(config, fetcher = fetch) {
       if (afterId && id <= afterId) {
         throw new Error('Public offers are not strictly ordered');
       }
-      offers.push({ id, lastmod: lastModified(row.updated_at), categorySlug: getSeoCategorySlug(row.category) });
+      const categorySlug = getSeoCategorySlug(row.category);
+      const subcategory = getSeoSubcategory(categorySlug, row.subcategory_slug);
+      offers.push({ id, lastmod: lastModified(row.updated_at), categorySlug, subcategorySlug: subcategory?.slug || null });
       afterId = id;
     }
     if (rows.length < PAGE_SIZE) return offers;
@@ -67,6 +70,14 @@ export function renderSitemapXml(offers, origin = 'https://rentulo.com') {
   const usedCategorySlugs = new Set(offers.map(offer => offer.categorySlug).filter(Boolean));
   for (const category of SEO_CATEGORIES) {
     if (usedCategorySlugs.has(category.slug)) paths.push({ url: `${origin}/kategorie/${category.slug}` });
+  }
+  // Only active, public offers can make their subcategory indexable.
+  const usedSubcategories = new Set(offers.filter(offer => offer.categorySlug && offer.subcategorySlug)
+    .map(offer => `${offer.categorySlug}/${offer.subcategorySlug}`));
+  for (const subcategory of SEO_SUBCATEGORIES) {
+    if (usedSubcategories.has(`${subcategory.categorySlug}/${subcategory.slug}`)) {
+      paths.push({ url: `${origin}/kategorie/${subcategory.categorySlug}/${subcategory.slug}` });
+    }
   }
   for (const offer of offers) {
     if (!UUID_PATTERN.test(offer.id)) throw new Error('Invalid sitemap offer ID');
