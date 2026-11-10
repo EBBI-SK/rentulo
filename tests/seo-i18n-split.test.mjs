@@ -96,8 +96,10 @@ test('TEST build publishes only the Czech fallback at startup, not the complete 
   for (const language of allLanguages.slice(1)) {
     assert.ok(statSync(join(output, `js/i18n-${language}.js`)).size > 20000);
   }
-  assert.match(read('vysledky.html'), /<script src="js\/i18n\.js"><\/script>/);
-  assert.match(read('vysledky.html'), /rel="preconnect"/);
+  // TEST results HTML is rendered by the SSR function using the same source
+  // page and generated /js/i18n.js runtime, not emitted as a static file.
+  assert.match(readFileSync(join(root, 'vysledky.html'), 'utf8'), /<script src="js\/i18n\.js"><\/script>/);
+  assert.match(readFileSync(join(root, 'api/results-page.mjs'), 'utf8'), /rel=\"preconnect\"/);
 });
 
 test('Czech visitors get synchronous translations with no additional network request', () => {

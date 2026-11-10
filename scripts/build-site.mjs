@@ -145,6 +145,10 @@ function withSeoMetadata(filename, html) {
 rmSync(output, { recursive: true, force: true });
 mkdirSync(output, { recursive: true });
 for (const filename of htmlFiles) {
+  // Vercel gives existing static files precedence over ordinary rewrites.
+  // On TEST, the results page is served by the Vercel SSR function instead;
+  // keep the original source HTML as its template and PROD output unchanged.
+  if (filename === 'vysledky.html' && target === 'test') continue;
   const html = readFileSync(join(root, filename), 'utf8');
   writeFileSync(join(output, filename), withSeoMetadata(filename, html), 'utf8');
 }
