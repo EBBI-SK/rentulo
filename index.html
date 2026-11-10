@@ -1589,6 +1589,45 @@
     @media (max-width: 640px) {
       .home-availability-note { font-size: 12.5px; }
     }
+    /* BOD 7: fit the desktop landing page with map previews and footer in view.
+       Do not hide overflowing content; tablet/mobile retain natural scrolling. */
+    @media (min-width: 1101px) and (max-height: 900px) {
+      body[data-navigation-page="uvod"] .home-copy { padding-top: 8px; }
+      body[data-navigation-page="uvod"] .home-availability-note { margin-top: 6px; }
+      body[data-navigation-page="uvod"] .home-map-card { gap: 8px; }
+      body[data-navigation-page="uvod"] .home-map-stage {
+        min-height: clamp(255px, calc(100dvh - 473px), 540px);
+      }
+      body[data-navigation-page="uvod"] .home-points {
+        gap: clamp(6px, 1dvh, 10px);
+      }
+      body[data-navigation-page="uvod"] .home-point-button {
+        min-height: clamp(101px, 14.5dvh, 148px);
+        padding: 5px 7px;
+      }
+      body[data-navigation-page="uvod"] .home-category-icon {
+        height: clamp(68px, 10.5dvh, 112px);
+      }
+      body[data-navigation-page="uvod"] .home-map-preview-photo {
+        height: clamp(60px, 9dvh, 72px);
+      }
+      body[data-navigation-page="uvod"] .home-directory-link {
+        min-height: 44px;
+      }
+    }
+    /* On short desktop windows, retain a usable map instead of clipping the footer. */
+    @media (min-width: 1101px) and (max-height: 650px) {
+      body[data-navigation-page="uvod"] .home-map-card { gap: 6px; }
+      body[data-navigation-page="uvod"] .home-map-stage {
+        min-height: clamp(210px, calc(100dvh - 395px), 240px);
+      }
+      body[data-navigation-page="uvod"] .home-point-button {
+        min-height: 92px;
+        padding: 4px 7px;
+      }
+      body[data-navigation-page="uvod"] .home-category-icon { height: 64px; }
+      body[data-navigation-page="uvod"] .home-directory-link { min-height: 42px; }
+    }
 </style>
 </head>
 
