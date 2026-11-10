@@ -1,6 +1,7 @@
 import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { runInNewContext } from 'node:vm';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const output = resolve(process.argv[2] || join(root, 'dist'));
@@ -106,6 +107,14 @@ function withSeoMetadata(filename, html) {
     throw new Error(`Unexpected existing SEO metadata in ${filename}`);
   }
 
+  // The results page fetches offers and their photos from Supabase at startup.
+  // Build the hint for the selected environment so TEST and PROD never preconnect
+  // to each other's Supabase project.
+  if (filename === 'vysledky.html') {
+    html = html.replace(/<head>/i,
+      `<head>\n  <link rel="preconnect" href="${escapeHtml(parsed.origin)}" crossorigin />`);
+  }
+
   const meta = [];
   if (publicPage) {
     const content = publicPage.translations.cs;
@@ -136,6 +145,10 @@ function withSeoMetadata(filename, html) {
 rmSync(output, { recursive: true, force: true });
 mkdirSync(output, { recursive: true });
 for (const filename of htmlFiles) {
+  // Vercel gives existing static files precedence over ordinary rewrites.
+  // For TEST and PROD, results are served by the Vercel SSR function;
+  // keep the original source HTML as its template for the server runtime.
+  if (filename === 'vysledky.html') continue;
   const html = readFileSync(join(root, filename), 'utf8');
   writeFileSync(join(output, filename), withSeoMetadata(filename, html), 'utf8');
 }
@@ -143,6 +156,36 @@ for (const directory of ['css', 'js', 'assets']) {
   cpSync(join(root, directory), join(output, directory), { recursive: true });
 }
 writeFileSync(join(output, 'js/supabase-config.js'), builtConfig, 'utf8');
+// Keep the full i18n.js dictionary as the audited source (and for source-level tests).
+// Deliver only the Czech fallback at startup, then load a selected language on demand.
+const i18nSource = readFileSync(join(root, 'js/i18n.js'), 'utf8');
+const dictionaryMatch = i18nSource.match(/  const translations = (\{[\s\S]*?\n  \});/);
+if (!dictionaryMatch || i18nSource.match(/const translations =/g)?.length !== 1) {
+  throw new Error('Unable to safely extract the original Rentulo translations');
+}
+const dictionaries = runInNewContext(`(${dictionaryMatch[1]})`, Object.create(null), { timeout: 1000 });
+const supportedLanguages = ['cs', 'sk', 'en', 'de', 'pl'];
+const keys = Object.keys(dictionaries.cs || {});
+if (keys.length < 1000 || Object.keys(dictionaries).length !== supportedLanguages.length ||
+    supportedLanguages.some(language => {
+      const dictionary = dictionaries[language];
+      return !dictionary || Object.keys(dictionary).length < keys.length ||
+        keys.some(key => typeof dictionary[key] !== 'string');
+    })) {
+  throw new Error('The Rentulo translation catalog is incomplete');
+}
+const i18nRuntime = readFileSync(join(root, 'scripts/i18n-runtime.js'), 'utf8');
+if (i18nRuntime.split('__RENTULO_CS_DICTIONARY__').length !== 2) {
+  throw new Error('Missing i18n runtime dictionary placeholder');
+}
+writeFileSync(join(output, 'js/i18n.js'),
+  i18nRuntime.replace('__RENTULO_CS_DICTIONARY__', JSON.stringify(dictionaries.cs)), 'utf8');
+for (const language of supportedLanguages.filter(language => language !== 'cs')) {
+  writeFileSync(join(output, `js/i18n-${language}.js`),
+    `window.rentuloRegisterTranslations(${JSON.stringify(language)}, ${JSON.stringify(dictionaries[language])});\n`,
+    'utf8');
+}
+
 const seoRuntime = readFileSync(join(root, 'scripts/seo-runtime.js'), 'utf8');
 writeFileSync(join(output, 'js/seo.js'),
   `const RENTULO_SEO_DATA = ${JSON.stringify(seoPages)};\n${seoRuntime}`, 'utf8');

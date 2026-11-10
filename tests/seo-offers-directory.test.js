@@ -33,17 +33,48 @@ async function request(data, options = {}) {
   }
 }
 
-test('the crawlable directory route and safe home links exist without JavaScript', () => {
+test('crawlable SEO directory stays intact and homepage browse reuses existing results page', () => {
   const vercel=JSON.parse(readFileSync(path.join(root,'vercel.json'),'utf8'));
   assert.deepEqual(vercel.rewrites.find(x=>x.source==='/nabidky'),{source:'/nabidky',destination:'/api/offers-directory'});
   assert.match(vercel.functions['api/offers-directory.mjs'].includeFiles,/js\/supabase-config.js/);
   const home=readFileSync(path.join(root,'index.html'),'utf8');
-  assert.match(home,/<a class="home-directory-link" href="\/nabidky">Prohlédnout všechny nabídky<\/a>/);
+  assert.match(home,/<a class="home-directory-link" href="vysledky\.html">\s*<span data-i18n="nav\.browse">Prohlédnout nabídky<\/span>\s*<span class="home-directory-link-arrow" aria-hidden="true">→<\/span>\s*<\/a>/);
+  assert.match(home,/body\[data-navigation-page="uvod"\] \.home-directory-link\s*\{\s*order: 8;/);
+  assert.match(home,/body\[data-navigation-page="uvod"\] \.home-map-previews \{ order: 7;/);
+  const navigation=readFileSync(path.join(root,'js/navigation.js'),'utf8');
+  assert.match(navigation,/<a href="vysledky\.html"[^>]*>\$\{navEscapeHtml\(navTranslate\("nav\.browse"/);
+  const i18n=readFileSync(path.join(root,'js/i18n.js'),'utf8');
+  assert.equal((i18n.match(/"nav\.browse"/g)||[]).length,5);
+  const sitemap=readFileSync(path.join(root,'api/sitemap.mjs'),'utf8');
+  assert.match(sitemap,/['"]\/nabidky['"]/);
+  const categoryPage=readFileSync(path.join(root,'api/category-page.mjs'),'utf8');
+  assert.match(categoryPage,/href=\"\/nabidky\"/);
   const map=readFileSync(path.join(root,'js/home-page.js'),'utf8');
   assert.doesNotMatch(map,/"detail\.html\?id=" \+ encodeURIComponent/);
   assert.equal((map.match(/"\/nabidka\/" \+ encodeURIComponent\(/g)||[]).length,2);
   const results=readFileSync(path.join(root,'js/results-page.js'),'utf8');
   assert.match(results,/"\/nabidka\/" \+ encodeURIComponent\(offerId\)/);
+});
+
+test('homepage browse CTA is aligned with categories on desktop and full-width below offers on mobile', () => {
+  const home=readFileSync(path.join(root,'index.html'),'utf8');
+  const style=home.match(/\/\* Secondary browse action:[\s\S]*?<\/style>/)?.[0];
+  assert.ok(style,'browse link styling must be present');
+  assert.match(style, /\.home-directory-link\s*\{[^}]*justify-content:\s*space-between;[^}]*align-self:\s*flex-start;[^}]*width:\s*250px;[^}]*min-height:\s*48px;[^}]*border-radius:\s*14px;/);
+  assert.match(style, /@media \(min-width:\s*1101px\)\s*\{[^}]*\.home-map-card\s*\{\s*gap:\s*12px;/);
+  assert.match(style, /@media \(max-width:\s*1100px\)[\s\S]*?\.home-directory-link\s*\{[^}]*order:\s*8;[^}]*margin:\s*12px 0 20px;/);
+  assert.match(style, /@media \(max-width:\s*640px\)[\s\S]*?\.home-directory-link\s*\{[^}]*width:\s*100%;/);
+  assert.match(home, /class="home-map-previews"[^>]*><\/div>\s*<a class="home-directory-link" href="vysledky\.html">/);
+  assert.match(home, /<p class="home-text" data-i18n="home\.heroSupportingText">Půjčuj své věci lidem v okolí a vydělávej\. Nebo si jednoduše půjč to, co právě potřebuješ\.<\/p>/);
+  const dictionaries=readFileSync(path.join(root,'js/i18n.js'),'utf8');
+  assert.equal((dictionaries.match(/"home\.heroSupportingText"/g)||[]).length,5);
+  for(const phrase of [
+    'Půjčuj své věci lidem v okolí a vydělávej.',
+    'Požičiavaj svoje veci ľuďom v okolí a zarábaj.',
+    'Rent out your things to people nearby and earn money.',
+    'Vermiete deine Sachen an Menschen in deiner Nähe und verdiene Geld.',
+    'Wynajmuj swoje rzeczy osobom z okolicy i zarabiaj.'
+  ]) assert.ok(dictionaries.includes(`"home.heroSupportingText": "${phrase}`),phrase);
 });
 
 test('first page lists active offers in initial HTML and TEST stays noindex',async()=>{
@@ -54,6 +85,8 @@ test('first page lists active offers in initial HTML and TEST stays noindex',asy
   assert.match(res.body,/<h2><a href="\/nabidka\/cbf1184a-97fd-4fd1-8b62-e084a4452d28">Aku vrtačka Bosch<\/a><\/h2>/);
   assert.match(res.body,/Praha/);
   assert.match(res.body,/Stavba/);
+  assert.match(res.body,/href="\/kategorie\/stavba"/);
+  assert.equal((res.body.match(/href="\/kategorie\/(?:domacnost|zahrada|stavba|hobby|party|ostatni)"/g)||[]).length,7);
   assert.match(res.body,/250 Kč \/ den/);
   assert.match(res.body,/rel="canonical" href="https:\/\/rentulo.eu\/nabidky"/);
   const query = new URL(upstreamUrl).searchParams;
@@ -68,6 +101,7 @@ test('page 1 with no active offers is useful and has no fabricated links',async(
   assert.equal(res.statusCode,200);
   assert.match(res.body,/Zatím nejsou zveřejněny žádné nabídky/);
   assert.doesNotMatch(res.body,/<article class="offer-card">/);
+  assert.match(res.body,/<nav class="categories"/);
 });
 
 test('pagination provides crawlable next and prev links with stable canonical URLs',async()=>{

@@ -1511,7 +1511,58 @@
         line-height: 1;
       }
     }
-  .home-directory-link { display:block; margin:14px 0 0; text-align:center; font-weight:700; color:#176747; }
+  /* Secondary browse action: align with the category row, never compete with the main CTA. */
+  .home-directory-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    align-self: flex-start;
+    flex: 0 0 auto;
+    gap: 12px;
+    width: 250px;
+    max-width: 100%;
+    min-height: 48px;
+    margin: 0;
+    padding: 0 16px;
+    border: 1px solid #b9d8c9;
+    border-radius: 14px;
+    background: #f1f8f4;
+    color: #176747;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.3;
+    text-decoration: none;
+    text-align: left;
+    transition: background-color .15s ease, border-color .15s ease;
+  }
+  .home-directory-link:hover {
+    background: #e7f4ed;
+    border-color: #80b8a0;
+  }
+  .home-directory-link:focus-visible {
+    outline: 3px solid #176747;
+    outline-offset: 3px;
+  }
+  .home-directory-link-arrow { flex: 0 0 auto; font-size: 18px; line-height: 1; }
+  @media (min-width: 1101px) {
+    /* Flex columns share their bottom edge: six categories left, browse action right. */
+    body[data-navigation-page="uvod"] .home-map-card { gap: 12px; }
+  }
+  @media (max-width: 1100px) {
+    /* The map card uses display: contents here; keep browse below map previews. */
+    body[data-navigation-page="uvod"] .home-directory-link {
+      order: 8;
+      align-self: flex-start;
+      width: min(100%, 360px);
+      margin: 12px 0 20px;
+    }
+  }
+  @media (max-width: 640px) {
+    body[data-navigation-page="uvod"] .home-directory-link {
+      align-self: stretch;
+      width: 100%;
+    }
+  }
 </style>
 </head>
 
@@ -1539,7 +1590,7 @@
       <div class="home-copy">
         <h1><span class="home-title-dark" data-i18n="home.titleFirst">Vydělávej na věcech,</span><span class="home-title-green" data-i18n="home.titleSecond">které právě nepoužíváš.</span></h1>
 
-        <p class="home-text" data-i18n="home.heroSupportingText">Pronajímej věci jednoduše, bezpečně a lidem ve svém okolí. Dále je nepoužíváš? Někdo jiný je právě teď potřebuje.</p>
+        <p class="home-text" data-i18n="home.heroSupportingText">Půjčuj své věci lidem v okolí a vydělávej. Nebo si jednoduše půjč to, co právě potřebuješ.</p>
 
         <a href="nabidnout.html" class="home-offer-cta">
           <span class="home-offer-cta-plus" aria-hidden="true">+</span>
@@ -1676,7 +1727,10 @@
           </div>
         </div>
         <div class="home-map-previews" id="homeMapPreviews" aria-label="Nejnovější nabídky v zobrazené oblasti" data-i18n-aria-label="home.latestInView" hidden></div>
-        <a class="home-directory-link" href="/nabidky">Prohlédnout všechny nabídky</a>
+        <a class="home-directory-link" href="vysledky.html">
+          <span data-i18n="nav.browse">Prohlédnout nabídky</span>
+          <span class="home-directory-link-arrow" aria-hidden="true">→</span>
+        </a>
       </aside>
     </section>
   </main>

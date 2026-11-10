@@ -106,9 +106,9 @@ test('active public offer responds with unique canonical, description, original 
   assert.equal((res.body.match(/<base\b/gi) || []).length, 1, 'SEO detail must not duplicate the base');
   assert.match(res.body, /<meta name="robots" content="noindex" \/>/);
   assert.ok(res.body.includes(`rel="canonical" href="https://rentulo.eu/nabidka/${offerId}"`));
-  assert.ok(res.body.includes('property="og:title" content="Aku vrtačka Bosch – Praha | Rentulo"'));
+  assert.ok(res.body.includes('property="og:title" content="Aku vrtačka Bosch k půjčení – Praha | Rentulo"'));
   assert.ok(res.body.includes(`property="og:image" content="${publicImage}"`));
-  assert.ok(res.body.includes('za 250 Kč/den'));
+  assert.ok(res.body.includes('Cena půjčení 250 Kč/den'));
   // These elements must be present in the initial HTTP HTML, without JS.
   const publicBody = res.body.slice(res.body.indexOf('<body'));
   assert.match(publicBody, /<div id="detailContent" data-server-rendered-offer="true">/);
