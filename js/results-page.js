@@ -680,6 +680,17 @@ function getOfferPhoto(offer) {
       image.src = original;
     }
 
+    function recoverFailedServerPhotos() {
+      // A server-rendered image can fail before this script registers the
+      // capturing error listener. In that case, retry its original source once.
+      if (typeof document.querySelectorAll !== "function") return;
+      document.querySelectorAll('#resultsList img[data-original-photo]').forEach(function (image) {
+        if (image.complete && image.naturalWidth === 0) {
+          restoreOriginalResultPhoto({ target: image });
+        }
+      });
+    }
+
     function getEmptyResultsContent(type) {
       const content = {
         "load-error": ["results.empty.loadErrorTitle", "Nabídky se nepodařilo načíst.", "results.empty.loadErrorMessage", "Zkontrolujte připojení k internetu a zkuste stránku obnovit.", "vysledky.html", "results.tryAgain", "Zkusit znovu", "index.html", "results.backHome", "Zpět na úvod"],
@@ -1076,6 +1087,9 @@ const HOME_CATEGORY_GROUPS = {
       const list = document.getElementById("resultsList");
       showResultsDateStatus(dates.error || (dates.enabled ? "hint" : ""), Boolean(dates.error));
 
+      // Do not replace the server preview if the user edits a filter while
+      // the full live dataset is still loading.
+      if (resultsLoadState === "loading") return;
       if (resultsLoadState === "error") {
         renderEmptyResults("load-error");
         return;
@@ -1130,6 +1144,37 @@ const HOME_CATEGORY_GROUPS = {
       if (!sortedOffers.length) {
         renderEmptyResults("no-match");
         return;
+      }
+      // Keep server-rendered cards (and their already-loading images) mounted if
+      // the live public data still matches. Additional offers are appended.
+      // Search, date, GPS or language changes continue through the normal render.
+      if (typeof list.getAttribute === "function" &&
+          list.getAttribute("data-server-preview") === "1") {
+        const serverCards = [...list.querySelectorAll("[data-server-offer-key]")];
+        const currentLanguage = typeof window.getRentuloLanguage === "function"
+          ? window.getRentuloLanguage() : "cs";
+        const canKeep = currentLanguage === "cs" && !dates.enabled &&
+          !isNearbySearchMode() && serverCards.length > 0 &&
+          serverCards.length <= sortedOffers.length && serverCards.every(function (card, index) {
+            const offer = sortedOffers[index];
+            const key = JSON.stringify([
+              String(getOfferId(offer) || ""), String(getOfferName(offer) || ""),
+              String(offer.category || ""), String(getOfferCity(offer) || "-"),
+              String(getOfferPrice(offer) || 0), String(getOfferPhoto(offer) || ""),
+              String(getOfferOwnerId(offer) || ""),
+              String(offer.updatedAt || offer.updated_at || ""),
+              String(offer.supabaseStatus || "")
+            ]);
+            return card.getAttribute("data-server-offer-key") === key;
+          });
+        list.removeAttribute("data-server-preview");
+        if (canKeep && typeof list.insertAdjacentHTML === "function") {
+          serverCards.forEach(card => card.removeAttribute("data-server-offer-key"));
+          const remaining = sortedOffers.slice(serverCards.length)
+            .map((offer, index) => renderOfferCard(offer, index + serverCards.length));
+          if (remaining.length) list.insertAdjacentHTML("beforeend", remaining.join(""));
+          return;
+        }
       }
       list.innerHTML = sortedOffers.map(renderOfferCard).join("");
     }
@@ -1244,7 +1289,13 @@ const HOME_CATEGORY_GROUPS = {
       updateResultsFilterLabelsForViewport();
       setupResultsEvents();
 
-      renderEmptyResults("loading");
+      // A server-rendered preview is visible immediately; do not erase it with
+      // a loading placeholder while the browser verifies the live full dataset.
+      const initialList = document.getElementById("resultsList");
+      const hasServerPreview = initialList && typeof initialList.getAttribute === "function" &&
+        initialList.getAttribute("data-server-preview") === "1";
+      if (!hasServerPreview) renderEmptyResults("loading");
+      else recoverFailedServerPhotos();
 
       resultsOffers = await loadOffersFromSupabase();
       resultsOffers = await attachPublicGpsLocations(resultsOffers);
