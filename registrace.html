@@ -142,9 +142,10 @@
 
           <div class="registration-field registration-field-full">
             <label for="countryCode" data-i18n="country.residenceLabel">Země bydliště</label>
-            <select id="countryCode" name="country" autocomplete="country" aria-describedby="registrationError" required>
+            <select id="countryCode" name="country" autocomplete="country" aria-describedby="registrationError registrationCountryNote" required>
               <option value="" data-i18n="country.choose">Vyberte zemi</option>
             </select>
+            <p class="registration-note" id="registrationCountryNote" data-i18n="registration.countryAvailabilityNote">Registrovat se můžete i z jiné země. Půjčování věcí je zatím dostupné pouze v ČR.</p>
           </div>
 
           <div class="registration-field registration-field-full">
