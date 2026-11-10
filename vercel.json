@@ -69,7 +69,7 @@
         },
         {
           "key": "Permissions-Policy",
-          "value": "camera=(), microphone=(), geolocation=(self), usb=(), browsing-topics=()"
+          "value": "camera=(), microphone=(), geolocation=(self), usb=()"
         },
         {
           "key": "Strict-Transport-Security",
