@@ -528,6 +528,16 @@
         " " + getResultsRatingLabel(ratingCount) + ")";
     }
 
+    function updateDisplayedOwnerRatings() {
+      const list = document.getElementById("resultsList");
+      if (!list) return;
+
+      // Update only rating text; rebuilding cards would restart image loads.
+      list.querySelectorAll("[data-owner-rating-id]").forEach(function (element) {
+        element.textContent = formatOwnerRating({ ownerId: element.getAttribute("data-owner-rating-id") });
+      });
+    }
+
     function getOfferDistanceKm(offer) {
       if (!isNearbySearchMode()) {
         return null;
@@ -622,14 +632,29 @@ function getOfferPhoto(offer) {
       );
     }
 
-    function renderResultImage(offer) {
+    function renderResultImage(offer, prioritized = false) {
       const photo = getOfferPhoto(offer);
       const name = getOfferName(offer);
 
       if (photo) {
+        // Only transform our public offer photos. Keep signed, external, and data URLs intact.
+        const isPublicOfferPhoto = /^https:\/\/[a-z0-9-]+\.supabase\.co\/storage\/v1\/object\/public\/offer-photos\/[^?#]+$/i.test(photo);
+        let imageSource = `src="${escapeHtml(photo)}"`;
+        if (isPublicOfferPhoto) {
+          const base = photo.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+          const small = `${base}?width=320&quality=75`;
+          const large = `${base}?width=640&quality=75`;
+          imageSource = `src="${escapeHtml(small)}" ` +
+            `srcset="${escapeHtml(small)} 320w, ${escapeHtml(large)} 640w" ` +
+            `sizes="(max-width: 430px) calc(100vw - 58px), (max-width: 760px) calc(100vw - 62px), (min-width: 1101px) 140px, 154px" ` +
+            `data-original-photo="${escapeHtml(photo)}"`;
+        }
+
+        // Prioritize the first visible result; the remaining images load near the viewport.
+        const imageHints = prioritized ? 'loading="eager" fetchpriority="high"' : 'loading="lazy"';
         return `
           <div class="result-image">
-            <img src="${escapeHtml(photo)}" alt="${escapeHtml(name)}">
+            <img ${imageSource} alt="${escapeHtml(name)}" ${imageHints} decoding="async">
           </div>
         `;
       }
@@ -640,6 +665,30 @@ function getOfferPhoto(offer) {
           <span>${escapeHtml(name)}</span>
         </div>
       `;
+    }
+
+    function restoreOriginalResultPhoto(event) {
+      const image = event && event.target;
+      if (!image || image.tagName !== 'IMG') return;
+      const original = image.getAttribute('data-original-photo');
+      if (!original) return;
+      // Error events do not bubble: this handler is registered in capture phase.
+      // Removing the marker also prevents a retry loop if the original fails.
+      image.removeAttribute('data-original-photo');
+      image.removeAttribute('srcset');
+      image.removeAttribute('sizes');
+      image.src = original;
+    }
+
+    function recoverFailedServerPhotos() {
+      // A server-rendered image can fail before this script registers the
+      // capturing error listener. In that case, retry its original source once.
+      if (typeof document.querySelectorAll !== "function") return;
+      document.querySelectorAll('#resultsList img[data-original-photo]').forEach(function (image) {
+        if (image.complete && image.naturalWidth === 0) {
+          restoreOriginalResultPhoto({ target: image });
+        }
+      });
     }
 
     function getEmptyResultsContent(type) {
@@ -699,7 +748,7 @@ function getOfferPhoto(offer) {
       `;
     }
 
-    function renderOfferCard(offer) {
+    function renderOfferCard(offer, index) {
       const offerId = getOfferId(offer);
       const name = getOfferName(offer);
       const city = getOfferCity(offer);
@@ -708,7 +757,7 @@ function getOfferPhoto(offer) {
 
       return `
         <article class="result-card">
-          ${renderResultImage(offer)}
+          ${renderResultImage(offer, index === 0)}
 
           <div class="result-main">
             <div class="result-heading">
@@ -731,7 +780,7 @@ function getOfferPhoto(offer) {
 
               <div class="result-info-box">
                 <span>${escapeHtml(resultsTranslate("results.ownerRating", "Hodnocení majitele"))}</span>
-                <strong>${escapeHtml(formatOwnerRating(offer))}</strong>
+                <strong data-owner-rating-id="${escapeHtml(getOfferOwnerId(offer))}">${escapeHtml(formatOwnerRating(offer))}</strong>
               </div>
 
               ${renderDistanceBox(offer)}
@@ -1038,6 +1087,9 @@ const HOME_CATEGORY_GROUPS = {
       const list = document.getElementById("resultsList");
       showResultsDateStatus(dates.error || (dates.enabled ? "hint" : ""), Boolean(dates.error));
 
+      // Do not replace the server preview if the user edits a filter while
+      // the full live dataset is still loading.
+      if (resultsLoadState === "loading") return;
       if (resultsLoadState === "error") {
         renderEmptyResults("load-error");
         return;
@@ -1093,6 +1145,37 @@ const HOME_CATEGORY_GROUPS = {
         renderEmptyResults("no-match");
         return;
       }
+      // Keep server-rendered cards (and their already-loading images) mounted if
+      // the live public data still matches. Additional offers are appended.
+      // Search, date, GPS or language changes continue through the normal render.
+      if (typeof list.getAttribute === "function" &&
+          list.getAttribute("data-server-preview") === "1") {
+        const serverCards = [...list.querySelectorAll("[data-server-offer-key]")];
+        const currentLanguage = typeof window.getRentuloLanguage === "function"
+          ? window.getRentuloLanguage() : "cs";
+        const canKeep = currentLanguage === "cs" && !dates.enabled &&
+          !isNearbySearchMode() && serverCards.length > 0 &&
+          serverCards.length <= sortedOffers.length && serverCards.every(function (card, index) {
+            const offer = sortedOffers[index];
+            const key = JSON.stringify([
+              String(getOfferId(offer) || ""), String(getOfferName(offer) || ""),
+              String(offer.category || ""), String(getOfferCity(offer) || "-"),
+              String(getOfferPrice(offer) || 0), String(getOfferPhoto(offer) || ""),
+              String(getOfferOwnerId(offer) || ""),
+              String(offer.updatedAt || offer.updated_at || ""),
+              String(offer.supabaseStatus || "")
+            ]);
+            return card.getAttribute("data-server-offer-key") === key;
+          });
+        list.removeAttribute("data-server-preview");
+        if (canKeep && typeof list.insertAdjacentHTML === "function") {
+          serverCards.forEach(card => card.removeAttribute("data-server-offer-key"));
+          const remaining = sortedOffers.slice(serverCards.length)
+            .map((offer, index) => renderOfferCard(offer, index + serverCards.length));
+          if (remaining.length) list.insertAdjacentHTML("beforeend", remaining.join(""));
+          return;
+        }
+      }
       list.innerHTML = sortedOffers.map(renderOfferCard).join("");
     }
 
@@ -1122,6 +1205,7 @@ const HOME_CATEGORY_GROUPS = {
     }
 
     function setupResultsEvents() {
+      document.addEventListener("error", restoreOriginalResultPhoto, true);
       document.getElementById("results-search-button").addEventListener("click", function () {
         applySearchAndUpdateUrl();
       });
@@ -1205,13 +1289,25 @@ const HOME_CATEGORY_GROUPS = {
       updateResultsFilterLabelsForViewport();
       setupResultsEvents();
 
-      renderEmptyResults("loading");
+      // A server-rendered preview is visible immediately; do not erase it with
+      // a loading placeholder while the browser verifies the live full dataset.
+      const initialList = document.getElementById("resultsList");
+      const hasServerPreview = initialList && typeof initialList.getAttribute === "function" &&
+        initialList.getAttribute("data-server-preview") === "1";
+      if (!hasServerPreview) renderEmptyResults("loading");
+      else recoverFailedServerPhotos();
 
       resultsOffers = await loadOffersFromSupabase();
       resultsOffers = await attachPublicGpsLocations(resultsOffers);
-      await loadRatingSummariesForOffers(resultsOffers);
-
       renderResults();
+
+      // Ratings are supplementary; they must not delay the first offer images.
+      try {
+        await loadRatingSummariesForOffers(resultsOffers);
+        updateDisplayedOwnerRatings();
+      } catch (error) {
+        console.warn("Hodnocení majitelů se nepodařilo načíst.");
+      }
     }
 
     document.addEventListener("DOMContentLoaded", function () {

@@ -34,6 +34,9 @@ test('TEST has pre-rendered canonical and Open Graph on public pages only', () =
     assert.ok(html.includes('src="js/seo.js"'));
   }
   for (const name of Object.keys(catalog.private)) {
+    // On TEST, vysledky.html is served by the SSR function rather than as a
+    // static file. Its private/noindex metadata is covered by SSR tests.
+    if (name === 'vysledky.html') continue;
     const html=get(name);
     assert.ok(html.includes('name="robots" content="noindex"'));
     assert.ok(!html.includes('rel="canonical"'));

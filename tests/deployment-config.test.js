@@ -47,7 +47,13 @@ test('TEST build uses existing connection by default and does not publish server
   const outputScript = readFileSync(path.join(dir, 'js/supabase-config.js'), 'utf8');
   assert.match(outputScript, new RegExp(`https://${testRef}\\.supabase\\.co/`));
   assert.match(outputScript, /RENTULO_DEPLOY_TARGET = "test"/);
-  const html = readdirSync(root).filter(f => f.endsWith('.html'));
+  // TEST serves this route from the Vercel function, not a static file that
+  // would shadow the rewrite and prevent any server-side image discovery.
+  assert.equal(existsSync(path.join(dir, 'vysledky.html')), false);
+  const renderer = readFileSync(path.join(root, 'api/results-page.mjs'), 'utf8');
+  assert.match(renderer, /rel=\"preconnect\"/);
+  assert.ok(!renderer.includes(prodRef));
+  const html = readdirSync(root).filter(f => f.endsWith('.html') && f !== 'vysledky.html');
   assert.deepEqual(readdirSync(dir).filter(f => f.endsWith('.html')).sort(), html.sort());
   assert.ok(existsSync(path.join(dir, 'assets/flags/cz.svg')));
   assert.ok(existsSync(path.join(dir, 'css/home.css')));
@@ -68,7 +74,10 @@ test('PROD build receives only PROD client config and refuses the TEST domain', 
   assert.ok(outputScript.includes(`https://${prodRef}.supabase.co/`));
   assert.ok(outputScript.includes(fakeProdKey));
   assert.ok(!outputScript.includes(testRef));
-  assert.ok(!outputScript.includes('sb_publishable_1WQZ-gW9198Qu2amXZ-nPg_1dkadBSz'));
+  const originalTestKey = source.match(/const SUPABASE_PUBLISHABLE_KEY = ("[^"]+");/)?.[1];
+  assert.ok(originalTestKey && !outputScript.includes(originalTestKey));
+  assert.equal(existsSync(path.join(dir, 'vysledky.html')), false,
+    'PROD results must be served by a Vercel function rather than an overlapping static file');
   assert.equal(runtimeConfig(outputScript, 'rentulo.com').calls.length, 1);
   assert.equal(runtimeConfig(outputScript, 'www.rentulo.eu').calls.length, 0);
 }));
