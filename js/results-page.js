@@ -637,11 +637,24 @@ function getOfferPhoto(offer) {
       const name = getOfferName(offer);
 
       if (photo) {
+        // Only transform our public offer photos. Keep signed, external, and data URLs intact.
+        const isPublicOfferPhoto = /^https:\/\/[a-z0-9-]+\.supabase\.co\/storage\/v1\/object\/public\/offer-photos\/[^?#]+$/i.test(photo);
+        let imageSource = `src="${escapeHtml(photo)}"`;
+        if (isPublicOfferPhoto) {
+          const base = photo.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+          const small = `${base}?width=320&quality=75`;
+          const large = `${base}?width=640&quality=75`;
+          imageSource = `src="${escapeHtml(small)}" ` +
+            `srcset="${escapeHtml(small)} 320w, ${escapeHtml(large)} 640w" ` +
+            `sizes="(max-width: 430px) calc(100vw - 58px), (max-width: 760px) calc(100vw - 62px), (min-width: 1101px) 140px, 154px" ` +
+            `data-original-photo="${escapeHtml(photo)}"`;
+        }
+
         // Prioritize the first visible result; the remaining images load near the viewport.
         const imageHints = prioritized ? 'loading="eager" fetchpriority="high"' : 'loading="lazy"';
         return `
           <div class="result-image">
-            <img src="${escapeHtml(photo)}" alt="${escapeHtml(name)}" ${imageHints} decoding="async">
+            <img ${imageSource} alt="${escapeHtml(name)}" ${imageHints} decoding="async">
           </div>
         `;
       }
@@ -652,6 +665,19 @@ function getOfferPhoto(offer) {
           <span>${escapeHtml(name)}</span>
         </div>
       `;
+    }
+
+    function restoreOriginalResultPhoto(event) {
+      const image = event && event.target;
+      if (!image || image.tagName !== 'IMG') return;
+      const original = image.getAttribute('data-original-photo');
+      if (!original) return;
+      // Error events do not bubble: this handler is registered in capture phase.
+      // Removing the marker also prevents a retry loop if the original fails.
+      image.removeAttribute('data-original-photo');
+      image.removeAttribute('srcset');
+      image.removeAttribute('sizes');
+      image.src = original;
     }
 
     function getEmptyResultsContent(type) {
@@ -1134,6 +1160,7 @@ const HOME_CATEGORY_GROUPS = {
     }
 
     function setupResultsEvents() {
+      document.addEventListener("error", restoreOriginalResultPhoto, true);
       document.getElementById("results-search-button").addEventListener("click", function () {
         applySearchAndUpdateUrl();
       });
