@@ -106,6 +106,14 @@ function withSeoMetadata(filename, html) {
     throw new Error(`Unexpected existing SEO metadata in ${filename}`);
   }
 
+  // The results page fetches offers and their photos from Supabase at startup.
+  // Build the hint for the selected environment so TEST and PROD never preconnect
+  // to each other's Supabase project.
+  if (filename === 'vysledky.html') {
+    html = html.replace(/<head>/i,
+      `<head>\n  <link rel="preconnect" href="${escapeHtml(parsed.origin)}" crossorigin />`);
+  }
+
   const meta = [];
   if (publicPage) {
     const content = publicPage.translations.cs;
