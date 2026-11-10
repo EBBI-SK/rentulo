@@ -47,6 +47,11 @@ test('TEST build uses existing connection by default and does not publish server
   const outputScript = readFileSync(path.join(dir, 'js/supabase-config.js'), 'utf8');
   assert.match(outputScript, new RegExp(`https://${testRef}\\.supabase\\.co/`));
   assert.match(outputScript, /RENTULO_DEPLOY_TARGET = "test"/);
+  const resultsHtml = readFileSync(path.join(dir, 'vysledky.html'), 'utf8');
+  assert.ok(resultsHtml.includes(`<link rel="preconnect" href="https://${testRef}.supabase.co" crossorigin />`));
+  assert.equal((resultsHtml.match(/rel="preconnect"/g) || []).length, 1);
+  assert.ok(!resultsHtml.includes(prodRef));
+  assert.ok(resultsHtml.indexOf('rel="preconnect"') < resultsHtml.indexOf('rel="stylesheet"'));
   const html = readdirSync(root).filter(f => f.endsWith('.html'));
   assert.deepEqual(readdirSync(dir).filter(f => f.endsWith('.html')).sort(), html.sort());
   assert.ok(existsSync(path.join(dir, 'assets/flags/cz.svg')));
@@ -69,6 +74,11 @@ test('PROD build receives only PROD client config and refuses the TEST domain', 
   assert.ok(outputScript.includes(fakeProdKey));
   assert.ok(!outputScript.includes(testRef));
   assert.ok(!outputScript.includes('sb_publishable_1WQZ-gW9198Qu2amXZ-nPg_1dkadBSz'));
+  const resultsHtml = readFileSync(path.join(dir, 'vysledky.html'), 'utf8');
+  assert.ok(resultsHtml.includes(`<link rel="preconnect" href="https://${prodRef}.supabase.co" crossorigin />`));
+  assert.equal((resultsHtml.match(/rel="preconnect"/g) || []).length, 1);
+  assert.ok(!resultsHtml.includes(testRef));
+  assert.ok(resultsHtml.indexOf('rel="preconnect"') < resultsHtml.indexOf('rel="stylesheet"'));
   assert.equal(runtimeConfig(outputScript, 'rentulo.com').calls.length, 1);
   assert.equal(runtimeConfig(outputScript, 'www.rentulo.eu').calls.length, 0);
 }));
