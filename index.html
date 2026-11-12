@@ -1629,37 +1629,46 @@
       body[data-navigation-page="uvod"] .home-directory-link { min-height: 42px; }
     }
 
-    /* V1: compact platform-review strip. Hide completely until a genuine review is published. */
+    /* Platform reviews: quiet one-line trust strip, not a second homepage hero.
+       The strip stays hidden until a real review is published. */
     .home-platform-reviews[hidden] { display: none !important; }
     .home-platform-reviews {
       width: min(1480px, calc(100% - 64px));
-      min-height: 58px;
-      margin: 10px auto;
-      padding: 9px 18px;
+      min-height: 42px;
+      margin: 3px auto 4px;
+      padding: 5px 13px;
       border: 1px solid #e1f0e8;
-      border-radius: 15px;
+      border-radius: 12px;
       background: #eef8f2;
       display: grid;
-      grid-template-columns: minmax(235px, 1.2fr) minmax(150px, .65fr) minmax(0, 1.85fr) auto;
+      grid-template-columns: minmax(205px, 1.15fr) minmax(138px, .7fr) minmax(0, 1.9fr) auto;
       align-items: center;
-      column-gap: 20px;
+      column-gap: 14px;
       color: #102019;
     }
     .home-platform-reviews-heading,
     .home-platform-reviews-score,
-    .home-platform-reviews-link { display: flex; align-items: center; gap: 8px; }
-    .home-platform-reviews-heading { min-width: 0; font-size: 17px; }
-    .home-platform-reviews-heading svg { width: 29px; height: 29px; flex: 0 0 29px; fill: none; stroke: #07834d; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-    .home-platform-reviews-score { min-width: 0; padding-left: 15px; border-left: 1px solid #d7e9dc; white-space: nowrap; }
-    .home-platform-reviews-score strong { color: #007a4c; font-size: 21px; font-weight: 800; }
-    .home-platform-reviews-star { color: #e9a500; font-size: 21px; }
-    .home-platform-reviews-score > span:last-child { color: #64706b; font-size: 12px; }
-    .home-platform-reviews-latest { min-width: 0; margin: 0; padding-left: 17px; border-left: 1px solid #d7e9dc; color: #374e44; font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .home-platform-reviews-link { display: flex; align-items: center; gap: 7px; }
+    .home-platform-reviews-heading { min-width: 0; font-size: 14px; white-space: nowrap; }
+    .home-platform-reviews-heading svg { width: 21px; height: 21px; flex: 0 0 21px; fill: none; stroke: #07834d; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .home-platform-reviews-score { min-width: 0; padding-left: 12px; border-left: 1px solid #d7e9dc; white-space: nowrap; }
+    .home-platform-reviews-score strong { color: #007a4c; font-size: 17px; font-weight: 800; }
+    .home-platform-reviews-star { color: #e9a500; font-size: 16px; }
+    .home-platform-reviews-score > span:last-child { color: #64706b; font-size: 11px; }
+    .home-platform-reviews-latest { min-width: 0; margin: 0; padding-left: 12px; border-left: 1px solid #d7e9dc; color: #374e44; font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .home-platform-reviews-latest strong { font-weight: 800; color: #102019; }
-    .home-platform-reviews-link { justify-content: flex-end; white-space: nowrap; color: #087048; font-size: 14px; font-weight: 800; }
+    .home-platform-reviews-link { justify-content: flex-end; white-space: nowrap; color: #087048; font-size: 12px; font-weight: 800; }
     .home-platform-reviews-link:hover { text-decoration: underline; }
     .home-platform-reviews-link:focus-visible { outline: 2px solid #087048; outline-offset: 3px; }
-    .home-platform-reviews-link span { font-size: 22px; font-weight: 400; }
+    .home-platform-reviews-link span { font-size: 16px; font-weight: 400; }
+    /* Only with a visible review strip on compact desktop viewports: take back
+       its vertical footprint from the map, not from the footer or categories. */
+    @media (min-width: 1101px) and (min-height: 651px) and (max-height: 900px) {
+      body[data-navigation-page="uvod"]:has(#homePlatformReviews:not([hidden])) main { padding-bottom: 7px; }
+      body[data-navigation-page="uvod"]:has(#homePlatformReviews:not([hidden])) .home-map-stage {
+        min-height: clamp(220px, calc(100dvh - 516px), 480px);
+      }
+    }
     @media (max-width: 1100px) {
       .home-platform-reviews { grid-template-columns: 1fr auto; gap: 8px 12px; }
       .home-platform-reviews-score { justify-content: flex-end; border: none; padding: 0; }
@@ -1669,11 +1678,11 @@
     @media (max-width: 640px) {
       .home-platform-reviews { width: calc(100% - 32px); padding: 10px 12px; }
       .home-platform-reviews-heading { font-size: 14px; }
-      .home-platform-reviews-heading svg { width: 24px; height: 24px; flex-basis: 24px; }
-      .home-platform-reviews-score strong { font-size: 17px; }
+      .home-platform-reviews-heading svg { width: 21px; height: 21px; flex-basis: 21px; }
+      .home-platform-reviews-score strong { font-size: 16px; }
       .home-platform-reviews-score > span:last-child { font-size: 10px; }
       .home-platform-reviews-latest { grid-column: 1 / -1; font-size: 12px; }
-      .home-platform-reviews-link { grid-column: 1 / -1; grid-row: 3; justify-self: start; font-size: 13px; }
+      .home-platform-reviews-link { grid-column: 1 / -1; grid-row: 3; justify-self: start; font-size: 12px; }
     }
 </style>
 </head>
