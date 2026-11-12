@@ -49,6 +49,16 @@
         "de": {"title": "Datenschutzerklärung | Rentulo", "description": "Erfahre, wie Rentulo personenbezogene Daten verarbeitet, welche Rechte du hast und wie du uns zum Datenschutz erreichst."},
         "pl": {"title": "Ochrona danych osobowych | Rentulo", "description": "Sprawdź, jak Rentulo przetwarza dane osobowe, jakie masz prawa i jak skontaktować się z nami w sprawach prywatności."}
       }
+    },
+    "zkusenosti.html": {
+      "path": "/zkusenosti.html",
+      "translations": {
+        "cs": {"title": "Zkušenosti s Rentulem | Hodnocení uživatelů", "description": "Přečtěte si ověřené zkušenosti lidí, kteří využili Rentulo. Zjistěte, jak hodnotí půjčování a pronajímání věcí."},
+        "sk": {"title": "Skúsenosti s Rentulom | Hodnotenia používateľov", "description": "Prečítajte si overené skúsenosti ľudí, ktorí využili Rentulo. Zistite, ako hodnotia požičiavanie vecí."},
+        "en": {"title": "Rentulo Reviews | Verified User Experiences", "description": "Read verified reviews from people who have used Rentulo to rent or lend items."},
+        "de": {"title": "Rentulo Bewertungen | Echte Nutzererfahrungen", "description": "Lies verifizierte Erfahrungen von Menschen, die Gegenstände über Rentulo gemietet oder verliehen haben."},
+        "pl": {"title": "Opinie o Rentulo | Zweryfikowane doświadczenia", "description": "Przeczytaj zweryfikowane opinie osób, które korzystały z Rentulo, wypożyczając lub udostępniając rzeczy."}
+      }
     }
   },
   "private": {
