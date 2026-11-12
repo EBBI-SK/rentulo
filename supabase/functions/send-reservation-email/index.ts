@@ -56,9 +56,10 @@ type EmailEvent =
   | "extension_approved"
   | "extension_rejected"
   | "extension_paid"
-  | "extension_expired";
+  | "extension_expired"
+  | "platform_review_invite";
 
-type StandardEmailEvent = Exclude<EmailEvent, "paid_cancelled">;
+type StandardEmailEvent = Exclude<EmailEvent, "paid_cancelled" | "platform_review_invite">;
 
 type SupportedLanguage = "cs" | "sk" | "en" | "de" | "pl";
 
@@ -90,6 +91,7 @@ const eventStatus: Record<EmailEvent, string> = {
   paid: "paid",
   picked_up: "picked_up",
   returned: "returned",
+  platform_review_invite: "returned",
   paid_cancelled: "cancelled",
   expiry_reminder_pending: "pending",
   expiry_reminder_approved: "approved",
@@ -104,6 +106,16 @@ const eventStatus: Record<EmailEvent, string> = {
   extension_rejected: "picked_up",
   extension_paid: "picked_up",
   extension_expired: "picked_up",
+};
+
+// One optional invitation, 24 hours after the first confirmed return. This is
+// not a transactional booking notice and respects the recipient's email preference.
+const platformReviewEmailCopy: Record<SupportedLanguage, readonly [string, string, string]> = {
+  cs: ["Jak se vám líbilo Rentulo?", "Váš pronájem byl dokončen. Budeme rádi, když nám krátce napíšete svou zkušenost s Rentulem.", "Ohodnotit Rentulo"],
+  sk: ["Ako sa vám páčilo Rentulo?", "Váš prenájom bol dokončený. Budeme radi, ak sa s nami krátko podelíte o svoju skúsenosť s Rentulom.", "Ohodnotiť Rentulo"],
+  en: ["How was your Rentulo experience?", "Your rental has been completed. We'd appreciate a quick review of your Rentulo experience.", "Rate Rentulo"],
+  de: ["Wie hat Ihnen Rentulo gefallen?", "Ihre Miete ist abgeschlossen. Wir würden uns über eine kurze Bewertung Ihrer Erfahrung mit Rentulo freuen.", "Rentulo bewerten"],
+  pl: ["Jak oceniasz Rentulo?", "Twój wynajem został zakończony. Chętnie poznamy Twoją krótką opinię o Rentulo.", "Oceń Rentulo"],
 };
 
 const templates: Record<SupportedLanguage, Record<StandardEmailEvent, readonly [string, string]>> = {
@@ -760,6 +772,7 @@ denoRuntime.serve(async (req) => {
     typeof payload.recipient_id === "string" &&
     typeof payload.notification_delivery_id === "string";
   const isExtensionEvent = event.startsWith("extension_");
+  const isPlatformReviewInvite = event === "platform_review_invite";
 
   if (!isServiceRoleCall && (payload.recipient_id || payload.notification_delivery_id)) {
     return response({ error: "Only the trusted notification worker can select recipients" }, 403);
@@ -767,6 +780,9 @@ denoRuntime.serve(async (req) => {
 
   if (isServiceRoleCall && !isWorkerDelivery && event !== "paid" && event !== "paid_cancelled") {
     return response({ error: "Service role requires a claimed delivery for non-payment email events" }, 403);
+  }
+  if (isPlatformReviewInvite && !isWorkerDelivery) {
+    return response({ error: "Platform-review invitation requires a claimed worker delivery" }, 403);
   }
   if (isExtensionEvent && !isWorkerDelivery) {
     return response({ error: "Extension email requires a claimed worker delivery" }, 403);
@@ -809,12 +825,32 @@ denoRuntime.serve(async (req) => {
 
   const { data: reservation, error: reservationError } = await admin
     .from("reservations")
-    .select("id, offer_id, owner_id, renter_id, offer_name, start_date, end_date, pickup_time, status, reservation_number, expires_at")
+    .select(isPlatformReviewInvite
+      ? "id, offer_id, owner_id, renter_id, offer_name, start_date, end_date, pickup_time, status, reservation_number, expires_at, gdpr_finalized_at"
+      : "id, offer_id, owner_id, renter_id, offer_name, start_date, end_date, pickup_time, status, reservation_number, expires_at")
     .eq("id", reservationId)
     .single();
 
   if (reservationError || !reservation) {
     return response({ error: "Reservation not found" }, 404);
+  }
+
+  if (isPlatformReviewInvite) {
+    // A delayed outbox item is not enough proof: validate the confirmed return
+    // and its trusted server timestamp again at the irreversible send boundary.
+    const finalized = reservation.gdpr_finalized_at
+      ? new Date(reservation.gdpr_finalized_at).getTime() : NaN;
+    if (reservation.status !== "returned" || !Number.isFinite(finalized)) {
+      return response({ ok: true, results: [{ recipient_id: payload.recipient_id, status: "skipped" }] });
+    }
+    if (Date.now() < finalized + 24 * 60 * 60 * 1000) {
+      return response({ error: "Review invitation is not due yet" }, 409);
+    }
+    const { data: review, error: reviewError } = await admin
+      .from("platform_reviews").select("user_id")
+      .eq("user_id", payload.recipient_id).maybeSingle();
+    if (reviewError) return response({ error: "Review eligibility could not be verified" }, 409);
+    if (review) return response({ ok: true, results: [{ recipient_id: payload.recipient_id, status: "skipped" }] });
   }
 
   let extensionRequest: {
@@ -946,14 +982,19 @@ denoRuntime.serve(async (req) => {
     return response({ error: "User is not allowed to send this email event" }, 403);
   }
 
-  const { data: offerReference, error: offerReferenceError } = await admin
-    .from("offers")
-    .select("offer_number")
-    .eq("id", reservation.offer_id)
-    .single();
-
-  if (offerReferenceError || !offerReference) {
-    return response({ error: "Offer reference lookup failed" }, 500);
+  // A platform review is about the service, not about one particular item.
+  // Do not make invitations depend on a listing that may already be removed.
+  let offerReference: { offer_number: string } | null = null;
+  if (!isPlatformReviewInvite) {
+    const { data: reference, error: offerReferenceError } = await admin
+      .from("offers")
+      .select("offer_number")
+      .eq("id", reservation.offer_id)
+      .single();
+    if (offerReferenceError || !reference) {
+      return response({ error: "Offer reference lookup failed" }, 500);
+    }
+    offerReference = reference;
   }
 
   let paidCancellation: PaidCancellationRow | null = null;
@@ -1068,7 +1109,9 @@ denoRuntime.serve(async (req) => {
 
     const language = normalizeLanguage(profile.preferred_language);
     const recipientIsOwner = profile.id === reservation.owner_id;
-    const emailAction = reservationEmailAction(event, language, recipientIsOwner, siteUrl, reservation.id);
+    const emailAction = isPlatformReviewInvite
+      ? { label: platformReviewEmailCopy[language][2], url: `${siteUrl}/zkusenosti.html?hodnotit=1` }
+      : reservationEmailAction(event, language, recipientIsOwner, siteUrl, reservation.id);
     const offerName = reservation.offer_name || "Rentulo";
     const dateText = `${formatReservationDate(reservation.start_date, language)} \u2013 ${formatReservationDate(reservation.end_date, language)}`;
     const approvedDeadlineHtml = event === "approved"
@@ -1079,7 +1122,9 @@ denoRuntime.serve(async (req) => {
     let intro: string;
     let extraHtml = "";
 
-    if (event === "paid_cancelled") {
+    if (isPlatformReviewInvite) {
+      [subject, intro] = platformReviewEmailCopy[language];
+    } else if (event === "paid_cancelled") {
       if (!paidCancellation) {
         return response({ error: "Paid cancellation record is unavailable" }, 500);
       }
@@ -1243,9 +1288,10 @@ denoRuntime.serve(async (req) => {
             <div style="font-family:Arial,Helvetica,sans-serif;max-width:620px;margin:0 auto;color:#103f32;font-size:16px;line-height:1.5">
         <h1 style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:24px;line-height:1.25;font-weight:700;color:#103f32">${escapeHtml(subject)}</h1>
         <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#103f32">${escapeHtml(intro)}</p>
+        ${isPlatformReviewInvite ? '<p style="text-align:center;color:#e4a100;font-size:30px;letter-spacing:5px;margin:10px 0 18px">★★★★★</p>' : `
         <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#103f32"><strong>${escapeHtml(offerName)}</strong><br>${escapeHtml(dateText)}</p>
         ${approvedDeadlineHtml}
-        <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#103f32">${escapeHtml(referenceLabels[language].reservation)}: <strong>${escapeHtml(reservation.reservation_number)}</strong><br>${escapeHtml(referenceLabels[language].offer)}: <strong>${escapeHtml(offerReference.offer_number)}</strong></p>
+        <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#103f32">${escapeHtml(referenceLabels[language].reservation)}: <strong>${escapeHtml(reservation.reservation_number)}</strong><br>${escapeHtml(referenceLabels[language].offer)}: <strong>${escapeHtml(offerReference?.offer_number || "")}</strong></p>`}
         ${extraHtml}
         <p style="margin:18px 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5"><a href="${escapeHtml(emailAction.url)}" style="display:inline-block;padding:14px 24px;background:#00835a;color:#ffffff;text-decoration:none;border-radius:10px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.25;font-weight:700">${escapeHtml(emailAction.label)}</a></p>
               </div>

@@ -1,0 +1,135 @@
+/* Rentulo platform feedback only. This stylesheet does not affect other pages. */
+* { box-sizing: border-box; }
+html { min-height: 100%; }
+body[data-navigation-page="zkusenosti"] {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: #f5f8f6;
+  color: #102019;
+  font-family: "Manrope", Arial, sans-serif;
+}
+body[data-navigation-page="zkusenosti"] a { color: inherit; text-decoration: none; }
+body[data-navigation-page="zkusenosti"] button,
+body[data-navigation-page="zkusenosti"] textarea { font: inherit; }
+body[data-navigation-page="zkusenosti"] button { cursor: pointer; }
+body[data-navigation-page="zkusenosti"] [hidden] { display: none !important; }
+body[data-navigation-page="zkusenosti"] .header {
+  width: min(1480px, calc(100% - 64px));
+  margin: 0 auto;
+  padding: 15px 0 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+}
+body[data-navigation-page="zkusenosti"] .logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+body[data-navigation-page="zkusenosti"] .logo-icon,
+body[data-navigation-page="zkusenosti"] .logo-icon img { width: 48px; height: 48px; display: block; }
+body[data-navigation-page="zkusenosti"] .logo-text strong {
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: -.05em;
+  font-weight: 800;
+}
+body[data-navigation-page="zkusenosti"] .nav {
+  display: flex; align-items: center; gap: 22px; font-size: 14px; font-weight: 700;
+}
+body[data-navigation-page="zkusenosti"] .nav > a:not(.btn-register):not(.logout-link) { padding: 10px 1px; }
+body[data-navigation-page="zkusenosti"] .btn-register,
+body[data-navigation-page="zkusenosti"] .logout-link {
+  color: white !important; background: #00835a; border-radius: 14px;
+  padding: 13px 21px; font-weight: 800;
+}
+.platform-reviews-page {
+  flex: 1;
+  width: min(1090px, calc(100% - 64px));
+  margin: 0 auto;
+  padding: 28px 0 52px;
+}
+.platform-reviews-back { display: inline-block; margin-bottom: 18px; color: #567065 !important; font-size: 14px; font-weight: 700; }
+.platform-reviews-back:hover { text-decoration: underline !important; }
+.platform-reviews-header { text-align: center; margin: 0 auto 28px; }
+.platform-reviews-heading { display: flex; justify-content: center; align-items: center; gap: 16px; }
+.platform-reviews-heading svg { width: 52px; height: 52px; flex: 0 0 52px; stroke: #007a4c; stroke-width: 1.6; fill: none; stroke-linejoin: round; stroke-linecap: round; }
+.platform-reviews-header h1 { margin: 0; font-size: clamp(30px, 3.2vw, 44px); letter-spacing: -.05em; line-height: 1.2; }
+.platform-reviews-header p { margin: 12px auto 0; color: #5f6e79; font-size: 16px; line-height: 1.5; }
+.platform-reviews-summary {
+  display: flex; justify-content: space-between; align-items: center; gap: 14px;
+  min-height: 66px; padding: 14px 25px;
+  background: #ecf7f0; border: 1px solid #dcefe2; border-radius: 19px; margin-bottom: 20px;
+}
+.platform-reviews-summary-rating { display: flex; align-items: center; gap: 14px; }
+.platform-reviews-summary-rating strong { color: #007a4c; font-size: 32px; letter-spacing: -.03em; }
+.platform-reviews-summary-stars { color: #e9a600; font-size: 24px; letter-spacing: 2px; }
+.platform-reviews-count { color: #64706b; font-size: 14px; }
+.platform-reviews-verified { color: #087048; font-size: 13px; font-weight: 750; }
+.platform-reviews-list { display: grid; gap: 14px; }
+.platform-review-card {
+  display: grid; grid-template-columns: minmax(130px, 200px) 1fr; gap: 24px;
+  background: #fff; padding: 22px 25px; border-radius: 18px;
+  border: 1px solid #e4eae7; box-shadow: 0 6px 22px rgba(15,54,33,.045);
+}
+.platform-review-author { display: flex; align-items: center; gap: 12px; }
+.platform-review-avatar {
+  width: 42px; height: 42px; flex: 0 0 42px; display: grid; place-items: center;
+  border-radius: 50%; background: #dff5e6; color: #006d45; font-size: 18px; font-weight: 800;
+}
+.platform-review-identity { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.platform-review-name { font-size: 15px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; }
+.platform-review-date { color: #728079; font-size: 12px; }
+.platform-review-content { min-width: 0; border-left: 1px solid #e4eae7; padding-left: 23px; }
+.platform-review-stars { color: #e9a600; font-size: 23px; line-height: 1; letter-spacing: 2px; }
+.platform-review-content .platform-review-verified { color: #087048; font-size: 12px; font-weight: 800; margin-left: 11px; }
+.platform-review-comment { margin: 10px 0 0; font-size: 15px; line-height: 1.55; overflow-wrap: anywhere; white-space: pre-wrap; }
+.platform-reviews-empty,
+.platform-reviews-error { background: #fff; border: 1px solid #e4eae7; padding: 26px; text-align: center; border-radius: 18px; color: #64706b; }
+.platform-reviews-more {
+  display: block; margin: 24px auto; padding: 11px 24px;
+  color: #087048; background: #fff; border: 1.5px solid #00835a; border-radius: 999px; font-weight: 800;
+}
+.platform-reviews-write {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px;
+  margin-top: 32px; padding: 24px; background: #ecf7f0; border-radius: 18px; border: 1px solid #dcefe2;
+}
+.platform-reviews-write h2 { margin: 0 0 6px; font-size: 20px; }
+.platform-reviews-write p { margin: 0; color: #64706b; font-size: 13px; }
+.platform-reviews-write-button,
+.platform-reviews-submit { background: #00835a; border: none; color: #fff; border-radius: 12px; padding: 12px 20px; font-weight: 800; }
+.platform-reviews-write-button:hover,
+.platform-reviews-submit:hover:not(:disabled) { background: #006846; }
+.platform-reviews-form { width: 100%; background: #fff; padding: 20px; border: 1px solid #e4eae7; border-radius: 14px; }
+.platform-reviews-form-heading { font-size: 18px; font-weight: 800; margin-bottom: 14px; }
+.platform-reviews-rating-fieldset { margin: 0 0 16px; padding: 0; border: 0; }
+.platform-reviews-rating-fieldset legend { margin-bottom: 8px; font-size: 14px; font-weight: 750; }
+.platform-reviews-star-buttons { display: flex; gap: 5px; }
+.platform-reviews-star-buttons button { background: transparent; border: 0; padding: 1px 4px; font-size: 36px; color: #c7d1ca; line-height: 1.25; }
+.platform-reviews-star-buttons button.selected { color: #e9a600; }
+.platform-reviews-star-buttons button:focus-visible { outline: 2px solid #00835a; outline-offset: 2px; border-radius: 5px; }
+.platform-reviews-form label { display: block; font-size: 14px; font-weight: 750; margin-bottom: 7px; }
+.platform-reviews-form textarea { width: 100%; padding: 12px 13px; border: 1px solid #cbdad2; border-radius: 10px; resize: vertical; font-size: 14px; }
+.platform-reviews-form textarea:focus { outline: 2px solid #00835a; outline-offset: 1px; }
+.platform-reviews-form .platform-reviews-privacy-note { margin: 8px 0 16px; font-size: 12px; }
+.platform-reviews-form-actions { display: flex; gap: 12px; justify-content: flex-end; }
+.platform-reviews-cancel { background: transparent; color: #53665c; border: 1px solid #d3dfd8; border-radius: 12px; padding: 12px 18px; font-weight: 750; }
+.platform-reviews-submit:disabled { opacity: .45; cursor: not-allowed; }
+.platform-reviews-write .platform-reviews-message { width: 100%; color: #006d45; font-size: 14px; font-weight: 700; }
+@media (max-width: 750px) {
+  body[data-navigation-page="zkusenosti"] .header { width: calc(100% - 32px); }
+  .platform-reviews-page { width: calc(100% - 32px); padding-top: 18px; }
+  .platform-reviews-heading { gap: 8px; }
+  .platform-reviews-heading svg { width: 36px; height: 36px; flex-basis: 36px; }
+  .platform-reviews-header p { font-size: 14px; }
+  .platform-reviews-summary { padding: 14px; flex-direction: column; gap: 7px; }
+  .platform-reviews-summary-rating { gap: 8px; }
+  .platform-reviews-summary-stars { font-size: 19px; }
+  .platform-review-card { grid-template-columns: 1fr; gap: 12px; padding: 16px; }
+  .platform-review-content { border-left: none; padding-left: 0; }
+  .platform-reviews-write { padding: 18px; }
+}

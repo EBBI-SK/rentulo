@@ -77,6 +77,11 @@ function loginNormalizeEmail(email) {
           return "nabidnout.html";
         case "nastaveni.html":
           return "nastaveni.html";
+        // The platform-review invitation takes the user back to the short
+        // review form after ordinary login. Keep the return URL allowlisted.
+        case "zkusenosti.html":
+          return "zkusenosti.html" +
+            (returnUrl.searchParams.get("hodnotit") === "1" ? "?hodnotit=1" : "");
         default:
           return "";
       }

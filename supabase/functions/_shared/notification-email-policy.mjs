@@ -25,7 +25,7 @@ const ESSENTIAL_EVENTS = new Set([
 ]);
 
 // Informational status updates, not deadlines or financial receipts.
-const OPTIONAL_EVENTS = new Set(["picked_up", "returned"]);
+const OPTIONAL_EVENTS = new Set(["picked_up", "returned", "platform_review_invite"]);
 
 /**
  * @param {string} event
