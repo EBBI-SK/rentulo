@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zkušenosti s Rentulem – Rentulo</title>
+  <link rel="icon" type="image/png" href="assets/rentulo-logo-mark.png" />
+  <link id="rentuloSharedTheme" rel="stylesheet" href="css/rentulo-theme.css" />
+  <link rel="stylesheet" href="css/platform-reviews.css" />
+</head>
+<body data-navigation-page="zkusenosti">
+  <header class="header">
+    <a href="index.html" class="logo" aria-label="Rentulo – domů">
+      <div class="logo-icon"><img src="assets/rentulo-logo-mark.png" width="48" height="48" alt="" aria-hidden="true" /></div>
+      <div class="logo-text"><strong>Rentulo</strong></div>
+    </a>
+    <nav class="nav" id="mainNav"></nav>
+  </header>
+
+  <main class="platform-reviews-page">
+    <a href="index.html" class="platform-reviews-back" data-rentulo-back="true" id="platformReviewsBack">← Zpět</a>
+    <section class="platform-reviews-header">
+      <div class="platform-reviews-heading">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 18.5 2 22v-6.3A9.5 9.5 0 1 1 12 21c-2.7 0-5.1-1-7-2.5Z"/><path d="m12 5.5 1.7 3.5 3.8.6-2.7 2.6.7 3.8-3.5-1.9-3.4 1.9.6-3.8-2.7-2.6 3.8-.6Z"/></svg>
+        <h1 id="platformReviewsTitle">Zkušenosti s Rentulem</h1>
+      </div>
+      <p id="platformReviewsSubtitle">Přečtěte si, co říkají lidé, kteří Rentulo skutečně využili.</p>
+    </section>
+
+    <section class="platform-reviews-summary" id="platformReviewsSummary" hidden aria-live="polite">
+      <div class="platform-reviews-summary-rating">
+        <strong id="platformReviewsAverage"></strong>
+        <span class="platform-reviews-summary-stars" aria-hidden="true">★★★★★</span>
+        <span class="platform-reviews-count" id="platformReviewsCount"></span>
+      </div>
+      <span class="platform-reviews-verified" id="platformReviewsVerified">✓ Pouze ověřené zkušenosti</span>
+    </section>
+
+    <section class="platform-reviews-list-section" aria-label="Hodnocení Rentula">
+      <div class="platform-reviews-list" id="platformReviewsList" aria-live="polite"></div>
+      <p class="platform-reviews-empty" id="platformReviewsEmpty" hidden>Zatím tu nejsou žádná hodnocení.</p>
+      <p class="platform-reviews-error" id="platformReviewsLoadError" role="status" hidden>Hodnocení se teď nepodařilo načíst.</p>
+      <button class="platform-reviews-more" id="platformReviewsMore" type="button" hidden>Zobrazit další hodnocení ↓</button>
+    </section>
+
+    <section class="platform-reviews-write" id="platformReviewsWrite">
+      <div>
+        <h2 id="platformReviewsWriteTitle">Chcete se podělit o zkušenost?</h2>
+        <p id="platformReviewsWriteDescription">Ohodnotit Rentulo můžete po dokončeném pronájmu.</p>
+      </div>
+      <button type="button" class="platform-reviews-write-button" id="platformReviewsWriteButton">Napsat hodnocení</button>
+      <p class="platform-reviews-message" id="platformReviewsWriteMessage" role="status" aria-live="polite" hidden></p>
+      <form id="platformReviewsForm" class="platform-reviews-form" hidden>
+        <div class="platform-reviews-form-heading" id="platformReviewsFormTitle">Jak se vám Rentulo používalo?</div>
+        <fieldset class="platform-reviews-rating-fieldset">
+          <legend id="platformReviewsRatingLabel">Vaše hodnocení</legend>
+          <div class="platform-reviews-star-buttons" id="platformReviewsStars" role="group" aria-label="Vaše hodnocení">
+            <button type="button" data-rating="1" aria-label="1 z 5 hvězdiček" aria-pressed="false">★</button>
+            <button type="button" data-rating="2" aria-label="2 z 5 hvězdiček" aria-pressed="false">★</button>
+            <button type="button" data-rating="3" aria-label="3 z 5 hvězdiček" aria-pressed="false">★</button>
+            <button type="button" data-rating="4" aria-label="4 z 5 hvězdiček" aria-pressed="false">★</button>
+            <button type="button" data-rating="5" aria-label="5 z 5 hvězdiček" aria-pressed="false">★</button>
+          </div>
+        </fieldset>
+        <label for="platformReviewsComment" id="platformReviewsCommentLabel">Krátký komentář (nepovinný)</label>
+        <textarea id="platformReviewsComment" maxlength="500" rows="3" placeholder="Co vám na Rentulu vyhovovalo a co by se dalo zlepšit?"></textarea>
+        <p class="platform-reviews-privacy-note" id="platformReviewsPrivacy">Zveřejníme pouze vaše křestní jméno a iniciálu příjmení. Do komentáře nepište osobní údaje.</p>
+        <div class="platform-reviews-form-actions">
+          <button type="button" class="platform-reviews-cancel" id="platformReviewsCancel">Zrušit</button>
+          <button type="submit" class="platform-reviews-submit" id="platformReviewsSubmit" disabled>Odeslat hodnocení</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/navigation.js"></script>
+  <script src="js/platform-reviews.js"></script>
+</body>
+</html>

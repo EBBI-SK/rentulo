@@ -20,7 +20,7 @@ const essential = [
   "expired_pending", "expired_approved", "no_show",
   "return_reminder_30m", "return_reminder_2h", "return_not_received",
 ];
-const optional = ["picked_up", "returned"];
+const optional = ["picked_up", "returned", "platform_review_invite"];
 
 test("all reservation email events have an explicit, reviewed essential/optional classification", async () => {
   const sourceEvents = emailSource.match(/type EmailEvent =([\s\S]*?);/)?.[1] || "";

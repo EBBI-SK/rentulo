@@ -8,12 +8,14 @@ document.addEventListener("DOMContentLoaded", function () {
   initializeHomeMap();
   centerHomeMapOnVisitor();
   loadHomeMapOffers();
+  loadHomePlatformReviewSummary();
 });
 
 document.addEventListener("rentuloLanguageChanged", function () {
   applyHomeDynamicTranslations();
   renderHomeOffersMap();
   renderHomeMapPreviews();
+  renderHomePlatformReviewSummary();
 });
 
 let homeMap = null;
@@ -902,4 +904,53 @@ function showHomeMapError() {
   if (!status) return;
   status.hidden = false;
   status.textContent = homeTranslate("home.mapUnavailable", "Mapu se teď nepodařilo načíst. Nabídky zůstávají dostupné ve výsledcích hledání.");
+}
+
+
+// Public platform feedback is a separate, opt-in review system, never the
+// existing peer-to-peer "reviews" shown on offers/in the reservation history.
+let homePlatformReviewSummary = null;
+const homePlatformReviewTexts = {
+  cs: { heading: "Zkušenosti s Rentulem", count: "z {n} hodnocení", link: "Zobrazit hodnocení" },
+  sk: { heading: "Skúsenosti s Rentulom", count: "z {n} hodnotení", link: "Zobraziť hodnotenia" },
+  en: { heading: "Experiences with Rentulo", count: "from {n} ratings", link: "View reviews" },
+  de: { heading: "Erfahrungen mit Rentulo", count: "aus {n} Bewertungen", link: "Bewertungen ansehen" },
+  pl: { heading: "Opinie o Rentulo", count: "z {n} ocen", link: "Zobacz opinie" }
+};
+
+function renderHomePlatformReviewSummary() {
+  const bar = document.getElementById("homePlatformReviews");
+  if (!bar) return;
+  const data = homePlatformReviewSummary;
+  const count = data ? Number(data.rating_count) : 0;
+  const average = data ? Number(data.rating_average) : NaN;
+  const name = data && typeof data.latest_name === "string" ? data.latest_name.trim() : "";
+  const comment = data && typeof data.latest_comment === "string" ? data.latest_comment.trim() : "";
+  if (!Number.isInteger(count) || count <= 0 || !Number.isFinite(average) || !comment || !name) {
+    bar.hidden = true;
+    return;
+  }
+  const language = typeof getRentuloLanguage === "function" ? getRentuloLanguage() : "cs";
+  const texts = homePlatformReviewTexts[language] || homePlatformReviewTexts.cs;
+  const locale = { cs: "cs-CZ", sk: "sk-SK", en: "en-GB", de: "de-DE", pl: "pl-PL" }[language] || "cs-CZ";
+  document.getElementById("homePlatformReviewsHeading").textContent = texts.heading;
+  document.getElementById("homePlatformReviewsAverage").textContent = average.toLocaleString(locale, {minimumFractionDigits: 1,maximumFractionDigits: 1});
+  document.getElementById("homePlatformReviewsCount").textContent = texts.count.replace("{n}", String(count));
+  document.getElementById("homePlatformReviewsLatest").textContent = name + ' · „' + comment + '“';
+  document.getElementById("homePlatformReviewsLink").firstChild.textContent = texts.link + " ";
+  bar.setAttribute("aria-label", texts.heading);
+  bar.hidden = false;
+}
+
+async function loadHomePlatformReviewSummary() {
+  const client = typeof getSupabaseClient === "function" ? getSupabaseClient() : null;
+  if (!client) return;
+  try {
+    const { data, error } = await client.rpc("get_platform_review_summary");
+    if (error) return; // Review backend may not be active yet: leave the original homepage unchanged.
+    homePlatformReviewSummary = Array.isArray(data) ? data[0] : data;
+    renderHomePlatformReviewSummary();
+  } catch (_error) {
+    // Reviews are optional content; never affect map, search, or navigation.
+  }
 }
