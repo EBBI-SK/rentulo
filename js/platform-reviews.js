@@ -77,6 +77,32 @@ function platformReviewEl(id) { return document.getElementById(id); }
 function platformReviewSetText(id, text) { const el = platformReviewEl(id); if (el) el.textContent = text; }
 function platformReviewLocale() { return {cs:"cs-CZ",sk:"sk-SK",en:"en-GB",de:"de-DE",pl:"pl-PL"}[platformReviewLanguage()]; }
 
+// Match the visible stars to the actual, one-decimal public average.
+function platformReviewRenderSummaryStars(average) {
+  const stars = document.querySelector(".platform-reviews-summary-stars");
+  if (!stars) return;
+  const safeAverage = Number.isFinite(average) ? Math.max(0, Math.min(5, Math.round(average * 10) / 10)) : 0;
+  stars.replaceChildren();
+  for (let index = 0; index < 5; index++) {
+    const fraction = Math.max(0, Math.min(1, safeAverage - index));
+    const star = document.createElement("span");
+    star.className = "platform-reviews-summary-star";
+    if (fraction >= 1) {
+      star.textContent = "★";
+    } else {
+      star.textContent = "☆";
+      if (fraction > 0) {
+        const fill = document.createElement("span");
+        fill.className = "platform-reviews-summary-star-fill";
+        fill.textContent = "★";
+        fill.style.width = `${Math.round(fraction * 100)}%`;
+        star.appendChild(fill);
+      }
+    }
+    stars.appendChild(star);
+  }
+}
+
 function platformReviewTranslatePage() {
   const t = platformReviewTexts();
   document.title = `${t.title} – Rentulo`;
@@ -101,6 +127,7 @@ function platformReviewTranslatePage() {
     platformReviewSetText("platformReviewsCount", t.count.replace("{n}", String(count)));
     const avg = Number(summary.dataset.average);
     platformReviewSetText("platformReviewsAverage", avg.toLocaleString(platformReviewLocale(), {minimumFractionDigits:1,maximumFractionDigits:1}));
+    platformReviewRenderSummaryStars(avg);
   }
   document.querySelectorAll(".platform-review-verified").forEach((badge) => { badge.textContent = t.badge; });
   document.querySelectorAll(".platform-review-date[data-review-date]").forEach((el) => {
