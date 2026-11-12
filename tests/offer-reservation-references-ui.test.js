@@ -153,11 +153,11 @@ test("public offer detail displays only existing public offer reference", () => 
 });
 
 test("all reservation notification emails include both safely escaped references", () => {
-  // Original reservation messages must retain their legacy columns, while
-  // review invitations require the additional trusted return timestamp.
-  assert.match(email, /\.select\(isPlatformReviewInvite\s*\?/);
-  assert.match(email, /\?\s*"id, offer_id, owner_id, renter_id, offer_name, start_date, end_date, pickup_time, status, reservation_number, expires_at, gdpr_finalized_at"/);
-  assert.match(email, /:\s*"id, offer_id, owner_id, renter_id, offer_name, start_date, end_date, pickup_time, status, reservation_number, expires_at"\)/);
+  // Preserve the original SELECT for every reservation email. Only verified
+  // platform-review invitations perform a separate timestamp read.
+  assert.match(email, /\.select\("id, offer_id, owner_id, renter_id, offer_name, start_date, end_date, pickup_time, status, reservation_number, expires_at"\)/);
+  assert.match(email, /const \{ data: verifiedReturn, error: verifiedReturnError \} = await admin/);
+  assert.match(email, /\.select\("status, gdpr_finalized_at"\)/);
   assert.match(email, /\.from\("offers"\)\s*\.select\("offer_number"\)\s*\.eq\("id", reservation\.offer_id\)\s*\.single\(\)/);
   assert.match(email, /Offer reference lookup failed/);
   assert.match(email, /escapeHtml\(referenceLabels\[language\]\.reservation\)/);

@@ -31,7 +31,8 @@ const form = read('js/platform-reviews.js');
   assert.match(migration, /NEW\.gdpr_finalized_at < v_activated_at/);
   assert.match(sender, /isPlatformReviewInvite && !isWorkerDelivery/);
   assert.match(sender, /finalized \+ 24 \* 60 \* 60 \* 1000/);
-  assert.match(sender, /reservation\.status !== "returned"/);
+  assert.match(sender, /verifiedReturn\.status !== "returned"/);
+  assert.match(sender, /\.select\("status, gdpr_finalized_at"\)/);
   assert.match(worker, /platform_review_invite/);
 });
 

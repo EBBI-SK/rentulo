@@ -825,9 +825,7 @@ denoRuntime.serve(async (req) => {
 
   const { data: reservation, error: reservationError } = await admin
     .from("reservations")
-    .select(isPlatformReviewInvite
-      ? "id, offer_id, owner_id, renter_id, offer_name, start_date, end_date, pickup_time, status, reservation_number, expires_at, gdpr_finalized_at"
-      : "id, offer_id, owner_id, renter_id, offer_name, start_date, end_date, pickup_time, status, reservation_number, expires_at")
+    .select("id, offer_id, owner_id, renter_id, offer_name, start_date, end_date, pickup_time, status, reservation_number, expires_at")
     .eq("id", reservationId)
     .single();
 
@@ -838,9 +836,19 @@ denoRuntime.serve(async (req) => {
   if (isPlatformReviewInvite) {
     // A delayed outbox item is not enough proof: validate the confirmed return
     // and its trusted server timestamp again at the irreversible send boundary.
-    const finalized = reservation.gdpr_finalized_at
-      ? new Date(reservation.gdpr_finalized_at).getTime() : NaN;
-    if (reservation.status !== "returned" || !Number.isFinite(finalized)) {
+    // Use a separate static SELECT for this TEST-only timestamp so existing
+    // reservation emails keep their original, PROD-compatible query shape.
+    const { data: verifiedReturn, error: verifiedReturnError } = await admin
+      .from("reservations")
+      .select("status, gdpr_finalized_at")
+      .eq("id", reservationId)
+      .single();
+    if (verifiedReturnError || !verifiedReturn) {
+      return response({ error: "Review return verification unavailable" }, 409);
+    }
+    const finalized = verifiedReturn.gdpr_finalized_at
+      ? new Date(verifiedReturn.gdpr_finalized_at).getTime() : NaN;
+    if (verifiedReturn.status !== "returned" || !Number.isFinite(finalized)) {
       return response({ ok: true, results: [{ recipient_id: payload.recipient_id, status: "skipped" }] });
     }
     if (Date.now() < finalized + 24 * 60 * 60 * 1000) {
