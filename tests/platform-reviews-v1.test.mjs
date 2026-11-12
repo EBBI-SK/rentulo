@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import vm from 'node:vm';
 import { shouldDeliverReservationEmail } from '../supabase/functions/_shared/notification-email-policy.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -80,4 +81,44 @@ const form = read('js/platform-reviews.js');
   assert.match(login, /case "zkusenosti\.html":/);
   assert.match(login, /returnUrl\.searchParams\.get\("hodnotit"\) === "1"/);
   assert.match(sender, /platformReviewEmailCopy: Record<SupportedLanguage/);
+});
+
+test('summary stars match the public average, including partial stars', () => {
+  const css = read('css/platform-reviews.css');
+  assert.match(css, /\.platform-reviews-summary-star-fill\s*\{[^}]*overflow:\s*hidden/s);
+  assert.match(form, /platformReviewRenderSummaryStars\(avg\)/);
+  const source = form.match(/^function platformReviewRenderSummaryStars\(average\) \{[\s\S]*?^\}/m)?.[0];
+  assert.ok(source, 'Expected the public-average star renderer');
+
+  function render(average) {
+    const host = {
+      children: [],
+      replaceChildren() { this.children = []; },
+      appendChild(child) { this.children.push(child); }
+    };
+    const mockDocument = {
+      querySelector(selector) {
+        assert.equal(selector, '.platform-reviews-summary-stars');
+        return host;
+      },
+      createElement(tag) {
+        assert.equal(tag, 'span');
+        return {
+          textContent: '', className: '', style: {}, children: [],
+          appendChild(child) { this.children.push(child); }
+        };
+      }
+    };
+    const renderer = vm.runInNewContext(`(${source})`, { document: mockDocument });
+    renderer(average);
+    return host.children.map(star => star.children.length
+      ? `${star.textContent}[${star.children[0].style.width}]`
+      : star.textContent);
+  }
+
+  assert.deepEqual(render(4), ['★', '★', '★', '★', '☆']);
+  assert.deepEqual(render(4.5), ['★', '★', '★', '★', '☆[50%]']);
+  assert.deepEqual(render(3.7), ['★', '★', '★', '☆[70%]', '☆']);
+  assert.deepEqual(render(5), ['★', '★', '★', '★', '★']);
+  assert.deepEqual(render(1), ['★', '☆', '☆', '☆', '☆']);
 });

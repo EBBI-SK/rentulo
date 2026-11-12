@@ -67,7 +67,9 @@ body[data-navigation-page="zkusenosti"] .logout-link {
 }
 .platform-reviews-summary-rating { display: flex; align-items: center; gap: 14px; }
 .platform-reviews-summary-rating strong { color: #007a4c; font-size: 32px; letter-spacing: -.03em; }
-.platform-reviews-summary-stars { color: #e9a600; font-size: 24px; letter-spacing: 2px; }
+.platform-reviews-summary-stars { display: inline-flex; align-items: center; gap: 2px; color: #e9a600; font-size: 24px; line-height: 1; }
+.platform-reviews-summary-star { position: relative; display: inline-block; flex: 0 0 auto; }
+.platform-reviews-summary-star-fill { position: absolute; left: 0; top: 0; white-space: nowrap; overflow: hidden; pointer-events: none; }
 .platform-reviews-count { color: #64706b; font-size: 14px; }
 .platform-reviews-verified { color: #087048; font-size: 13px; font-weight: 750; }
 .platform-reviews-list { display: grid; gap: 14px; }
