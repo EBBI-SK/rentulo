@@ -153,13 +153,17 @@ test("public offer detail displays only existing public offer reference", () => 
 });
 
 test("all reservation notification emails include both safely escaped references", () => {
-  assert.match(email, /\.select\("id, offer_id, owner_id, renter_id, offer_name, start_date, end_date, pickup_time, status, reservation_number, expires_at"\)/);
+  // Original reservation messages must retain their legacy columns, while
+  // review invitations require the additional trusted return timestamp.
+  assert.match(email, /\.select\(isPlatformReviewInvite\s*\?/);
+  assert.match(email, /\?\s*"id, offer_id, owner_id, renter_id, offer_name, start_date, end_date, pickup_time, status, reservation_number, expires_at, gdpr_finalized_at"/);
+  assert.match(email, /:\s*"id, offer_id, owner_id, renter_id, offer_name, start_date, end_date, pickup_time, status, reservation_number, expires_at"\)/);
   assert.match(email, /\.from\("offers"\)\s*\.select\("offer_number"\)\s*\.eq\("id", reservation\.offer_id\)\s*\.single\(\)/);
   assert.match(email, /Offer reference lookup failed/);
   assert.match(email, /escapeHtml\(referenceLabels\[language\]\.reservation\)/);
   assert.match(email, /escapeHtml\(referenceLabels\[language\]\.offer\)/);
   assert.match(email, /escapeHtml\(reservation\.reservation_number\)/);
-  assert.match(email, /escapeHtml\(offerReference\.offer_number\)/);
+  assert.match(email, /escapeHtml\(offerReference\?\.offer_number \|\| ""\)/);
   const refPosition = email.indexOf('escapeHtml(referenceLabels[language].reservation)');
   const standardEmailHtml = email.indexOf('const html = `');
   assert.ok(refPosition > standardEmailHtml, "both references are part of the email HTML for all events");
