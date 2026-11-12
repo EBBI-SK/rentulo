@@ -23,6 +23,8 @@
 
 **Záväzná pracovná metóda:** jedna vec naraz; nevymýšľať ďalšie audity už potvrdených oblastí. Návrh → súhlas → ZIP iba zmenených súborov → vlastná vetva → potrebné testy → commit/push → PR → CI → merge → cielené overenie. Do PROD (vrátane SQL, Edge Functions, Stripe, SMS, SEO a DNS) sa zasahuje **iba po výslovnom rozhodnutí**. Neprenášať celú `main` do `production` kvôli jednej funkcii.
 
+**Povinná kontrola pred každým krokom:** prečítať históriu predchádzajúcich prác, overiť aktuálny GitHub `main` a pri zásahoch do PROD tiež vetvu `production`. Pri pokračovaní v práci hotové kroky neopakovať bez konkrétneho nového dôvodu alebo zistenej zmeny stavu.
+
 ## 2. Prostredia a identifikátory
 
 | Parameter | TEST | PROD |
