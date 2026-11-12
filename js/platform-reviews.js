@@ -10,7 +10,7 @@ const platformReviewCopy = {
     signIn: "Pro napsání hodnocení se prosím přihlaste.", ineligible: "Hodnocení mohou napsat uživatelé po skutečně dokončeném pronájmu.",
     formTitle: "Jak se vám Rentulo používalo?", ratingLabel: "Vaše hodnocení", commentLabel: "Krátký komentář (nepovinný)", commentPlaceholder: "Co vám na Rentulu vyhovovalo a co by se dalo zlepšit?",
     privacy: "Zveřejníme pouze vaše křestní jméno a iniciálu příjmení. Do komentáře nepište osobní údaje.", cancel: "Zrušit", send: "Odeslat hodnocení",
-    sending: "Odesílání…", success: "Děkujeme! Vaše hodnocení jsme přijali a před zveřejněním ho zkontrolujeme.", sendError: "Hodnocení se nepodařilo odeslat. Zkuste to prosím znovu.",
+    sending: "Odesílání…", success: "Děkujeme! Vaše hodnocení jsme přijali.\nPřed zveřejněním kontrolujeme pouze spam, urážky a osobní údaje. Zveřejňujeme všechna hodnocení, pozitivní i negativní, která neporušují pravidla.", sendError: "Hodnocení se nepodařilo odeslat. Zkuste to prosím znovu.",
     waiting: "Vaše hodnocení čeká na zveřejnění.", starAria: "{n} z 5 hvězdiček"
   },
   sk: {
@@ -21,7 +21,7 @@ const platformReviewCopy = {
     signIn: "Ak chcete napísať hodnotenie, prihláste sa.", ineligible: "Hodnotenie môžu napísať používatelia po skutočne dokončenom prenájme.",
     formTitle: "Ako sa vám Rentulo používalo?", ratingLabel: "Vaše hodnotenie", commentLabel: "Krátky komentár (nepovinný)", commentPlaceholder: "Čo sa vám páčilo a čo by sa dalo zlepšiť?",
     privacy: "Zverejníme iba krstné meno a iniciálu priezviska. Do komentára nepíšte osobné údaje.", cancel: "Zrušiť", send: "Odoslať hodnotenie",
-    sending: "Odosielanie…", success: "Ďakujeme! Hodnotenie sme prijali a pred zverejnením ho skontrolujeme.", sendError: "Hodnotenie sa nepodarilo odoslať. Skúste to znova.",
+    sending: "Odosielanie…", success: "Ďakujeme! Vaše hodnotenie sme prijali.\nPred zverejnením kontrolujeme iba spam, urážky a osobné údaje. Zverejňujeme všetky hodnotenia, pozitívne aj negatívne, ktoré neporušujú pravidlá.", sendError: "Hodnotenie sa nepodarilo odoslať. Skúste to znova.",
     waiting: "Vaše hodnotenie čaká na zverejnenie.", starAria: "{n} z 5 hviezdičiek"
   },
   en: {
@@ -32,7 +32,7 @@ const platformReviewCopy = {
     signIn: "Please sign in to write a review.", ineligible: "Only users with a confirmed completed rental can post a review.",
     formTitle: "How was your Rentulo experience?", ratingLabel: "Your rating", commentLabel: "Short comment (optional)", commentPlaceholder: "What worked well, and what could be improved?",
     privacy: "We only show your first name and last-name initial. Please do not include personal information.", cancel: "Cancel", send: "Submit review",
-    sending: "Submitting…", success: "Thanks! Your review has been received and will be checked before publishing.", sendError: "We couldn't submit your review. Please try again.",
+    sending: "Submitting…", success: "Thank you! We have received your review.\nBefore publication, we check only for spam, insults, and personal information. We publish all reviews, positive and negative, that follow the rules.", sendError: "We couldn't submit your review. Please try again.",
     waiting: "Your review is awaiting publication.", starAria: "{n} of 5 stars"
   },
   de: {
@@ -43,7 +43,7 @@ const platformReviewCopy = {
     signIn: "Bitte melden Sie sich an, um eine Bewertung zu schreiben.", ineligible: "Nur Nutzer mit bestätigter abgeschlossener Miete dürfen bewerten.",
     formTitle: "Wie hat Ihnen Rentulo gefallen?", ratingLabel: "Ihre Bewertung", commentLabel: "Kurzer Kommentar (optional)", commentPlaceholder: "Was hat Ihnen gefallen, was könnte besser sein?",
     privacy: "Wir zeigen nur Ihren Vornamen und den Anfangsbuchstaben des Nachnamens. Bitte keine persönlichen Daten eintragen.", cancel: "Abbrechen", send: "Bewertung senden",
-    sending: "Wird gesendet…", success: "Vielen Dank! Ihre Bewertung wird vor der Veröffentlichung geprüft.", sendError: "Bewertung konnte nicht gesendet werden. Bitte erneut versuchen.",
+    sending: "Wird gesendet…", success: "Vielen Dank! Wir haben Ihre Bewertung erhalten.\nVor der Veröffentlichung prüfen wir nur auf Spam, Beleidigungen und personenbezogene Daten. Wir veröffentlichen alle Bewertungen, positive wie negative, sofern sie nicht gegen die Regeln verstoßen.", sendError: "Bewertung konnte nicht gesendet werden. Bitte erneut versuchen.",
     waiting: "Ihre Bewertung wartet auf Veröffentlichung.", starAria: "{n} von 5 Sternen"
   },
   pl: {
@@ -54,7 +54,7 @@ const platformReviewCopy = {
     signIn: "Zaloguj się, aby napisać opinię.", ineligible: "Oceny mogą dodawać tylko użytkownicy po potwierdzonym zakończeniu wynajmu.",
     formTitle: "Jak oceniasz korzystanie z Rentulo?", ratingLabel: "Twoja ocena", commentLabel: "Krótki komentarz (opcjonalnie)", commentPlaceholder: "Co działało dobrze, a co można poprawić?",
     privacy: "Wyświetlamy tylko imię i inicjał nazwiska. Nie wpisuj danych osobowych.", cancel: "Anuluj", send: "Wyślij opinię",
-    sending: "Wysyłanie…", success: "Dziękujemy! Opinia została przyjęta i przed publikacją zostanie sprawdzona.", sendError: "Nie udało się wysłać opinii. Spróbuj ponownie.",
+    sending: "Wysyłanie…", success: "Dziękujemy! Otrzymaliśmy Twoją opinię.\nPrzed publikacją sprawdzamy jedynie spam, obraźliwe treści i dane osobowe. Publikujemy wszystkie opinie, zarówno pozytywne, jak i negatywne, które nie naruszają zasad.", sendError: "Nie udało się wysłać opinii. Spróbuj ponownie.",
     waiting: "Twoja opinia oczekuje na publikację.", starAria: "{n} z 5 gwiazdek"
   }
 };
@@ -210,7 +210,20 @@ function platformReviewSetRating(rating) {
 
 function platformReviewShowMessage(text) {
   const el = platformReviewEl("platformReviewsWriteMessage");
-  el.textContent = text;
+  el.replaceChildren();
+  if (text && text.includes("\n")) {
+    const [heading, ...details] = text.split("\n");
+    const bold = document.createElement("strong");
+    bold.textContent = heading;
+    const explanation = document.createElement("span");
+    explanation.textContent = details.join(" ");
+    explanation.style.display = "block";
+    explanation.style.marginTop = "4px";
+    explanation.style.fontWeight = "500";
+    el.append(bold, explanation);
+  } else {
+    el.textContent = text;
+  }
   el.hidden = !text;
 }
 
