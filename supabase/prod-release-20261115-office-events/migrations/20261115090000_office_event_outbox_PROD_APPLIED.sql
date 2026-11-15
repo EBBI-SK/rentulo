@@ -1,4 +1,6 @@
--- RENTULO PROD / OFFICE BOD 3. PENDING - NOT APPLIED - DO NOT RUN WITHOUT RELEASE APPROVAL.
+-- RENTULO PROD / OFFICE BOD 3. APPLIED / DO NOT RERUN.
+-- Manually executed once in Rentulo PROD SQL Editor on 2026-11-15; success confirmed by user.
+-- This is historical source only, NOT a pending migration; no new database changes on merge.
 -- Creates a durable event outbox for operational issues only; no Stripe, booking or cron changes.
 -- Exclusively for Supabase PROD tfvgxrdjrpicgtvovehl; never for TEST or Rentulo Office.
 begin;
