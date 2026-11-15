@@ -108,8 +108,13 @@ async function sendAlert(
   return { sent: false, error: `Monitor email HTTP ${response.status}` };
 }
 
+// Preserve the concrete Supabase client type across the monitor helper boundary.
+function createMonitorClient(url: string, serviceKey: string) {
+  return createClient(url, serviceKey);
+}
+
 async function runSupportEmailMonitor(
-  admin: ReturnType<typeof createClient>,
+  admin: ReturnType<typeof createMonitorClient>,
   resendKey: string,
 ): Promise<Response> {
   if (!resendKey) {
@@ -185,7 +190,7 @@ runtime.serve(async (request: Request) => {
     return json({ error: "Monitoring email credentials are not configured" }, 503);
   }
 
-  const admin = createClient(url, serviceKey);
+  const admin = createMonitorClient(url, serviceKey);
   // Email alerts and Office transport start independently. No early return from
   // the monitoring path can prevent Office from draining its outbox.
   const monitorTask = runSupportEmailMonitor(admin, resendKey);
