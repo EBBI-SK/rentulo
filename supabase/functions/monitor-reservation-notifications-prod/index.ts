@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { dispatchOfficeEvents } from "../_shared/rentulo-office-dispatch.mjs";
 
 // RENTULO / BOD 11: independent notification monitoring for PROD ONLY.
 // TEST monitor remains unchanged at monitor-reservation-notifications.
@@ -171,6 +172,25 @@ runtime.serve(async (request: Request) => {
   await Promise.all(Array.from(
     { length: Math.min(MAX_CONCURRENCY, pending.length) }, () => drain()
   ));
+
+  // Office intake is independent of support-email delivery. Its outage must never
+  // change the existing monitor result or block user communications.
+  if (runtime.env.get("RENTULO_OFFICE_EVENTS_ENABLED") === "true") {
+    try {
+      const office = await dispatchOfficeEvents({
+        admin,
+        config: {
+          enabled: "true",
+          url: runtime.env.get("RENTULO_OFFICE_EVENTS_URL") || "",
+          secret: runtime.env.get("RENTULO_OFFICE_EVENTS_SECRET") || "",
+          bypassSecret: runtime.env.get("RENTULO_OFFICE_VERCEL_BYPASS_SECRET") || "",
+        },
+      });
+      if (!office.ok) console.error("Rentulo Office event dispatch deferred");
+    } catch {
+      console.error("Rentulo Office event dispatch unavailable");
+    }
+  }
 
   if (result.retried > 0 || result.ack_failures > 0) {
     return json({ ...result, ok: false }, 503);
