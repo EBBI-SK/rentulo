@@ -135,11 +135,11 @@ test('failed DB claim or incomplete config cannot send data', async () => {
   assert.equal(requests,0);
 });
 
-test('SQL contract stages PROD guard, source triggers, lease RPCs and no new cron', () => {
+test('SQL contract records applied PROD guard, source triggers, lease RPCs and no new cron', () => {
   const base=path.resolve(import.meta.dirname,'..');
-  const sql=fs.readFileSync(path.join(base,'supabase/prod-release-20261115-office-events/migrations/20261115090000_office_event_outbox_PROD_PENDING.sql'),'utf8');
+  const sql=fs.readFileSync(path.join(base,'supabase/prod-release-20261115-office-events/migrations/20261115090000_office_event_outbox_PROD_APPLIED.sql'),'utf8');
   for(const term of [
-    'PENDING - NOT APPLIED', "s.name = 'rentulo_prod_release_target'",
+    'APPLIED / DO NOT RERUN', "s.name = 'rentulo_prod_release_target'",
     "s.decrypted_secret = 'tfvgxrdjrpicgtvovehl'", 'create table public.rentulo_office_event_outbox',
     'enable row level security', 'public.platform_incident_events',
     'public.reservation_return_incidents','public.reservation_notification_monitor_alerts',
