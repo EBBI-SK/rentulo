@@ -1,12 +1,12 @@
 # Rentulo – HANDOVER
 
-**Aktuálna technická a prevádzková odovzdávacia dokumentácia | stav k 12. 11. 2026.** Tento dokument nahrádza zastaraný októbrový snapshot. Dátum sa vzťahuje na nižšie uvedené doložené stavy; nie je tvrdením, že všetky externé služby boli práve teraz opätovne testované.
+**Aktuálna technická a prevádzková odovzdávacia dokumentácia | stav k 15. 11. 2026.** Tento dokument nahrádza zastaraný októbrový snapshot. Dátum sa vzťahuje na nižšie uvedené doložené stavy; nie je tvrdením, že všetky externé služby boli práve teraz opätovne testované.
 
 **Pravidlo interpretácie:** **NASADENÉ** = zmena bola skutočne aplikovaná na uvedenom prostredí; **OVERENÉ** = existuje zaznamenaný test konkrétneho správania; **ČAKÁ** = ešte neprebehlo potrebné reálne overenie alebo schválenie. Automatické testy, zelené CI, úspešný Vercel deploy, SQL `Success` a skutočný platený prenájom sú rozdielne dôkazy. Starý HANDOVER (august – október) je v Git histórii a špecializovaných `docs/` runbookoch; jeho niekdajšie pokyny nie sú aktuálne.
 
 ## 1. Stručné odovzdanie – čo platí teraz
 
-| Oblasť | Stav k 12. 11. 2026 | Dôkaz / hranica |
+| Oblasť | Stav k 15. 11. 2026 | Dôkaz / hranica |
 | --- | --- | --- |
 | Základ Rentulo V1 | **Implementovaný a nasadzovaný oddelene na TEST a PROD** | C2C prenájom vecí iba na území ČR; 5 jazykov, predvolená čeština. Oficiálne otvorenie plánované na **1. 12. 2026**. |
 | TEST web | **V prevádzke na `rentulo.eu`** | Vetva `main`, samostatný Supabase/Stripe TEST, `noindex`. |
@@ -20,6 +20,7 @@
 | POHODA | **Technický export XML/CSV pripravený** | Testovacia metodika a produkčný podklad; reálny import, potvrdenie účtovníčkou a skutočné transakcie **ČAKAJÚ**. |
 | Hodnotenia platformy Rentulo | **TEST aj PROD nasadené 12. 11.** | PR #168–170 (TEST), #171 (PROD), SQL + dve Edge Functions PROD, stránka PROD zobrazená bez recenzií. Reálna pozvánka a následná moderácia po českému prenájmu **ČAKAJÚ**. |
 | Automatické testy pred PROD hodnoteniami | **931/931 úspešných; 0 chýb** | Zdokumentovaný lokálny beh 12. 11. na vetve pripravujúcej PR #171, 3/3 GitHub/Vercel checks. Nie runtime dôkaz budúceho prenájmu. |
+| Rentulo PROD → Office, bod 3 | **AKTÍVNE / FUNKČNE OVERENÉ 15. 11.** | PROD outbox migrácia APPLIED/DO NOT RERUN, monitor Edge Function v5, existujúci cron každých 5 minút; syntetická udalosť doručená na prvý pokus do Office DB a nezávisle overená. Zatiaľ žiadne automatické Prípady alebo upozornenia v Office UI. |
 
 **Záväzná pracovná metóda:** jedna vec naraz; nevymýšľať ďalšie audity už potvrdených oblastí. Návrh → súhlas → ZIP iba zmenených súborov → vlastná vetva → potrebné testy → commit/push → PR → CI → merge → cielené overenie. Do PROD (vrátane SQL, Edge Functions, Stripe, SMS, SEO a DNS) sa zasahuje **iba po výslovnom rozhodnutí**. Neprenášať celú `main` do `production` kvôli jednej funkcii.
 
@@ -91,6 +92,17 @@ Vercel PROD **12. 11.**: projekt `rentulo-prod` sleduje vetvu **`production`**, 
 - **SMS BulkGate:** používateľský opt-in a bezpečná normalizácia čísla. Produkčné reálne SMS **zostávajú odložené**, plán aktivovať deň pred oficiálnym spustením, s jediným potrebným českým live testom. Neskúšať opakovane alebo neplatiť teraz bez rozhodnutia.
 - **Plánovanie:** databázové Supabase crony riešia frontu notifikácií, retry výplat, platené `no_show`, follow-up vrátení, expiráciu a upomienky; **cron-job.org** je externý monitor, nie druhý odosielací worker. TEST a PROD majú samostatné ciele a secrets. História úspešných kontrol je z októbra/novembra; nevyvodzovať nepretržitý budúci beh zo starého screenshotu.
 - Pri probléme: najprv čítať stav existujúceho konkrétneho jobu/outbox riadku a poslednú chybu, **nevytvárať ďalšie crony** ani nenavrhovať znovu celé testovanie, keď stačí nájsť príslušný incident.
+
+## 5.1. Rentulo PROD -> Rentulo Office (bod 3, 15. 11. 2026)
+
+**HOTOVÉ – technické spojenie, nie používateľské workflow.** Rentulo PROD zachytáva len vybrané prevádzkové problémy cez existujúce DB triggery do `rentulo_office_event_outbox`, odosiela ich z existujúcej Edge Function `monitor-reservation-notifications-prod` (nasadená verzia 5) pri úspešnom behu `rentulo-prod-notification-monitor-5min` (aktívny, každých 5 minút). Prenos ide cez zabezpečený HTTPS endpoint s Vercel Protection Bypass + HMAC do samostatnej Office tabuľky `office_rentulo_events` (`source_environment=prod`). **Nič sa neposiela z Rentulo TEST.**
+
+- GitHub Rentulo: PR #174 (`7008191`) a #175 (`fb75751`) zlúčené do `production`. Aktuálna technická evidencia: [Office PROD udalosti](docs/RENTULO_OFFICE_PROD_EVENTS_APPLIED.md).
+- SQL vytvorené raz v `tfvgxrdjrpicgtvovehl` 15. 11. 2026: `20261115090000_office_event_outbox_PROD_APPLIED.sql`, **APPLIED / DO NOT RERUN**. Office prijímacia databáza bola aplikovaná samostatne; žiadne opakovanie SQL.
+- Spustené a aktívne: `RENTULO_OFFICE_EVENTS_ENABLED=true` v Supabase PROD; `OFFICE_RENTULO_PROD_EVENTS_ENABLED=true` v Office Vercel Production. Tajné hodnoty, PIN, kontakty ani Stripe ID sa neposielajú.
+- Produkčný smoke test bez vytvorenia reálnej rezervácie: `smoke:office-prod:20261115:01` (`platform_incident`, `resolved`, `normal`, `OFFICE_SMOKE_TEST`). Zdroj `sent` pri `attempt_count=1`; Office DB nezávisle potvrdila prijatie 15. 11. 2026 o **10:55:04 UTC**. **Nie je to test všetkých zdrojových triggerov ani skutočného incidentu.**
+- Názov technického typu `platform_incident` v syntetickej udalosti neznamená vytvorený reálny incident. Pri budúcom spracovaní v Office bode 5 vylúčiť `smoke:` / `OFFICE_SMOKE_TEST`. Zatiaľ sa ukladajú **iba udalosti**, bez tvorby Prípadov, Úloh, zvončeka alebo dashboardu.
+- Žiadny nový cron, zmena obchodného procesu, zákazníckych e-mailov či Stripe. Ďalej Office bod 4 príjem e-mailov, bod 5 generovanie Prípadov, bod 6 upozornenia, bod 7 reálny dashboard.
 
 ## 6. Hodnotenia samotnej platformy – TEST aj PROD
 
@@ -186,5 +198,6 @@ Vercel PROD **12. 11.**: projekt `rentulo-prod` sleduje vetvu **`production`**, 
 | 10. 11. | POHODA – pripravený technický export, Stripe payout copy upravená | Reálny import a live CZ payout ešte čakajú. |
 | 12. 11. | TEST hodnotenia a tri UI úpravy | PR #168, #169, #170; dôkaz pending → published pre 4★ TEST. |
 | **12. 11.** | **PROD hodnotenia** | **PR #171 → `production` merge `44f7dbe` → SQL → obidve Edge Functions → stránka PROD zobrazená bez testovacích recenzií**. |
+| **15. 11.** | **Rentulo PROD → Office, BOD 3** | PR #174 a #175, jednorazová SQL fronta APPLIED/DO NOT RERUN, produkčná Edge Function v5, zabezpečené doručenie syntetickej udalosti `smoke:office-prod:20261115:01` na prvý pokus a prijatie v Office DB 10:55:04 UTC. |
 
 **Dokumentačný princíp:** tieto dve hlavné `.md` súbory sa majú aktualizovať pri významnom rozhodnutí alebo nasadení. Konkrétny dátum, vetva, PR/commit, či išlo o TEST alebo PROD, vykonaná SQL/funkcia a to, čo ešte čaká na reálny test, musia byť napísané jednoznačne. Detailné staré testovacie logy nie je potrebné pravidelne prepisovať alebo opätovne vykonávať; sú zachované v Git histórii a špecializovaných runbookoch.
