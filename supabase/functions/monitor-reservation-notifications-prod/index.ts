@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { dispatchOfficeEvents } from "../_shared/rentulo-office-dispatch.mjs";
 
 // RENTULO / BOD 11: independent notification monitoring for PROD ONLY.
 // TEST monitor remains unchanged at monitor-reservation-notifications.
@@ -107,23 +108,18 @@ async function sendAlert(
   return { sent: false, error: `Monitor email HTTP ${response.status}` };
 }
 
-runtime.serve(async (request: Request) => {
-  if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
-  const url = (runtime.env.get("SUPABASE_URL") || "").replace(/\/+$/, "");
-  if (url !== PROD_SUPABASE_URL) return json({ error: "PROD environment only" }, 403);
+// Preserve the concrete Supabase client type across the monitor helper boundary.
+function createMonitorClient(url: string, serviceKey: string) {
+  return createClient(url, serviceKey);
+}
 
-  const configuredSecret = runtime.env.get("RENTULO_PROD_MONITOR_SECRET") || "";
-  if (configuredSecret.length < 64 ||
-    !matchesSecret(request.headers.get("x-rentulo-monitor-secret"), configuredSecret)) {
-    return json({ error: "Unauthorized" }, 401);
-  }
-  const serviceKey = runtime.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-  const resendKey = runtime.env.get("RESEND_API_KEY") || "";
-  if (!serviceKey || !resendKey) {
+async function runSupportEmailMonitor(
+  admin: ReturnType<typeof createMonitorClient>,
+  resendKey: string,
+): Promise<Response> {
+  if (!resendKey) {
     return json({ error: "Monitoring email credentials are not configured" }, 503);
   }
-
-  const admin = createClient(url, serviceKey);
   let claimed;
   try {
     claimed = await admin.rpc("claim_reservation_notification_monitor_alerts", {
@@ -176,4 +172,51 @@ runtime.serve(async (request: Request) => {
     return json({ ...result, ok: false }, 503);
   }
   return json(result);
+}
+
+runtime.serve(async (request: Request) => {
+  if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
+  const url = (runtime.env.get("SUPABASE_URL") || "").replace(/\/+$/, "");
+  if (url !== PROD_SUPABASE_URL) return json({ error: "PROD environment only" }, 403);
+
+  const configuredSecret = runtime.env.get("RENTULO_PROD_MONITOR_SECRET") || "";
+  if (configuredSecret.length < 64 ||
+    !matchesSecret(request.headers.get("x-rentulo-monitor-secret"), configuredSecret)) {
+    return json({ error: "Unauthorized" }, 401);
+  }
+  const serviceKey = runtime.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  const resendKey = runtime.env.get("RESEND_API_KEY") || "";
+  if (!serviceKey) {
+    return json({ error: "Monitoring email credentials are not configured" }, 503);
+  }
+
+  const admin = createMonitorClient(url, serviceKey);
+  // Email alerts and Office transport start independently. No early return from
+  // the monitoring path can prevent Office from draining its outbox.
+  const monitorTask = runSupportEmailMonitor(admin, resendKey);
+  const officeTask = (async () => {
+    // Transport errors are never allowed to change support-email delivery status.
+    if (runtime.env.get("RENTULO_OFFICE_EVENTS_ENABLED") === "true") {
+      try {
+        const office = await dispatchOfficeEvents({
+          admin,
+          config: {
+            enabled: "true",
+            url: runtime.env.get("RENTULO_OFFICE_EVENTS_URL") || "",
+            secret: runtime.env.get("RENTULO_OFFICE_EVENTS_SECRET") || "",
+            bypassSecret: runtime.env.get("RENTULO_OFFICE_VERCEL_BYPASS_SECRET") || "",
+          },
+        });
+        if (!office.ok) console.error("Rentulo Office event dispatch deferred");
+      } catch {
+        console.error("Rentulo Office event dispatch unavailable");
+      }
+    }
+  })();
+
+  // Wait for both tasks so the Edge runtime cannot discard in-flight events.
+  // The established monitoring response remains authoritative for the Cron.
+  const [monitorOutcome] = await Promise.allSettled([monitorTask, officeTask]);
+  if (monitorOutcome.status === "rejected") throw monitorOutcome.reason;
+  return monitorOutcome.value;
 });
