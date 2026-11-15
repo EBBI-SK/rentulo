@@ -1,50 +1,55 @@
-# Rentulo PROD -> Rentulo Office: BOD 3 (DATABAZA APPLIED, ODOSIELANIE VYPNUTE)
+# Rentulo PROD -> Rentulo Office: BOD 3 (FUNKCNE OVERENE 15. 11. 2026)
 
-**Stav 15. 11. 2026: PR #174 MERGED do production (`7008191`), Vercel PROD READY. SQL fronty udalosti APPLIED / DO NOT RERUN, jednorazovo vykonane pouzivatelom v Supabase SQL Editore Rentulo PROD (`tfvgxrdjrpicgtvovehl`), vysledok `Success. No rows returned`. Trigger-y zachytavaju nove udalosti do fronty. Ziaden Office odosielaci worker nebol nasadeny ani aktivovany; ziadne integracne secrets nie su v kode.**
+**Aktualny stav: AKTIVNE / HOTOVE pre vybrane prevadzkove udalosti.** PR #174 bol zluceny do `production` (merge `7008191`), dokumentacny PR #175 (merge `fb75751`). Jednorazove PROD SQL je **APPLIED / DO NOT RERUN**. Produkcna Supabase Edge Function `monitor-reservation-notifications-prod` je nasadena (verzia 5), odosielanie do Office bolo 15. 11. 2026 aktivovane. Skutocne prijatie jednej *syntetickej* udalosti bolo overene priamo v databaze Rentulo Office. Neznamena to test vsetkych typov incidentov ani skutocneho prenajmu.
 
-## Co uz existuje
+## Architektura a hranice
 
-Rentulo Office: `api/integrations/rentulo/events.js`, serverove HMAC overenie, SQL tabulka `office_rentulo_events` APPLIED, SQL sa **nesmie zopakovat**. Office prijem PROD je predvolene vypnuty. Office Preview a Production zdielaju databazu; z PROD sa smie odosielat len do Office Production.
+`Rentulo PROD DB` -> `rentulo_office_event_outbox` -> existujuci `rentulo-prod-notification-monitor-5min` -> Supabase Edge Function `monitor-reservation-notifications-prod` -> HTTPS s Vercel Protection Bypass + HMAC-SHA256 -> Office `POST /api/integrations/rentulo/events` -> oddelena Office DB `office_rentulo_events`.
 
-Rentulo PROD: rezervacie a Stripe su oddelene, notifikacny worker spracuje zakaznicke emaily/SMS, `monitor-reservation-notifications-prod` nezavisle posiela emaily o zlyhani na support@rentulo.com. Tento kod sa ich pravidiel nedotyka.
+- **Zdroj je iba Rentulo PROD** (`tfvgxrdjrpicgtvovehl`); v Office sa uklada `source_environment='prod'`. Rentulo TEST sa neaktivovalo. Office Production a Preview pouzivaju spolocnu izolovanu Office DB, ale z PROD sa prijima iba na Office Production.
+- Zdrojove triggery zachytavaju **vybrane** udalosti: vznik/uzavretie `platform_incident`, nevratenu vec / vyriesenie (`return_not_received`), zlyhania notifikacii a ich vyriesenie, trvale zlyhanie vyplaty bez dalsieho retry, manualny zasah pri vysporiadani sporu. Nie kazda rezervacia alebo platba sa posiela.
+- PROD outbox momentalne povoluje typy `platform_incident`, `return_not_received`, `owner_transfer_failure`, `refund_failure`, `notification_delivery_failure`, `notification_worker_failure`. Office prijimac podporuje sirsie typy, ale nie vsetky su napojene na PROD zdroje (napr. kartove spory).
+- Prenasaju sa iba: `event_id`, `issue_key`, `event_type`, `state`, `severity`, `occurred_at`, volitelne `reservation_number` a `diagnostic_code`. **Neposielaju sa** mena, kontakty, adresy, PIN, text incidentu, sumy platieb ani Stripe identifikatory.
+- `event_id` je jedinecne pre deduplikaciu, `issue_key` spaja vznik a vyriesenie. Outbox ma lease, retry s odstupom a odosielanie maximalne 4 zaznamov na jeden beh (2 subezne).
+- Existujuci PROD monitor bezpecne dorucuje aj upozornenia na `support@rentulo.com`. Odosielanie do Office je oddelene: zlyhanie Office nesmie prerusit monitorovaci email. **Nevznikol novy cron**, zasahy do Stripe, stavov rezervacii ani uz hotovych procesov.
+- Office **zatial iba eviduje udalosti na pozadi**. Netvori z nich automaticky Pripady, Ulohy, zvoncek ani polozky dashboardu. To su body 5, 6 a 7 planu Office; bod 4 je prijem emailov.
 
-## Pripravene zmeny pre Rentulo PROD (databazova fronta aktivna, transport vypnuty)
+## Bezpecna konfiguracia (15. 11. 2026 – nastavene)
 
-- Nova tabulka `rentulo_office_event_outbox` (len PROD) drzi kazdu udalost az do potvrdeneho prijatia. `event_id` zabraňuje duplikatom, `issue_key` spaja vznik a vyriesenie. Retry s lease a postupnym spatnym odstupom.
-- Zdrojove triggery zachytia vznik/zavretie platformovych incidentov, nenavratene veci a ich potvrdene vratenie, vznik/vyriesenie zlyhanych notifikacii, nenapravitelne neuspesny owner transfer (bez autom. retry), a financne vysporiadanie vyzadujuce manualny zasah.
-- Do Office sa posielaju **len** `event_id`, `issue_key`, `event_type`, `state`, `severity`, `occurred_at`, volitelne `reservation_number` a `diagnostic_code`. Ziadne mena, adresy, emaily, PIN, logy, vysky platieb ani Stripe ID.
-- Podpis HMAC-SHA256 pre `x-rentulo-environment: prod`, casovu hlavicku a presny surovy JSON. HTTP 200/201 s `accepted: true` potvrdi dorucenie. HTTP 409 sa zaznamena na manualnu kontrolu. Ostatne chyby su retry, nevymazavaju sa.
-- Spracovanie najviac 4 udalosti na jedno volanie, 2 subezne, s kratkym HTTP timeoutom. Bez noveho cron jobu: pouzije sa uz existujuce volanie PROD monitora. Prepojenie je striktne volitelne. Chyba Office **nesmie** znizit uspesnost monitorovych emailov.
+**Rentulo PROD Supabase Edge Function:**
+- `RENTULO_OFFICE_EVENTS_ENABLED=true`
+- `RENTULO_OFFICE_EVENTS_URL`: produkcny Office endpoint `https://rentulo-office.vercel.app/api/integrations/rentulo/events`
+- `RENTULO_OFFICE_EVENTS_SECRET`: serverove HMAC tajomstvo
+- `RENTULO_OFFICE_VERCEL_BYPASS_SECRET`: oddeleny token ochrany Vercelu
 
-## Konfiguracia - az pri samostatne schvalenom aktivacnom kroku
+**Rentulo Office Vercel, iba Production:**
+- `OFFICE_RENTULO_PROD_EVENTS_ENABLED=true`
+- `OFFICE_RENTULO_PROD_EVENTS_SECRET`: rovnaky HMAC kluc ako u odosielatela
 
-V existujucej **Rentulo PROD Supabase Edge Function** `monitor-reservation-notifications-prod`:
+**Vercel Authentication - All Deployments zostala zapnuta.** Bypass sluzi len serverovemu prenosu; prijimac zaroven vyzaduje platny HMAC podpis a casovu hlavicku (tolerancia 300 s). Hodnoty tajomstiev sa **nesmu kopirovat do Gitu, dokumentacie, ZIP, logov ani chatu**. Prepnutie flagu `false` vypne odosielanie, nie zber zdrojovych udalosti.
 
-- `RENTULO_OFFICE_EVENTS_ENABLED` presne `true` (inak sa ani nevola DB ani Office),
-- `RENTULO_OFFICE_EVENTS_URL` presna produkcna HTTPS adresa konciaca `/api/integrations/rentulo/events`,
-- `RENTULO_OFFICE_EVENTS_SECRET` nahodny tajny kluc aspon 64 UTF-8 bajtov,
-- `RENTULO_OFFICE_VERCEL_BYPASS_SECRET` automatizacny bypass kluc z Vercel Office, bez vypnutia Deployment Protection.
+## Preukazany end-to-end test – 15. 11. 2026
 
-V **Office Vercel Production**:
+1. Rentulo PROD SQL Editor: bol vlozeny jeden neostry riadok do existujuceho outboxu, **bez vytvarania realnej rezervacie alebo incidentu**.
+2. `event_id = smoke:office-prod:20261115:01`, `event_type = platform_incident`, `state = resolved`, `severity = normal`, `diagnostic_code = OFFICE_SMOKE_TEST`.
+3. PROD cron `rentulo-prod-notification-monitor-5min`: `active=true`, rozvrh `*/5 * * * *`, v sledovanom 15-minutovom okne 3 behy, posledny `succeeded`.
+4. Zdrojovy outbox po prenose: `delivery_status=sent`, `attempt_count=1`, `claim_token IS NULL`; zdroj potvrdil dorucenie.
+5. **Nezavisle precitana Office DB** `tqihbgamqmjmuihtjhlv`: presny `event_id`, `source_environment=prod`, `event_type=platform_incident`, `state=resolved` a `diagnostic_code=OFFICE_SMOKE_TEST` existuju v `public.office_rentulo_events`. `received_at=2026-11-15 10:55:04.078785+00`.
 
-- `OFFICE_RENTULO_PROD_EVENTS_ENABLED=true`,
-- `OFFICE_RENTULO_PROD_EVENTS_SECRET` musi byt rovnaky kluc ako odosielaci `RENTULO_OFFICE_EVENTS_SECRET` (nikdy nezdielat servisne kluce Supabase).
+**Zaver:** zabezpecene dorucenie jednej udalosti z produkcnej fronty do oddelenej Office DB bolo skutocne overene. **Netvrdit** z tohto jedneho behu realny test duplicity/409, vsetkych incidentov alebo koncoveho spracovania v Office UI.
 
-**Ziadne kluce nevkladat do repozitara, chatu, ZIP alebo SQL.** Vercel ochrana ostava zapnuta, Office pouziva svoj vlastny serverovy Supabase projekt a tajomstva ostavaju oddelene.
+## Databazova historia – neopakovat
 
-## Nasadenie - dalsie osobitne kontrolovane kroky
+- Rentulo PROD: `supabase/prod-release-20261115-office-events/migrations/20261115090000_office_event_outbox_PROD_APPLIED.sql` spustene manualne raz 15. 11. 2026 v `tfvgxrdjrpicgtvovehl` (`Success. No rows returned`). **APPLIED / DO NOT RERUN**. Rucne SQL nepredpoklada zaznam v `schema_migrations`.
+- Office: `docs/sql/20261115_office_rentulo_events_APPLIED.sql` aplikovane raz v oddelenej Office Supabase DB. **APPLIED / DO NOT RERUN**.
+- Zdrojove udalosti pred aplikaciou triggerov sa spatne nenaplnili.
 
-1. **HOTOVE 15. 11. 2026** – SQL `supabase/prod-release-20261115-office-events/migrations/20261115090000_office_event_outbox_PROD_APPLIED.sql` bolo jednorazovo vykonane v Supabase **Rentulo PROD** (`tfvgxrdjrpicgtvovehl`). Vysledok `Success. No rows returned`. Povodny predbezny SELECT preukazal PROD guard `true`, URL guard `true`, outbox povodne neexistoval a chybajucich stlpcov bolo `0`. **APPLIED / DO NOT RERUN**. SQL bolo spustene rucne cez SQL Editor, nie cez Supabase migration history API; nepredpokladat, ze je evidovane v `schema_migrations`.
-2. Novy komunikacny modul je importovany v PROD monitore v GitHube, aktivacny flag ho predvolene vypina. **Git merge nenahraza nasadenie Supabase Edge Function**; ta este nebola aktualizovana. SQL uz nikdy znova nenasadzovat.
-3. Pred zapnutim overit, ze existujuci PROD monitor je skutocne pravidelne spustany. GitHub kód samotny nie je dokazom beziaceho schedule.
-4. Jedna neskodna synteticka udalost (bez fiktivnej produkcnej rezervacie) otestuje HTTP 201, opakovanie HTTP 200 duplicate a vyriesenie. PROD objednavky, Stripe a existujuce crony pri teste neovplyvnovat.
-5. V BODE 5 sa udalosti premenia na Pripady (a sparuju s emailmi). Teraz sa len ukladaju do Office inboxu.
+## Dalsi postup a obmedzenia
 
-## Limity
+- V bode **5** pri generovani Pripadov **vylucit synteticke udalosti** (napr. `event_id` zacinajuce `smoke:` alebo `diagnostic_code=OFFICE_SMOKE_TEST`); testovaci riadok v Office zostava ako audit, nie ako skutocny incident.
+- Bod **4**: prijem emailov. Bod **5**: tvorba Pripadov a deduplikacia. Bod **6**: upozornenia zamestnancom. Bod **7**: skutocny dashboard.
+- Samotny uplny vypadok monitoru sa bez nezavislej observability nezisti okamzite; zvazit v bode 13 (technicky monitoring).
+- Card-dispute feed zostava mimo potvrdeneho zdrojoveho rozsahu. Nemeni sa bez kontroly realnej PROD schemy a samostatneho suhlasu.
+- Ziadne dalsie migracie, nove crony ani opakovany smoke test nie su potrebne na uzavretie bodu 3.
 
-- Este neriesime card-dispute feed, pretoze samotne prave aplikovane PROD DB schema nebolo priamo verifikovane; pred jeho doplnenim treba read-only overenie.
-- Bez noveho monitoru nezachytime jeho vlastny uplny vypadok v realnom case; tento limit treba neskor vyhodnotit v bode 13 Technicky monitoring.
-- Vybrane udalosti starsie nez aplikacia tejto PRODUKCNEJ migracie sa automaticky nedoplnia; nezamienat s historickym auditom.
-- Databazova evidencia je aktivna, ale automaticke odosielanie zostava VYPNUTE. Funkcne end-to-end dorucenie sa da potvrdit az po schvalenom nasadeni workeru, integracnych secrets, ochrany Office a aktivacii.
-
-Lokálne cielené testy: `node --test tests/rentulo-office-prod-dispatch.test.mjs`. Existujúce kompletne testy: `npm test`. Pripadne chyby dokumentovat presne a nereparovat nesuvisiace funkcie.
+Technicke subory: `supabase/functions/_shared/rentulo-office-dispatch.mjs`, `supabase/functions/monitor-reservation-notifications-prod/index.ts`; cielene offline testy `tests/rentulo-office-prod-dispatch.test.mjs`. Spravny dalsi pracovny ciel je **Office bod 4**.
