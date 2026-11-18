@@ -1,8 +1,20 @@
 # Rentulo – HANDOVER
 
-**Aktuálna technická a prevádzková odovzdávacia dokumentácia | stav k 15. 11. 2026.** Tento dokument nahrádza zastaraný októbrový snapshot. Dátum sa vzťahuje na nižšie uvedené doložené stavy; nie je tvrdením, že všetky externé služby boli práve teraz opätovne testované.
+**Aktuálna technická a prevádzková odovzdávacia dokumentácia | stav aktualizovaný 18. 11. 2026.** Tento dokument nahrádza zastaraný októbrový snapshot. Dátum sa vzťahuje na nižšie uvedené doložené stavy; nie je tvrdením, že všetky externé služby boli práve teraz opätovne testované.
 
 **Pravidlo interpretácie:** **NASADENÉ** = zmena bola skutočne aplikovaná na uvedenom prostredí; **OVERENÉ** = existuje zaznamenaný test konkrétneho správania; **ČAKÁ** = ešte neprebehlo potrebné reálne overenie alebo schválenie. Automatické testy, zelené CI, úspešný Vercel deploy, SQL `Success` a skutočný platený prenájom sú rozdielne dôkazy. Starý HANDOVER (august – október) je v Git histórii a špecializovaných `docs/` runbookoch; jeho niekdajšie pokyny nie sú aktuálne.
+
+## Aktualizácia 18. 11. 2026 – štatistika Rentulo PROD pre Office V2
+
+**NASADENÉ A FUNKČNE OVERENÉ v Rentulo PROD; zobrazenie v Office V2 je zatiaľ iba vo Vercel Preview.**
+
+- **Git a testy:** PR [#177](https://github.com/EBBI-SK/rentulo/pull/177), po oprave kontroly nullable `count` úspešné GitHub „Technical checks“, merge `c221448791560630bcc04f00ecf81366bebb1b3a` do `production`. Nové sú len `supabase/functions/office-platform-stats/index.ts`, `core.mjs` a `tests/office-platform-stats.test.mjs`. Pred merge bolo lokálne **949/949 PASS**.
+- **Nasadenie Supabase:** samostatná Edge Function `office-platform-stats` je v projekte Rentulo PROD `tfvgxrdjrpicgtvovehl` **ACTIVE, verzia 1** (CLI potvrdilo 18. 11. 2026 o 10:06). Nasadené cez existujúci Supabase CLI, bez nových cronov, SQL migrácií alebo nasadenia iných funkcií.
+- **Zabezpečenie:** povinný 256-bitový zdieľaný tajný token `RENTULO_OFFICE_STATS_SECRET` uložený v Supabase Secrets. Funkcia overuje token zo serverového HTTP headera a bola nasadená s `--no-verify-jwt` pre vlastné server-to-server overenie. Hodnota tajomstva nie je v kóde ani v dokumentácii. Bez platného tokenu funkcia neumožní čítanie. Iba agregované počty; žiadne zákaznícke riadky, kontakty, PIN alebo platobné ID.
+- **Zdroj údajov:** `public.offers` a `public.reservations`; celkové počty vytvorených záznamov a denné počty podľa `created_at`, s hranicami dňa v `Europe/Prague` vrátane zmeny letného času. Uchované systémovo odstránené ponuky sa započítajú, fyzicky zmazané záznamy sa spätne započítať nedajú. Funkcia vykonáva iba čítanie.
+- **Produkčné overenie:** 18. 11. 2026 úspešný zabezpečený GET smoke test z PowerShellu vrátil dátum `2026-11-18`, **Ponuky 0 celkovo / 0 za deň, Rezervácie 0 celkovo / 0 za deň**. Ide o skutočné agregáty vtedy prázdneho PROD prostredia, nie fiktívne hodnoty ani dôkaz dokončeného reálneho plateného prenájmu. Lokálny Git na `production` zostal čistý.
+- **Konzument Office V2:** `EBBI-SK/rentulo-office`, vetva `rebuild/office-v2`. Serverové `GET /api/overview?day=YYYY-MM-DD` sprístupňuje štatistiku **iba prihlásenému administrátorovi v príslušnom Vercel Preview**. Zamestnanec a Office Production sú v serverových kontrolách vylúčení. Vercel Sensitive premenná `OFFICE_RENTULO_PROD_STATS_SECRET` sa vzťahuje len na pracovnú Preview vetvu; klientské JS kľúč neobsahuje. „Aktivita Rentulo“ má režimy **Dnes / Vybrať deň / Celkovo**, vždy len dve čísla. Office `npm test` **220/220 PASS**, commit `48387eab0e0a62e84d93af04bf115e9bed54a7fc`, dokumentácia Office commit `7a0883c2efaf5baffdd7f6c145fe1a71f6e1f942`, príslušné Preview READY; administrátor vizuálne potvrdil kompaktný vzhľad.
+- **Hranice:** zmena nezasiahla Stripe, zákaznícke e-maily, existujúce rezervácie, databázovú schému, RLS ani produkčné používateľské rozhranie Office. **Office BOD 5 je hotový iba v Preview**, nasleduje **BOD 6 – Systém, Financie, Správa kancelárie**. Živý test zamestnanca, e-mailových tokov a schválený prechod Office na Production sú súčasťou **BODU 7**. Staré zmienky nižšie o „budúcom bode 5“ opisujú historický stav k 15. 11.
 
 ## 1. Stručné odovzdanie – čo platí teraz
 
@@ -20,6 +32,7 @@
 | POHODA | **Technický export XML/CSV pripravený** | Testovacia metodika a produkčný podklad; reálny import, potvrdenie účtovníčkou a skutočné transakcie **ČAKAJÚ**. |
 | Hodnotenia platformy Rentulo | **TEST aj PROD nasadené 12. 11.** | PR #168–170 (TEST), #171 (PROD), SQL + dve Edge Functions PROD, stránka PROD zobrazená bez recenzií. Reálna pozvánka a následná moderácia po českému prenájmu **ČAKAJÚ**. |
 | Automatické testy pred PROD hodnoteniami | **931/931 úspešných; 0 chýb** | Zdokumentovaný lokálny beh 12. 11. na vetve pripravujúcej PR #171, 3/3 GitHub/Vercel checks. Nie runtime dôkaz budúceho prenájmu. |
+| Rentulo PROD → Office, štatistika (18. 11.) | **NASADENÉ / OVERENÉ** | Supabase PROD `office-platform-stats` ACTIVE v1, zabezpečené agregáty 0/0 potvrdené; Office iba v Preview. |
 | Rentulo PROD → Office, bod 3 | **AKTÍVNE / FUNKČNE OVERENÉ 15. 11.** | PROD outbox migrácia APPLIED/DO NOT RERUN, monitor Edge Function v5, existujúci cron každých 5 minút; syntetická udalosť doručená na prvý pokus do Office DB a nezávisle overená. Zatiaľ žiadne automatické Prípady alebo upozornenia v Office UI. |
 
 **Záväzná pracovná metóda:** jedna vec naraz; nevymýšľať ďalšie audity už potvrdených oblastí. Návrh → súhlas → ZIP iba zmenených súborov → vlastná vetva → potrebné testy → commit/push → PR → CI → merge → cielené overenie. Do PROD (vrátane SQL, Edge Functions, Stripe, SMS, SEO a DNS) sa zasahuje **iba po výslovnom rozhodnutí**. Neprenášať celú `main` do `production` kvôli jednej funkcii.
