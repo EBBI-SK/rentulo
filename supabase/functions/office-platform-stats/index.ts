@@ -42,7 +42,7 @@ runtime.serve(createStatsHandler({
       let query = db.from(table).select('id', { head: true, count: 'exact' });
       if (start && end) query = query.gte('created_at', start).lt('created_at', end);
       const { count, error } = await query;
-      if (error || !Number.isSafeInteger(count) || count < 0) {
+      if (error || typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0) {
         throw new Error('Rentulo PROD count query failed');
       }
       return count;
