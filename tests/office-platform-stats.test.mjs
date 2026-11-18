@@ -6,11 +6,11 @@ import {
 } from '../supabase/functions/office-platform-stats/core.mjs';
 
 const token = 'a'.repeat(64);
-function fixture({secret=token,dbUrl=PROD_SUPABASE_URL,fail=null,counts=[30,2,11,1],clock='2026-11-18T11:00:00Z'}={}) {
+function fixture({secret=token,dbUrl=PROD_SUPABASE_URL,fail=null,counts=[30,2,11,1],clock='2026-11-18T11:00:00Z',readProcesses}={}) {
   const calls=[];
   let initialized=0;
   const getEnv=name=>({RENTULO_OFFICE_STATS_SECRET:secret,SUPABASE_URL:dbUrl})[name];
-  const handler=createStatsHandler({getEnv,now:()=>new Date(clock),createCounter:()=>{
+  const handler=createStatsHandler({getEnv,readProcesses,now:()=>new Date(clock),createCounter:()=>{
     initialized++;
     return async (table,start,end)=>{
       calls.push({table,start,end});
@@ -120,4 +120,98 @@ test('database errors and invalid counts never return partial or invented totals
   const second=await invalidCount.handler(invalidCount.request());
   assert.equal(second.status,503);
   assert.deepEqual(await second.json(),{error:'unavailable'});
+});
+
+
+// A separate, strictly read-only process view; legacy offer and reservation
+// counts must keep their exact existing URL, response shape and behavior.
+const healthyJobs = Object.fromEntries(['no_show', 'notification_monitor',
+  'owner_transfer_retry', 'return_followups'].map(key => [key, {
+    present:true, active:true, last_state:'succeeded',
+    last_started_at:'2026-11-18T10:59:00.000Z',
+    last_finished_at:'2026-11-18T10:59:01.000Z'
+  }]));
+function sampleProcessSummary() {
+  return {jobs: structuredClone(healthyJobs),
+    worker_last_success_at:'2026-11-18T10:59:04.000Z'};
+}
+
+test('process view returns only whitelisted cron summaries and real worker pulse',async()=>{
+  let reads=0;
+  const fx=fixture({readProcesses:async()=>{reads++;return sampleProcessSummary();}});
+  const res=await fx.handler(fx.request('?view=processes'));
+  assert.equal(res.status,200);
+  assert.deepEqual(await res.json(),{source:'rentulo-prod',view:'processes',
+    checked_at:'2026-11-18T11:00:00.000Z',jobs:healthyJobs,
+    worker:{last_success_at:'2026-11-18T10:59:04.000Z'}});
+  assert.equal(reads,1);
+  assert.equal(fx.initialized(),0);
+  assert.equal(fx.calls.length,0);
+});
+
+test('process view is inaccessible without authorization or on TEST',async()=>{
+  let reads=0;
+  const readProcesses=async()=>{reads++;return sampleProcessSummary();};
+  const prod=fixture({readProcesses});
+  assert.equal((await prod.handler(prod.request('?view=processes','b'.repeat(64)))).status,401);
+  const testEnv=fixture({dbUrl:'https://vspposovhdgvbeukoivh.supabase.co',readProcesses});
+  assert.equal((await testEnv.handler(testEnv.request('?view=processes'))).status,503);
+  assert.equal(reads,0);
+});
+
+test('process view rejects all unsupported query combinations before reading DB',async()=>{
+  let reads=0;
+  const fx=fixture({readProcesses:async()=>{reads++;return sampleProcessSummary();}});
+  for(const query of ['?view=logs','?view=processes&day=2026-11-18',
+    '?view=processes&view=processes','?view=processes&debug=true']) {
+    assert.equal((await fx.handler(fx.request(query))).status,400);
+  }
+  assert.equal(reads,0);
+});
+
+test('missing jobs, failures and stale timestamps remain visible; no fabricated green state',async()=>{
+  const snapshot=sampleProcessSummary();
+  snapshot.jobs.no_show={present:false,active:null,last_state:null,
+    last_started_at:null,last_finished_at:null};
+  snapshot.jobs.owner_transfer_retry.last_state='failed';
+  snapshot.jobs.return_followups.last_finished_at='2026-11-01T11:00:01.000Z';
+  snapshot.worker_last_success_at=null;
+  const fx=fixture({readProcesses:async()=>snapshot});
+  const res=await fx.handler(fx.request('?view=processes'));
+  assert.equal(res.status,200);
+  const data=await res.json();
+  assert.equal(data.jobs.no_show.present,false);
+  assert.equal(data.jobs.owner_transfer_retry.last_state,'failed');
+  assert.equal(data.worker.last_success_at,null);
+});
+
+test('process read errors never expose partial data or SQL messages',async()=>{
+  const fx=fixture({readProcesses:async()=>{throw Error('SECRET PG ERROR');}});
+  const res=await fx.handler(fx.request('?view=processes'));
+  assert.equal(res.status,503);
+  assert.deepEqual(await res.json(),{error:'unavailable'});
+  assert.equal(fx.initialized(),0);
+});
+
+test('invalid process results fail closed instead of leaking rows or command text',async()=>{
+  for(const bad of [null,{jobs:{},worker_last_success_at:null},
+    {...sampleProcessSummary(),worker_last_success_at:'wrong'},
+    {...sampleProcessSummary(),jobs:{...healthyJobs,additional:{command:'SELECT secret'}}}]) {
+    const fx=fixture({readProcesses:async()=>bad});
+    const res=await fx.handler(fx.request('?view=processes'));
+    assert.equal(res.status,503);
+    assert.deepEqual(await res.json(),{error:'unavailable'});
+  }
+});
+
+
+test('process view strips unrequested fields even from a nominally valid reader',async()=>{
+  const snapshot=sampleProcessSummary();
+  snapshot.jobs.no_show.command='SELECT internal_secret';
+  const fx=fixture({readProcesses:async()=>snapshot});
+  const res=await fx.handler(fx.request('?view=processes'));
+  assert.equal(res.status,200);
+  const data=await res.json();
+  assert.equal(Object.hasOwn(data.jobs.no_show,'command'),false);
+  assert.equal(JSON.stringify(data).includes('internal_secret'),false);
 });

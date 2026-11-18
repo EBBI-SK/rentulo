@@ -72,7 +72,32 @@ export function pragueDayWindow(day) {
   return { start: midnightUtc(day), end: midnightUtc(tomorrow) };
 }
 
-export function createStatsHandler({ getEnv, createCounter, now = () => new Date() }) {
+// Fixed, non-sensitive summaries. Raw cron SQL, credentials and job commands stay server-side.
+const PROCESS_KEYS = [
+  'no_show', 'notification_monitor', 'owner_transfer_retry', 'return_followups'
+];
+const PROCESS_STATES = new Set(['succeeded', 'failed', 'running', 'starting']);
+function validTimestampOrNull(value) {
+  return value === null || (typeof value === 'string' &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value) &&
+    Number.isFinite(Date.parse(value)));
+}
+function validProcessSummary(summary) {
+  if (!summary || !summary.jobs || typeof summary.jobs !== 'object' ||
+      Object.keys(summary.jobs).length !== PROCESS_KEYS.length ||
+      !validTimestampOrNull(summary.worker_last_success_at)) return false;
+  return PROCESS_KEYS.every(key => {
+    const job = summary.jobs[key];
+    return job && typeof job.present === 'boolean' &&
+      (job.active === null || typeof job.active === 'boolean') &&
+      (job.last_state === null || PROCESS_STATES.has(job.last_state)) &&
+      validTimestampOrNull(job.last_finished_at) &&
+      validTimestampOrNull(job.last_started_at) &&
+      (!job.present || typeof job.active === 'boolean');
+  });
+}
+
+export function createStatsHandler({ getEnv, createCounter, readProcesses, now = () => new Date() }) {
   return async function statsHandler(request) {
     if (request.method !== 'GET') {
       return response({ error: 'method_not_allowed' }, 405, { allow: 'GET' });
@@ -91,6 +116,31 @@ export function createStatsHandler({ getEnv, createCounter, now = () => new Date
     let url;
     try { url = new URL(request.url); }
     catch { return response({ error: 'bad_request' }, 400); }
+    // Keep the original ?day=... API untouched. The new authenticated process
+    // summary is deliberately a separate read-only view on this same endpoint.
+    if (url.searchParams.has('view')) {
+      if (url.searchParams.size !== 1 || url.searchParams.get('view') !== 'processes') {
+        return response({ error: 'bad_request' }, 400);
+      }
+      try {
+        if (typeof readProcesses !== 'function') throw new Error('Process reader missing');
+        const summary = await readProcesses();
+        if (!validProcessSummary(summary)) throw new Error('Invalid process summary');
+        const jobs = Object.fromEntries(PROCESS_KEYS.map(key => {
+          const job = summary.jobs[key];
+          return [key, {present:job.present, active:job.active,
+            last_state:job.last_state, last_started_at:job.last_started_at,
+            last_finished_at:job.last_finished_at}];
+        }));
+        return response({ source: 'rentulo-prod', view: 'processes',
+          checked_at: now().toISOString(), jobs,
+          worker: { last_success_at: summary.worker_last_success_at }
+        });
+      } catch {
+        console.error('Rentulo Office process summary unavailable');
+        return response({ error: 'unavailable' }, 503);
+      }
+    }
     if ([...url.searchParams.keys()].some(key => key !== 'day') ||
         url.searchParams.getAll('day').length > 1) {
       return response({ error: 'bad_request' }, 400);
