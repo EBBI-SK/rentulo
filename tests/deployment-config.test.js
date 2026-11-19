@@ -136,6 +136,8 @@ test('HTML pages keep central Supabase config script, with no page rewrites', ()
   for (const page of pages) {
     const html = readFileSync(path.join(root, page), 'utf8');
     assert.ok(html.includes('js/supabase-config.js'), `Missing central config in ${page}`);
+    assert.deepEqual([...html.matchAll(/@supabase\/supabase-js@([^\"'\s<]+)/g)].map(match => match[1]),
+      ['2.119.1'], `Unexpected Supabase JS version in ${page}`);
   }
   assert.ok(source.includes('RENTULO_WRONG_DOMAIN'));
 });
