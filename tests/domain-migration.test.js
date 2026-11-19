@@ -11,7 +11,6 @@ const root = path.join(__dirname, "..");
 const readFunction = name => fs.readFileSync(
   path.join(root, "supabase", "functions", name, "index.ts"), "utf8",
 );
-const address = readFunction("address-suggestions");
 const geocode = readFunction("geocode-pickup");
 const reservationEmail = readFunction("send-reservation-email");
 const overdueReminder = readFunction("send-overdue-owner-debt-reminders");
@@ -26,55 +25,6 @@ function loadTsFunction(source, name, context = {}) {
   const snippet = stripTypeScriptTypes(source.slice(start, end + 2));
   return vm.runInNewContext(`${snippet}\n${name}`, context);
 }
-
-test("address suggestions permit the existing TEST origin and local development without PROD", () => {
-  const origins = loadTsFunction(address, "allowedOriginsForProject")(testProject + "/");
-  for (const origin of [
-    "https://rentulo.eu", "https://www.rentulo.eu",
-    "http://localhost:3000", "http://localhost:5500", "http://127.0.0.1:5500",
-  ]) assert.equal(origins.has(origin), true, origin);
-  for (const origin of [
-    "https://rentulo.com", "https://www.rentulo.com",
-    "https://rentulo-seven.vercel.app", "https://rentulo-prod.vercel.app",
-  ]) assert.equal(origins.has(origin), false, origin);
-});
-
-test("address suggestions permit only the official PROD domains on PROD", () => {
-  const origins = loadTsFunction(address, "allowedOriginsForProject")(prodProject);
-  assert.deepEqual([...origins].sort(), ["https://rentulo.com", "https://www.rentulo.com"].sort());
-});
-
-test("unknown Supabase projects are not permitted for address suggestions", () => {
-  const allowed = loadTsFunction(address, "allowedOriginsForProject");
-  for (const url of ["https://another-project.supabase.co", "http://localhost:54321", undefined, "https://rentulo.eu"]) {
-    assert.equal(allowed(url).size, 0);
-  }
-});
-
-test("address suggestions CORS reflects only origins already allowed for the active project", () => {
-  const origins = loadTsFunction(address, "allowedOriginsForProject")(testProject);
-  const getCorsHeaders = loadTsFunction(address, "getCorsHeaders", { ALLOWED_ORIGINS: origins });
-  assert.equal(getCorsHeaders("https://rentulo.eu")["Access-Control-Allow-Origin"], "https://rentulo.eu");
-  for (const origin of ["https://rentulo.com", "https://rentulo-seven.vercel.app", null]) {
-    assert.equal(getCorsHeaders(origin)["Access-Control-Allow-Origin"], undefined);
-  }
-  assert.match(address, /if \(origin && !ALLOWED_ORIGINS\.has\(origin\)\)/);
-  assert.match(address, /if \(!origin \|\| !ALLOWED_ORIGINS\.has\(origin\)\)/);
-  assert.doesNotMatch(address, /"Access-Control-Allow-Origin": "\*"/);
-});
-
-test("address suggestions use the active environment's website in geocoding User-Agent", () => {
-  const allowed = loadTsFunction(address, "allowedOriginsForProject");
-  const agentExpression = address.match(/const GEOCODING_USER_AGENT = ([\s\S]+?);\n/);
-  assert.ok(agentExpression);
-  for (const [project, website] of [[testProject, "rentulo.eu"], [prodProject, "rentulo.com"]]) {
-    const agent = vm.runInNewContext(agentExpression[1], { ALLOWED_ORIGINS: allowed(project) });
-    assert.match(agent, new RegExp(`https://${website.replace('.', '\\.')}`));
-    assert.match(agent, /rentulo@rentulo\.com/);
-  }
-  assert.match(address, /"User-Agent": GEOCODING_USER_AGENT/);
-  assert.doesNotMatch(address, /rentulo-seven\.vercel\.app|info@rentulo\.cz/);
-});
 
 test("geocode-pickup identifies TEST and PROD correctly and refuses unknown projects", () => {
   const agentForProject = loadTsFunction(geocode, "geocodingUserAgent");

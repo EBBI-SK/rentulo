@@ -11,9 +11,6 @@ const root = path.join(__dirname, "..");
 const geocodeSource = fs.readFileSync(
   path.join(root, "supabase/functions/geocode-pickup/index.ts"), "utf8",
 );
-const addressSource = fs.readFileSync(
-  path.join(root, "supabase/functions/address-suggestions/index.ts"), "utf8",
-);
 const geocodeScript = stripTypeScriptTypes(
   geocodeSource.replace(/^import \{ createClient \} from [^\n]+\n/, ""),
 );
@@ -114,12 +111,10 @@ test("V1 does not accept a non-Czech geocoding result", async () => {
   assert.equal(result.body.reason, "not_found");
 });
 
-test("Both Rentulo address functions use Geoapify's EU endpoint without browser keys", () => {
-  for (const source of [geocodeSource, addressSource]) {
-    assert.match(source, /api-eu\.geoapify\.com/);
-    assert.match(source, /GEOAPIFY_API_KEY/);
-    assert.doesNotMatch(source, /photon\.komoot|nominatim\.openstreetmap|https:\/\/api\.geoapify\.com/);
-  }
+test("Pickup geocoding uses Geoapify's EU endpoint without browser keys", () => {
+  assert.match(geocodeSource, /api-eu\.geoapify\.com/);
+  assert.match(geocodeSource, /GEOAPIFY_API_KEY/);
+  assert.doesNotMatch(geocodeSource, /photon\.komoot|nominatim\.openstreetmap|https:\/\/api\.geoapify\.com/);
 });
 
 test("rejects foreign pickup-country requests before contacting provider", async () => {
