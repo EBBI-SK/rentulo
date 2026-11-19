@@ -8,7 +8,6 @@ const vm = require("node:vm");
 
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const NAVIGATION_PATH = path.join(PROJECT_ROOT, "js", "navigation.js");
-const API_PATH = path.join(PROJECT_ROOT, "js", "api.js");
 
 const PAGE_PATHS = [
   path.join(PROJECT_ROOT, "js", "reservations-page.js"),
@@ -57,24 +56,15 @@ test("shared navigation owns the only direct get_my_reservations RPC", () => {
   );
 });
 
-test("API helper does not reintroduce a second reservation loader", () => {
-  const apiSource = source(API_PATH);
-
-  assert.equal(
-    directReservationRpcCount(apiSource),
-    0,
-    "api.js must not call get_my_reservations directly"
-  );
-  assert.doesNotMatch(
-    apiSource,
-    /apiGetReservations/,
-    "api.js must not expose the retired reservation loader"
-  );
-  assert.match(
-    apiSource,
-    /window\.apiSendReservationEmail = apiSendReservationEmail;/,
-    "reservation e-mail helper must remain available"
-  );
+test("retired browser API shim is absent from the project and reservation pages", () => {
+  assert.equal(fs.existsSync(path.join(PROJECT_ROOT, "js/api.js")), false);
+  for (const page of ["detail.html", "moje-nabidky.html"]) {
+    assert.doesNotMatch(
+      source(path.join(PROJECT_ROOT, page)),
+      /<script\b[^>]*\bsrc=["']js\/api\.js["']/i,
+      `${page} must not load the retired browser API shim`
+    );
+  }
 });
 
 test("account pages consume shared reservation data instead of sending duplicate RPCs", () => {

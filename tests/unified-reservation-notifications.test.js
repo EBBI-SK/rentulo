@@ -53,9 +53,7 @@ test("database transaction—not a browser—queues all seven standard email eve
   assert.match(migration, /v_actor := auth\.uid\(\)/);
   for (const file of ["js/detail-page.js", "js/offers-page.js", "js/reservations-page.js", "js/pickup-security.js"])
     assert.doesNotMatch(read(file), /apiSendReservationEmail\(/, `${file} must not send emails directly`);
-  const legacyApi = read("js/api.js");
-  assert.doesNotMatch(legacyApi, /functions\.invoke\([\s\S]*send-reservation-email/);
-  assert.match(legacyApi, /queued: true/);
+  assert.equal(fs.existsSync(path.join(root, "js/api.js")), false, "obsolete browser email shim must be absent");
 });
 
 test("one outbox supports email and SMS with per-recipient deduplication and secure RLS", () => {
