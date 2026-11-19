@@ -1,9 +1,13 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+'use strict';
 
-const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
-const cssFiles = readdirSync(new URL('../css/', import.meta.url)).filter(file => file.endsWith('.css'));
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { readFileSync, readdirSync } = require('node:fs');
+const { join } = require('node:path');
+
+const root = join(__dirname, '..');
+const read = (file) => readFileSync(join(root, file), 'utf8');
+const cssFiles = readdirSync(join(root, 'css')).filter(file => file.endsWith('.css'));
 const pages = ['index.html', 'jak-to-funguje.html', 'moje-rezervace.html', 'moje-nabidky.html',
   'detail.html', 'nabidnout.html', 'vysledky.html'];
 
