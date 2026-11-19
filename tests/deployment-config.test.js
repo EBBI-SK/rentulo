@@ -56,7 +56,8 @@ test('TEST build uses existing connection by default and does not publish server
   const html = readdirSync(root).filter(f => f.endsWith('.html') && f !== 'vysledky.html');
   assert.deepEqual(readdirSync(dir).filter(f => f.endsWith('.html')).sort(), html.sort());
   assert.ok(existsSync(path.join(dir, 'assets/flags/cz.svg')));
-  assert.ok(existsSync(path.join(dir, 'css/home.css')));
+  assert.ok(existsSync(path.join(dir, 'css/pickup-security.css')));
+  assert.equal(existsSync(path.join(dir, 'css/home.css')), false);
   assert.equal(existsSync(path.join(dir, 'supabase')), false);
   assert.equal(existsSync(path.join(dir, 'tests')), false);
   assert.equal(runtimeConfig(outputScript, 'rentulo.eu').calls.length, 1);
