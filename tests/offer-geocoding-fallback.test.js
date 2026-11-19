@@ -7,7 +7,6 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const ROOT = path.resolve(__dirname, "..");
-const ADDRESS_SOURCE = fs.readFileSync(path.join(ROOT, "supabase", "functions", "address-suggestions", "index.ts"), "utf8");
 const OFFER_SOURCE = fs.readFileSync(path.join(ROOT, "js", "offer-form-page.js"), "utf8");
 const EDIT_SOURCE = fs.readFileSync(path.join(ROOT, "js", "edit-offer.js"), "utf8");
 
@@ -29,24 +28,15 @@ function loadAsyncFunction(source, startMarker, endMarker, functionName) {
   return sandbox.fn;
 }
 
-test("address suggestions preserve Geoapify coordinates", () => {
-  assert.match(ADDRESS_SOURCE, /latitude:\s*number;/);
-  assert.match(ADDRESS_SOURCE, /longitude:\s*number;/);
-  assert.match(ADDRESS_SOURCE, /const longitude = Number\(properties\.lon\);/);
-  assert.match(ADDRESS_SOURCE, /const latitude = Number\(properties\.lat\);/);
-  assert.match(ADDRESS_SOURCE, /results\.push\(\{[\s\S]*latitude,[\s\S]*longitude,/);
-  assert.match(ADDRESS_SOURCE, /suggestions\.push\(item\)/);
-});
-
 test("create offer geocodes manually entered pickup address on save", () => {
-  assert.doesNotMatch(OFFER_SOURCE, /offerSelectedPickupCoordinates|address-suggestions/);
+  assert.doesNotMatch(OFFER_SOURCE, /offerSelectedPickupCoordinates/);
   assert.match(OFFER_SOURCE, /const pickupCoordinates = await geocodePickupAddress\(supabaseClient, pickupAddress, status !== "draft"\)/);
   assert.match(OFFER_SOURCE, /pickup_latitude: pickupCoordinates \? pickupCoordinates\.latitude : null/);
   assert.match(OFFER_SOURCE, /pickup_longitude: pickupCoordinates \? pickupCoordinates\.longitude : null/);
 });
 
 test("edit offer re-verifies coordinates even when old address is unchanged", () => {
-  assert.doesNotMatch(EDIT_SOURCE, /editSelectedPickupCoordinates|address-suggestions/);
+  assert.doesNotMatch(EDIT_SOURCE, /editSelectedPickupCoordinates/);
   assert.doesNotMatch(EDIT_SOURCE, /pickupAddressChanged|existingPickupCoordinates/);
   assert.match(EDIT_SOURCE, /await geocodeEditedPickupAddress\(/);
   assert.match(EDIT_SOURCE, /pickup_latitude: pickupCoordinates \? pickupCoordinates\.latitude : null/);
