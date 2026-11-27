@@ -151,18 +151,21 @@ export function createStatsHandler({ getEnv, createCounter, readProcesses, now =
     try {
       const { start, end } = pragueDayWindow(day);
       const count = createCounter();
-      const [offersTotal, offersDay, reservationsTotal, reservationsDay] = await Promise.all([
+      const [usersTotal, usersDay, offersTotal, offersDay, reservationsTotal, reservationsDay] = await Promise.all([
+        count('profiles', null, null),
+        count('profiles', start, end),
         count('offers', null, null),
         count('offers', start, end),
         count('reservations', null, null),
         count('reservations', start, end)
       ]);
-      if (![offersTotal, offersDay, reservationsTotal, reservationsDay]
+      if (![usersTotal, usersDay, offersTotal, offersDay, reservationsTotal, reservationsDay]
         .every(value => Number.isSafeInteger(value) && value >= 0)) {
         throw new Error('Invalid database count');
       }
       return response({
         source: 'rentulo-prod', day, timezone: PRAGUE,
+        users: { total: usersTotal, day: usersDay },
         offers: { total: offersTotal, day: offersDay },
         reservations: { total: reservationsTotal, day: reservationsDay }
       });

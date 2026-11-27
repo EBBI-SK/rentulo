@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {
   PROD_SUPABASE_URL, createStatsHandler, pragueDayWindow, pragueToday,
   secretMatches, validDay
 } from '../supabase/functions/office-platform-stats/core.mjs';
 
 const token = 'a'.repeat(64);
-function fixture({secret=token,dbUrl=PROD_SUPABASE_URL,fail=null,counts=[30,2,11,1],clock='2026-11-18T11:00:00Z',readProcesses}={}) {
+function fixture({secret=token,dbUrl=PROD_SUPABASE_URL,fail=null,counts=[42,2,30,2,11,1],clock='2026-11-18T11:00:00Z',readProcesses}={}) {
   const calls=[];
   let initialized=0;
   const getEnv=name=>({RENTULO_OFFICE_STATS_SECRET:secret,SUPABASE_URL:dbUrl})[name];
@@ -87,15 +88,17 @@ test('Prague day filter includes correct daylight-saving time windows',()=>{
   assert.equal(pragueToday(new Date('2026-11-17T23:30:00Z')),'2026-11-18');
 });
 
-test('authorized counts return exactly four aggregate numbers without row details',async()=>{
+test('authorized counts return exactly six aggregate numbers without row details',async()=>{
   const fx=fixture();
   const response=await fx.handler(fx.request());
   assert.equal(response.status,200);
   assert.deepEqual(await response.json(),{
     source:'rentulo-prod',day:'2026-11-18',timezone:'Europe/Prague',
-    offers:{total:30,day:2},reservations:{total:11,day:1}
+    users:{total:42,day:2},offers:{total:30,day:2},reservations:{total:11,day:1}
   });
   assert.deepEqual(fx.calls,[
+    {table:'profiles',start:null,end:null},
+    {table:'profiles',start:'2026-11-17T23:00:00.000Z',end:'2026-11-18T23:00:00.000Z'},
     {table:'offers',start:null,end:null},
     {table:'offers',start:'2026-11-17T23:00:00.000Z',end:'2026-11-18T23:00:00.000Z'},
     {table:'reservations',start:null,end:null},
@@ -112,11 +115,11 @@ test('without a day parameter it uses the current day in Europe/Prague',async()=
 });
 
 test('database errors and invalid counts never return partial or invented totals',async()=>{
-  const dbError=fixture({fail:'reservations'});
+  const dbError=fixture({fail:'profiles'});
   const res=await dbError.handler(dbError.request());
   assert.equal(res.status,503);
   assert.deepEqual(await res.json(),{error:'unavailable'});
-  const invalidCount=fixture({counts:[2,1,null,0]});
+  const invalidCount=fixture({counts:[2,1,null,0,1,1]});
   const second=await invalidCount.handler(invalidCount.request());
   assert.equal(second.status,503);
   assert.deepEqual(await second.json(),{error:'unavailable'});
@@ -214,4 +217,24 @@ test('process view strips unrequested fields even from a nominally valid reader'
   const data=await res.json();
   assert.equal(Object.hasOwn(data.jobs.no_show,'command'),false);
   assert.equal(JSON.stringify(data).includes('internal_secret'),false);
+});
+
+test('new-user counts must be nonnegative and never expose profile rows',async()=>{
+ for(const invalid of [-1, null, NaN, 1.5]) {
+   const fx=fixture({counts:[invalid,0,30,2,11,1]});
+   const res=await fx.handler(fx.request());
+   assert.equal(res.status,503);
+   assert.deepEqual(await res.json(),{error:'unavailable'});
+ }
+ const fx=fixture();
+ const data=await (await fx.handler(fx.request())).json();
+ assert.deepEqual(Object.keys(data).sort(),['day','offers','reservations','source','timezone','users']);
+ assert.deepEqual(Object.keys(data.users).sort(),['day','total']);
+});
+
+test('profile aggregate uses only active profiles and the existing created_at date filter',()=>{
+ const source=readFileSync(new URL('../supabase/functions/office-platform-stats/index.ts',import.meta.url),'utf8');
+ assert.match(source,/table !== 'offers' && table !== 'reservations' && table !== 'profiles'/);
+ assert.match(source,/if \(table === 'profiles'\) query = query\.eq\('account_status', 'active'\)/);
+ assert.match(source,/if \(start && end\) query = query\.gte\('created_at', start\)\.lt\('created_at', end\)/);
 });
