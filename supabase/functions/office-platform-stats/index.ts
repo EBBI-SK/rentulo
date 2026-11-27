@@ -112,11 +112,12 @@ runtime.serve(createStatsHandler({
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
     });
     return async (table: string, start: string | null, end: string | null): Promise<number> => {
-      if (table !== 'offers' && table !== 'reservations') {
+      if (table !== 'offers' && table !== 'reservations' && table !== 'profiles') {
         throw new Error('Unsupported statistics table');
       }
       // count=exact + head=true returns no rows, only an aggregate count.
       let query = db.from(table).select('id', { head: true, count: 'exact' });
+      if (table === 'profiles') query = query.eq('account_status', 'active');
       if (start && end) query = query.gte('created_at', start).lt('created_at', end);
       const { count, error } = await query;
       if (error || typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0) {
